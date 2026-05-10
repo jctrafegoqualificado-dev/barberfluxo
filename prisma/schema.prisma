@@ -1,0 +1,308 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  password  String
+  role      String   @default("CLIENT") // PLATFORM_ADMIN | OWNER | BARBER | CLIENT
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedShop   Barbershop? @relation("ShopOwner")
+  barberProfile Barber?
+  appointments Appointment[] @relation("ClientAppointments")
+  subscriptions Subscription[]
+  productSales ProductSale[] @relation("ClientProductSales")
+}
+
+model Barbershop {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  description String?
+  logoUrl     String?
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  poeOwnerPct     Float  @default(50)
+  debitFee        Float  @default(0)
+  creditFee       Float  @default(0)
+  reminderMinutes Int    @default(60)
+
+  ownerId String @unique
+  owner   User   @relation("ShopOwner", fields: [ownerId], references: [id])
+
+  barbers      Barber[]
+  services     Service[]
+  appointments Appointment[]
+  plans        Plan[]
+  subscriptions Subscription[]
+  openingHours OpeningHour[]
+  metas        Meta[]
+  products     Product[]
+  productSales ProductSale[]
+  tasks        Task[]
+  commissionPayments CommissionPayment[]
+  commissionVales    CommissionVale[]
+}
+
+model Barber {
+  id         String  @id @default(cuid())
+  nickname   String?
+  bio        String?
+  photoUrl   String?
+  active     Boolean @default(true)
+  createdAt  DateTime @default(now())
+
+  dayOff          Int?    // 0=Dom 1=Seg 2=Ter 3=Qua 4=Qui 5=Sex 6=Sáb — null = sem folga fixa
+
+  // Comissão em serviços avulsos
+  commissionType  String  @default("PERCENTAGE") // PERCENTAGE | FIXED
+  commission      Float   @default(50)            // % ou R$ dependendo do tipo
+
+  // Comissão em produtos vendidos
+  productCommissionType  String  @default("PERCENTAGE")
+  productCommission      Float   @default(10)
+
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id])
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+
+  appointments Appointment[]
+  scheduleBlocks ScheduleBlock[]
+  metas Meta[]
+  productSales ProductSale[]
+  tasks Task[]
+  commissionPayments CommissionPayment[]
+  commissionVales    CommissionVale[]
+}
+
+model Service {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  duration    Int     // minutes
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+
+  appointments Appointment[]
+  planServices PlanService[]
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  date      DateTime
+  startTime String
+  endTime   String
+  status        String   @default("PENDING")
+  paymentMethod String?  @default("CASH")
+  notes         String?
+  price         Float
+  reminderSent  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientId     String
+  client       User       @relation("ClientAppointments", fields: [clientId], references: [id])
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barberId     String
+  barber       Barber     @relation(fields: [barberId], references: [id])
+  serviceId    String
+  service      Service    @relation(fields: [serviceId], references: [id])
+  subscriptionId String?
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+model Plan {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  billingCycle String @default("MONTHLY") // MONTHLY | QUARTERLY | YEARLY
+  maxUses     Int?    // null = unlimited
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  barbershopId  String
+  barbershop    Barbershop @relation(fields: [barbershopId], references: [id])
+  planServices  PlanService[]
+  subscriptions Subscription[]
+}
+
+model PlanService {
+  id        String @id @default(cuid())
+  planId    String
+  plan      Plan   @relation(fields: [planId], references: [id])
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+}
+
+model Subscription {
+  id            String   @id @default(cuid())
+  status        String   @default("ACTIVE") // ACTIVE | CANCELLED | OVERDUE | PAUSED
+  startDate     DateTime @default(now())
+  nextBillingDate DateTime
+  usesThisCycle Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clientId     String
+  client       User       @relation(fields: [clientId], references: [id])
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  planId       String
+  plan         Plan       @relation(fields: [planId], references: [id])
+  payments     Payment[]
+  appointments Appointment[]
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  amount         Float
+  method         String   // PIX | CREDIT_CARD | CASH | DEBIT_CARD
+  status         String   @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
+  externalId     String?
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+model OpeningHour {
+  id          String @id @default(cuid())
+  dayOfWeek   Int    // 0=Sunday ... 6=Saturday
+  openTime    String // "09:00"
+  closeTime   String // "20:00"
+  isOpen      Boolean @default(true)
+
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@unique([barbershopId, dayOfWeek])
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  costPrice   Float   @default(0)
+  stock       Int     @default(0)
+  category    String  @default("GERAL") // GERAL | CABELO | BARBA | SKINCARE
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  sales        ProductSale[]
+}
+
+model ProductSale {
+  id        String   @id @default(cuid())
+  quantity  Int      @default(1)
+  unitPrice Float
+  total     Float
+  createdAt DateTime @default(now())
+
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barberId     String?
+  barber       Barber?    @relation(fields: [barberId], references: [id])
+  clientId     String?
+  client       User?      @relation("ClientProductSales", fields: [clientId], references: [id])
+}
+
+model CommissionPayment {
+  id           String   @id @default(cuid())
+  month        String   // "2026-05"
+  amount       Float
+  paidAt       DateTime @default(now())
+  notes        String?
+
+  barberId     String
+  barber       Barber     @relation(fields: [barberId], references: [id])
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@unique([barberId, month])
+}
+
+model CommissionVale {
+  id           String   @id @default(cuid())
+  month        String   // "2026-05"
+  amount       Float
+  description  String?
+  createdAt    DateTime @default(now())
+
+  barberId     String
+  barber       Barber     @relation(fields: [barberId], references: [id])
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+}
+
+model Meta {
+  id          String   @id @default(cuid())
+  titulo      String
+  tipo        String   // ATENDIMENTOS | RECEITA | ASSINANTES | OCUPACAO
+  periodo     String   @default("MONTHLY") // MONTHLY | WEEKLY
+  valorAlvo   Float
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+
+  barberId    String?
+  barber      Barber?  @relation(fields: [barberId], references: [id])
+}
+
+model ScheduleBlock {
+  id        String   @id @default(cuid())
+  date      DateTime
+  startTime String
+  endTime   String
+  reason    String?
+
+  barberId String
+  barber   Barber @relation(fields: [barberId], references: [id])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("TODO") // TODO | DOING | DONE
+  priority    String    @default("NORMAL") // LOW | NORMAL | HIGH
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+  barberId     String?
+  barber       Barber?    @relation(fields: [barberId], references: [id])
+}
