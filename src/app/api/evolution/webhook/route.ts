@@ -56,11 +56,12 @@ export async function POST(req: NextRequest) {
 
     // Extração específica para messages.upsert
     if (event === "messages.upsert") {
-      const messageData = data.messages?.[0];
+      const messageData = data;
       if (messageData) {
         const remoteJid = messageData.key?.remoteJid || "desconhecido";
         const fromMe = messageData.key?.fromMe ? "Sim" : "Não";
-        const messageType = Object.keys(messageData.message || {})[0] || "desconhecido";
+        const messageType = messageData.messageType || "desconhecido";
+        const pushName = messageData.pushName || "Desconhecido";
         
         // Tenta extrair o texto se for uma mensagem de texto simples
         const text = messageData.message?.conversation || 
@@ -69,11 +70,12 @@ export async function POST(req: NextRequest) {
 
         console.log(`💬 Detalhes da Mensagem:`);
         console.log(`   - De/Para: ${remoteJid}`);
+        console.log(`   - Nome: ${pushName}`);
         console.log(`   - Enviada por nós (fromMe): ${fromMe}`);
         console.log(`   - Tipo: ${messageType}`);
         console.log(`   - Texto: "${text}"`);
       } else {
-        console.log(`💬 Detalhes da Mensagem: Sem dados na chave "messages"`);
+        console.log(`💬 Detalhes da Mensagem: Sem dados`);
       }
     } else {
       // Para outros tipos de eventos, logar apenas um resumo curto
