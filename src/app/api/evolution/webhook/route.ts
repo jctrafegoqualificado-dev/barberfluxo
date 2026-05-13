@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { processIncomingMessage } from "@/lib/whatsapp/process-incoming";
+import { EvolutionWebhookBody } from "@/lib/whatsapp/types";
 
 // Inicialização: Avisar se a chave da API não estiver configurada
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "";
@@ -21,7 +23,7 @@ function secureCompare(a: string, b: string): boolean {
 export async function POST(req: NextRequest) {
   try {
     // a. Parsear body (em try-catch — se falhar, 400 Bad Request)
-    let body;
+    let body: EvolutionWebhookBody;
     try {
       body = await req.json();
     } catch (e) {
@@ -74,6 +76,18 @@ export async function POST(req: NextRequest) {
         console.log(`   - Enviada por nós (fromMe): ${fromMe}`);
         console.log(`   - Tipo: ${messageType}`);
         console.log(`   - Texto: "${text}"`);
+
+        // Integração com banco de dados (salvar conversa)
+        if (messageData.key && !messageData.key.fromMe) {
+          try {
+            const result = await processIncomingMessage(body);
+            console.log(`💾 Salvo: contact ${result.contactId}, message ${result.messageId}, vinculado a user: ${result.linked ? 'sim' : 'não'}`);
+          } catch (processError) {
+            console.error("❌ [Evolution Webhook] Erro ao salvar mensagem no banco:", processError);
+            // IMPORTANTE: Não lançar o erro adiante. 
+            // Já recebemos, apenas falhou em salvar. Retornar 200 pra Evolution parar de enviar.
+          }
+        }
       } else {
         console.log(`💬 Detalhes da Mensagem: Sem dados`);
       }
@@ -89,8 +103,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true }, { status: 200 });
 
   } catch (error) {
-    // Capturar erros sem derrubar a aplicação
-    console.error("❌ [Evolution Webhook] Erro ao processar webhook:", error);
+    // Capturar erros gerais sem derrubar a aplicação
+    console.error("❌ [Evolution Webhook] Erro crítico ao processar webhook:", error);
     return NextResponse.json(
       { error: "Internal Server Error", message: error instanceof Error ? error.message : "Erro desconhecido" },
       { status: 500 }

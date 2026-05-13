@@ -22,6 +22,7 @@ model User {
   appointments Appointment[] @relation("ClientAppointments")
   subscriptions Subscription[]
   productSales ProductSale[] @relation("ClientProductSales")
+  whatsappContacts WhatsAppContact[]
 }
 
 model Barbershop {
@@ -305,4 +306,37 @@ model Task {
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
   barberId     String?
   barber       Barber?    @relation(fields: [barberId], references: [id])
+}
+
+model WhatsAppContact {
+  id          String   @id @default(cuid())
+  remoteJid   String   @unique  // ex: 5541999999999@s.whatsapp.net
+  phone       String?            // só os dígitos pra fácil lookup
+  pushName    String?            // nome que aparece no WhatsApp
+  isBlocked   Boolean  @default(false)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  messages    WhatsAppMessage[]
+  
+  // Vínculo opcional com User (cliente cadastrado)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  @@index([phone])
+}
+
+model WhatsAppMessage {
+  id            String          @id @default(cuid())
+  evolutionId   String          @unique  // ID original da mensagem no WhatsApp
+  contactId     String
+  contact       WhatsAppContact @relation(fields: [contactId], references: [id])
+  fromMe        Boolean
+  messageType   String          // conversation, imageMessage, audioMessage, etc.
+  textContent   String?         // texto se for mensagem de texto
+  rawPayload    Json            // payload completo do Evolution pra debug
+  timestamp     DateTime        // messageTimestamp do Evolution
+  createdAt     DateTime        @default(now())
+  
+  @@index([contactId, timestamp])
+  @@index([timestamp])
 }
