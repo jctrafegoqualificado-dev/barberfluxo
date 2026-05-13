@@ -3,6 +3,8 @@ import crypto from "crypto";
 
 // Inicialização: Avisar se a chave da API não estiver configurada
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "";
+const EVOLUTION_SERVER_URL = process.env.EVOLUTION_SERVER_URL || "";
+
 if (!EVOLUTION_API_KEY) {
   console.warn("⚠️ [Evolution Webhook] ATENÇÃO: Variável EVOLUTION_API_KEY não definida no .env!");
 }
@@ -18,19 +20,36 @@ function secureCompare(a: string, b: string): boolean {
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Validar autenticação via header
-    const reqApiKey = req.headers.get("apikey") || "";
-    
-    if (!secureCompare(EVOLUTION_API_KEY, reqApiKey)) {
+    // a. Parsear body (em try-catch — se falhar, 400 Bad Request)
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      console.warn("⛔ [Evolution Webhook] Bad Request. Body JSON inválido.");
+      return NextResponse.json({ error: "Bad Request" }, { status: 400 });
+    }
+
+    // b. Extrair apikey de header OU body
+    const apiKeyFromHeader = req.headers.get("apikey");
+    const apiKeyFromBody = body?.apikey;
+    const receivedKey = apiKeyFromHeader || apiKeyFromBody || "";
+
+    // c. Validar apikey contra EVOLUTION_API_KEY (timing-safe)
+    if (!secureCompare(EVOLUTION_API_KEY, receivedKey)) {
       console.warn("⛔ [Evolution Webhook] Acesso negado. API Key inválida ou ausente.");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Parsear body
-    const body = await req.json();
+    // d. (Opcional) Validar server_url contra EVOLUTION_SERVER_URL
+    const serverUrl = body?.server_url;
+    if (EVOLUTION_SERVER_URL && serverUrl && EVOLUTION_SERVER_URL !== serverUrl) {
+      console.warn(`⛔ [Evolution Webhook] Acesso negado. server_url incompatível: ${serverUrl}`);
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { event, instance, data } = body;
 
-    // 3. Logar evento de forma legível
+    // e. Logar evento de forma legível
     console.log(`\n🟢 [Evolution Webhook] Novo Evento Recebido`);
     console.log(`➡️ Instância: ${instance}`);
     console.log(`➡️ Evento: ${event}`);
@@ -64,11 +83,11 @@ export async function POST(req: NextRequest) {
 
     console.log(`--------------------------------------------------\n`);
 
-    // 4. Retornar 200 para a Evolution parar de tentar reenviar
+    // f. Retornar 200 para a Evolution parar de tentar reenviar
     return NextResponse.json({ received: true }, { status: 200 });
 
   } catch (error) {
-    // 5. Capturar erros sem derrubar a aplicação
+    // Capturar erros sem derrubar a aplicação
     console.error("❌ [Evolution Webhook] Erro ao processar webhook:", error);
     return NextResponse.json(
       { error: "Internal Server Error", message: error instanceof Error ? error.message : "Erro desconhecido" },
