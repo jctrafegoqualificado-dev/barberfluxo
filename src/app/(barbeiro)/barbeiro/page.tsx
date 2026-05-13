@@ -414,8 +414,10 @@ const STATUS_BG: Record<string, string> = {
 function ApptActionModal({ appt, onClose, onUpdate }: {
   appt: Appointment;
   onClose: () => void;
-  onUpdate: (id: string, status: string) => void;
+  onUpdate: (id: string, status: string, paymentMethod?: string) => void;
 }) {
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
   const isActive = appt.status === "CONFIRMED" || appt.status === "PENDING";
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
@@ -433,10 +435,10 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
         </div>
 
         <div className="p-5 space-y-3">
-          {isActive && (
+          {isActive && !showPayment && (
             <>
               <button
-                onClick={() => { onUpdate(appt.id, "DONE"); onClose(); }}
+                onClick={() => setShowPayment(true)}
                 className="w-full flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 font-semibold hover:bg-green-100 active:bg-green-200 transition-colors text-left">
                 <CheckCircle className="w-5 h-5 shrink-0" />
                 <span>Marcar como concluído</span>
@@ -454,6 +456,33 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
                 <span>Cancelar agendamento</span>
               </button>
             </>
+          )}
+
+          {showPayment && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+              <h3 className="font-semibold text-zinc-900 text-center">Como o cliente pagou?</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "CASH", label: "Dinheiro" },
+                  { id: "PIX", label: "Pix" },
+                  { id: "CREDIT_CARD", label: "Cartão de Crédito" },
+                  { id: "DEBIT_CARD", label: "Cartão de Débito" },
+                  { id: "SUBSCRIPTION", label: "Clube (Assinatura)" },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setPaymentMethod(p.id)}
+                    className={`p-3 rounded-xl border text-sm font-semibold transition-colors ${paymentMethod === p.id ? "bg-green-500 border-green-500 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"}`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setShowPayment(false)} className="flex-1 py-3 border border-zinc-200 text-zinc-600 font-semibold rounded-xl hover:bg-zinc-50 transition-colors">Voltar</button>
+                <button onClick={() => { onUpdate(appt.id, "DONE", paymentMethod); onClose(); }} className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors">Confirmar Pagamento</button>
+              </div>
+            </div>
           )}
 
           {appt.status === "DONE" && (
@@ -541,11 +570,11 @@ export default function BarbeiroAgendaPage() {
     loadAgenda(agendaDate);
   }
 
-  async function updateStatus(id: string, status: string) {
+  async function updateStatus(id: string, status: string, paymentMethod?: string) {
     const r = await fetch("/api/barbershop/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ id, status, paymentMethod }),
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
