@@ -5,11 +5,14 @@ import { addMonths } from "date-fns";
 
 export async function POST(req: NextRequest) {
   try {
-    requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER"]);
+    const barbershopId = payload.barbershopId!;
     const { subscriptionId, method } = await req.json();
 
-    const sub = await prisma.subscription.findUnique({ where: { id: subscriptionId } });
-    if (!sub) return NextResponse.json({ error: "Assinatura não encontrada" }, { status: 404 });
+    const sub = await prisma.subscription.findFirst({ 
+      where: { id: subscriptionId, barbershopId } 
+    });
+    if (!sub) return NextResponse.json({ error: "Recurso não encontrado" }, { status: 404 });
 
     // Registra pagamento
     await prisma.payment.create({
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }

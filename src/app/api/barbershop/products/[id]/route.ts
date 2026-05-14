@@ -4,26 +4,53 @@ import { requireAuth } from "@/lib/auth";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER"]);
+    const barbershopId = payload.barbershopId!;
     const { id } = await params;
     const { name, description, price, costPrice, stock, category, active } = await req.json();
+
+    // 1. Valida posse com findFirst (cruza barbershopId)
+    const existing = await prisma.product.findFirst({ 
+      where: { id, barbershopId },
+      select: { id: true }
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Recurso não encontrado" }, { status: 404 });
+    }
+
+    // 2. Update direto
     const product = await prisma.product.update({
       where: { id },
       data: { name, description, price: Number(price), costPrice: Number(costPrice), stock: Number(stock), category, active },
     });
+
     return NextResponse.json({ product });
   } catch (e: unknown) {
-    return NextResponse.json({ error: "Erro" }, { status: 500 });
+    const msg = e instanceof Error ? e.message : "Erro interno";
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER"]);
+    const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    await prisma.product.update({ where: { id }, data: { active: false } });
+
+    const result = await prisma.product.updateMany({
+      where: { id, barbershopId },
+      data: { active: false }
+    });
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: "Recurso não encontrado" }, { status: 404 });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
-    return NextResponse.json({ error: "Erro" }, { status: 500 });
+    const msg = e instanceof Error ? e.message : "Erro interno";
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }

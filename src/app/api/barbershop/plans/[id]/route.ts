@@ -5,17 +5,20 @@ import { requireAuth } from "@/lib/auth";
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
+    const barbershopId = payload.barbershopId!;
     const { id } = await params;
     const { name, description, price, billingCycle, maxUses, serviceIds, active } = await req.json();
 
+    // 1. Valida posse
     const existing = await prisma.plan.findFirst({
-      where: { id, barbershopId: payload.barbershopId! },
+      where: { id, barbershopId },
       select: { id: true },
     });
     if (!existing) {
-      return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Recurso não encontrado" }, { status: 404 });
     }
 
+    // 2. Update direto
     const plan = await prisma.$transaction(async (tx) => {
       if (Array.isArray(serviceIds)) {
         await tx.planService.deleteMany({ where: { planId: id } });
@@ -42,25 +45,30 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ plan });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
+    const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const existing = await prisma.plan.findFirst({
-      where: { id, barbershopId: payload.barbershopId! },
-      select: { id: true },
+
+    const result = await prisma.plan.updateMany({
+      where: { id, barbershopId },
+      data: { active: false }
     });
-    if (!existing) {
-      return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 });
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: "Recurso não encontrado" }, { status: 404 });
     }
-    await prisma.plan.update({ where: { id }, data: { active: false } });
+
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
