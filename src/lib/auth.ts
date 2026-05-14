@@ -2,7 +2,11 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
 
-const JWT_SECRET = process.env.JWT_SECRET || "barberapp_secret_2026";
+const _JWT_SECRET = process.env.JWT_SECRET;
+if (!_JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
+const JWT_SECRET: string = _JWT_SECRET;
 
 export function hashPassword(password: string) {
   return bcrypt.hash(password, 12);
