@@ -12,11 +12,9 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = { barbershopId };
     if (date) {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      const end = new Date(d);
-      end.setHours(23, 59, 59, 999);
-      where.date = { gte: d, lte: end };
+      const startOfDay = new Date(date + "T00:00:00Z");
+      const endOfDay = new Date(date + "T23:59:59.999Z");
+      where.date = { gte: startOfDay, lte: endOfDay };
     }
     if (barberId) where.barberId = barberId;
     if (payload.role === "BARBER") {
@@ -76,5 +74,92 @@ export async function PATCH(req: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    const barbershopId = payload.barbershopId!;
+    const body = await req.json();
+    const { clientName, clientPhone, barberId, serviceId, date, startTime, force } = body;
+
+    if (!clientName || !clientPhone || !barberId || !serviceId || !date || !startTime) {
+      return NextResponse.json({ error: "Campos obrigatórios ausentes" }, { status: 400 });
+    }
+
+    // Busca o serviço para pegar preço e duração
+    const service = await prisma.service.findFirst({
+      where: { id: serviceId, barbershopId },
+    });
+
+    if (!service) {
+      return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+    }
+
+    // Encontra ou cria o cliente
+    const phoneDigits = clientPhone.replace(/\D/g, "");
+    let client = await prisma.user.findFirst({
+      where: { phone: { contains: phoneDigits }, role: "CLIENT" },
+    });
+
+    if (!client) {
+      const email = `${phoneDigits}@cliente.barberfluxo.com`;
+      const hashed = "123456"; // default dummy password for shadow clients
+      client = await prisma.user.create({
+        data: { name: clientName, email, phone: clientPhone, password: hashed, role: "CLIENT" },
+      });
+    }
+
+    // Calcula endTime com base na duração do serviço
+    const [h, m] = startTime.split(":").map(Number);
+    const endTotalMinutes = h * 60 + m + service.duration;
+    const endH = Math.floor(endTotalMinutes / 60);
+    const endM = endTotalMinutes % 60;
+    const endTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+    // Cria a data (meio-dia para evitar fuso)
+    const appointmentDate = new Date(date + "T12:00:00Z");
+
+    // Validação de choque de horário (a menos que seja forçado)
+    if (!force) {
+      const conflict = await prisma.appointment.findFirst({
+        where: {
+          barberId,
+          date: appointmentDate,
+          status: { notIn: ["CANCELLED"] },
+          OR: [
+            {
+              startTime: { lt: endTime },
+              endTime: { gt: startTime }
+            }
+          ]
+        }
+      });
+
+      if (conflict) {
+        return NextResponse.json({ error: "CONFLICT", message: "O barbeiro já possui um agendamento neste horário." }, { status: 409 });
+      }
+    }
+
+    const appointment = await prisma.appointment.create({
+      data: {
+        date: appointmentDate,
+        startTime,
+        endTime,
+        price: service.price,
+        clientId: client.id,
+        barbershopId,
+        barberId,
+        serviceId,
+        status: "CONFIRMED"
+      },
+    });
+
+    return NextResponse.json({ appointment }, { status: 201 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erro interno";
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
