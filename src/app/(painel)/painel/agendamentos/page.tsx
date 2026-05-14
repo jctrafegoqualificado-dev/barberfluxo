@@ -465,17 +465,22 @@ export default function AgendamentosPage() {
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         {/* Navegação de data */}
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200">
+          <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200" title="Dia anterior">
             <ChevronLeft className="w-4 h-4 text-zinc-600" />
           </button>
           <button onClick={() => setDate(todayStr)}
             className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${isToday ? "bg-amber-500 text-white border-amber-500" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"}`}>
             Hoje
           </button>
-          <button onClick={() => navigate(1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200">
+          <button onClick={() => navigate(1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200" title="Próximo dia">
             <ChevronRight className="w-4 h-4 text-zinc-600" />
           </button>
-          <span className="text-base font-bold text-zinc-900 ml-1">{dayLabel}</span>
+          <div className="relative flex items-center group cursor-pointer ml-2 bg-zinc-50 hover:bg-amber-50 px-3 py-1.5 rounded-lg border border-zinc-200 hover:border-amber-200 transition-all">
+            <input type="date" value={date} onChange={(e) => { if(e.target.value) setDate(e.target.value); }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Selecionar data" />
+            <span className="text-base font-bold text-zinc-900 group-hover:text-amber-600 transition-colors select-none whitespace-nowrap">{dayLabel}</span>
+            <Calendar className="w-4 h-4 text-zinc-400 ml-2 group-hover:text-amber-500 transition-colors pointer-events-none" />
+          </div>
         </div>
 
         {/* Ações */}
