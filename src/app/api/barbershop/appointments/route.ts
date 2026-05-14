@@ -42,10 +42,68 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    requireAuth(req, ["OWNER", "BARBER"]);
-    const { id, status, paymentMethod } = await req.json();
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    const barbershopId = payload.barbershopId!;
+    const body = await req.json();
+    const { id, status, paymentMethod, serviceIds } = body;
 
-    const updateData: Record<string, unknown> = { status };
+    // ── Edição de serviços da comanda ──
+    if (Array.isArray(serviceIds) && serviceIds.length > 0) {
+      const services = await prisma.service.findMany({
+        where: { id: { in: serviceIds }, barbershopId, active: true },
+      });
+      if (services.length !== serviceIds.length) {
+        return NextResponse.json({ error: "Um ou mais serviços não encontrados" }, { status: 404 });
+      }
+
+      const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+      const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
+
+      const current = await prisma.appointment.findUnique({ where: { id } });
+      if (!current) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+
+      const [h, m] = current.startTime.split(":").map(Number);
+      const endMin = h * 60 + m + totalDuration;
+      const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+
+      await prisma.$transaction(async (tx) => {
+        await tx.appointment.update({
+          where: { id },
+          data: {
+            price: totalPrice,
+            endTime,
+            serviceId: services[0].id,
+            ...(status ? { status } : {}),
+            ...(paymentMethod ? { paymentMethod } : {}),
+          },
+        });
+        await tx.appointmentService.deleteMany({ where: { appointmentId: id } });
+        await tx.appointmentService.createMany({
+          data: services.map((s) => ({
+            appointmentId: id,
+            serviceId: s.id,
+            price: s.price,
+            duration: s.duration,
+          })),
+        });
+      });
+
+      const updated = await prisma.appointment.findUnique({
+        where: { id },
+        include: {
+          client: { select: { id: true, name: true, phone: true } },
+          barber: { include: { user: { select: { name: true } } } },
+          service: true,
+          subscription: true,
+          services: { include: { service: { select: { id: true, name: true, price: true, duration: true } } } },
+        },
+      });
+      return NextResponse.json({ appointment: updated });
+    }
+
+    // ── Fluxo original: status / pagamento ──
+    const updateData: Record<string, unknown> = {};
+    if (status) updateData.status = status;
     if (paymentMethod) updateData.paymentMethod = paymentMethod;
 
     const appointment = await prisma.appointment.update({
@@ -54,19 +112,15 @@ export async function PATCH(req: NextRequest) {
       include: { subscription: true },
     });
 
-    // Se finalizou E tem assinatura vinculada → incrementa uso da assinatura
     if (status === "DONE" && appointment.subscriptionId) {
       const sub = await prisma.subscription.findUnique({
         where: { id: appointment.subscriptionId },
         include: { plan: true },
       });
-
       if (sub) {
-        const newUses = sub.usesThisCycle + 1;
-        // Se ultrapassou o limite do plano, não deixa usar mais (opcional: bloquear no agendamento)
         await prisma.subscription.update({
           where: { id: sub.id },
-          data: { usesThisCycle: newUses },
+          data: { usesThisCycle: sub.usesThisCycle + 1 },
         });
       }
     }

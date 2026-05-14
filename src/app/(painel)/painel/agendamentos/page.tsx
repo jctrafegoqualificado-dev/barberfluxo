@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Calendar, CreditCard, Banknote, Smartphone, X, Lock, Trash2, Plus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { Calendar, CreditCard, Banknote, Smartphone, X, Lock, Trash2, Plus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ interface Appointment {
   id: string; startTime: string; endTime: string; status: string; price: number; date: string;
   paymentMethod: string | null;
   client: { name: string; phone: string };
-  service: { name: string; duration: number } | null;
+  service: { id: string; name: string; duration: number } | null;
   services: AppointmentServiceItem[];
   barber: { id: string; user: { name: string; phone?: string } };
   subscription: { plan: { name: string } } | null;
@@ -60,46 +60,157 @@ function localDateStr(d = new Date()) {
 }
 function getInitials(name: string) { return name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase(); }
 
-/* ─── Modal de pagamento ─── */
-function PaymentModal({ appt, onConfirm, onDelete, onClose }: { appt: Appointment; onConfirm: (id: string, m: string) => Promise<void>; onDelete: (id: string) => void; onClose: () => void }) {
+/* ─── Modal de pagamento (com edição de serviços) ─── */
+function PaymentModal({ 
+  appt, services, onConfirm, onUpdateServices, onDelete, onClose 
+}: { 
+  appt: Appointment; 
+  services: any[];
+  onConfirm: (id: string, m: string) => Promise<void>; 
+  onUpdateServices: (id: string, sids: string[]) => Promise<void>;
+  onDelete: (id: string) => void; 
+  onClose: () => void 
+}) {
+  const [mode, setMode] = useState<"payment" | "edit">("payment");
   const [sel, setSel] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  if (!appt || !appt.client) return null;
+  
+  // Estado para edição de serviços
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(
+    appt.services.length > 0 ? appt.services.map(s => s.service.id) : (appt.service?.id ? [appt.service.id] : [])
+  );
+
+  function toggleService(id: string) {
+    setSelectedServiceIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }
+
+  const totalPrice = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.price, 0);
+  const totalDuration = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.duration, 0);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
-          <h2 className="font-semibold text-zinc-900">Detalhes / Fechar comanda</h2>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 shrink-0">
+          <h2 className="font-semibold text-zinc-900">
+            {mode === "payment" ? "Detalhes / Fechar comanda" : "Editar serviços"}
+          </h2>
           <div className="flex items-center gap-1">
-            <button onClick={() => onDelete(appt.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors" title="Excluir agendamento">
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {mode === "payment" && (
+              <button onClick={() => onDelete(appt.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors" title="Excluir agendamento">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors" title="Fechar">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
-        <div className="px-5 py-4">
-          <div className="bg-zinc-50 rounded-xl p-3 mb-4 text-sm space-y-1">
-            <p className="font-semibold text-zinc-900">{appt.client.name}</p>
-            <p className="text-zinc-500">{appt.services.length > 0 ? appt.services.map(s => s.service.name).join(" + ") : appt.service?.name} · {appt.barber.user.name}</p>
-            <p className="text-amber-600 font-bold text-lg">{formatCurrency(appt.price)}</p>
-          </div>
-          <p className="text-sm text-zinc-500 mb-3">Forma de pagamento:</p>
-          <div className="grid grid-cols-2 gap-2">
-            {PAYMENT_OPTIONS.map(({ value, label, icon: Icon, color }) => (
-              <button key={value} onClick={() => setSel(value)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${sel === value ? color + " ring-2 ring-offset-1 ring-current" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>
-                <Icon className="w-5 h-5" /><span className="text-sm font-semibold">{label}</span>
-              </button>
-            ))}
-          </div>
+
+        {/* Content */}
+        <div className="px-5 py-4 overflow-y-auto">
+          {mode === "payment" ? (
+            <>
+              <div className="bg-zinc-50 rounded-xl p-3 mb-4 text-sm relative group">
+                <p className="font-semibold text-zinc-900">{appt.client.name}</p>
+                <p className="text-zinc-500 pr-8">
+                  {appt.services.length > 0 ? appt.services.map(s => s.service.name).join(" + ") : appt.service?.name} · {appt.barber.user.name}
+                </p>
+                <p className="text-amber-600 font-bold text-lg">{formatCurrency(appt.price)}</p>
+                
+                <button 
+                  onClick={() => setMode("edit")}
+                  className="absolute top-3 right-3 p-2 bg-white border border-zinc-200 rounded-lg text-zinc-400 hover:text-amber-500 hover:border-amber-200 shadow-sm transition-all active:scale-95"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-sm text-zinc-500 mb-3 font-medium">Forma de pagamento:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_OPTIONS.map(({ value, label, icon: Icon, color }) => (
+                  <button key={value} onClick={() => setSel(value)}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all active:scale-95 ${sel === value ? color + " ring-2 ring-offset-1 ring-current" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>
+                    <Icon className="w-5 h-5" /><span className="text-sm font-semibold">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="block text-xs text-zinc-500 mb-1.5">Selecione os serviços realizados:</label>
+                <div className="space-y-1.5 border border-zinc-100 rounded-xl p-1 max-h-64 overflow-y-auto">
+                  {services.map((s) => {
+                    const checked = selectedServiceIds.includes(s.id);
+                    return (
+                      <label key={s.id}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                          checked ? "bg-amber-50 border border-amber-200" : "hover:bg-zinc-50 border border-transparent"
+                        }`}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleService(s.id)}
+                          className="rounded text-amber-500 focus:ring-amber-500 w-4 h-4" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-800 truncate">{s.name}</p>
+                          <p className="text-xs text-zinc-400">{s.duration}min</p>
+                        </div>
+                        <span className="text-sm font-bold text-zinc-700 shrink-0">R$ {s.price.toFixed(2)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div className="bg-zinc-50 rounded-xl p-3 flex justify-between items-center">
+                <div className="text-xs text-zinc-500">
+                  <p>{selectedServiceIds.length} selecionado(s)</p>
+                  <p>{totalDuration} min de duração</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-zinc-400">Novo Total</p>
+                  <p className="text-lg font-bold text-amber-600">{formatCurrency(totalPrice)}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="px-5 pb-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50">Cancelar</button>
-          <button onClick={async () => { if (!sel) return; setSaving(true); await onConfirm(appt.id, sel); setSaving(false); onClose(); }}
-            disabled={!sel || saving} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-40">
-            {saving ? "Salvando..." : "Concluir"}
-          </button>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 pt-2 flex gap-2 shrink-0 border-t border-zinc-50 mt-auto">
+          {mode === "payment" ? (
+            <>
+              <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Cancelar</button>
+              <button 
+                onClick={async () => { if (!sel) return; setSaving(true); await onConfirm(appt.id, sel); setSaving(false); onClose(); }}
+                disabled={!sel || saving} 
+                className="flex-[1.5] py-3 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 disabled:opacity-40 active:scale-95 transition-all shadow-md shadow-amber-200"
+              >
+                {saving ? "Salvando..." : "Concluir Atendimento"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setMode("payment")} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Voltar</button>
+              <button 
+                onClick={async () => {
+                  if (selectedServiceIds.length === 0) return alert("Selecione ao menos um serviço");
+                  setSaving(true);
+                  await onUpdateServices(appt.id, selectedServiceIds);
+                  setSaving(false);
+                  setMode("payment");
+                }}
+                disabled={saving || selectedServiceIds.length === 0}
+                className="flex-[1.5] py-3 rounded-xl bg-zinc-900 text-white text-sm font-bold hover:bg-zinc-800 disabled:opacity-40 active:scale-95 transition-all shadow-md shadow-zinc-200"
+              >
+                {saving ? "Atualizando..." : "Salvar Serviços"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -295,6 +406,7 @@ export default function AgendamentosPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [bloqueios, setBloqueios] = useState<Bloqueio[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [services, setServices] = useState<any[]>([]);
   const [modalAppt, setModalAppt] = useState<Appointment | null>(null);
   const [showBloqueio, setShowBloqueio] = useState(false);
   const [showAgendamento, setShowAgendamento] = useState(false);
@@ -319,6 +431,8 @@ export default function AgendamentosPage() {
   useEffect(() => {
     fetch("/api/barbershop/barbers", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setBarbers(d.barbers || []));
+    fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => setServices((d.services || []).filter((s: any) => s.active)));
   }, [token]);
 
   /* Linha do horário atual */
@@ -433,8 +547,18 @@ export default function AgendamentosPage() {
     <div className="flex flex-col h-full" style={{ minHeight: 0 }}>
       {/* Modais */}
       {modalAppt && (
-        <PaymentModal appt={modalAppt}
+        <PaymentModal appt={modalAppt} services={services}
           onConfirm={async (id, m) => { await updateStatus(id, "DONE", m); }}
+          onUpdateServices={async (id, sids) => {
+            const res = await fetch("/api/barbershop/appointments", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ id, serviceIds: sids }),
+            });
+            const data = await res.json();
+            if (data.appointment) setModalAppt(data.appointment);
+            load();
+          }}
           onDelete={deleteAppointment}
           onClose={() => setModalAppt(null)} />
       )}
