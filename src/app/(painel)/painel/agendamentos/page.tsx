@@ -164,7 +164,7 @@ function AgendamentoModal({
   barbers, date, onConfirm, onClose
 }: {
   barbers: Barber[]; date: string;
-  onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceId: string; startTime: string }) => Promise<boolean>;
+  onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceId: string; date: string; startTime: string }) => Promise<boolean>;
   onClose: () => void;
 }) {
   const { token } = useAuthStore();
@@ -173,6 +173,7 @@ function AgendamentoModal({
   const [clientPhone, setClientPhone] = useState("");
   const [barberId, setBarberId] = useState(barbers[0]?.id ?? "");
   const [serviceId, setServiceId] = useState("");
+  const [selectedDate, setSelectedDate] = useState(date);
   const [startTime, setStartTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
 
@@ -221,18 +222,25 @@ function AgendamentoModal({
               </select>
             </div>
           )}
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1">Horário</label>
-            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs text-zinc-500 mb-1">Data</label>
+              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs text-zinc-500 mb-1">Horário</label>
+              <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
           </div>
         </div>
         <div className="px-5 pb-5 flex gap-2">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50">Cancelar</button>
           <button onClick={async () => { 
-            if (!clientName || !clientPhone || !serviceId || !barberId) return alert("Preencha todos os campos obrigatórios");
+            if (!clientName || !clientPhone || !serviceId || !barberId || !selectedDate) return alert("Preencha todos os campos obrigatórios");
             setSaving(true); 
-            const success = await onConfirm({ clientName, clientPhone, barberId, serviceId, startTime }); 
+            const success = await onConfirm({ clientName, clientPhone, barberId, serviceId, date: selectedDate, startTime }); 
             setSaving(false); 
             if (success) onClose(); 
           }}
@@ -257,6 +265,7 @@ export default function AgendamentosPage() {
   const [showBloqueio, setShowBloqueio] = useState(false);
   const [showAgendamento, setShowAgendamento] = useState(false);
   const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [nowPx, setNowPx] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -329,7 +338,7 @@ export default function AgendamentosPage() {
       const res = await fetch("/api/barbershop/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...data, date, force: false }),
+        body: JSON.stringify({ ...data, force: false }),
       });
       
       if (res.status === 409) {
@@ -355,13 +364,18 @@ export default function AgendamentosPage() {
   }
 
   async function deleteAppointment(id: string) {
-    if (!window.confirm("Atenção: Deseja realmente EXCLUIR este agendamento?\nEsta ação não pode ser desfeita.")) return;
-    await fetch(`/api/barbershop/appointments?id=${id}`, { 
-      method: "DELETE", 
-      headers: { Authorization: `Bearer ${token}` } 
+    setConfirmDialog({
+      title: "Excluir Agendamento",
+      message: "Deseja realmente EXCLUIR este agendamento? Esta ação não pode ser desfeita.",
+      onConfirm: async () => {
+        await fetch(`/api/barbershop/appointments?id=${id}`, { 
+          method: "DELETE", 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
+        setModalAppt(null);
+        load();
+      }
     });
-    setModalAppt(null);
-    load();
   }
 
   /* Label da data */
@@ -419,7 +433,7 @@ export default function AgendamentosPage() {
                 const resEncaixe = await fetch("/api/barbershop/appointments", {
                   method: "POST",
                   headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                  body: JSON.stringify({ ...data, date, force: true }),
+                  body: JSON.stringify({ ...data, force: true }),
                 });
                 if (!resEncaixe.ok) {
                   const err = await resEncaixe.json();
@@ -427,6 +441,21 @@ export default function AgendamentosPage() {
                 }
                 load();
               }} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors">Confirmar Encaixe</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <h2 className="text-lg font-bold text-zinc-900 mb-2">{confirmDialog.title}</h2>
+            <p className="text-sm text-zinc-500 mb-6">{confirmDialog.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDialog(null)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
+              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors">Confirmar</button>
             </div>
           </div>
         </div>
@@ -536,7 +565,9 @@ export default function AgendamentosPage() {
                           style={{ top, height }}>
                           <Lock className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
                           <span className="text-xs text-red-600 font-medium truncate flex-1">{bl.reason || "Bloqueado"}</span>
-                          <button onClick={() => { if (window.confirm("Remover bloqueio?")) deleteBloqueio(bl.id); }}
+                          <button onClick={() => { 
+                            setConfirmDialog({ title: "Remover Bloqueio", message: "Deseja remover este bloqueio de horário?", onConfirm: () => deleteBloqueio(bl.id) }); 
+                          }}
                             className="hidden group-hover:block p-0.5 rounded hover:bg-red-200">
                             <Trash2 className="w-3 h-3 text-red-500" />
                           </button>
