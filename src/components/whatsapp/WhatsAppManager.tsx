@@ -50,11 +50,17 @@ export default function WhatsAppManager() {
             qrcode={state.qrcode}
             refreshing={isRunning && action.action === "refreshQr"}
             onRefreshQr={refreshQrCode}
+            onDisconnect={disconnect}
+            disconnecting={isRunning && action.action === "disconnect"}
           />
         )}
 
         {state.kind === "connecting" && (
-          <ConnectingView instanceName={state.instanceName} />
+          <ConnectingView
+            instanceName={state.instanceName}
+            onDisconnect={disconnect}
+            disconnecting={isRunning && action.action === "disconnect"}
+          />
         )}
 
         {state.kind === "connected" && (
@@ -147,11 +153,15 @@ function PendingView({
   qrcode,
   refreshing,
   onRefreshQr,
+  onDisconnect,
+  disconnecting,
 }: {
   instanceName: string;
   qrcode: string | null;
   refreshing: boolean;
   onRefreshQr: () => void;
+  onDisconnect: () => void;
+  disconnecting: boolean;
 }) {
   const src = qrcode
     ? qrcode.startsWith("data:")
@@ -194,19 +204,30 @@ function PendingView({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={onRefreshQr}
-        disabled={refreshing}
-        className="mt-4 inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-      >
-        {refreshing ? (
-          <Spinner className="h-3.5 w-3.5" />
-        ) : (
-          <RefreshIcon className="h-3.5 w-3.5" />
-        )}
-        Atualizar QR
-      </button>
+      <div className="mt-4 flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={onRefreshQr}
+          disabled={refreshing || disconnecting}
+          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+        >
+          {refreshing ? (
+            <Spinner className="h-3.5 w-3.5" />
+          ) : (
+            <RefreshIcon className="h-3.5 w-3.5" />
+          )}
+          Atualizar QR
+        </button>
+
+        <button
+          type="button"
+          onClick={onDisconnect}
+          disabled={disconnecting}
+          className="text-xs text-red-600 hover:text-red-700 hover:underline disabled:opacity-60"
+        >
+          {disconnecting ? "Cancelando..." : "Cancelar e Desconectar"}
+        </button>
+      </div>
 
       <p className="mt-3 text-xs text-gray-500">
         Atualizando automaticamente a cada 25s.
@@ -218,7 +239,15 @@ function PendingView({
   );
 }
 
-function ConnectingView({ instanceName }: { instanceName: string }) {
+function ConnectingView({
+  instanceName,
+  onDisconnect,
+  disconnecting,
+}: {
+  instanceName: string;
+  onDisconnect: () => void;
+  disconnecting: boolean;
+}) {
   return (
     <div className="flex flex-col items-center text-center py-8">
       <Spinner className="h-8 w-8 text-blue-500" />
@@ -226,6 +255,17 @@ function ConnectingView({ instanceName }: { instanceName: string }) {
       <p className="mt-1 max-w-md text-sm text-gray-600">
         O WhatsApp está sincronizando. Isso pode levar alguns segundos.
       </p>
+
+      <button
+        type="button"
+        onClick={onDisconnect}
+        disabled={disconnecting}
+        className="mt-6 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+      >
+        {disconnecting && <Spinner className="h-4 w-4 mr-2 inline" />}
+        Desconectar e Resetar
+      </button>
+
       <p className="mt-3 text-xs text-gray-500">
         Instância: <code className="font-mono">{instanceName}</code>
       </p>
