@@ -1,0 +1,199 @@
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "";
+const EVOLUTION_GLOBAL_API_KEY = process.env.EVOLUTION_GLOBAL_API_KEY || "";
+
+const TIMEOUT_MS = 15000;
+
+function headers(): Record<string, string> {
+  return {
+    "apikey": EVOLUTION_GLOBAL_API_KEY,
+    "Content-Type": "application/json",
+  };
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// 1. Criar instância no Evolution
+export async function createInstance(
+  instanceName: string
+): Promise<{ instanceName: string; token: string; qrcodeBase64: string } | { error: string }> {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
+      return { error: "Evolution API environment variables not configured" };
+    }
+
+    console.log(`🔧 [Evolution] Creating instance: ${instanceName}`);
+
+    const res = await fetchWithTimeout(`${EVOLUTION_API_URL}/instance/create`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        instanceName,
+        qrcode: true,
+        integration: "WHATSAPP-BAILEYS",
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return { error: data.message || data.error || `HTTP ${res.status}` };
+    }
+
+    const token = data.hash?.apikey || data.token || data.apikey || "";
+    const qrcodeBase64 = data.qrcode?.base64 || data.base64 || "";
+
+    console.log(`✅ [Evolution] Instance created: ${instanceName}`);
+    return { instanceName, token, qrcodeBase64 };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ [Evolution] createInstance failed: ${msg}`);
+    return { error: msg };
+  }
+}
+
+// 2. Consultar status de conexão da instância
+export async function getInstanceStatus(
+  instanceName: string
+): Promise<{ state: string } | { error: string }> {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
+      return { error: "Evolution API environment variables not configured" };
+    }
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`,
+      { method: "GET", headers: headers() }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return { error: data.message || data.error || `HTTP ${res.status}` };
+    }
+
+    const state = data.instance?.state || data.state || "unknown";
+    return { state };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ [Evolution] getInstanceStatus failed: ${msg}`);
+    return { error: msg };
+  }
+}
+
+// 3. Buscar QR code atualizado
+export async function getQrCode(
+  instanceName: string
+): Promise<{ base64: string; count: number } | { error: string }> {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
+      return { error: "Evolution API environment variables not configured" };
+    }
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/instance/connect/${instanceName}`,
+      { method: "GET", headers: headers() }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return { error: data.message || data.error || `HTTP ${res.status}` };
+    }
+
+    const base64 = data.base64 || data.qrcode?.base64 || "";
+    const count = data.count ?? data.pairingCode ?? 0;
+    return { base64, count };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ [Evolution] getQrCode failed: ${msg}`);
+    return { error: msg };
+  }
+}
+
+// 4. Desconectar instância (logout)
+export async function logoutInstance(
+  instanceName: string
+): Promise<{ success: true } | { error: string }> {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
+      return { error: "Evolution API environment variables not configured" };
+    }
+
+    console.log(`🔌 [Evolution] Logging out instance: ${instanceName}`);
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/instance/logout/${instanceName}`,
+      { method: "DELETE", headers: headers() }
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { error: (data as any).message || `HTTP ${res.status}` };
+    }
+
+    console.log(`✅ [Evolution] Instance logged out: ${instanceName}`);
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ [Evolution] logoutInstance failed: ${msg}`);
+    return { error: msg };
+  }
+}
+
+// 5. Configurar webhook na instância
+export async function setWebhook(
+  instanceName: string,
+  webhookUrl: string
+): Promise<{ success: true } | { error: string }> {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
+      return { error: "Evolution API environment variables not configured" };
+    }
+
+    console.log(`🔗 [Evolution] Setting webhook for ${instanceName}: ${webhookUrl}`);
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/webhook/set/${instanceName}`,
+      {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          webhook: {
+            url: webhookUrl,
+            events: [
+              "MESSAGES_UPSERT",
+              "MESSAGES_UPDATE",
+              "CONNECTION_UPDATE",
+            ],
+            webhookByEvents: false,
+            webhookBase64: false,
+          },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { error: (data as any).message || `HTTP ${res.status}` };
+    }
+
+    console.log(`✅ [Evolution] Webhook configured for ${instanceName}`);
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ [Evolution] setWebhook failed: ${msg}`);
+    return { error: msg };
+  }
+}

@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { EvolutionWebhookBody } from "./types";
-
-const prisma = new PrismaClient();
 
 export async function processIncomingMessage(
   body: EvolutionWebhookBody,

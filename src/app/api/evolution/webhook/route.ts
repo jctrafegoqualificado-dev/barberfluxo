@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { processIncomingMessage } from "@/lib/whatsapp/process-incoming";
 import { EvolutionWebhookBody } from "@/lib/whatsapp/types";
-
-const prisma = new PrismaClient();
 
 // Inicialização: Avisar se a chave da API não estiver configurada
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "";
