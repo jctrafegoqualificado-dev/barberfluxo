@@ -163,3 +163,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    requireAuth(req, ["OWNER", "BARBER"]);
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "ID ausente" }, { status: 400 });
+
+    await prisma.appointment.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erro interno";
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
+  }
+}

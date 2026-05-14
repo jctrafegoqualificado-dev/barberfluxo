@@ -56,15 +56,22 @@ function localDateStr(d = new Date()) {
 function getInitials(name: string) { return name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase(); }
 
 /* ─── Modal de pagamento ─── */
-function PaymentModal({ appt, onConfirm, onClose }: { appt: Appointment; onConfirm: (id: string, m: string) => Promise<void>; onClose: () => void }) {
+function PaymentModal({ appt, onConfirm, onDelete, onClose }: { appt: Appointment; onConfirm: (id: string, m: string) => Promise<void>; onDelete: (id: string) => void; onClose: () => void }) {
   const [sel, setSel] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
-          <h2 className="font-semibold text-zinc-900">Fechar comanda</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-zinc-100"><X className="w-4 h-4 text-zinc-500" /></button>
+          <h2 className="font-semibold text-zinc-900">Detalhes / Fechar comanda</h2>
+          <div className="flex items-center gap-1">
+            <button onClick={() => onDelete(appt.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors" title="Excluir agendamento">
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors" title="Fechar">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <div className="px-5 py-4">
           <div className="bg-zinc-50 rounded-xl p-3 mb-4 text-sm space-y-1">
@@ -347,6 +354,16 @@ export default function AgendamentosPage() {
     load();
   }
 
+  async function deleteAppointment(id: string) {
+    if (!window.confirm("Atenção: Deseja realmente EXCLUIR este agendamento?\nEsta ação não pode ser desfeita.")) return;
+    await fetch(`/api/barbershop/appointments?id=${id}`, { 
+      method: "DELETE", 
+      headers: { Authorization: `Bearer ${token}` } 
+    });
+    setModalAppt(null);
+    load();
+  }
+
   /* Label da data */
   const dateObj = new Date(date + "T12:00:00");
   const todayStr = localDateStr();
@@ -370,6 +387,7 @@ export default function AgendamentosPage() {
       {modalAppt && (
         <PaymentModal appt={modalAppt}
           onConfirm={async (id, m) => { await updateStatus(id, "DONE", m); }}
+          onDelete={deleteAppointment}
           onClose={() => setModalAppt(null)} />
       )}
       {showBloqueio && (
