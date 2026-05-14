@@ -169,6 +169,36 @@ export async function logoutInstance(
   }
 }
 
+// 4.1. Deletar instância completamente (limpeza de sistema)
+export async function deleteInstance(
+  instanceName: string
+): Promise<{ success: true } | { error: string }> {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
+      return { error: "Evolution API environment variables not configured" };
+    }
+
+    console.log(`🗑️ [Evolution] Deleting instance: ${instanceName}`);
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/instance/delete/${instanceName}`,
+      { method: "DELETE", headers: headers() }
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { error: (data as any).message || `HTTP ${res.status}` };
+    }
+
+    console.log(`✅ [Evolution] Instance deleted: ${instanceName}`);
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ [Evolution] deleteInstance failed: ${msg}`);
+    return { error: msg };
+  }
+}
+
 // 5. Configurar webhook na instância
 export async function setWebhook(
   instanceName: string,

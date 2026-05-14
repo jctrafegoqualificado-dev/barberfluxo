@@ -48,6 +48,10 @@ export async function POST(req: NextRequest) {
     // 4. Gerar nome da instância
     const instanceName = `${barbershop.slug}-${barbershop.id.slice(0, 6)}`;
 
+    // Cleanup preventivo: tentar deletar da Evolution caso exista lá (mesmo que não esteja no nosso banco)
+    // Isso evita o erro "Forbidden" ou "Conflict" se houver uma instância órfã na VPS.
+    await evolution.deleteInstance(instanceName).catch(() => {});
+
     // 5. Criar instância no Evolution
     const createResult = await evolution.createInstance(instanceName);
     if ("error" in createResult) {
