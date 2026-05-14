@@ -4,13 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { processIncomingMessage } from "@/lib/whatsapp/process-incoming";
 import { EvolutionWebhookBody } from "@/lib/whatsapp/types";
 
-// Inicialização: Avisar se a chave da API não estiver configurada
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "";
 const EVOLUTION_SERVER_URL = process.env.EVOLUTION_SERVER_URL || "";
-
-if (!EVOLUTION_API_KEY) {
-  console.warn("⚠️ [Evolution Webhook] ATENÇÃO: Variável EVOLUTION_API_KEY não definida no .env!");
-}
 
 // Função para comparação segura de strings (evita timing attacks)
 function secureCompare(a: string, b: string): boolean {
@@ -37,36 +31,40 @@ export async function POST(req: NextRequest) {
     const apiKeyFromBody = body?.apikey;
     const receivedKey = apiKeyFromHeader || apiKeyFromBody || "";
 
-    // c. Validar apikey contra EVOLUTION_API_KEY (timing-safe)
-    if (!secureCompare(EVOLUTION_API_KEY, receivedKey)) {
-      console.warn("⛔ [Evolution Webhook] Acesso negado. API Key inválida ou ausente.");
+    // c. Extrair nome da instância do payload
+    const instanceName = body?.instance || "";
+
+    // d. Lookup da WhatsAppInstance no banco pelo nome
+    const whatsappInstance = instanceName
+      ? await prisma.whatsAppInstance.findUnique({
+          where: { evolutionInstanceName: instanceName },
+        })
+      : null;
+
+    if (!whatsappInstance) {
+      console.warn(`⚠️ [Evolution Webhook] Webhook recebido de instância desconhecida: ${instanceName}`);
+      return NextResponse.json({ received: false, reason: "unknown_instance" }, { status: 200 });
+    }
+
+    // e. Validar apikey contra evolutionToken do banco (timing-safe)
+    if (!secureCompare(whatsappInstance.evolutionToken, receivedKey)) {
+      console.warn(`⛔ [Evolution Webhook] Token da instância não confere para: ${instanceName}`);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // d. (Opcional) Validar server_url contra EVOLUTION_SERVER_URL
+    // f. (Opcional) Validar server_url contra EVOLUTION_SERVER_URL
     const serverUrl = body?.server_url;
     if (EVOLUTION_SERVER_URL && serverUrl && EVOLUTION_SERVER_URL !== serverUrl) {
       console.warn(`⛔ [Evolution Webhook] Acesso negado. server_url incompatível: ${serverUrl}`);
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { event, instance, data } = body;
+    const { event, data } = body;
 
-    // e. Logar evento de forma legível
+    // g. Logar evento de forma legível
     console.log(`\n🟢 [Evolution Webhook] Novo Evento Recebido`);
-    console.log(`➡️ Instância: ${instance}`);
+    console.log(`➡️ Instância: ${instanceName}`);
     console.log(`➡️ Evento: ${event}`);
-
-    // Fazer lookup da instância para multi-tenant
-    const whatsappInstance = await prisma.whatsAppInstance.findUnique({
-      where: { evolutionInstanceName: instance },
-      include: { barbershop: true }
-    });
-
-    if (!whatsappInstance) {
-      console.warn(`⚠️ [Evolution Webhook] Webhook recebido de instância desconhecida: ${instance}`);
-      return NextResponse.json({ received: false, reason: "unknown_instance" }, { status: 200 });
-    }
 
     // Extração específica para messages.upsert
     if (event === "messages.upsert") {
@@ -115,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`--------------------------------------------------\n`);
 
-    // f. Retornar 200 para a Evolution parar de tentar reenviar
+    // h. Retornar 200 para a Evolution parar de tentar reenviar
     return NextResponse.json({ received: true }, { status: 200 });
 
   } catch (error) {
