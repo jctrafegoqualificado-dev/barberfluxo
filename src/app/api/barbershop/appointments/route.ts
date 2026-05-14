@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
         client: { select: { id: true, name: true, phone: true } },
         barber: { include: { user: { select: { name: true } } } },
         service: true,
+        services: { include: { service: { select: { id: true, name: true, price: true, duration: true } } } },
         subscription: { include: { plan: { select: { name: true } } } },
       },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
@@ -82,20 +83,29 @@ export async function POST(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
     const body = await req.json();
-    const { clientName, clientPhone, barberId, serviceId, date, startTime, force } = body;
+    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, force } = body;
 
-    if (!clientName || !clientPhone || !barberId || !serviceId || !date || !startTime) {
+    // Aceita serviceIds (array multi-serviço) OU serviceId (legado, único)
+    const ids: string[] = Array.isArray(serviceIds) && serviceIds.length > 0
+      ? serviceIds
+      : serviceId ? [serviceId] : [];
+
+    if (!clientName || !clientPhone || !barberId || ids.length === 0 || !date || !startTime) {
       return NextResponse.json({ error: "Campos obrigatórios ausentes" }, { status: 400 });
     }
 
-    // Busca o serviço para pegar preço e duração
-    const service = await prisma.service.findFirst({
-      where: { id: serviceId, barbershopId },
+    // Busca todos os serviços selecionados
+    const services = await prisma.service.findMany({
+      where: { id: { in: ids }, barbershopId, active: true },
     });
 
-    if (!service) {
-      return NextResponse.json({ error: "Serviço não encontrado" }, { status: 404 });
+    if (services.length !== ids.length) {
+      return NextResponse.json({ error: "Um ou mais serviços não encontrados" }, { status: 404 });
     }
+
+    // Calcula preço total e duração total
+    const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+    const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
     // Encontra ou cria o cliente
     const phoneDigits = clientPhone.replace(/\D/g, "");
@@ -111,9 +121,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Calcula endTime com base na duração do serviço
+    // Calcula endTime com base na duração total de todos os serviços
     const [h, m] = startTime.split(":").map(Number);
-    const endTotalMinutes = h * 60 + m + service.duration;
+    const endTotalMinutes = h * 60 + m + totalDuration;
     const endH = Math.floor(endTotalMinutes / 60);
     const endM = endTotalMinutes % 60;
     const endTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
@@ -142,18 +152,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        date: appointmentDate,
-        startTime,
-        endTime,
-        price: service.price,
-        clientId: client.id,
-        barbershopId,
-        barberId,
-        serviceId,
-        status: "CONFIRMED"
-      },
+    // Cria o agendamento com multi-serviço via transação
+    const appointment = await prisma.$transaction(async (tx) => {
+      const appt = await tx.appointment.create({
+        data: {
+          date: appointmentDate,
+          startTime,
+          endTime,
+          price: totalPrice,
+          clientId: client!.id,
+          barbershopId,
+          barberId,
+          serviceId: services[0].id, // Legado: primeiro serviço para retrocompatibilidade
+          status: "CONFIRMED",
+        },
+      });
+
+      // Cria registros na junction table para cada serviço
+      await tx.appointmentService.createMany({
+        data: services.map((s) => ({
+          appointmentId: appt.id,
+          serviceId: s.id,
+          price: s.price,
+          duration: s.duration,
+        })),
+      });
+
+      return appt;
     });
 
     return NextResponse.json({ appointment }, { status: 201 });

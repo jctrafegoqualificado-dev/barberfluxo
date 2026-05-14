@@ -49,9 +49,11 @@ export async function GET(req: NextRequest) {
     // Ranking de serviços
     const serviceMap: Record<string, { name: string; count: number; faturado: number }> = {};
     for (const a of done) {
-      if (!serviceMap[a.serviceId]) serviceMap[a.serviceId] = { name: a.service.name, count: 0, faturado: 0 };
-      serviceMap[a.serviceId].count++;
-      serviceMap[a.serviceId].faturado += a.price;
+      const sid = a.serviceId ?? "unknown";
+      const sname = a.service?.name ?? "Serviço removido";
+      if (!serviceMap[sid]) serviceMap[sid] = { name: sname, count: 0, faturado: 0 };
+      serviceMap[sid].count++;
+      serviceMap[sid].faturado += a.price;
     }
     const servicosRanking = Object.values(serviceMap).sort((a, b) => b.count - a.count);
 

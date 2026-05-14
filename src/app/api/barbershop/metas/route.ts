@@ -59,7 +59,7 @@ async function calcularProgresso(
       where: whereAppt,
       include: { service: true },
     });
-    const totalOcup = appts.reduce((s, a) => s + a.service.duration, 0);
+    const totalOcup = appts.reduce((s, a) => s + (a.service?.duration ?? 0), 0);
     let totalDisp = 0;
     const d = new Date(start);
     while (d <= end) {

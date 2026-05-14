@@ -67,9 +67,9 @@ export async function GET(req: NextRequest) {
     let totalOcupadoGeral = 0;
     for (const appt of appointments) {
       if (barberStats[appt.barberId]) {
-        barberStats[appt.barberId].minOcupados += appt.service.duration;
+        barberStats[appt.barberId].minOcupados += appt.service?.duration ?? 0;
         barberStats[appt.barberId].atendimentos += 1;
-        totalOcupadoGeral += appt.service.duration;
+        totalOcupadoGeral += appt.service?.duration ?? 0;
       }
     }
 
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
       const minDisp = (minutesByDay[dayOfWeek] || 0) * barbers.length;
       const minOcup = appointments
         .filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dateStr)
-        .reduce((s, a) => s + a.service.duration, 0);
+        .reduce((s, a) => s + (a.service?.duration ?? 0), 0);
       const taxa = minDisp > 0 ? Math.min(Math.round((minOcup / minDisp) * 100), 100) : 0;
       return {
         data: dateStr,

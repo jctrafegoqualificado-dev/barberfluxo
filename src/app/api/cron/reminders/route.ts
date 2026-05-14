@@ -57,7 +57,7 @@ export async function GET() {
           ``,
           `Ola, ${appt.client.name.split(" ")[0]}! Seu horario esta chegando.`,
           ``,
-          `Servico: ${appt.service.name}`,
+          `Servico: ${appt.service?.name ?? "Serviço"}`,
           `Barbeiro: ${appt.barber.user.name}`,
           `Data: ${dataFormatada}`,
           `Horario: ${appt.startTime}`,

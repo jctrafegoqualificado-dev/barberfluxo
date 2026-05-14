@@ -5,11 +5,16 @@ import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 
 /* ─── Tipos ─── */
+interface AppointmentServiceItem {
+  service: { id: string; name: string; price: number; duration: number };
+  price: number; duration: number;
+}
 interface Appointment {
   id: string; startTime: string; endTime: string; status: string; price: number; date: string;
   paymentMethod: string | null;
   client: { name: string; phone: string };
-  service: { name: string; duration: number };
+  service: { name: string; duration: number } | null;
+  services: AppointmentServiceItem[];
   barber: { id: string; user: { name: string; phone?: string } };
   subscription: { plan: { name: string } } | null;
 }
@@ -76,7 +81,7 @@ function PaymentModal({ appt, onConfirm, onDelete, onClose }: { appt: Appointmen
         <div className="px-5 py-4">
           <div className="bg-zinc-50 rounded-xl p-3 mb-4 text-sm space-y-1">
             <p className="font-semibold text-zinc-900">{appt.client.name}</p>
-            <p className="text-zinc-500">{appt.service.name} · {appt.barber.user.name}</p>
+            <p className="text-zinc-500">{appt.services.length > 0 ? appt.services.map(s => s.service.name).join(" + ") : appt.service?.name} · {appt.barber.user.name}</p>
             <p className="text-amber-600 font-bold text-lg">{formatCurrency(appt.price)}</p>
           </div>
           <p className="text-sm text-zinc-500 mb-3">Forma de pagamento:</p>
@@ -159,20 +164,20 @@ function BloqueioModal({ barbers, date, onConfirm, onClose }: {
   );
 }
 
-/* ─── Modal de agendamento ─── */
+/* ─── Modal de agendamento (multi-serviço) ─── */
 function AgendamentoModal({
   barbers, date, onConfirm, onClose
 }: {
   barbers: Barber[]; date: string;
-  onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceId: string; date: string; startTime: string }) => Promise<boolean>;
+  onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceIds: string[]; date: string; startTime: string }) => Promise<boolean>;
   onClose: () => void;
 }) {
   const { token } = useAuthStore();
-  const [services, setServices] = useState<{ id: string; name: string }[]>([]);
+  const [services, setServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [barberId, setBarberId] = useState(barbers[0]?.id ?? "");
-  const [serviceId, setServiceId] = useState("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState(date);
   const [startTime, setStartTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
@@ -182,18 +187,26 @@ function AgendamentoModal({
       .then(r => r.json()).then(d => {
         const svcs = (d.services || []).filter((s: any) => s.active);
         setServices(svcs);
-        if (svcs.length > 0) setServiceId(svcs[0].id);
       });
   }, [token]);
 
+  function toggleService(id: string) {
+    setSelectedServiceIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }
+
+  const totalPrice = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.price, 0);
+  const totalDuration = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.duration, 0);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
           <h2 className="font-semibold text-zinc-900">Novo agendamento</h2>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-zinc-100"><X className="w-4 h-4 text-zinc-500" /></button>
         </div>
-        <div className="px-5 py-4 space-y-3">
+        <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Nome do Cliente</label>
             <input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: João Silva"
@@ -215,11 +228,32 @@ function AgendamentoModal({
           )}
           {services.length > 0 && (
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Serviço</label>
-              <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <label className="block text-xs text-zinc-500 mb-1.5">Serviços <span className="text-zinc-400">(selecione um ou mais)</span></label>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-lg border border-zinc-200 p-2">
+                {services.map((s) => {
+                  const checked = selectedServiceIds.includes(s.id);
+                  return (
+                    <label key={s.id}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                        checked ? "bg-amber-50 border border-amber-200" : "hover:bg-zinc-50 border border-transparent"
+                      }`}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleService(s.id)}
+                        className="rounded text-amber-500 focus:ring-amber-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-800 truncate">{s.name}</p>
+                        <p className="text-xs text-zinc-400">{s.duration}min</p>
+                      </div>
+                      <span className="text-sm font-bold text-zinc-700 shrink-0">R$ {s.price.toFixed(2)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {selectedServiceIds.length > 0 && (
+                <div className="flex items-center justify-between mt-2 px-1">
+                  <span className="text-xs text-zinc-500">{selectedServiceIds.length} serviço(s) · {totalDuration}min</span>
+                  <span className="text-sm font-bold text-amber-600">Total: R$ {totalPrice.toFixed(2)}</span>
+                </div>
+              )}
             </div>
           )}
           <div className="flex gap-3">
@@ -238,14 +272,14 @@ function AgendamentoModal({
         <div className="px-5 pb-5 flex gap-2">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50">Cancelar</button>
           <button onClick={async () => { 
-            if (!clientName || !clientPhone || !serviceId || !barberId || !selectedDate) return alert("Preencha todos os campos obrigatórios");
+            if (!clientName || !clientPhone || selectedServiceIds.length === 0 || !barberId || !selectedDate) return alert("Preencha todos os campos e selecione ao menos um serviço");
             setSaving(true); 
-            const success = await onConfirm({ clientName, clientPhone, barberId, serviceId, date: selectedDate, startTime }); 
+            const success = await onConfirm({ clientName, clientPhone, barberId, serviceIds: selectedServiceIds, date: selectedDate, startTime }); 
             setSaving(false); 
             if (success) onClose(); 
           }}
-            disabled={saving} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-40">
-            {saving ? "Salvando..." : "Agendar"}
+            disabled={saving || selectedServiceIds.length === 0} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-40">
+            {saving ? "Salvando..." : `Agendar${selectedServiceIds.length > 1 ? ` (${selectedServiceIds.length})` : ""}`}
           </button>
         </div>
       </div>
@@ -606,7 +640,7 @@ export default function AgendamentosPage() {
                           onClick={() => { if (a.status === "CONFIRMED" || a.status === "PENDING") setModalAppt(a); }}>
                           <p className={`text-xs font-bold truncate ${s.text}`}>{a.client.name}</p>
                           {height > ROW_H * 3 && (
-                            <p className={`text-xs truncate opacity-80 ${s.text}`}>{a.service.name}</p>
+                            <p className={`text-xs truncate opacity-80 ${s.text}`}>{a.services.length > 0 ? a.services.map(x => x.service.name).join(" + ") : a.service?.name}</p>
                           )}
                           {height > ROW_H * 5 && (
                             <p className={`text-xs opacity-60 ${s.text}`}>{a.startTime} – {a.endTime}</p>
@@ -690,7 +724,7 @@ export default function AgendamentosPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-zinc-500 mt-0.5">{a.service.name} · {a.barber.user.name}</p>
+                      <p className="text-sm text-zinc-500 mt-0.5">{a.services.length > 0 ? a.services.map(x => x.service.name).join(" + ") : a.service?.name} · {a.barber.user.name}</p>
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-sm font-bold text-zinc-900">{formatCurrency(a.price)}</p>
