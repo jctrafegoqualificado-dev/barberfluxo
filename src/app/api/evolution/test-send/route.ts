@@ -28,14 +28,14 @@ export async function POST(req: NextRequest) {
 
     // Parsear body
     const body = await req.json();
-    const { phone, text } = body;
+    const { phone, text, barbershopId } = body;
 
-    if (!phone || !text) {
-      return NextResponse.json({ error: "Missing 'phone' or 'text' in body" }, { status: 400 });
+    if (!phone || !text || !barbershopId) {
+      return NextResponse.json({ error: "Missing 'phone', 'text' or 'barbershopId' in body" }, { status: 400 });
     }
 
     // Chamar serviço de envio
-    const result = await sendTextMessage(phone, text);
+    const result = await sendTextMessage(barbershopId, phone, text);
 
     if ("error" in result) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
