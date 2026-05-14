@@ -1,0 +1,61 @@
+# Roadmap Estratégico: BarberFluxo (Fase de Escala)
+
+Este documento detalha os próximos passos para transformar o BarberFluxo em um ERP de barbearia líder de mercado, após a conclusão bem-sucedida do sistema de **Multi-Serviços**.
+
+```mermaid
+gantt
+    title Roadmap de Desenvolvimento 2026
+    dateFormat  YYYY-MM-DD
+    section Core Business
+    Multi-Serviços (Database/UI)      :done, des1, 2026-05-13, 2d
+    Edição de Comanda (UX Mobile)     :done, des2, 2026-05-14, 1d
+    Recálculo de Comissões (Multi)    :active, des3, 2026-05-15, 3d
+    section Financeiro
+    Auditoria Financeira v2           :des4, 2026-05-18, 3d
+    Integração Mercado Pago (Checkout):des5, 2026-05-21, 5d
+    Dashboard de Lucratividade        :des6, 2026-05-26, 4d
+    section Marketing & Growth
+    Automação de Retenção (WhatsApp)  :des7, 2026-06-01, 5d
+    Auto-atendimento (Triagem Bot)    :des10, 2026-06-03, 3d
+    Sistema de Fidelidade (Pontos)    :des8, 2026-06-06, 4d
+    section Infraestrutura
+    Upgrade Prisma v7                 :des9, 2026-06-10, 2d
+```
+
+---
+
+## 🚀 Próximas Prioridades (Backlog Refinado)
+
+### 1. Refatoração de Comissões e Produção (Financeiro)
+*   **Problema:** O sistema de comissões atual olha para `appointment.price`. Com múltiplos serviços, precisamos garantir que se houver taxas diferentes por serviço, o cálculo seja granulado.
+*   **Ação:** Ajustar os endpoints `/api/barber/producao` e `/api/barbershop/financeiro` para iterar sobre a nova tabela `AppointmentService`.
+
+### 2. Integração de Pagamento Online (Mercado Pago)
+*   **Problema:** Atualmente só aceitamos registro manual de pagamento.
+*   **Ação:** Implementar o checkout transparente para que o cliente possa pagar antecipadamente ou no balcão via QR Code dinâmico, facilitando a conciliação.
+
+### 3. Inteligência de Retenção (Marketing)
+*   **Problema:** Clientes esquecem de agendar o próximo corte.
+*   **Ação:** Criar um script (cron) que detecta clientes que não aparecem há 20 dias e envia uma mensagem personalizada via WhatsApp: *"E aí [Nome], já está na hora de dar aquele tapa no visual? Agenda aqui: [Link]"*.
+
+### 4. Auto-atendimento Reativo (WhatsApp Bot)
+*   **Problema:** O barbeiro perde tempo respondendo "Qual o link para agendar?" ou "Tem horário amanhã?".
+*   **Ação:** Configurar o Webhook para identificar intenções de agendamento e enviar automaticamente o link de reserva ou informações de horários.
+
+### 5. Dashboard de Performance de Barbeiro
+*   **Problema:** O dono da barbearia tem dificuldade de ver quem é o "Top Performer".
+*   **Ação:** Criar gráficos de:
+    *   Taxa de Ocupação por Barbeiro.
+    *   Ticket Médio (ajudado agora pelo Multi-Serviço).
+    *   Taxa de Retorno de Clientes (fidelidade).
+
+---
+
+## 🛡️ Definição de Pronto (DoD)
+- [ ] Código testado em dispositivos móveis.
+- [ ] TypeScript sem erros (`tsc` limpo).
+- [ ] Migrations versionadas.
+- [ ] UX validada com o usuário final (barbeiro).
+
+> [!TIP]
+> Com a entrega dos Multi-Serviços, o ticket médio das barbearias tende a subir 15-20% em 30 dias. É o momento ideal para focar na retenção desses clientes.

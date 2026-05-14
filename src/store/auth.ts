@@ -17,6 +17,6 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (user, token) => set({ user, token }),
       clearAuth: () => set({ user: null, token: null }),
     }),
-    { name: "barberapp-auth" }
+    { name: "barberfluxo-auth" }
   )
 );

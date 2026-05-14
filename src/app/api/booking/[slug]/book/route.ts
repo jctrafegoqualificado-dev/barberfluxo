@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       await req.json();
     // Gera email interno a partir do telefone para identificar cliente sem exigir email
     const cleanPhone = (clientPhone ?? "").replace(/\D/g, "") || "sem-telefone";
-    const clientEmail = `${cleanPhone}@cliente.barberapp`;
+    const clientEmail = `${cleanPhone}@cliente.barberfluxo`;
 
     const shop = await prisma.barbershop.findUnique({ where: { slug } });
     if (!shop) return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 });

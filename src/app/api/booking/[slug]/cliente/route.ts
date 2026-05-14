@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     }
 
     const cleanPhone = phone.replace(/\D/g, "");
-    const email = `${cleanPhone}@cliente.barberapp`;
+    const email = `${cleanPhone}@cliente.barberfluxo`;
 
     const user = await prisma.user.findUnique({
       where: { email },

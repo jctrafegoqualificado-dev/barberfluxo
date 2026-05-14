@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "BarberApp <onboarding@resend.dev>";
+const FROM = process.env.RESEND_FROM_EMAIL ?? "BarberFluxo <onboarding@resend.dev>";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? "");
@@ -70,7 +70,7 @@ export async function sendAppointmentConfirmation({
         </td></tr>
         <!-- Footer -->
         <tr><td style="background:#fafafa;border-top:1px solid #e4e4e7;padding:16px;text-align:center;">
-          <p style="margin:0;color:#a1a1aa;font-size:12px;">BarberApp — Sistema de Gestão para Barbearias</p>
+          <p style="margin:0;color:#a1a1aa;font-size:12px;">BarberFluxo — Sistema de Gestão para Barbearias</p>
         </td></tr>
       </table>
     </td></tr>
@@ -130,7 +130,7 @@ export async function sendSubscriptionConfirmation({
           </p>
         </td></tr>
         <tr><td style="background:#fafafa;border-top:1px solid #e4e4e7;padding:16px;text-align:center;">
-          <p style="margin:0;color:#a1a1aa;font-size:12px;">BarberApp — Sistema de Gestão para Barbearias</p>
+          <p style="margin:0;color:#a1a1aa;font-size:12px;">BarberFluxo — Sistema de Gestão para Barbearias</p>
         </td></tr>
       </table>
     </td></tr>

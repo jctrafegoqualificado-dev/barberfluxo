@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "BarberApp — Gestão de Barbearia",
+  title: "BarberFluxo — Gestão de Barbearia",
   description: "Sistema completo de gestão para barbearias",
 };
 

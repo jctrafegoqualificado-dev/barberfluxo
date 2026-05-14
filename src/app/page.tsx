@@ -9,7 +9,7 @@ export default function Home() {
           <div className="w-9 h-9 rounded-lg bg-amber-500 flex items-center justify-center">
             <Scissors className="w-5 h-5 text-white" />
           </div>
-          <span className="font-bold text-lg">BarberApp</span>
+          <span className="font-bold text-lg">BarberFluxo</span>
         </div>
         <div className="flex gap-3">
           <Link href="/login" className="px-4 py-2 rounded-lg text-sm text-zinc-300 hover:text-white transition-colors">Entrar</Link>

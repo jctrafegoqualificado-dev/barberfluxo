@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     });
 
     const cleanPhone = clientPhone.replace(/\D/g, "") || "sem-telefone";
-    const clientEmail = `${cleanPhone}@cliente.barberapp`;
+    const clientEmail = `${cleanPhone}@cliente.barberfluxo`;
 
     let client = await prisma.user.findUnique({ where: { email: clientEmail } });
     if (!client) {
