@@ -10,9 +10,10 @@ export async function GET(req: NextRequest) {
       title: "BarberFluxo Public API",
       version: "1.0.0",
       description:
-        "API pública (sem autenticação) usada por bots/integrações externas (ex.: n8n + WhatsApp) para consultar barbearia e gerenciar agendamentos.",
+        "API protegida por API key (header `x-api-key`) usada por bots/integrações externas (ex.: n8n + WhatsApp) para consultar barbearia e gerenciar agendamentos. Clique em **Authorize** e cole a chave antes de testar.",
     },
     servers: [{ url: serverUrl }],
+    security: [{ ApiKeyAuth: [] }],
     tags: [
       { name: "Barbershop", description: "Informações públicas da barbearia" },
       { name: "Catalog", description: "Serviços, preços e barbeiros" },
@@ -206,6 +207,14 @@ export async function GET(req: NextRequest) {
       },
     },
     components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "x-api-key",
+          description: "Chave compartilhada com o n8n. Configurada na Vercel como `PUBLIC_API_KEY`.",
+        },
+      },
       schemas: {
         Barbershop: {
           type: "object",
