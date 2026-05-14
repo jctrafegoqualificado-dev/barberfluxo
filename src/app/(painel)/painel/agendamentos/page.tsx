@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Calendar, CreditCard, Banknote, Smartphone, X, Lock, Trash2, Plus, List, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, CreditCard, Banknote, Smartphone, X, Lock, Trash2, Plus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 
@@ -249,6 +249,7 @@ export default function AgendamentosPage() {
   const [modalAppt, setModalAppt] = useState<Appointment | null>(null);
   const [showBloqueio, setShowBloqueio] = useState(false);
   const [showAgendamento, setShowAgendamento] = useState(false);
+  const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
   const [nowPx, setNowPx] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -325,23 +326,8 @@ export default function AgendamentosPage() {
       });
       
       if (res.status === 409) {
-         if (window.confirm("Este barbeiro já possui um agendamento neste mesmo horário.\n\nDeseja forçar a criação como um ENCAIXE?")) {
-            const resEncaixe = await fetch("/api/barbershop/appointments", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ ...data, date, force: true }),
-            });
-            if (!resEncaixe.ok) {
-              const err = await resEncaixe.json();
-              alert("Erro ao salvar encaixe: " + (err.error || "Desconhecido"));
-              return false;
-            }
-            load();
-            return true;
-         } else {
-            // Usuário cancelou o encaixe
-            return false;
-         }
+         setEncaixePendingData(data);
+         return false; // Mantém o modal original aberto por baixo
       } else if (!res.ok) {
         const err = await res.json();
         alert("Erro ao salvar: " + (err.error || "Desconhecido"));
@@ -395,6 +381,37 @@ export default function AgendamentosPage() {
         <AgendamentoModal barbers={barbers} date={date}
           onConfirm={handleNovoAgendamento}
           onClose={() => setShowAgendamento(false)} />
+      )}
+      {encaixePendingData && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-amber-600" />
+            </div>
+            <h2 className="text-lg font-bold text-zinc-900 mb-2">Choque de Horário</h2>
+            <p className="text-sm text-zinc-500 mb-6">
+              Este barbeiro já possui um agendamento neste mesmo horário. Deseja forçar a criação como um <strong>ENCAIXE</strong>?
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setEncaixePendingData(null)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
+              <button onClick={async () => {
+                const data = encaixePendingData;
+                setEncaixePendingData(null);
+                setShowAgendamento(false);
+                const resEncaixe = await fetch("/api/barbershop/appointments", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ ...data, date, force: true }),
+                });
+                if (!resEncaixe.ok) {
+                  const err = await resEncaixe.json();
+                  alert("Erro ao salvar encaixe: " + (err.error || "Desconhecido"));
+                }
+                load();
+              }} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors">Confirmar Encaixe</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Toolbar ── */}
@@ -514,10 +531,24 @@ export default function AgendamentosPage() {
                       const top = minToTop(a.startTime);
                       const height = Math.max(durationHeight(a.startTime, a.endTime), ROW_H * 2);
                       const s = STATUS_STYLE[a.status] ?? STATUS_STYLE.CONFIRMED;
+
+                      // Lógica de Encaixe: Divide a largura se houver colisão de horário inicial
+                      const overlapping = barberAppts.filter(x => x.startTime === a.startTime);
+                      const totalOverlapping = overlapping.length;
+                      const overlapIndex = overlapping.findIndex(x => x.id === a.id);
+                      
+                      const widthPct = 100 / totalOverlapping;
+                      const leftPct = overlapIndex * widthPct;
+
                       return (
                         <div key={a.id}
-                          className={`absolute left-1 right-1 ${s.bg} border-l-4 ${s.border} rounded-r-lg overflow-hidden px-1.5 py-1 cursor-pointer hover:brightness-95 transition-all`}
-                          style={{ top, height }}
+                          className={`absolute ${s.bg} border-l-4 ${s.border} rounded-r-lg overflow-hidden px-1.5 py-1 cursor-pointer hover:brightness-95 transition-all shadow-sm`}
+                          style={{ 
+                            top, 
+                            height,
+                            left: `calc(${leftPct}% + 4px)`,
+                            width: `calc(${widthPct}% - 8px)`
+                          }}
                           onClick={() => { if (a.status === "CONFIRMED" || a.status === "PENDING") setModalAppt(a); }}>
                           <p className={`text-xs font-bold truncate ${s.text}`}>{a.client.name}</p>
                           {height > ROW_H * 3 && (
