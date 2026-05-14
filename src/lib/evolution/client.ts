@@ -51,10 +51,27 @@ export async function createInstance(
       return { error: data.message || data.error || `HTTP ${res.status}` };
     }
 
-    const token = data.hash?.apikey || data.token || data.apikey || "";
+    // Evolution v2.2.3 retorna o token em data.hash (string).
+    // Versões mais antigas retornavam em data.hash.apikey (objeto). Cobrimos ambos.
+    const token: string =
+      (typeof data.hash === "string" ? data.hash : data.hash?.apikey) ||
+      data.token ||
+      data.apikey ||
+      "";
+
+    if (!token) {
+      throw new Error(
+        `Evolution não retornou token na criação da instância "${instanceName}". ` +
+        `Response keys: ${Object.keys(data).join(", ")}`
+      );
+    }
+
     const qrcodeBase64 = data.qrcode?.base64 || data.base64 || "";
 
-    console.log(`✅ [Evolution] Instance created: ${instanceName}`);
+    console.log(
+      `✅ [Evolution] Instância criada: ${instanceName}, ` +
+      `token len: ${token.length}, prefix: ${token.slice(0, 8)}`
+    );
     return { instanceName, token, qrcodeBase64 };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
