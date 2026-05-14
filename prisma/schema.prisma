@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL") // Transaction Pooler port 6543
 }
 
+enum SaasPlan {
+  BASIC
+  PREMIUM
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -39,6 +44,8 @@ model Barbershop {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  saasPlan    SaasPlan @default(BASIC)
+
   poeOwnerPct     Float  @default(50)
   debitFee        Float  @default(0)
   creditFee       Float  @default(0)
@@ -59,6 +66,29 @@ model Barbershop {
   tasks        Task[]
   commissionPayments CommissionPayment[]
   commissionVales    CommissionVale[]
+  
+  whatsappInstance WhatsAppInstance?
+  whatsappContacts WhatsAppContact[]
+  whatsappMessages WhatsAppMessage[]
+}
+
+model WhatsAppInstance {
+  id                    String   @id @default(cuid())
+  barbershopId          String   @unique
+  barbershop            Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  evolutionInstanceName String   @unique
+  evolutionToken        String
+  status                String   @default("PENDING") // PENDING | CONNECTING | CONNECTED | DISCONNECTED | ERROR
+  lastQrCode            String?  @db.Text
+  lastConnectedAt       DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  contacts              WhatsAppContact[]
+  messages              WhatsAppMessage[]
+  
+  @@index([evolutionInstanceName])
+  @@index([status])
 }
 
 model Barber {
@@ -310,33 +340,48 @@ model Task {
 
 model WhatsAppContact {
   id          String   @id @default(cuid())
-  remoteJid   String   @unique  // ex: 5541999999999@s.whatsapp.net
-  phone       String?            // só os dígitos pra fácil lookup
-  pushName    String?            // nome que aparece no WhatsApp
+  remoteJid   String
+  phone       String?
+  pushName    String?
   isBlocked   Boolean  @default(false)
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
-  messages    WhatsAppMessage[]
   
-  // Vínculo opcional com User (cliente cadastrado)
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  
+  instanceId   String?
+  instance     WhatsAppInstance? @relation(fields: [instanceId], references: [id])
+
   userId      String?
   user        User?    @relation(fields: [userId], references: [id])
   
+  messages    WhatsAppMessage[]
+
+  @@unique([remoteJid, barbershopId])
   @@index([phone])
 }
 
 model WhatsAppMessage {
   id            String          @id @default(cuid())
-  evolutionId   String          @unique  // ID original da mensagem no WhatsApp
-  contactId     String
-  contact       WhatsAppContact @relation(fields: [contactId], references: [id])
+  evolutionId   String          @unique
   fromMe        Boolean
-  messageType   String          // conversation, imageMessage, audioMessage, etc.
-  textContent   String?         // texto se for mensagem de texto
-  rawPayload    Json            // payload completo do Evolution pra debug
-  timestamp     DateTime        // messageTimestamp do Evolution
+  messageType   String
+  textContent   String?
+  rawPayload    Json
+  timestamp     DateTime
   createdAt     DateTime        @default(now())
   
+  contactId     String
+  contact       WhatsAppContact @relation(fields: [contactId], references: [id])
+
+  barbershopId  String
+  barbershop    Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  
+  instanceId    String?
+  instance      WhatsAppInstance? @relation(fields: [instanceId], references: [id])
+
   @@index([contactId, timestamp])
   @@index([timestamp])
+  @@index([barbershopId, timestamp])
 }

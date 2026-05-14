@@ -19,6 +19,7 @@ async function main() {
       name: "Barbearia Demo",
       slug: "barbearia-demo",
       ownerId: owner.id,
+      saasPlan: "PREMIUM",
       description: "A melhor barbearia da cidade!",
       phone: "(41) 99999-0000",
       address: "Rua das Tesouras, 123",
@@ -32,6 +33,13 @@ async function main() {
           isOpen: true,
         })),
       },
+      whatsappInstance: {
+        create: {
+          evolutionInstanceName: "Barberapp-test",
+          evolutionToken: "4619881BE68D-45EA-9015-3BF866E9D18D",
+          status: "CONNECTED"
+        }
+      }
     },
   });
 
