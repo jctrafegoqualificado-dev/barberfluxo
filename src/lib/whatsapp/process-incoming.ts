@@ -3,7 +3,11 @@ import { EvolutionWebhookBody } from "./types";
 
 const prisma = new PrismaClient();
 
-export async function processIncomingMessage(body: EvolutionWebhookBody) {
+export async function processIncomingMessage(
+  body: EvolutionWebhookBody,
+  barbershopId: string,
+  whatsappInstanceId: string
+) {
   const { data } = body;
   if (!data || !data.key) throw new Error("Invalid message data");
 
@@ -24,14 +28,17 @@ export async function processIncomingMessage(body: EvolutionWebhookBody) {
 
   // 2. Upsert do WhatsAppContact
   let contact = await prisma.whatsAppContact.upsert({
-    where: { remoteJid },
+    where: { remoteJid_barbershopId: { remoteJid, barbershopId } },
     update: {
       lastSeenAt: timestampDate,
       ...(pushName ? { pushName } : {}),
-      ...(phoneDigits ? { phone: phoneDigits } : {})
+      ...(phoneDigits ? { phone: phoneDigits } : {}),
+      instanceId: whatsappInstanceId
     },
     create: {
       remoteJid,
+      barbershopId,
+      instanceId: whatsappInstanceId,
       phone: phoneDigits || null,
       pushName,
       firstSeenAt: timestampDate,
@@ -44,7 +51,10 @@ export async function processIncomingMessage(body: EvolutionWebhookBody) {
   if (!contact.userId && last9Digits.length === 9) {
     const user = await prisma.user.findFirst({
       where: {
-        phone: { endsWith: last9Digits }
+        phone: { endsWith: last9Digits },
+        // NOTA: O modelo User no schema.prisma é global e não possui o campo barbershopId.
+        // Se quisermos restringir apenas a clientes que já agendaram ou são clientes da barbearia específica,
+        // podemos adicionar uma checagem em appointments ou subscriptions no futuro.
       }
     });
 
@@ -66,6 +76,8 @@ export async function processIncomingMessage(body: EvolutionWebhookBody) {
     create: {
       evolutionId,
       contactId: contact.id,
+      barbershopId,
+      instanceId: whatsappInstanceId,
       fromMe,
       messageType,
       textContent,

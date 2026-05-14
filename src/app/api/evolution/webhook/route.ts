@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { PrismaClient } from "@prisma/client";
 import { processIncomingMessage } from "@/lib/whatsapp/process-incoming";
 import { EvolutionWebhookBody } from "@/lib/whatsapp/types";
+
+const prisma = new PrismaClient();
 
 // Inicialização: Avisar se a chave da API não estiver configurada
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "";
@@ -56,6 +59,17 @@ export async function POST(req: NextRequest) {
     console.log(`➡️ Instância: ${instance}`);
     console.log(`➡️ Evento: ${event}`);
 
+    // Fazer lookup da instância para multi-tenant
+    const whatsappInstance = await prisma.whatsAppInstance.findUnique({
+      where: { evolutionInstanceName: instance },
+      include: { barbershop: true }
+    });
+
+    if (!whatsappInstance) {
+      console.warn(`⚠️ [Evolution Webhook] Webhook recebido de instância desconhecida: ${instance}`);
+      return NextResponse.json({ received: false, reason: "unknown_instance" }, { status: 200 });
+    }
+
     // Extração específica para messages.upsert
     if (event === "messages.upsert") {
       const messageData = data;
@@ -77,10 +91,14 @@ export async function POST(req: NextRequest) {
         console.log(`   - Tipo: ${messageType}`);
         console.log(`   - Texto: "${text}"`);
 
-        // Integração com banco de dados (salvar conversa)
+        // Integração com banco de dados (salvar conversa - Multi-tenant)
         if (messageData.key && !messageData.key.fromMe) {
           try {
-            const result = await processIncomingMessage(body);
+            const result = await processIncomingMessage(
+              body, 
+              whatsappInstance.barbershopId, 
+              whatsappInstance.id
+            );
             console.log(`💾 Salvo: contact ${result.contactId}, message ${result.messageId}, vinculado a user: ${result.linked ? 'sim' : 'não'}`);
           } catch (processError) {
             console.error("❌ [Evolution Webhook] Erro ao salvar mensagem no banco:", processError);
