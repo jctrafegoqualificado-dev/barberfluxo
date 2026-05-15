@@ -70,6 +70,7 @@ model Barbershop {
   whatsappInstance WhatsAppInstance?
   whatsappContacts WhatsAppContact[]
   whatsappMessages WhatsAppMessage[]
+  saasPayments     Payment[]
 }
 
 model WhatsAppInstance {

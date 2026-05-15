@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/auth";
 import NotificationBell from "@/components/layout/NotificationBell";
 import {
   LayoutDashboard, Calendar, Users, Scissors, CreditCard,
-  Package, Settings, LogOut, ChevronRight, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X
+  Package, Settings, LogOut, ChevronRight, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown
 } from "lucide-react";
 import { useState } from "react";
 
@@ -25,6 +25,7 @@ const ownerNav = [
   { href: "/painel/produtos", label: "Produtos", icon: Package },
   { href: "/painel/clientes", label: "Clientes", icon: Users },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
+  { href: "/painel/assinatura", label: "Minha Assinatura", icon: Crown },
 ];
 
 const barberNav = [

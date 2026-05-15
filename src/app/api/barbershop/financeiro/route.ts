@@ -116,6 +116,7 @@ export async function GET(req: NextRequest) {
       debitFee,
       creditFee,
       reminderMinutes,
+      saasPlan: shop?.saasPlan ?? "BASIC",
       avulso: {
         bruto: avulsoBrutoTotal,
         liquido: avulsoLiquidoTotal,
