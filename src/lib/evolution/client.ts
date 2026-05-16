@@ -272,6 +272,12 @@ export async function sendMessage(
         body: JSON.stringify({
           number: jid,
           text: text.trim(),
+          options: {
+            delay: 1200,
+            presence: "composing",
+            linkPreview: false,
+            checkContact: false // <--- O PULO DO GATO! Desativa a checagem que está falhando
+          }
         }),
       }
     );
