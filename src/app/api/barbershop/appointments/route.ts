@@ -164,7 +164,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // ── Automação de WhatsApp: Confirmação de Status ──
-    if (status === "DONE" || status === "CANCELLED") {
+    if ((status === "DONE" || status === "CANCELLED") && appointment.client.phone) {
       const msg = status === "DONE" 
         ? `✅ *Atendimento Concluído!*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu atendimento no *${appointment.barbershop.name}* foi finalizado. Obrigado pela preferência! 🙏`
         : `⚠️ *Agendamento Cancelado*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu agendamento para o dia ${format(new Date(appointment.date), "dd/MM")} às ${appointment.startTime} foi cancelado. Se houver dúvidas, entre em contato.`;
