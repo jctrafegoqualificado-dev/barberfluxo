@@ -309,7 +309,16 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
         where: { phone: phoneDigits }
       });
 
-      if (!user) {
+      if (user) {
+        clientId = user.id;
+        // Se o usuário foi "excluído" no passado, vamos recuperar o nome dele
+        if (user.name.includes("[Excluído]") || user.name === "Cliente WhatsApp") {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { name: contact?.pushName || "Cliente WhatsApp" }
+          });
+        }
+      } else {
         // Criar usuário cliente básico
         user = await prisma.user.create({
           data: {
@@ -320,8 +329,8 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
             role: "CLIENT"
           }
         });
+        clientId = user.id;
       }
-      clientId = user.id;
 
       // Vincular contato ao usuário
       if (contact) {
@@ -352,7 +361,7 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
         startTime: data.startTime,
         endTime: endTime,
         price: service.price,
-        status: "PENDING"
+        status: "CONFIRMED"
       }
     });
 
