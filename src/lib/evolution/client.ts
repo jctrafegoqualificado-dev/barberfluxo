@@ -259,12 +259,10 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Para Evolution v2.2.3, o payload precisa ser muito limpo. 
-    // Alguns campos como 'delay' no topo podem causar Bad Request se não estiverem em 'options'.
-    const jid = number.includes("@") ? number : `${number.replace(/\D/g, "")}@s.whatsapp.net`;
-    const numberToSend = jid.includes("@lid") ? jid : jid.split("@")[0];
+    // Tentativa final de formato para v2.2.3: Número limpo + texto simples + linkPreview obrigatório
+    const cleanNumber = number.split("@")[0].replace(/\D/g, "");
     
-    console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName} (v2.2.3 mode)`);
+    console.log(`✉️ [Evolution] Sending message to ${cleanNumber} via ${instanceName} (v2.2.3 mode)`);
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
@@ -272,10 +270,9 @@ export async function sendMessage(
         method: "POST",
         headers: headers(customApiKey),
         body: JSON.stringify({
-          number: numberToSend,
-          textMessage: {
-            text: text.trim(),
-          },
+          number: cleanNumber,
+          text: text.trim(),
+          linkPreview: false
         }),
       }
     );
