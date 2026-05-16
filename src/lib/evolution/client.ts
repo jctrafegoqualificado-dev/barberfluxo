@@ -259,8 +259,13 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Formato Completo da v2.2.3 (algumas instalações exigem esse esquema rígido)
-    const jid = number.includes("@") ? number : `${number.replace(/\D/g, "")}@s.whatsapp.net`;
+    // Formato Completo da v2.2.3
+    // PULO DO GATO: Se for @lid, vamos tentar converter para @s.whatsapp.net pois muitas versões da Evolution
+    // não lidam bem com o sufixo @lid no envio, mesmo que recebam bem.
+    let jid = number.includes("@") ? number : `${number.replace(/\D/g, "")}@s.whatsapp.net`;
+    if (jid.includes("@lid")) {
+      jid = jid.replace("@lid", "@s.whatsapp.net");
+    }
     
     console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName} (v2.2.3 Full Schema)`);
 
