@@ -10,9 +10,9 @@ export async function processIncomingMessage(
   const { data } = body;
   if (!data || !data.key) throw new Error("Invalid message data");
 
-  const { fromMe, id: evolutionId } = data.key;
-  // PRIORIDADE: Usar body.sender se existir (geralmente contém o JID real @s.whatsapp.net mesmo em mensagens @lid)
-  const remoteJid = body.sender || data.key.remoteJid || "desconhecido";
+  const { fromMe, id: evolutionId, remoteJid: keyRemoteJid } = data.key;
+  // PRIORIDADE: Usar o remoteJid da chave da mensagem, que é quem enviou (ou para onde enviamos)
+  const remoteJid = keyRemoteJid || body.sender || "desconhecido";
   
   const pushName = data.pushName || null;
   const messageType = data.messageType || "unknown";
