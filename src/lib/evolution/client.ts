@@ -271,16 +271,7 @@ export async function sendMessage(
         headers: headers(customApiKey),
         body: JSON.stringify({
           number: jid,
-          options: {
-            delay: 1200,
-            presence: "composing",
-            linkPreview: false
-          },
-          textMessage: {
-            text: text.trim()
-          },
-          // Algumas versões usam 'message' em vez de 'textMessage'
-          message: text.trim() 
+          text: text.trim(),
         }),
       }
     );
