@@ -38,7 +38,7 @@ async function runMaintenance() {
         where: { barbershopId: sub.barbershopId }
       });
 
-      if (instance && instance.status === "CONNECTED") {
+      if (instance && instance.status === "CONNECTED" && sub.client.phone) {
         const message = `Olá *${sub.client.name.split(" ")[0]}*! 💈\n\nSua assinatura no *${sub.barbershop.name}* venceu em ${format(new Date(sub.nextBillingDate), "dd/MM")}.\n\nPara continuar utilizando os benefícios do seu plano, por favor, regularize o pagamento na sua próxima visita ou via PIX. 💸\n\nQualquer dúvida, estamos à disposição!`;
         
         // Limpa o número para o padrão WhatsApp (somente dígitos + @s.whatsapp.net)
@@ -78,7 +78,7 @@ async function runMaintenance() {
         where: { barbershopId: appt.barbershopId }
       });
 
-      if (instance && instance.status === "CONNECTED") {
+      if (instance && instance.status === "CONNECTED" && appt.client.phone) {
         const servicesStr = appt.services.map(s => s.service.name).join(" + ");
         const message = `Olá *${appt.client.name.split(" ")[0]}*! ✂️\n\nLembrete do seu agendamento no *${appt.barbershop.name}*:\n\n📅 *Amanhã, ${format(new Date(appt.date), "dd/MM", { locale: ptBR })}*\n⏰ Às *${appt.startTime}*\n👤 Barbeiro: *${appt.barber.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! Se precisar desmarcar, avise com antecedência. 🙏`;
         
@@ -91,7 +91,7 @@ async function runMaintenance() {
           where: { id: appt.id },
           data: { reminderSent: true }
         });
-        console.log(`✉️ [Job] Lembrete enviado para ${appt.client.name}`);
+        console.log(`✉️ [Job] Lembrete enviado para ${appt.client.phone}`);
       }
     }
 
