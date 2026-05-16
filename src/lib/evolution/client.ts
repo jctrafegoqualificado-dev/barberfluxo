@@ -273,8 +273,9 @@ export async function sendMessage(
         headers: headers(customApiKey),
         body: JSON.stringify({
           number: numberToSend,
-          text: text.trim(),
-          // Removendo delay e linkPreview do topo para evitar Bad Request na v2
+          textMessage: {
+            text: text.trim(),
+          },
         }),
       }
     );
