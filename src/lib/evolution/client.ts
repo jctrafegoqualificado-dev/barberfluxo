@@ -3,9 +3,9 @@ const EVOLUTION_GLOBAL_API_KEY = process.env.EVOLUTION_GLOBAL_API_KEY || "";
 
 const TIMEOUT_MS = 15000;
 
-function headers(): Record<string, string> {
+function headers(customApiKey?: string): Record<string, string> {
   return {
-    "apikey": EVOLUTION_GLOBAL_API_KEY,
+    "apikey": customApiKey || EVOLUTION_GLOBAL_API_KEY,
     "Content-Type": "application/json",
   };
 }
