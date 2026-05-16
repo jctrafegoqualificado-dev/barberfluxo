@@ -168,10 +168,13 @@ export function useWhatsAppInstance() {
     }
   }, [safeSetState]);
 
-  const provision = useCallback(async () => {
+  const provision = useCallback(async (manualData?: { instanceName: string; token: string }) => {
     safeSetAction({ kind: "running", action: "provision" });
     try {
-      const res = await fetch("/api/whatsapp/provision", { method: "POST" });
+      const res = await fetch("/api/whatsapp/provision", { 
+        method: "POST",
+        body: manualData ? JSON.stringify(manualData) : undefined
+      });
       const data = await asJson<ProvisionResponse>(res);
       safeSetState({
         kind: "pending",

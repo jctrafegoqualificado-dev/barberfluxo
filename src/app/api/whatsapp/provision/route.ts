@@ -10,6 +10,11 @@ export async function POST(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
 
+    // 0. Ler corpo da requisição (opcional para conexão manual)
+    const body = await req.json().catch(() => ({}));
+    const manualInstanceName = body.instanceName?.trim();
+    const manualToken = body.token?.trim();
+
     // 1. Buscar barbershop
     const barbershop = await prisma.barbershop.findUnique({
       where: { id: barbershopId },
@@ -33,7 +38,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (existing) {
-      if (existing.status === "CONNECTED") {
+      // Se for a mesma instância manual que já está conectada, avisar
+      if (existing.status === "CONNECTED" && (!manualInstanceName || existing.evolutionInstanceName === manualInstanceName)) {
         return NextResponse.json(
           { error: "Already connected. Disconnect first to re-provision" },
           { status: 409 }
@@ -45,27 +51,35 @@ export async function POST(req: NextRequest) {
       await prisma.whatsAppInstance.delete({ where: { id: existing.id } });
     }
 
-    // 4. Gerar nome da instância
-    const instanceName = `${barbershop.slug}-${barbershop.id.slice(0, 6)}`;
+    let instanceName = manualInstanceName;
+    let token = manualToken;
+    let qrcodeBase64 = null;
 
-    // Cleanup preventivo: tentar deletar da Evolution caso exista lá (mesmo que não esteja no nosso banco)
-    // Isso evita o erro "Forbidden" ou "Conflict" se houver uma instância órfã na VPS.
-    await evolution.deleteInstance(instanceName).catch(() => {});
+    if (manualInstanceName && manualToken) {
+      // CONEXÃO MANUAL (Instância já criada no Evolution)
+      console.log(`🔗 [Provision] Connecting manually to instance: ${instanceName}`);
+    } else {
+      // CRIAÇÃO AUTOMÁTICA (Fluxo padrão)
+      instanceName = `${barbershop.slug}-${barbershop.id.slice(0, 6)}`;
+      
+      // Cleanup preventivo: tentar deletar da Evolution caso exista lá (mesmo que não esteja no nosso banco)
+      await evolution.deleteInstance(instanceName).catch(() => {});
 
-    // 5. Criar instância no Evolution
-    const createResult = await evolution.createInstance(instanceName);
-    if ("error" in createResult) {
-      return NextResponse.json(
-        { error: `Failed to create instance: ${createResult.error}` },
-        { status: 502 }
-      );
+      // 5. Criar instância no Evolution
+      const createResult = await evolution.createInstance(instanceName);
+      if ("error" in createResult) {
+        return NextResponse.json(
+          { error: `Failed to create instance: ${createResult.error}` },
+          { status: 502 }
+        );
+      }
+      token = createResult.token;
+      qrcodeBase64 = createResult.qrcodeBase64;
     }
 
-    // 6. Configurar webhook
+    // 6. Configurar webhook (Sempre configurar para garantir que o bot ouça esta instância)
     const webhookResult = await evolution.setWebhook(instanceName, WEBHOOK_URL);
     if ("error" in webhookResult) {
-      // Rollback: tentar remover instância criada
-      await evolution.logoutInstance(instanceName).catch(() => {});
       return NextResponse.json(
         { error: `Failed to configure webhook: ${webhookResult.error}` },
         { status: 502 }
@@ -77,18 +91,18 @@ export async function POST(req: NextRequest) {
       data: {
         barbershopId,
         evolutionInstanceName: instanceName,
-        evolutionToken: createResult.token,
-        status: "PENDING",
-        lastQrCode: createResult.qrcodeBase64 || null,
+        evolutionToken: token,
+        status: "PENDING", // Começa como pending para o polling verificar o status real
+        lastQrCode: qrcodeBase64 || null,
       },
     });
 
     // 8. Retornar sucesso
     return NextResponse.json({
       instanceName: instance.evolutionInstanceName,
-      qrcode: createResult.qrcodeBase64,
+      qrcode: qrcodeBase64,
       status: "PENDING",
-      message: "Scan QR code with WhatsApp to connect",
+      message: manualInstanceName ? "Manual connection successful" : "Scan QR code with WhatsApp to connect",
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Internal error";
