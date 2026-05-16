@@ -259,10 +259,10 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Tentativa final de formato para v2.2.3: Número limpo + texto simples + linkPreview obrigatório
-    const cleanNumber = number.split("@")[0].replace(/\D/g, "");
+    // Formato Completo da v2.2.3 (algumas instalações exigem esse esquema rígido)
+    const jid = number.includes("@") ? number : `${number.replace(/\D/g, "")}@s.whatsapp.net`;
     
-    console.log(`✉️ [Evolution] Sending message to ${cleanNumber} via ${instanceName} (v2.2.3 mode)`);
+    console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName} (v2.2.3 Full Schema)`);
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
@@ -270,9 +270,15 @@ export async function sendMessage(
         method: "POST",
         headers: headers(customApiKey),
         body: JSON.stringify({
-          number: cleanNumber,
-          text: text.trim(),
-          linkPreview: false
+          number: jid,
+          options: {
+            delay: 1200,
+            presence: "composing",
+            linkPreview: false
+          },
+          textMessage: {
+            text: text.trim()
+          }
         }),
       }
     );
