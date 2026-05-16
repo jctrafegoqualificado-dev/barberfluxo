@@ -258,10 +258,11 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Para Evolution v2, o ideal é mandar apenas os números limpos no campo 'number'
+    // Para Evolution v2 com Baileys, muitas vezes o sufixo é obrigatório no campo 'number'
     const cleanNumber = number.replace(/\D/g, "");
+    const jid = `${cleanNumber}@s.whatsapp.net`;
     
-    console.log(`✉️ [Evolution] Sending message to ${cleanNumber} via ${instanceName}`);
+    console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName}`);
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
@@ -269,7 +270,7 @@ export async function sendMessage(
         method: "POST",
         headers: headers(),
         body: JSON.stringify({
-          number: cleanNumber,
+          number: jid,
           text: text.trim(),
           delay,
           linkPreview: false,
