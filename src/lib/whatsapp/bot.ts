@@ -13,7 +13,9 @@ export async function handleWhatsAppBot(
   instanceName: string,
   apiKey?: string
 ) {
+  console.log(`🤖 [Bot] Handling for JID: ${phoneNumber}`);
   const cleanText = text.toLowerCase().trim();
+
 
   // 1. Buscar ou Criar Sessão
   let session = await prisma.whatsAppSession.findUnique({

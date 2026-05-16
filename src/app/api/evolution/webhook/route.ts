@@ -62,9 +62,9 @@ export async function POST(req: NextRequest) {
     const { event, data } = body;
 
     // g. Logar evento de forma legível
-    console.log(`\n🟢 [Evolution Webhook] Novo Evento Recebido`);
+    console.log(`\n🚀 [Webhook Route] Triggered - Event: ${event}`);
     console.log(`➡️ Instância: ${instanceName}`);
-    console.log(`➡️ Evento: ${event}`);
+
 
     // Extração específica para messages.upsert
     if (event === "messages.upsert") {

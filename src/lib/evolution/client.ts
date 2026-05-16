@@ -1,5 +1,6 @@
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "";
 const EVOLUTION_GLOBAL_API_KEY = process.env.EVOLUTION_GLOBAL_API_KEY || "";
+console.log("🚀 [Evolution Client] VERSION 1.1 - LOADED");
 
 const TIMEOUT_MS = 15000;
 
@@ -259,15 +260,14 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Formato Completo da v2.2.3
-    // PULO DO GATO: Se for @lid, vamos tentar converter para @s.whatsapp.net pois muitas versões da Evolution
-    // não lidam bem com o sufixo @lid no envio, mesmo que recebam bem.
+    // v2.2.3 - PRESERVANDO JID ORIGINAL (NÃO SUBSTITUIR @LID)
     let jid = number.includes("@") ? number : `${number.replace(/\D/g, "")}@s.whatsapp.net`;
-    if (jid.includes("@lid")) {
-      jid = jid.replace("@lid", "@s.whatsapp.net");
-    }
     
-    console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName} (v2.2.3 Full Schema)`);
+    console.log(`✉️ [EVOLUTION-V2-FIX] Sending to: ${jid}`);
+
+
+
+
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
@@ -276,14 +276,18 @@ export async function sendMessage(
         headers: headers(customApiKey),
         body: JSON.stringify({
           number: jid,
-          text: text.trim(),
+          text: text.trim(), // Legado
+          textMessage: {
+            text: text.trim() // v2.2.3+
+          },
           options: {
             delay: 1200,
             presence: "composing",
             linkPreview: false,
-            checkContact: false // <--- O PULO DO GATO! Desativa a checagem que está falhando
+            checkContact: false
           }
         }),
+
       }
     );
 
@@ -303,6 +307,7 @@ export async function sendMessage(
 }
 
 // 7. Enviar Lista Interativa
+
 export async function sendList(
   instanceName: string,
   number: string,

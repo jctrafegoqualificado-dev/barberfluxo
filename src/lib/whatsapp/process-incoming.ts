@@ -11,8 +11,9 @@ export async function processIncomingMessage(
   if (!data || !data.key) throw new Error("Invalid message data");
 
   const { fromMe, id: evolutionId, remoteJid: keyRemoteJid } = data.key;
-  // PRIORIDADE: Usar o remoteJid da chave da mensagem, que é quem enviou (ou para onde enviamos)
   const remoteJid = keyRemoteJid || body.sender || "desconhecido";
+  console.log(`📥 [Process] Received JID: ${remoteJid}`);
+
   
   const pushName = data.pushName || null;
   const messageType = data.messageType || "unknown";
