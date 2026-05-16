@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/auth";
 import NotificationBell from "@/components/layout/NotificationBell";
 import {
   LayoutDashboard, Calendar, Users, Scissors, CreditCard,
-  Package, Settings, LogOut, ChevronRight, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown
+  Package, Settings, LogOut, ChevronRight, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare
 } from "lucide-react";
 import { useState } from "react";
 
@@ -24,6 +24,7 @@ const ownerNav = [
   { href: "/painel/kanban", label: "Kanban", icon: KanbanSquare },
   { href: "/painel/produtos", label: "Produtos", icon: Package },
   { href: "/painel/clientes", label: "Clientes", icon: Users },
+  { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
   { href: "/painel/assinatura", label: "Minha Assinatura", icon: Crown },
 ];
