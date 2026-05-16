@@ -431,8 +431,61 @@ function DisconnectedView({
   instanceName: string;
   lastConnectedAt: string | null;
   loading: boolean;
-  onReconnect: () => void;
+  onReconnect: (manualData?: { instanceName: string; token: string }) => void;
 }) {
+  const [manualMode, setManualMode] = useState(false);
+  const [name, setName] = useState("");
+  const [token, setToken] = useState("");
+
+  if (manualMode) {
+    return (
+      <div className="flex flex-col py-2">
+        <h2 className="text-lg font-medium text-gray-900 mb-4 text-center">
+          Trocar Instância (Manual)
+        </h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Novo Nome da Instância</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ex: barbearia-producao"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Novo Token (API Key)</label>
+            <input
+              type="text"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Cole o token da Evolution aqui"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              type="button"
+              disabled={loading || !name || !token}
+              onClick={() => onReconnect({ instanceName: name, token })}
+              className="w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {loading ? "Conectando..." : "Salvar e Conectar Nova"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setManualMode(false)}
+              className="w-full text-sm text-gray-500 hover:text-gray-700 py-1"
+            >
+              Voltar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center text-center py-4">
       <div className="rounded-full bg-gray-100 p-3">
@@ -443,7 +496,7 @@ function DisconnectedView({
       </h2>
       <p className="mt-2 max-w-md text-sm text-gray-600">
         A instância foi desconectada. Clique em <strong>Reconectar</strong>{" "}
-        para gerar um novo QR Code.
+        para usar a antiga ou <strong>Trocar Instância</strong> para usar uma nova.
       </p>
 
       {lastConnectedAt && (
@@ -452,15 +505,25 @@ function DisconnectedView({
         </p>
       )}
 
-      <button
-        type="button"
-        disabled={loading}
-        onClick={onReconnect}
-        className="mt-5 inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
-      >
-        {loading && <Spinner className="h-4 w-4" />}
-        Reconectar
-      </button>
+      <div className="mt-5 flex flex-col gap-3 w-full max-w-xs">
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => onReconnect()}
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+        >
+          {loading && <Spinner className="h-4 w-4" />}
+          Reconectar Atual
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setManualMode(true)}
+          className="text-sm text-emerald-600 font-medium hover:text-emerald-700"
+        >
+          Trocar para Instância Manual
+        </button>
+      </div>
 
       <p className="mt-3 text-xs text-gray-400">
         Instância anterior: <code className="font-mono">{instanceName}</code>
