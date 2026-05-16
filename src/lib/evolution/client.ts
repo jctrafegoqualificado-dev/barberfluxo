@@ -259,11 +259,11 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Para Evolution v2 com Baileys, muitas vezes o sufixo é obrigatório no campo 'number'
+    // Para Evolution v2.2.3, o payload precisa ser bem específico
     const cleanNumber = number.replace(/\D/g, "");
     const jid = `${cleanNumber}@s.whatsapp.net`;
     
-    console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName}`);
+    console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName} (v2.2.3 mode)`);
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
@@ -273,8 +273,8 @@ export async function sendMessage(
         body: JSON.stringify({
           number: jid,
           text: text.trim(),
-          delay,
           linkPreview: false,
+          delay: delay
         }),
       }
     );
@@ -320,6 +320,7 @@ export async function sendList(
           title,
           description,
           buttonText,
+          footerText: "",
           sections,
         }),
       }
@@ -357,6 +358,7 @@ export async function sendButtons(
           number: jid,
           title,
           description,
+          footer: "",
           buttons,
         }),
       }
