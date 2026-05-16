@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
     // Encontra ou cria o cliente (Busca por dígitos limpos)
     const phoneDigits = clientPhone.replace(/\D/g, "");
     const clients = await prisma.user.findMany({ where: { role: "CLIENT" } });
-    let client = clients.find(c => c.phone.replace(/\D/g, "") === phoneDigits);
+    let client = clients.find(c => c.phone && c.phone.replace(/\D/g, "") === phoneDigits);
 
     if (!client) {
       const email = `${phoneDigits}@cliente.barberfluxo.com`;
