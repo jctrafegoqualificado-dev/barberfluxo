@@ -26,7 +26,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
       // Busca em memória para sanitizar telefones
       const allClients = await prisma.user.findMany({ where: { role: "CLIENT", id: { not: id } } });
-      const duplicate = allClients.find(c => c.phone.replace(/\D/g, "") === phoneDigits);
+      const duplicate = allClients.find(c => c.phone?.replace(/\D/g, "") === phoneDigits);
       if (duplicate) {
         return NextResponse.json({
           error: `Este telefone já pertence ao cliente "${duplicate.name}". Não é possível duplicar.`,

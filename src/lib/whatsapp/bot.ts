@@ -132,6 +132,21 @@ async function handleServiceSelection(session: any, text: string, instanceName: 
 
 // ... Outros handlers serão implementados conforme o fluxo avança
 
+async function handleDateSelection(session: any, text: string, instanceName: string) {
+  return evolution.sendMessage(instanceName, session.phoneNumber, "Funcionalidade em desenvolvimento (Data).");
+}
+
+async function handleBarberSelection(session: any, text: string, instanceName: string) {
+  return evolution.sendMessage(instanceName, session.phoneNumber, "Funcionalidade em desenvolvimento (Barbeiro).");
+}
+
+async function handleTimeSelection(session: any, text: string, instanceName: string) {
+  return evolution.sendMessage(instanceName, session.phoneNumber, "Funcionalidade em desenvolvimento (Horário).");
+}
+
+async function handleConfirmation(session: any, text: string, instanceName: string) {
+  return evolution.sendMessage(instanceName, session.phoneNumber, "Funcionalidade em desenvolvimento (Confirmação).");
+}
 async function resetSession(session: any) {
   await prisma.whatsAppSession.update({
     where: { id: session.id },

@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     // Inicializa beneficiários se o plano possuir regras para dependentes
     const beneficiaries = Array.isArray(plan.beneficiaryRules)
       ? plan.beneficiaryRules.map((r: any) => ({ name: r.name, maxUses: r.maxUses, uses: 0 }))
-      : null;
+      : undefined;
 
     const subscription = await prisma.subscription.create({
       data: {
