@@ -357,17 +357,27 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
     const endMinutes = startMinutes + service.duration;
     const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
 
-    // 3. Criar agendamento
+    // 3. Verificar assinatura ativa
+    const activeSubscription = await prisma.subscription.findFirst({
+      where: { 
+        clientId: clientId!, 
+        status: "ACTIVE", 
+        barbershopId: session.barbershopId 
+      }
+    });
+
+    // 4. Criar agendamento
     const appointment = await prisma.appointment.create({
       data: {
         barbershopId: session.barbershopId,
         barberId: data.barberId,
         serviceId: data.serviceId,
         clientId: clientId!,
+        subscriptionId: activeSubscription?.id || null, // Vincula a assinatura se existir
         date: new Date(data.date + "T12:00:00"),
         startTime: data.startTime,
         endTime: endTime,
-        price: service.price,
+        price: activeSubscription ? 0 : service.price, // Se for assinante, o valor "avulso" é 0 (contabiliza no plano)
         status: "CONFIRMED"
       }
     });

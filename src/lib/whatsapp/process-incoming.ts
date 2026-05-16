@@ -12,9 +12,13 @@ export async function processIncomingMessage(
 
   const { fromMe, id: evolutionId, remoteJid: keyRemoteJid } = data.key;
   const remoteJid = keyRemoteJid || body.sender || "desconhecido";
-  console.log(`📥 [Process] Received JID: ${remoteJid}`);
-
   
+  // Lógica Sênior: Se for @lid, tentamos pegar o número real em remoteJidAlt
+  const remoteJidAlt = (data.key as any).remoteJidAlt;
+  const realJid = (remoteJid.includes("@lid") && remoteJidAlt) ? remoteJidAlt : remoteJid;
+
+  console.log(`📥 [Process] Received JID: ${remoteJid}${remoteJidAlt ? ` (Alt: ${remoteJidAlt})` : ""}`);
+ 
   const pushName = data.pushName || null;
   const messageType = data.messageType || "unknown";
   
@@ -25,8 +29,8 @@ export async function processIncomingMessage(
 
   const timestampDate = new Date(data.messageTimestamp * 1000);
 
-  // Extrair telefone (somente números) do remoteJid
-  const phoneDigits = remoteJid.split("@")[0].replace(/\D/g, "");
+  // Extrair telefone (somente números) do realJid (que agora é o número verdadeiro se for @lid)
+  const phoneDigits = realJid.split("@")[0].replace(/\D/g, "");
   const last9Digits = phoneDigits.slice(-9);
 
   // 2. Upsert do WhatsAppContact
@@ -95,7 +99,7 @@ export async function processIncomingMessage(
     if (instance) {
       try {
         const result = await handleWhatsAppBot(
-          remoteJid,
+          realJid, // Usamos o JID Real (com telefone) para a lógica e sessão
           textContent,
           barbershopId,
           instance.evolutionInstanceName,
