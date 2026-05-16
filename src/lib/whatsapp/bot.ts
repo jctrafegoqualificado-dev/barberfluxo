@@ -59,6 +59,7 @@ export async function handleWhatsAppBot(
 async function startScheduling(session: any, instanceName: string) {
   const services = await prisma.service.findMany({
     where: { barbershopId: session.barbershopId, active: true },
+    orderBy: { price: "asc" },
     take: 10,
   });
 
@@ -66,45 +67,39 @@ async function startScheduling(session: any, instanceName: string) {
     return evolution.sendMessage(instanceName, session.phoneNumber, "Desculpe, não encontrei serviços disponíveis no momento. Entre em contato com a barbearia.");
   }
 
-  const sections = [
-    {
-      title: "Serviços Disponíveis",
-      rows: services.map((s, idx) => ({
-        title: s.name,
-        description: `R$ ${s.price.toFixed(2)} · ${s.duration}min`,
-        rowId: `svc_${s.id}`,
-      })),
-    },
-  ];
+  let menu = "✂️ *Escolha o Serviço*\n\nPor favor, digite o *NÚMERO* do serviço que deseja:\n\n";
+  services.forEach((s, idx) => {
+    menu += `*${idx + 1}* - ${s.name} (R$ ${s.price.toFixed(2)})\n`;
+  });
+  menu += "\nDigite apenas o número.";
 
   await prisma.whatsAppSession.update({
     where: { id: session.id },
     data: { state: "SELECTING_SERVICE" },
   });
 
-  return evolution.sendList(
-    instanceName,
-    session.phoneNumber,
-    "Escolha o Serviço",
-    "Por favor, selecione o serviço que deseja realizar:",
-    "Ver Serviços",
-    sections
-  );
+  return evolution.sendMessage(instanceName, session.phoneNumber, menu);
 }
 
 async function handleServiceSelection(session: any, text: string, instanceName: string) {
-  // A Evolution envia o rowId no payload, mas aqui estamos simplificando por texto por enquanto
-  // Em uma implementação real, o webhook passaria o rowId extraído.
-  // Vou simular buscando pelo nome se for texto.
-  const service = await prisma.service.findFirst({
-    where: { 
-      barbershopId: session.barbershopId, 
-      name: { mode: "insensitive", contains: text } 
-    }
+  const services = await prisma.service.findMany({
+    where: { barbershopId: session.barbershopId, active: true },
+    orderBy: { price: "asc" },
+    take: 10,
   });
 
+  // Tentar encontrar por número (índice 1-based) ou por nome
+  let service = null;
+  const index = parseInt(text) - 1;
+
+  if (!isNaN(index) && services[index]) {
+    service = services[index];
+  } else {
+    service = services.find(s => s.name.toLowerCase().includes(text));
+  }
+
   if (!service) {
-    return evolution.sendMessage(instanceName, session.phoneNumber, "Não entendi qual serviço você escolheu. Por favor, clique na lista e selecione um.");
+    return evolution.sendMessage(instanceName, session.phoneNumber, "Não entendi qual serviço você escolheu. Por favor, digite o *número* correspondente ao serviço.");
   }
 
   await prisma.whatsAppSession.update({
@@ -115,19 +110,13 @@ async function handleServiceSelection(session: any, text: string, instanceName: 
     }
   });
 
-  const buttons = [
-    { buttonId: "date_0", buttonText: { displayText: "Hoje" }, type: 1 },
-    { buttonId: "date_1", buttonText: { displayText: "Amanhã" }, type: 1 },
-    { buttonId: "date_custom", buttonText: { displayText: "Outra Data" }, type: 1 },
-  ];
+  let dateMenu = `✅ *${service.name}* selecionado!\n\nAgora, para *QUAL DIA* você deseja agendar?\n\n`;
+  dateMenu += "*1* - Hoje\n";
+  dateMenu += "*2* - Amanhã\n";
+  dateMenu += "*3* - Outra data\n\n";
+  dateMenu += "Digite o número da opção.";
 
-  return evolution.sendButtons(
-    instanceName,
-    session.phoneNumber,
-    "Para quando?",
-    `Ótima escolha! Você selecionou: *${service.name}*.\nPara qual dia deseja agendar?`,
-    buttons
-  );
+  return evolution.sendMessage(instanceName, session.phoneNumber, dateMenu);
 }
 
 // ... Outros handlers serão implementados conforme o fluxo avança
