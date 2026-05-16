@@ -275,14 +275,9 @@ export async function sendMessage(
         headers: headers(),
         body: JSON.stringify({
           number: jid,
-          options: {
-            delay,
-            presence: "composing",
-            linkPreview: false,
-          },
-          textMessage: {
-            text: text.trim(),
-          },
+          text: text.trim(),
+          delay,
+          linkPreview: false,
         }),
       }
     );
