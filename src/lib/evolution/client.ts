@@ -259,11 +259,9 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Para Evolution v2.2.3, o payload precisa ser bem específico
+    // Para Evolution v2.2.3, o payload precisa ser muito limpo. 
+    // Alguns campos como 'delay' no topo podem causar Bad Request se não estiverem em 'options'.
     const jid = number.includes("@") ? number : `${number.replace(/\D/g, "")}@s.whatsapp.net`;
-    
-    // Para IDs @lid ou outros JIDs completos, enviamos o JID inteiro no campo 'number'
-    // A Evolution API aceita o JID completo no campo number.
     const numberToSend = jid.includes("@lid") ? jid : jid.split("@")[0];
     
     console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName} (v2.2.3 mode)`);
@@ -276,8 +274,7 @@ export async function sendMessage(
         body: JSON.stringify({
           number: numberToSend,
           text: text.trim(),
-          linkPreview: false,
-          delay: delay
+          // Removendo delay e linkPreview do topo para evitar Bad Request na v2
         }),
       }
     );
