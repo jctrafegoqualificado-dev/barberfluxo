@@ -303,19 +303,26 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
     let clientId = contact?.userId;
 
     if (!clientId) {
-      // Se não tem usuário vinculado, procura por telefone ou cria um
-      const phoneDigits = session.phoneNumber.split("@")[0];
+      // Normalização do telefone para busca (com e sem 55)
+      const fullPhone = session.phoneNumber.split("@")[0]; // Ex: 554199306101
+      const shortPhone = fullPhone.startsWith("55") ? fullPhone.substring(2) : fullPhone; // Ex: 4199306101
+
       let user = await prisma.user.findFirst({
-        where: { phone: phoneDigits }
+        where: { 
+          OR: [
+            { phone: fullPhone },
+            { phone: shortPhone }
+          ]
+        }
       });
 
       if (user) {
         clientId = user.id;
-        // Se o usuário foi "excluído" no passado, vamos recuperar o nome dele
-        if (user.name.includes("[Excluído]") || user.name === "Cliente WhatsApp") {
+        // Se o nome estiver genérico ou excluído, atualiza com o nome do WhatsApp
+        if (user.name.includes("[Excluído]") || user.name === "Cliente WhatsApp" || user.name.toLowerCase().includes("teste")) {
           await prisma.user.update({
             where: { id: user.id },
-            data: { name: contact?.pushName || "Cliente WhatsApp" }
+            data: { name: contact?.pushName || user.name }
           });
         }
       } else {
@@ -323,16 +330,16 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
         user = await prisma.user.create({
           data: {
             name: contact?.pushName || "Cliente WhatsApp",
-            phone: phoneDigits,
-            email: `${phoneDigits}@whatsapp.com`,
-            password: Math.random().toString(36).slice(-8), // Senha aleatória
+            phone: shortPhone,
+            email: `${shortPhone}@whatsapp.com`,
+            password: Math.random().toString(36).slice(-8),
             role: "CLIENT"
           }
         });
         clientId = user.id;
       }
 
-      // Vincular contato ao usuário
+      // Vincular contato ao usuário para as próximas vezes ser instantâneo
       if (contact) {
         await prisma.whatsAppContact.update({
           where: { id: contact.id },
