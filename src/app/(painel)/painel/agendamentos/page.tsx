@@ -338,7 +338,7 @@ function AgendamentoModal({
   const [selectedDate, setSelectedDate] = useState(date);
   const [startTime, setStartTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
-  const [activeSub, setActiveSub] = useState<{ id: string; beneficiaries: any[]; plan: any } | null>(null);
+  const [activeSub, setActiveSub] = useState<{ id: string; beneficiaries: any[]; plan: any; status?: string; nextBillingDate?: string } | null>(null);
   const [beneficiaryName, setBeneficiaryName] = useState("");
 
   function handleSelectBeneficiary(b: any) {
@@ -442,10 +442,10 @@ function AgendamentoModal({
               className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
           </div>
 
-          {activeSub && (activeSub as any)._overdue ? (
+          {activeSub && activeSub.status === "OVERDUE" ? (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
               <p className="text-xs font-bold text-red-700 uppercase tracking-wider">⚠️ Assinatura Vencida</p>
-              <p className="text-xs text-red-600 mt-1">Pagamento pendente desde {new Date(activeSub.nextBillingDate).toLocaleDateString("pt-BR")}. O plano não pode ser utilizado até a regularização.</p>
+              <p className="text-xs text-red-600 mt-1">Pagamento pendente {activeSub.nextBillingDate ? `desde ${new Date(activeSub.nextBillingDate).toLocaleDateString("pt-BR")}` : ""}. O plano não pode ser utilizado até a regularização.</p>
             </div>
           ) : activeSub && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
