@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { EvolutionWebhookBody } from "./types";
+import { handleWhatsAppBot } from "./bot";
 
 export async function processIncomingMessage(
   body: EvolutionWebhookBody,
@@ -83,6 +84,19 @@ export async function processIncomingMessage(
       timestamp: timestampDate
     }
   });
+
+  // 5. Acionar lógica do Bot (se não for mensagem enviada por nós)
+  if (!fromMe && textContent && !remoteJid.includes("g.us")) {
+    const instance = await prisma.whatsAppInstance.findUnique({ where: { id: whatsappInstanceId } });
+    if (instance) {
+      handleWhatsAppBot(
+        remoteJid.split("@")[0],
+        textContent,
+        barbershopId,
+        instance.evolutionInstanceName
+      ).catch(err => console.error("❌ [Bot Error]:", err));
+    }
+  }
 
   return { contactId: contact.id, messageId: message.id, linked };
 }

@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Calendar, CreditCard, Banknote, Smartphone, X, Lock, Trash2, Plus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
+import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
 
 /* ─── Tipos ─── */
 interface AppointmentServiceItem {
@@ -17,6 +18,7 @@ interface Appointment {
   services: AppointmentServiceItem[];
   barber: { id: string; user: { name: string; phone?: string } };
   subscription: { plan: { name: string } } | null;
+  beneficiaryName: string | null;
 }
 interface Bloqueio {
   id: string; startTime: string; endTime: string; reason: string | null;
@@ -66,7 +68,7 @@ function PaymentModal({
 }: { 
   appt: Appointment; 
   services: any[];
-  onConfirm: (id: string, m: string) => Promise<void>; 
+  onConfirm: (id: string, m: string, p: number) => Promise<void>; 
   onUpdateServices: (id: string, sids: string[]) => Promise<void>;
   onDelete: (id: string) => void; 
   onClose: () => void 
@@ -90,6 +92,18 @@ function PaymentModal({
 
   const totalPrice = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.price, 0);
   const totalDuration = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.duration, 0);
+
+  // Lógica Rígida na Comanda
+  let discount = 0;
+  if (appt.beneficiaryName || appt.subscription) {
+    const coveredService = services.find(s => 
+      selectedServiceIds.includes(s.id) && 
+      s.name.toLowerCase().includes("corte") && 
+      !s.name.toLowerCase().includes("+")
+    );
+    if (coveredService) discount = coveredService.price;
+  }
+  const finalPrice = Math.max(0, totalPrice - discount);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -121,7 +135,15 @@ function PaymentModal({
                 <p className="text-zinc-500 pr-8">
                   {appt.services.length > 0 ? appt.services.map(s => s.service.name).join(" + ") : appt.service?.name} · {appt.barber.user.name}
                 </p>
-                <p className="text-amber-600 font-bold text-lg">{formatCurrency(appt.price)}</p>
+                <p className="text-amber-600 font-bold text-lg">
+                  {discount > 0 ? (
+                    <span className="flex flex-col">
+                      <span className="text-xs text-zinc-400 line-through font-normal">{formatCurrency(totalPrice)}</span>
+                      <span>{formatCurrency(finalPrice)}</span>
+                      <span className="text-[10px] text-green-600 font-medium">Plano aplicado: {services.find(s => s.price === discount)?.name || "Corte"}</span>
+                    </span>
+                  ) : formatCurrency(totalPrice)}
+                </p>
                 
                 <button 
                   onClick={() => setMode("edit")}
@@ -130,16 +152,25 @@ function PaymentModal({
                   <Edit3 className="w-4 h-4" />
                 </button>
               </div>
-
-              <p className="text-sm text-zinc-500 mb-3 font-medium">Forma de pagamento:</p>
-              <div className="grid grid-cols-2 gap-2">
-                {PAYMENT_OPTIONS.map(({ value, label, icon: Icon, color }) => (
-                  <button key={value} onClick={() => setSel(value)}
-                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all active:scale-95 ${sel === value ? color + " ring-2 ring-offset-1 ring-current" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>
-                    <Icon className="w-5 h-5" /><span className="text-sm font-semibold">{label}</span>
-                  </button>
-                ))}
-              </div>
+              
+              {finalPrice === 0 ? (
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4 mt-4 text-center">
+                  <p className="text-green-700 font-medium text-sm mb-1">Atendimento 100% coberto pelo plano</p>
+                  <p className="text-green-600 text-xs">Nenhum pagamento físico é necessário.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-zinc-500 mb-3 font-medium mt-4">Forma de pagamento:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PAYMENT_OPTIONS.map(({ value, label, icon: Icon, color }) => (
+                      <button key={value} onClick={() => setSel(value)}
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all active:scale-95 ${sel === value ? color + " ring-2 ring-offset-1 ring-current" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>
+                        <Icon className="w-5 h-5" /><span className="text-sm font-semibold">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <div className="space-y-3">
@@ -186,11 +217,19 @@ function PaymentModal({
             <>
               <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Cancelar</button>
               <button 
-                onClick={async () => { if (!sel) return; setSaving(true); await onConfirm(appt.id, sel); setSaving(false); onClose(); }}
-                disabled={!sel || saving} 
-                className="flex-[1.5] py-3 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 disabled:opacity-40 active:scale-95 transition-all shadow-md shadow-amber-200"
+                onClick={async () => { 
+                  if (finalPrice > 0 && !sel) return; 
+                  setSaving(true); 
+                  await onConfirm(appt.id, finalPrice === 0 ? "SUBSCRIPTION" : sel!, finalPrice); 
+                  setSaving(false); 
+                  onClose(); 
+                }}
+                disabled={(finalPrice > 0 && !sel) || saving} 
+                className={`flex-[1.5] py-3 rounded-xl text-white text-sm font-bold active:scale-95 transition-all shadow-md ${
+                  finalPrice === 0 ? "bg-green-600 hover:bg-green-700 shadow-green-200" : "bg-amber-500 hover:bg-amber-600 shadow-amber-200"
+                }`}
               >
-                {saving ? "Salvando..." : "Concluir Atendimento"}
+                {saving ? "Salvando..." : finalPrice === 0 ? "Confirmar Uso do Plano" : "Concluir Atendimento"}
               </button>
             </>
           ) : (
@@ -198,7 +237,14 @@ function PaymentModal({
               <button onClick={() => setMode("payment")} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Voltar</button>
               <button 
                 onClick={async () => {
-                  if (selectedServiceIds.length === 0) return alert("Selecione ao menos um serviço");
+                  if (selectedServiceIds.length === 0) {
+                    // Como estamos em um sub-componente, vamos usar o alert por enquanto 
+                    // ou passar o setAlertDialog via props.
+                    // Para manter a simplicidade e garantir que funcione, vou manter o alert aqui
+                    // mas com uma mensagem melhorada.
+                    alert("⚠️ Selecione ao menos um serviço para continuar.");
+                    return;
+                  }
                   setSaving(true);
                   await onUpdateServices(appt.id, selectedServiceIds);
                   setSaving(false);
@@ -292,6 +338,58 @@ function AgendamentoModal({
   const [selectedDate, setSelectedDate] = useState(date);
   const [startTime, setStartTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
+  const [activeSub, setActiveSub] = useState<{ id: string; beneficiaries: any[]; plan: any } | null>(null);
+  const [beneficiaryName, setBeneficiaryName] = useState("");
+
+  function handleSelectBeneficiary(b: any) {
+    if (b.uses >= b.maxUses) return;
+    setBeneficiaryName(b.name);
+
+    // Auto-seleciona serviços do plano se houver
+    if (activeSub?.plan?.planServices) {
+      const planServiceIds = activeSub.plan.planServices.map((ps: any) => ps.serviceId);
+      setSelectedServiceIds(prev => {
+        const newIds = [...prev];
+        planServiceIds.forEach((id: string) => {
+          if (!newIds.includes(id)) newIds.push(id);
+        });
+        return newIds;
+      });
+    }
+  }
+
+  // Busca assinatura ao digitar o telefone
+  useEffect(() => {
+    const phone = clientPhone.replace(/\D/g, "");
+    if (phone.length >= 10) {
+      fetch(`/api/barbershop/subscriptions?phone=${phone}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => {
+          const sub = (d.subscriptions || []).find((s: any) => s.status === "ACTIVE");
+          if (sub && Array.isArray(sub.beneficiaries)) {
+            // Sprint 1: Verifica se está vencida
+            const isOverdue = new Date(sub.nextBillingDate) < new Date();
+            if (isOverdue) {
+              setActiveSub({ ...sub, _overdue: true });
+              setBeneficiaryName("");
+            } else {
+              setActiveSub(sub);
+              setBeneficiaryName(sub.beneficiaries[0]?.name || "");
+            }
+            // Sincroniza o nome do cliente automaticamente
+            if (sub.client?.name && !clientName) {
+              setClientName(sub.client.name);
+            }
+          } else {
+            setActiveSub(null);
+            setBeneficiaryName("");
+          }
+        });
+    } else {
+      setActiveSub(null);
+      setBeneficiaryName("");
+    }
+  }, [clientPhone, token]);
 
   useEffect(() => {
     fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } })
@@ -309,6 +407,21 @@ function AgendamentoModal({
 
   const totalPrice = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.price, 0);
   const totalDuration = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.duration, 0);
+  
+  // Lógica Rígida: O plano só cobre o serviço de "Corte". 
+  // Se o serviço selecionado for o "Corte", ele fica grátis. Todo o restante é cobrado cheio.
+  let discount = 0;
+  if (activeSub && beneficiaryName) {
+    const coveredService = services.find(s => 
+      selectedServiceIds.includes(s.id) && 
+      s.name.toLowerCase().includes("corte") && 
+      !s.name.toLowerCase().includes("+") // Evita combos, foca no serviço puro
+    );
+    if (coveredService) {
+      discount = coveredService.price;
+    }
+  }
+  const finalPrice = Math.max(0, totalPrice - discount);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -328,6 +441,39 @@ function AgendamentoModal({
             <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Ex: 11999999999"
               className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
           </div>
+
+          {activeSub && (activeSub as any)._overdue ? (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
+              <p className="text-xs font-bold text-red-700 uppercase tracking-wider">⚠️ Assinatura Vencida</p>
+              <p className="text-xs text-red-600 mt-1">Pagamento pendente desde {new Date(activeSub.nextBillingDate).toLocaleDateString("pt-BR")}. O plano não pode ser utilizado até a regularização.</p>
+            </div>
+          ) : activeSub && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
+              <label className="block text-xs font-bold text-amber-700 mb-1.5 uppercase tracking-wider">Assinatura Familiar Ativa</label>
+              <div className="flex flex-wrap gap-2">
+                {activeSub.beneficiaries.map((b: any, i: number) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => handleSelectBeneficiary(b)}
+                    disabled={b.uses >= b.maxUses}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                      beneficiaryName === b.name 
+                        ? "bg-amber-500 text-white border-amber-600 shadow-sm" 
+                        : b.uses >= b.maxUses
+                          ? "bg-zinc-50 text-zinc-400 border-zinc-200 cursor-not-allowed"
+                          : "bg-white text-amber-700 border-amber-200 hover:bg-amber-100"
+                    }`}
+                  >
+                    {b.name}
+                    <span className="block text-[10px] opacity-80">
+                      {b.uses >= b.maxUses ? "Cota esgotada" : `${b.uses}/${b.maxUses} usos`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {barbers.length > 0 && (
             <div>
               <label className="block text-xs text-zinc-500 mb-1">Barbeiro</label>
@@ -360,32 +506,65 @@ function AgendamentoModal({
                 })}
               </div>
               {selectedServiceIds.length > 0 && (
-                <div className="flex items-center justify-between mt-2 px-1">
-                  <span className="text-xs text-zinc-500">{selectedServiceIds.length} serviço(s) · {totalDuration}min</span>
-                  <span className="text-sm font-bold text-amber-600">Total: R$ {totalPrice.toFixed(2)}</span>
+                <div className="flex flex-col gap-1 mt-2 px-1">
+                  <div className="flex items-center justify-between text-xs text-zinc-500">
+                    <span>{selectedServiceIds.length} serviço(s) · {totalDuration}min</span>
+                    <span>Subtotal: {formatCurrency(totalPrice)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex items-center justify-between text-xs text-green-600 font-medium">
+                      <span>Desconto Plano ({beneficiaryName})</span>
+                      <span>-{formatCurrency(discount)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-1 border-t border-zinc-100 mt-1">
+                    <span className="text-sm font-bold text-zinc-900">Total a pagar:</span>
+                    <span className="text-lg font-black text-amber-600">{formatCurrency(finalPrice)}</span>
+                  </div>
                 </div>
               )}
             </div>
           )}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-xs text-zinc-500 mb-1">Data</label>
-              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-500 ml-1">Data</label>
+              <div className="relative">
+                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              </div>
             </div>
-            <div className="flex-1">
-              <label className="block text-xs text-zinc-500 mb-1">Horário</label>
-              <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-500 ml-1">Horário de Início</label>
+              <div className="relative">
+                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded uppercase">
+                  Fim: {(() => {
+                    const [h, m] = startTime.split(":").map(Number);
+                    const endTotal = h * 60 + m + totalDuration;
+                    const eh = Math.floor(endTotal / 60);
+                    const em = endTotal % 60;
+                    return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
         </div>
         <div className="px-5 pb-5 flex gap-2">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50">Cancelar</button>
           <button onClick={async () => { 
-            if (!clientName || !clientPhone || selectedServiceIds.length === 0 || !barberId || !selectedDate) return alert("Preencha todos os campos e selecione ao menos um serviço");
+            if (!clientName || !clientPhone || selectedServiceIds.length === 0 || !barberId || !selectedDate) return;
             setSaving(true); 
-            const success = await onConfirm({ clientName, clientPhone, barberId, serviceIds: selectedServiceIds, date: selectedDate, startTime }); 
+            const success = await onConfirm({ 
+              clientName, clientPhone, barberId, 
+              serviceIds: selectedServiceIds, 
+              date: selectedDate, 
+              startTime, 
+              beneficiaryName,
+              price: finalPrice 
+            }); 
             setSaving(false); 
             if (success) onClose(); 
           }}
@@ -411,9 +590,11 @@ export default function AgendamentosPage() {
   const [showBloqueio, setShowBloqueio] = useState(false);
   const [showAgendamento, setShowAgendamento] = useState(false);
   const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void; type?: "danger" | "info" } | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{ title: string; message: string; type?: "info" | "danger" | "success" } | null>(null);
   const [nowPx, setNowPx] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+
 
   /* Carrega dados */
   const load = useCallback(async () => {
@@ -463,11 +644,16 @@ export default function AgendamentosPage() {
   }
 
   /* Ações */
-  async function updateStatus(id: string, status: string, paymentMethod?: string) {
+  async function updateStatus(id: string, status: string, paymentMethod?: string, price?: number) {
     await fetch("/api/barbershop/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id, status, ...(paymentMethod ? { paymentMethod } : {}) }),
+      body: JSON.stringify({ 
+        id, 
+        status, 
+        ...(paymentMethod ? { paymentMethod } : {}),
+        ...(price !== undefined ? { price } : {})
+      }),
     });
     load();
   }
@@ -492,9 +678,18 @@ export default function AgendamentosPage() {
       if (res.status === 409) {
          setEncaixePendingData(data);
          return false; // Mantém o modal original aberto por baixo
+      } else if (res.status === 403) {
+        const err = await res.json();
+        if (err.error === "WEEKLY_LIMIT") {
+          setAlertDialog({ title: "Limite Semanal", message: err.message, type: "danger" });
+          return false;
+        } else if (err.error === "SUBSCRIPTION_OVERDUE") {
+          setAlertDialog({ title: "Assinatura Vencida", message: err.message, type: "danger" });
+          return false;
+        }
       } else if (!res.ok) {
         const err = await res.json();
-        alert("Erro ao salvar: " + (err.error || "Desconhecido"));
+        setAlertDialog({ title: "Erro ao salvar", message: err.error || "Tente novamente mais tarde.", type: "danger" });
         return false;
       }
       
@@ -548,7 +743,7 @@ export default function AgendamentosPage() {
       {/* Modais */}
       {modalAppt && (
         <PaymentModal appt={modalAppt} services={services}
-          onConfirm={async (id, m) => { await updateStatus(id, "DONE", m); }}
+          onConfirm={async (id, m, p) => { await updateStatus(id, "DONE", m, p); }}
           onUpdateServices={async (id, sids) => {
             const res = await fetch("/api/barbershop/appointments", {
               method: "PATCH",
@@ -761,13 +956,33 @@ export default function AgendamentosPage() {
                             left: `calc(${leftPct}% + 4px)`,
                             width: `calc(${widthPct}% - 8px)`
                           }}
-                          onClick={() => { if (a.status === "CONFIRMED" || a.status === "PENDING") setModalAppt(a); }}>
+                          onClick={() => setModalAppt(a)}>
                           <p className={`text-xs font-bold truncate ${s.text}`}>{a.client.name}</p>
-                          {height > ROW_H * 3 && (
-                            <p className={`text-xs truncate opacity-80 ${s.text}`}>{a.services.length > 0 ? a.services.map(x => x.service.name).join(" + ") : a.service?.name}</p>
+                          <div className="flex items-center justify-between gap-1">
+                            <p className={`text-[10px] truncate opacity-80 flex-1 ${s.text}`}>
+                              {a.services.length > 0 ? a.services.map(x => x.service.name).join(" + ") : a.service?.name}
+                            </p>
+                            {(() => {
+                              // Cálculo de desconto na grade
+                              let dnt = 0;
+                              const total = a.price;
+                              if (a.beneficiaryName || a.subscription) {
+                                const covered = a.services.find(xs => 
+                                  xs.service.name.toLowerCase().includes("corte") && 
+                                  !xs.service.name.toLowerCase().includes("+")
+                                );
+                                if (covered) dnt = covered.service.price;
+                              }
+                              return <p className={`text-xs font-black shrink-0 ${s.text}`}>{formatCurrency(Math.max(0, total - dnt))}</p>;
+                            })()}
+                          </div>
+                          {a.beneficiaryName && (
+                            <div className={`mt-0.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider ${s.text} opacity-70`}>
+                              <CreditCard className="w-2.5 h-2.5" /> {a.beneficiaryName}
+                            </div>
                           )}
                           {height > ROW_H * 5 && (
-                            <p className={`text-xs opacity-60 ${s.text}`}>{a.startTime} – {a.endTime}</p>
+                            <p className={`text-[10px] opacity-60 mt-0.5 ${s.text}`}>{a.startTime} – {a.endTime}</p>
                           )}
                           {(a.status === "CONFIRMED" || a.status === "PENDING") && height > ROW_H * 6 && (
                             <button
@@ -876,6 +1091,25 @@ export default function AgendamentosPage() {
           )}
         </div>
       )}
+      <ConfirmDialog
+        isOpen={!!confirmDialog}
+        title={confirmDialog?.title || ""}
+        message={confirmDialog?.message || ""}
+        type={confirmDialog?.type || "danger"}
+        onConfirm={() => {
+          confirmDialog?.onConfirm();
+          setConfirmDialog(null);
+        }}
+        onCancel={() => setConfirmDialog(null)}
+      />
+
+      <AlertDialog
+        isOpen={!!alertDialog}
+        title={alertDialog?.title || ""}
+        message={alertDialog?.message || ""}
+        type={alertDialog?.type}
+        onClose={() => setAlertDialog(null)}
+      />
     </div>
   );
 }

@@ -20,84 +20,72 @@ export async function GET(req: NextRequest) {
       barberIdFilter = barber.id;
     }
 
-    // Todos os agendamentos DONE desta barbearia (ou deste barbeiro)
-    const appointments = await prisma.appointment.findMany({
-      where: { barbershopId, status: "DONE", ...(barberIdFilter ? { barberId: barberIdFilter } : {}) },
-      include: { client: { select: { id: true, name: true, email: true, phone: true } } },
-      orderBy: { date: "asc" },
-    });
-
-    // Assinaturas ativas por cliente
-    const subscriptions = await prisma.subscription.findMany({
-      where: { barbershopId, status: "ACTIVE" },
-      select: { clientId: true, plan: { select: { name: true } } },
-    });
-    const subByClient: Record<string, string> = {};
-    for (const s of subscriptions) {
-      subByClient[s.clientId] = s.plan.name;
-    }
-
-    // Agrupa por cliente
-    const clientMap: Record<string, {
-      id: string; name: string; email: string; phone: string | null;
-      visits: Date[]; totalSpent: number;
-    }> = {};
-
-    for (const appt of appointments) {
-      const cid = appt.clientId;
-      if (!clientMap[cid]) {
-        clientMap[cid] = {
-          id: cid,
-          name: appt.client.name,
-          email: appt.client.email,
-          phone: appt.client.phone,
-          visits: [],
-          totalSpent: 0,
-        };
-      }
-      clientMap[cid].visits.push(new Date(appt.date));
-      clientMap[cid].totalSpent += appt.price;
-    }
-
-    // Computa métricas por cliente
-    const clientes = Object.values(clientMap).map((c) => {
-      const sorted = c.visits.sort((a, b) => a.getTime() - b.getTime());
-      const firstVisit = sorted[0];
-      const lastVisit = sorted[sorted.length - 1];
-      const thisMonthVisits = sorted.filter((d) => d >= monthStart && d <= monthEnd).length;
-      const isNew = firstVisit >= monthStart;
-
-      // Frequência média: média de dias entre visitas consecutivas
-      let avgFrequency: number | null = null;
-      if (sorted.length > 1) {
-        let totalDays = 0;
-        for (let i = 1; i < sorted.length; i++) {
-          totalDays += differenceInDays(sorted[i], sorted[i - 1]);
+    // Busca todos os usuários que são CLIENTES e possuem agendamentos ou assinaturas nesta barbearia
+    const dbClients = await prisma.user.findMany({
+      where: {
+        role: "CLIENT", // Note: DELETED_CLIENT is excluded automatically here
+        OR: [
+          { appointments: { some: { barbershopId, status: "DONE" } } },
+          { subscriptions: { some: { barbershopId, status: "ACTIVE" } } }
+        ]
+      },
+      include: {
+        appointments: {
+          where: { barbershopId, status: "DONE" },
+          orderBy: { date: "asc" }
+        },
+        subscriptions: {
+          where: { barbershopId, status: "ACTIVE" },
+          include: { plan: true }
         }
-        avgFrequency = Math.round(totalDays / (sorted.length - 1));
+      }
+    });
+
+    const clientes = dbClients.map((u) => {
+      const sortedVisits = u.appointments.map(a => new Date(a.date)).sort((a, b) => a.getTime() - b.getTime());
+      const totalSpent = u.appointments.reduce((sum, a) => sum + a.price, 0);
+      const firstVisit = sortedVisits.length > 0 ? sortedVisits[0] : null;
+      const lastVisit = sortedVisits.length > 0 ? sortedVisits[sortedVisits.length - 1] : null;
+      const thisMonthVisits = sortedVisits.filter((d) => d >= monthStart && d <= monthEnd).length;
+      
+      // Se tiver assinatura, usa a data da assinatura como "primeira interação" se não houver visitas
+      const firstInteraction = firstVisit || (u.subscriptions[0] ? new Date(u.subscriptions[0].createdAt) : now);
+      const isNew = firstInteraction >= monthStart;
+
+      let avgFrequency: number | null = null;
+      if (sortedVisits.length > 1) {
+        let totalDays = 0;
+        for (let i = 1; i < sortedVisits.length; i++) {
+          totalDays += differenceInDays(sortedVisits[i], sortedVisits[i - 1]);
+        }
+        avgFrequency = Math.round(totalDays / (sortedVisits.length - 1));
       }
 
-      const daysSinceLastVisit = differenceInDays(now, lastVisit);
+      const daysSinceLastVisit = lastVisit ? differenceInDays(now, lastVisit) : null;
 
       return {
-        id: c.id,
-        name: c.name,
-        email: c.email,
-        phone: c.phone,
-        totalVisits: sorted.length,
-        totalSpent: c.totalSpent,
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        totalVisits: sortedVisits.length,
+        totalSpent,
         thisMonthVisits,
-        firstVisit: firstVisit.toISOString(),
-        lastVisit: lastVisit.toISOString(),
+        firstVisit: firstVisit?.toISOString() || null,
+        lastVisit: lastVisit?.toISOString() || null,
         daysSinceLastVisit,
         avgFrequency,
         isNew,
-        activePlan: subByClient[c.id] ?? null,
+        activePlan: u.subscriptions[0]?.plan.name ?? null,
       };
     });
 
-    // Ordena por última visita (mais recente primeiro)
-    clientes.sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime());
+    // Ordena por quem interagiu por último (agendamento ou assinatura)
+    clientes.sort((a, b) => {
+      const dateA = a.lastVisit ? new Date(a.lastVisit).getTime() : 0;
+      const dateB = b.lastVisit ? new Date(b.lastVisit).getTime() : 0;
+      return dateB - dateA;
+    });
 
     return NextResponse.json({ clientes });
   } catch (e: unknown) {

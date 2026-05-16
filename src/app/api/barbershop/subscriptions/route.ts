@@ -6,12 +6,26 @@ import { sendSubscriptionConfirmation } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   try {
-    const payload = requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    const { searchParams } = new URL(req.url);
+    const phone = searchParams.get("phone");
+
+    const where: any = { barbershopId: payload.barbershopId! };
+    if (phone) {
+      where.client = { phone: { contains: phone.replace(/\D/g, "") } };
+    }
+
     const subscriptions = await prisma.subscription.findMany({
-      where: { barbershopId: payload.barbershopId! },
+      where,
       include: {
         client: { select: { id: true, name: true, email: true, phone: true } },
-        plan: true,
+        plan: {
+          include: {
+            planServices: {
+              include: { service: true }
+            }
+          }
+        },
         payments: { orderBy: { createdAt: "desc" }, take: 1 },
       },
       orderBy: { createdAt: "desc" },
@@ -40,13 +54,22 @@ export async function POST(req: NextRequest) {
     });
 
     const cleanPhone = clientPhone.replace(/\D/g, "") || "sem-telefone";
-    const clientEmail = `${cleanPhone}@cliente.barberfluxo`;
 
-    let client = await prisma.user.findUnique({ where: { email: clientEmail } });
+    // Sprint 1: Busca por telefone sanitizado (evita duplicidade)
+    const allClients = await prisma.user.findMany({ where: { role: "CLIENT" } });
+    let client = allClients.find(c => c.phone?.replace(/\D/g, "") === cleanPhone) || null;
+
     if (!client) {
+      const clientEmail = `${cleanPhone}@cliente.barberfluxo.com`;
+      // Verifica se o email já existe (fallback)
+      client = await prisma.user.findUnique({ where: { email: clientEmail } });
+    }
+
+    if (!client) {
+      const clientEmail = `${cleanPhone}@cliente.barberfluxo.com`;
       const hashed = await hashPassword(clientPhone);
       client = await prisma.user.create({
-        data: { name: clientName, email: clientEmail, phone: clientPhone, password: hashed, role: "CLIENT" },
+        data: { name: clientName, email: clientEmail, phone: cleanPhone, password: hashed, role: "CLIENT" },
       });
     }
 
@@ -59,12 +82,18 @@ export async function POST(req: NextRequest) {
 
     const nextBilling = addMonths(new Date(), 1);
 
+    // Inicializa beneficiários se o plano possuir regras para dependentes
+    const beneficiaries = Array.isArray(plan.beneficiaryRules)
+      ? plan.beneficiaryRules.map((r: any) => ({ name: r.name, maxUses: r.maxUses, uses: 0 }))
+      : null;
+
     const subscription = await prisma.subscription.create({
       data: {
         clientId: client.id,
         planId,
         barbershopId: payload.barbershopId!,
         nextBillingDate: nextBilling,
+        beneficiaries,
         payments: {
           create: { amount: plan.price, method: "PIX", status: "PENDING" },
         },
@@ -86,6 +115,48 @@ export async function POST(req: NextRequest) {
     }).catch(console.error);
 
     return NextResponse.json({ subscription }, { status: 201 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erro interno";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    const { subscriptionId, beneficiaryName } = await req.json();
+
+    const sub = await prisma.subscription.findUnique({
+      where: { id: subscriptionId, barbershopId: payload.barbershopId! },
+    });
+
+    if (!sub) return NextResponse.json({ error: "Assinatura não encontrada" }, { status: 404 });
+
+    let updatedBeneficiaries = sub.beneficiaries;
+    if (beneficiaryName && Array.isArray(sub.beneficiaries)) {
+      const beneficiaries = sub.beneficiaries as any[];
+      const bIndex = beneficiaries.findIndex(b => b.name === beneficiaryName);
+      
+      if (bIndex === -1) return NextResponse.json({ error: "Beneficiário não encontrado" }, { status: 404 });
+      
+      if (beneficiaries[bIndex].uses >= beneficiaries[bIndex].maxUses) {
+        return NextResponse.json({ error: `Limite de uso atingido para ${beneficiaryName}` }, { status: 400 });
+      }
+
+      updatedBeneficiaries = beneficiaries.map((b, i) => 
+        i === bIndex ? { ...b, uses: b.uses + 1 } : b
+      );
+    }
+
+    await prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: {
+        usesThisCycle: sub.usesThisCycle + 1,
+        beneficiaries: updatedBeneficiaries || undefined,
+      },
+    });
+
+    return NextResponse.json({ success: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });

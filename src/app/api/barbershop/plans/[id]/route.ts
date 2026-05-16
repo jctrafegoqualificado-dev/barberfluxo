@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const { name, description, price, billingCycle, maxUses, serviceIds, active } = await req.json();
+    const { name, description, price, billingCycle, maxUses, serviceIds, active, beneficiaryRules } = await req.json();
 
     // 1. Valida posse
     const existing = await prisma.plan.findFirst({
@@ -28,9 +28,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         data: {
           name,
           description,
-          price: price !== undefined ? Number(price) : undefined,
+          price: price !== undefined ? Number(String(price).replace(",", ".")) : undefined,
           billingCycle,
           maxUses: maxUses === "" || maxUses === null || maxUses === undefined ? null : Number(maxUses),
+          beneficiaryRules: beneficiaryRules !== undefined ? beneficiaryRules : undefined,
           active,
           ...(Array.isArray(serviceIds) && {
             planServices: {

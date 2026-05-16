@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X } from "lucide-react";
+import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -13,6 +13,7 @@ interface Subscription {
   client: { id: string; name: string; email: string; phone: string | null };
   plan: { id: string; name: string; price: number; maxUses: number | null };
   payments: { status: string; amount: number; method: string; paidAt: string | null }[];
+  beneficiaries?: any;
 }
 interface Plan { id: string; name: string; price: number }
 
@@ -103,6 +104,9 @@ export default function AssinaturasPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "overdue">("all");
   const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "" });
+  const [usageModal, setUsageModal] = useState<Subscription | null>(null);
+  const [historyModal, setHistoryModal] = useState<Subscription | null>(null);
+  const [historyItems, setHistoryItems] = useState<any[]>([]);
 
   function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -138,6 +142,37 @@ export default function AssinaturasPage() {
     }
   }
 
+  async function handleUsage(subscriptionId: string, beneficiaryName: string) {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/barbershop/subscriptions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subscriptionId, beneficiaryName }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Erro ao lançar uso"); return; }
+      setUsageModal(null);
+      load();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadHistory(s: any) {
+    setHistoryModal(s);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/barbershop/subscriptions/${s.id}/history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setHistoryItems(data.history || []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handlePayment(subscriptionId: string, method: string) {
     await fetch("/api/barbershop/subscriptions/pagamento", {
       method: "POST",
@@ -145,6 +180,21 @@ export default function AssinaturasPage() {
       body: JSON.stringify({ subscriptionId, method }),
     });
     load();
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Deseja realmente excluir esta assinatura?")) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/barbershop/subscriptions/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) { alert("Erro ao excluir"); return; }
+      load();
+    } finally {
+      setLoading(false);
+    }
   }
 
   const overdueSubs = subs.filter((s) => s.status === "ACTIVE" && isOverdue(s.nextBillingDate));
@@ -236,8 +286,20 @@ export default function AssinaturasPage() {
                   </div>
 
                   <div className="text-center hidden md:block">
-                    <p className="text-xs text-zinc-400">Usos</p>
-                    <p className="text-sm font-medium text-zinc-700">{s.usesThisCycle}{s.plan.maxUses ? `/${s.plan.maxUses}` : ""}</p>
+                    <p className="text-xs text-zinc-400">Usos no Mês</p>
+                    {Array.isArray(s.beneficiaries) && s.beneficiaries.length > 0 ? (
+                      <div className="flex flex-col gap-0.5 mt-0.5">
+                        {s.beneficiaries.map((b: any, idx: number) => (
+                          <p key={idx} className="text-[11px] font-medium text-zinc-700 whitespace-nowrap">
+                            <span className="text-zinc-500">{b.name}:</span> {b.uses}/{b.maxUses}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-medium text-zinc-700 mt-0.5">
+                        {s.usesThisCycle}{s.plan.maxUses ? `/${s.plan.maxUses}` : ""}
+                      </p>
+                    )}
                   </div>
 
                   <div className="text-center hidden lg:block">
@@ -249,14 +311,37 @@ export default function AssinaturasPage() {
 
                   <div className="flex flex-col items-end gap-2">
                     <Badge status={s.status} />
-                    {overdue && (
+                    <div className="flex gap-2">
+                      {s.status === "ACTIVE" && (
+                        <button
+                          onClick={() => setUsageModal(s)}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors whitespace-nowrap"
+                        >
+                          Lançar uso
+                        </button>
+                      )}
+                      {overdue && (
+                        <button
+                          onClick={() => setPaymentSub(s)}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors whitespace-nowrap"
+                        >
+                          Dar baixa (Pagto)
+                        </button>
+                      )}
                       <button
-                        onClick={() => setPaymentSub(s)}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors whitespace-nowrap"
+                        onClick={() => loadHistory(s)}
+                        className="text-xs px-2.5 py-1 rounded-lg border border-zinc-200 text-zinc-600 font-semibold hover:bg-zinc-50 transition-colors whitespace-nowrap"
                       >
-                        Dar baixa
+                        Ver Histórico
                       </button>
-                    )}
+                      <button
+                        onClick={() => handleDelete(s.id)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                        title="Excluir assinatura"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -264,6 +349,90 @@ export default function AssinaturasPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de Lançar Uso */}
+      {usageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+              <h2 className="font-semibold text-zinc-900">Lançar uso do plano</h2>
+              <button onClick={() => setUsageModal(null)} className="p-1 rounded-lg hover:bg-zinc-100"><X className="w-4 h-4 text-zinc-500" /></button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-zinc-500 mb-4">Escolha quem está realizando o serviço agora:</p>
+              <div className="space-y-2">
+                {Array.isArray(usageModal.beneficiaries) && (usageModal.beneficiaries as any[]).map((b, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleUsage(usageModal.id, b.name)}
+                    disabled={loading || b.uses >= b.maxUses}
+                    className="w-full flex items-center justify-between p-4 rounded-xl border border-zinc-200 hover:border-amber-500 hover:bg-amber-50 transition-all text-left disabled:opacity-40"
+                  >
+                    <div>
+                      <p className="font-bold text-zinc-900">{b.name}</p>
+                      <p className="text-xs text-zinc-500">Cota: {b.uses}/{b.maxUses}</p>
+                    </div>
+                    {b.uses >= b.maxUses ? (
+                      <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Limite atingido</span>
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-5 pt-0">
+              <button onClick={() => setUsageModal(null)} className="w-full py-3 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Histórico de Uso */}
+      {historyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+              <h2 className="font-semibold text-zinc-900">Histórico de Usos: {historyModal.client.name}</h2>
+              <button onClick={() => setHistoryModal(null)} className="p-1 rounded-lg hover:bg-zinc-100"><X className="w-4 h-4 text-zinc-500" /></button>
+            </div>
+            <div className="p-5 overflow-y-auto flex-1">
+              {loading ? (
+                <p className="text-center py-10 text-zinc-500">Carregando histórico...</p>
+              ) : historyItems.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-zinc-400">Nenhum uso registrado neste ciclo.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {historyItems.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-100">
+                      <div>
+                        <p className="font-bold text-zinc-900 leading-tight">{item.beneficiaryName || "Titular"}</p>
+                        <p className="text-[11px] text-amber-600 font-semibold mb-1">
+                          {item.services?.length > 0 
+                            ? item.services.map((s: any) => s.service.name).join(" + ") 
+                            : "Serviço padrão"}
+                        </p>
+                        <p className="text-xs text-zinc-400">{new Date(item.date).toLocaleDateString("pt-BR")} às {item.startTime}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-medium text-zinc-600">Barbeiro: {item.barber.user.name}</p>
+                        <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest">Plano Utilizado</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-5 border-t border-zinc-50">
+              <button onClick={() => setHistoryModal(null)} className="w-full py-3 rounded-xl bg-zinc-900 text-white font-bold hover:bg-zinc-800">Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal open={open} onClose={() => setOpen(false)} title="Novo Assinante">
         <form onSubmit={handleAdd} className="space-y-3">

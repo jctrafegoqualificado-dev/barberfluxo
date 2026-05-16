@@ -20,15 +20,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { name, description, price, billingCycle, maxUses, serviceIds } = await req.json();
+    const { name, description, price, billingCycle, maxUses, serviceIds, beneficiaryRules } = await req.json();
 
     const plan = await prisma.plan.create({
       data: {
         name,
         description,
-        price: Number(price),
+        price: Number(String(price).replace(",", ".")),
         billingCycle,
         maxUses: maxUses ? Number(maxUses) : null,
+        beneficiaryRules: beneficiaryRules || null,
         barbershopId: payload.barbershopId!,
         planServices: {
           create: (serviceIds || []).map((sid: string) => ({ serviceId: sid })),
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ plan }, { status: 201 });
   } catch (e: unknown) {
+    console.error("ERRO AO CRIAR PLANO:", e);
     const msg = e instanceof Error ? e.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

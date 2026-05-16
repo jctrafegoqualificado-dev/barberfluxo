@@ -245,3 +245,122 @@ export async function setWebhook(
     return { error: msg };
   }
 }
+
+// 6. Enviar mensagem de texto
+export async function sendMessage(
+  instanceName: string,
+  number: string,
+  text: string,
+  delay = 1200
+): Promise<{ key: { id: string } } | { error: string }> {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
+      return { error: "Evolution API environment variables not configured" };
+    }
+
+    // Limpa o número para o padrão WhatsApp (somente dígitos + @s.whatsapp.net)
+    const cleanNumber = number.replace(/\D/g, "");
+    const jid = cleanNumber.includes("@") ? cleanNumber : `${cleanNumber}@s.whatsapp.net`;
+
+    console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName}`);
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
+      {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          number: jid,
+          options: {
+            delay,
+            presence: "composing",
+            linkPreview: false,
+          },
+          textMessage: {
+            text: text.trim(),
+          },
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return { error: data.message || data.error || `HTTP ${res.status}` };
+    }
+
+    return data;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ [Evolution] sendMessage failed: ${msg}`);
+    return { error: msg };
+  }
+}
+
+// 7. Enviar Lista Interativa
+export async function sendList(
+  instanceName: string,
+  number: string,
+  title: string,
+  description: string,
+  buttonText: string,
+  sections: any[]
+): Promise<any> {
+  try {
+    const cleanNumber = number.replace(/\D/g, "");
+    const jid = `${cleanNumber}@s.whatsapp.net`;
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/message/sendList/${instanceName}`,
+      {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          number: jid,
+          title,
+          description,
+          buttonText,
+          sections,
+        }),
+      }
+    );
+
+    return await res.json();
+  } catch (error) {
+    console.error(`❌ [Evolution] sendList failed:`, error);
+    return { error: "Failed to send list" };
+  }
+}
+
+// 8. Enviar Botões
+export async function sendButtons(
+  instanceName: string,
+  number: string,
+  title: string,
+  description: string,
+  buttons: any[]
+): Promise<any> {
+  try {
+    const cleanNumber = number.replace(/\D/g, "");
+    const jid = `${cleanNumber}@s.whatsapp.net`;
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/message/sendButtons/${instanceName}`,
+      {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          number: jid,
+          title,
+          description,
+          buttons,
+        }),
+      }
+    );
+
+    return await res.json();
+  } catch (error) {
+    console.error(`❌ [Evolution] sendButtons failed:`, error);
+    return { error: "Failed to send buttons" };
+  }
+}

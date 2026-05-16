@@ -11,10 +11,11 @@ interface Service { id: string; name: string; price: number }
 interface Plan {
   id: string; name: string; description: string | null; price: number; billingCycle: string; maxUses: number | null; active: boolean;
   planServices: { service: Service }[];
+  beneficiaryRules?: any;
 }
 
 const CYCLES: Record<string, string> = { MONTHLY: "Mensal", QUARTERLY: "Trimestral", YEARLY: "Anual" };
-const EMPTY_FORM = { name: "", description: "", price: "", billingCycle: "MONTHLY", maxUses: "", serviceIds: [] as string[] };
+const EMPTY_FORM = { name: "", description: "", price: "", billingCycle: "MONTHLY", maxUses: "", serviceIds: [] as string[], beneficiaryRules: [] as {name: string, maxUses: string}[] };
 
 export default function PlanosPage() {
   const { token } = useAuthStore();
@@ -61,6 +62,7 @@ export default function PlanosPage() {
       billingCycle: p.billingCycle,
       maxUses: p.maxUses != null ? String(p.maxUses) : "",
       serviceIds: p.planServices.map((ps) => ps.service.id),
+      beneficiaryRules: Array.isArray(p.beneficiaryRules) ? p.beneficiaryRules.map((b: any) => ({ name: b.name, maxUses: String(b.maxUses) })) : [],
     });
     setOpen(true);
   }
@@ -70,11 +72,22 @@ export default function PlanosPage() {
     setLoading(true);
     const url = editingId ? `/api/barbershop/plans/${editingId}` : "/api/barbershop/plans";
     const method = editingId ? "PUT" : "POST";
-    await fetch(url, {
+    const payload = {
+      ...form,
+      beneficiaryRules: form.beneficiaryRules.length > 0 ? form.beneficiaryRules.map(b => ({ name: b.name, maxUses: Number(b.maxUses) })) : null
+    };
+    const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
+    
+    if (!res.ok) {
+      const data = await res.json();
+      alert(`Erro ao salvar plano: ${data.error}`);
+      setLoading(false);
+      return;
+    }
     setLoading(false);
     setOpen(false);
     setEditingId(null);
@@ -142,6 +155,19 @@ export default function PlanosPage() {
                   ))}
                 </ul>
               )}
+              {Array.isArray(p.beneficiaryRules) && p.beneficiaryRules.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-zinc-100">
+                  <p className="text-xs font-semibold text-zinc-500 mb-2 uppercase tracking-wider">Dependências</p>
+                  <ul className="space-y-1">
+                    {p.beneficiaryRules.map((b: any, i: number) => (
+                      <li key={i} className="flex justify-between items-center text-xs text-zinc-600 bg-zinc-50 rounded p-1.5 px-2">
+                        <span>{b.name}</span>
+                        <span className="font-semibold text-zinc-800">{b.maxUses} usos</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -161,6 +187,32 @@ export default function PlanosPage() {
             </select>
           </div>
           <Input label="Máx. usos por mês (vazio = ilimitado)" type="number" min="1" value={form.maxUses} onChange={(e) => setField("maxUses", e.target.value)} />
+          
+          <div className="border border-zinc-200 p-3 rounded-lg bg-zinc-50">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-semibold text-zinc-700">Dependentes (Ex: Pai e Filho)</label>
+              <button 
+                type="button" 
+                onClick={() => setField("beneficiaryRules", [...form.beneficiaryRules, { name: "", maxUses: "" }])}
+                className="text-xs text-amber-600 font-medium hover:text-amber-700 flex items-center"
+              >
+                <Plus className="w-3 h-3 mr-1" /> Add
+              </button>
+            </div>
+            {form.beneficiaryRules.length === 0 && (
+              <p className="text-[11px] text-zinc-500">Deixe vazio para planos individuais. Adicione para planos com múltiplos limites (Pai, Filho, etc).</p>
+            )}
+            <div className="space-y-2 mt-2">
+              {form.beneficiaryRules.map((b, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input placeholder="Ex: Pai" value={b.name} onChange={e => { const newB = [...form.beneficiaryRules]; newB[i].name = e.target.value; setField("beneficiaryRules", newB); }} className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none" required />
+                  <input placeholder="Usos" type="number" min="1" value={b.maxUses} onChange={e => { const newB = [...form.beneficiaryRules]; newB[i].maxUses = e.target.value; setField("beneficiaryRules", newB); }} className="w-16 rounded border border-zinc-300 px-2 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none" required />
+                  <button type="button" onClick={() => setField("beneficiaryRules", form.beneficiaryRules.filter((_, idx) => idx !== i))} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {services.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-2">Serviços inclusos</label>

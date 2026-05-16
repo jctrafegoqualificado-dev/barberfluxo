@@ -70,6 +70,7 @@ model Barbershop {
   whatsappInstance WhatsAppInstance?
   whatsappContacts WhatsAppContact[]
   whatsappMessages WhatsAppMessage[]
+  whatsappSessions WhatsAppSession[]
   saasPayments     Payment[]
 }
 
@@ -164,6 +165,7 @@ model Appointment {
   service        Service?      @relation(fields: [serviceId], references: [id])
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  beneficiaryName String?
 
   services AppointmentService[]
 }
@@ -187,6 +189,7 @@ model Plan {
   price        Float
   billingCycle String   @default("MONTHLY") // MONTHLY | QUARTERLY | YEARLY
   maxUses      Int? // null = unlimited
+  beneficiaryRules Json? // Regras para dependentes. Ex: [{ name: "Titular", maxUses: 4 }, { name: "Filho", maxUses: 2 }]
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
@@ -210,6 +213,7 @@ model Subscription {
   startDate       DateTime @default(now())
   nextBillingDate DateTime
   usesThisCycle   Int      @default(0)
+  beneficiaries   Json?    // Controle de uso por beneficiário. Ex: [{ name: "João (Pai)", uses: 0, maxUses: 4 }, { name: "Pedrinho (Filho)", uses: 0, maxUses: 2 }]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -234,6 +238,9 @@ model Payment {
 
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  barbershopId   String?
+  barbershop     Barbershop?   @relation(fields: [barbershopId], references: [id])
 }
 
 model OpeningHour {
@@ -400,4 +407,17 @@ model WhatsAppMessage {
   @@index([contactId, timestamp])
   @@index([timestamp])
   @@index([barbershopId, timestamp])
+}
+
+model WhatsAppSession {
+  id            String   @id @default(cuid())
+  phoneNumber   String
+  state         String   @default("IDLE") // IDLE, SELECTING_DATE, SELECTING_TIME, SELECTING_BARBER, SELECTING_SERVICE, CONFIRMING
+  data          Json?    // Dados temporários (date, serviceId, barberId, etc)
+  updatedAt     DateTime @updatedAt
+  
+  barbershopId  String
+  barbershop    Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@unique([phoneNumber, barbershopId])
 }

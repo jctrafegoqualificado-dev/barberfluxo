@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { sendWhatsAppNotification } from "@/lib/notifications";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export async function GET(req: NextRequest) {
   try {
@@ -105,6 +108,10 @@ export async function PATCH(req: NextRequest) {
     const updateData: Record<string, unknown> = {};
     if (status) updateData.status = status;
     if (paymentMethod) updateData.paymentMethod = paymentMethod;
+    if (body.price !== undefined) updateData.price = body.price; // Salva preço final do frontend
+
+    // Busca o estado ANTERIOR do agendamento antes de atualizar
+    const previousState = await prisma.appointment.findUnique({ where: { id }, select: { status: true } });
 
     const appointment = await prisma.appointment.update({
       where: { id },
@@ -112,17 +119,57 @@ export async function PATCH(req: NextRequest) {
       include: { subscription: true },
     });
 
-    if (status === "DONE" && appointment.subscriptionId) {
+    // ── DONE: Abate uso do plano (só se não era DONE antes — previne double-click) ──
+    if (status === "DONE" && previousState?.status !== "DONE" && (appointment.subscriptionId || appointment.beneficiaryName)) {
       const sub = await prisma.subscription.findUnique({
-        where: { id: appointment.subscriptionId },
-        include: { plan: true },
+        where: { id: appointment.subscriptionId || undefined },
       });
-      if (sub) {
+
+      if (sub && appointment.beneficiaryName && Array.isArray(sub.beneficiaries)) {
+        const updatedBeneficiaries = (sub.beneficiaries as any[]).map((b: any) =>
+          b.name.toLowerCase() === appointment.beneficiaryName?.toLowerCase() ? { ...b, uses: b.uses + 1 } : b
+        );
+        
         await prisma.subscription.update({
           where: { id: sub.id },
-          data: { usesThisCycle: sub.usesThisCycle + 1 },
+          data: {
+            usesThisCycle: sub.usesThisCycle + 1,
+            beneficiaries: updatedBeneficiaries || undefined,
+          },
         });
       }
+    }
+
+    // ── CANCELLED: Devolve uso do plano se já tinha sido DONE ──
+    if (status === "CANCELLED" && previousState?.status === "DONE" && (appointment.subscriptionId || appointment.beneficiaryName)) {
+      const sub = await prisma.subscription.findUnique({
+        where: { id: appointment.subscriptionId || undefined },
+      });
+
+      if (sub && appointment.beneficiaryName && Array.isArray(sub.beneficiaries)) {
+        const updatedBeneficiaries = (sub.beneficiaries as any[]).map((b: any) =>
+          b.name.toLowerCase() === appointment.beneficiaryName?.toLowerCase() 
+            ? { ...b, uses: Math.max(0, b.uses - 1) } 
+            : b
+        );
+        
+        await prisma.subscription.update({
+          where: { id: sub.id },
+          data: {
+            usesThisCycle: Math.max(0, sub.usesThisCycle - 1),
+            beneficiaries: updatedBeneficiaries || undefined,
+          },
+        });
+      }
+    }
+
+    // ── Automação de WhatsApp: Confirmação de Status ──
+    if (status === "DONE" || status === "CANCELLED") {
+      const msg = status === "DONE" 
+        ? `✅ *Atendimento Concluído!*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu atendimento no *${appointment.barbershop.name}* foi finalizado. Obrigado pela preferência! 🙏`
+        : `⚠️ *Agendamento Cancelado*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu agendamento para o dia ${format(new Date(appointment.date), "dd/MM")} às ${appointment.startTime} foi cancelado. Se houver dúvidas, entre em contato.`;
+      
+      sendWhatsAppNotification(barbershopId, appointment.client.phone, msg).catch(console.error);
     }
 
     return NextResponse.json({ appointment });
@@ -137,7 +184,7 @@ export async function POST(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
     const body = await req.json();
-    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, force } = body;
+    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, force, beneficiaryName } = body;
 
     // Aceita serviceIds (array multi-serviço) OU serviceId (legado, único)
     const ids: string[] = Array.isArray(serviceIds) && serviceIds.length > 0
@@ -161,11 +208,10 @@ export async function POST(req: NextRequest) {
     const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
-    // Encontra ou cria o cliente
+    // Encontra ou cria o cliente (Busca por dígitos limpos)
     const phoneDigits = clientPhone.replace(/\D/g, "");
-    let client = await prisma.user.findFirst({
-      where: { phone: { contains: phoneDigits }, role: "CLIENT" },
-    });
+    const clients = await prisma.user.findMany({ where: { role: "CLIENT" } });
+    let client = clients.find(c => c.phone.replace(/\D/g, "") === phoneDigits);
 
     if (!client) {
       const email = `${phoneDigits}@cliente.barberfluxo.com`;
@@ -182,8 +228,48 @@ export async function POST(req: NextRequest) {
     const endM = endTotalMinutes % 60;
     const endTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
 
-    // Cria a data (meio-dia para evitar fuso)
+    // Calcula a data (meio-dia para evitar fuso)
     const appointmentDate = new Date(date + "T12:00:00Z");
+
+    // Verifica se o cliente possui assinatura ativa
+    let subscription = await prisma.subscription.findFirst({
+      where: { clientId: client.id, status: "ACTIVE", barbershopId },
+    });
+
+    // ── Sprint 1: Bloqueia se assinatura vencida ──
+    if (subscription && new Date(subscription.nextBillingDate) < new Date()) {
+      // Assinatura vencida — não permite uso do plano
+      if (beneficiaryName && !force) {
+        return NextResponse.json({
+          error: "SUBSCRIPTION_OVERDUE",
+          message: `A assinatura de ${client.name} está vencida desde ${new Date(subscription.nextBillingDate).toLocaleDateString("pt-BR")}. Regularize o pagamento para usar o plano.`
+        }, { status: 403 });
+      }
+      // Se não escolheu beneficiário, trata como cliente avulso (sem plano)
+      subscription = null;
+    }
+
+    // ── Trava de Frequência Semanal (Regra PM) ──
+    if (subscription && beneficiaryName) {
+      const startOfWeek = new Date();
+      startOfWeek.setDate(startOfWeek.getDate() - 7); // Janela de 7 dias
+      
+      const recentUsage = await prisma.appointment.findFirst({
+        where: {
+          subscriptionId: subscription.id,
+          beneficiaryName: { mode: "insensitive", equals: beneficiaryName },
+          status: { notIn: ["CANCELLED"] },
+          date: { gte: startOfWeek }
+        }
+      });
+
+      if (recentUsage && !force) {
+        return NextResponse.json({ 
+          error: "WEEKLY_LIMIT", 
+          message: `Este beneficiário (${beneficiaryName}) já utilizou o plano nos últimos 7 dias.` 
+        }, { status: 403 });
+      }
+    }
 
     // Validação de choque de horário (a menos que seja forçado)
     if (!force) {
@@ -219,6 +305,8 @@ export async function POST(req: NextRequest) {
           barberId,
           serviceId: services[0].id, // Legado: primeiro serviço para retrocompatibilidade
           status: "CONFIRMED",
+          subscriptionId: subscription?.id || null,
+          beneficiaryName: beneficiaryName || null,
         },
       });
 
@@ -235,6 +323,12 @@ export async function POST(req: NextRequest) {
       return appt;
     });
 
+    // ── Automação de WhatsApp: Confirmação de Agendamento ──
+    const servicesStr = services.map(s => s.name).join(" + ");
+    const welcomeMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${clientName.split(" ")[0]}*, seu horário no *${(await prisma.barbershop.findUnique({ where: { id: barbershopId } }))?.name}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${(await prisma.barber.findUnique({ where: { id: barberId }, include: { user: true } }))?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
+    
+    sendWhatsAppNotification(barbershopId, clientPhone, welcomeMsg).catch(console.error);
+
     return NextResponse.json({ appointment }, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
@@ -245,10 +339,46 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    requireAuth(req, ["OWNER", "BARBER"]);
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ error: "ID ausente" }, { status: 400 });
+
+    const appt = await prisma.appointment.findUnique({
+      where: { id },
+      include: { subscription: true }
+    });
+
+    if (!appt) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+
+    // Se o agendamento estava CONCLUÍDO e usava plano, devolve o uso ao excluir
+    if (appt.status === "DONE" && appt.subscriptionId && appt.beneficiaryName) {
+      const sub = await prisma.subscription.findUnique({
+        where: { id: appt.subscriptionId },
+      });
+
+      if (sub && Array.isArray(sub.beneficiaries)) {
+        const updatedBeneficiaries = (sub.beneficiaries as any[]).map((b: any) =>
+          b.name.toLowerCase() === appt.beneficiaryName?.toLowerCase() 
+            ? { ...b, uses: Math.max(0, b.uses - 1) } 
+            : b
+        );
+        
+        await prisma.subscription.update({
+          where: { id: sub.id },
+          data: {
+            usesThisCycle: Math.max(0, sub.usesThisCycle - 1),
+            beneficiaries: updatedBeneficiaries,
+          },
+        });
+      }
+    }
+
+    // Exclui serviços vinculados primeiro (caso não tenha cascade no prisma)
+    // Embora tenhamos visto cascade no schema, vamos ser defensivos.
+    await prisma.appointmentService.deleteMany({
+      where: { appointmentId: id }
+    });
 
     await prisma.appointment.delete({
       where: { id },
@@ -256,8 +386,8 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
+    console.error("Erro ao excluir agendamento:", e);
     const msg = e instanceof Error ? e.message : "Erro interno";
-    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

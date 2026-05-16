@@ -12,7 +12,7 @@ declare global {
   }
 }
 
-const PREMIUM_PRICE = 99.90;
+const PREMIUM_PRICE = 199.90;
 
 export default function AssinaturaSaaSPage() {
   const { token, user } = useAuthStore();
@@ -190,7 +190,7 @@ export default function AssinaturaSaaSPage() {
               <p className="text-sm text-zinc-400">Poder total para escalar</p>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-bold text-amber-500">R$ 99,90</span>
+              <span className="text-2xl font-bold text-amber-500">R$ 199,90</span>
               <p className="text-[10px] text-zinc-500">/mês</p>
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function AssinaturaSaaSPage() {
                   <p className="text-lg font-bold text-zinc-900">Plano PREMIUM</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-black text-amber-600">R$ 99,90</p>
+                  <p className="text-2xl font-black text-amber-600">R$ 199,90</p>
                   <p className="text-[10px] text-amber-500">cobrança mensal</p>
                 </div>
               </div>

@@ -64,6 +64,17 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // ── NOVO: Auto-Fix de Webhook para Produção ──
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+    if (mappedStatus === "CONNECTED" && appUrl) {
+      const webhookUrl = `${appUrl}/api/evolution/webhook`;
+      console.log(`🔗 [Webhook Sync] Verificando webhook para: ${webhookUrl}`);
+      // Configuramos o webhook na Evolution para garantir que as mensagens cheguem
+      await evolution.setWebhook(instance.evolutionInstanceName, webhookUrl).catch(err => {
+        console.error("❌ [Webhook Sync] Falha ao configurar webhook:", err);
+      });
+    }
+
     // 5. Retornar
     return NextResponse.json({
       provisioned: true,
