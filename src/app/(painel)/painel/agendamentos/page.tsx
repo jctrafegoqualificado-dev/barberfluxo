@@ -326,7 +326,7 @@ function AgendamentoModal({
   barbers, date, onConfirm, onClose
 }: {
   barbers: Barber[]; date: string;
-  onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceIds: string[]; date: string; startTime: string }) => Promise<boolean>;
+  onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceIds: string[]; date: string; startTime: string; beneficiaryName?: string; price?: number }) => Promise<boolean>;
   onClose: () => void;
 }) {
   const { token } = useAuthStore();
