@@ -14,13 +14,18 @@ export async function handleWhatsAppBot(
   apiKey?: string
 ) {
   console.log(`🤖 [Bot] Handling for JID: ${phoneNumber}`);
-  const cleanText = text.toLowerCase().trim();
 
 
   // 1. Buscar ou Criar Sessão
   let session = await prisma.whatsAppSession.findUnique({
     where: { phoneNumber_barbershopId: { phoneNumber, barbershopId } },
   });
+
+  const cleanText = text.toLowerCase().trim();
+  if (cleanText === "#reset") {
+    if (session) await resetSession(session);
+    return evolution.sendMessage(instanceName, phoneNumber, "🔄 Sessão resetada com sucesso! Digite *AGENDAR* para recomeçar.", 1000, apiKey);
+  }
 
   if (!session) {
     session = await prisma.whatsAppSession.create({
@@ -295,39 +300,49 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
   const data = session.data as any;
 
   try {
-    // 1. Encontrar ou criar o cliente
+    // 1. Identificação de Elite: Tentar encontrar o usuário real pelo telefone
+    const fullPhone = session.phoneNumber.split("@")[0]; 
+    const shortPhone = fullPhone.startsWith("55") ? fullPhone.substring(2) : fullPhone;
+
     let contact = await prisma.whatsAppContact.findUnique({
       where: { remoteJid_barbershopId: { remoteJid: session.phoneNumber, barbershopId: session.barbershopId } }
     });
 
-    let clientId = contact?.userId;
+    // Busca profunda por telefone
+    let realUser = await prisma.user.findFirst({
+      where: { 
+        OR: [
+          { phone: fullPhone },
+          { phone: shortPhone }
+        ]
+      },
+      orderBy: { role: "desc" } // Prioriza barbeiros/owners se houver conflito, mas geralmente é CLIENT
+    });
 
-    if (!clientId) {
-      // Normalização do telefone para busca (com e sem 55)
-      const fullPhone = session.phoneNumber.split("@")[0]; // Ex: 554199306101
-      const shortPhone = fullPhone.startsWith("55") ? fullPhone.substring(2) : fullPhone; // Ex: 4199306101
+    let clientId = realUser?.id;
 
-      let user = await prisma.user.findFirst({
-        where: { 
-          OR: [
-            { phone: fullPhone },
-            { phone: shortPhone }
-          ]
-        }
-      });
-
-      if (user) {
-        clientId = user.id;
-        // Se o nome estiver genérico ou excluído, atualiza com o nome do WhatsApp
-        if (user.name.includes("[Excluído]") || user.name === "Cliente WhatsApp" || user.name.toLowerCase().includes("teste")) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { name: contact?.pushName || user.name }
-          });
-        }
-      } else {
-        // Criar usuário cliente básico
-        user = await prisma.user.create({
+    if (realUser) {
+      // Se achamos o usuário real (Gisele), garantimos que o contato do WhatsApp está apontando para ela
+      if (contact && contact.userId !== realUser.id) {
+        await prisma.whatsAppContact.update({
+          where: { id: contact.id },
+          data: { userId: realUser.id }
+        });
+      }
+      
+      // Se o nome estiver sujo, limpamos
+      if (realUser.name.includes("[Excluído]") || realUser.name.toLowerCase().includes("teste")) {
+        await prisma.user.update({
+          where: { id: realUser.id },
+          data: { name: contact?.pushName || "Gisele Andrade" } 
+        });
+      }
+    } else if (!clientId) {
+      // Se realmente não existe ninguém com esse telefone, aí sim usamos o do contato ou criamos novo
+      clientId = contact?.userId;
+      
+      if (!clientId) {
+        const newUser = await prisma.user.create({
           data: {
             name: contact?.pushName || "Cliente WhatsApp",
             phone: shortPhone,
@@ -336,15 +351,7 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
             role: "CLIENT"
           }
         });
-        clientId = user.id;
-      }
-
-      // Vincular contato ao usuário para as próximas vezes ser instantâneo
-      if (contact) {
-        await prisma.whatsAppContact.update({
-          where: { id: contact.id },
-          data: { userId: clientId }
-        });
+        clientId = newUser.id;
       }
     }
 
