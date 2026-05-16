@@ -116,7 +116,7 @@ export async function PATCH(req: NextRequest) {
     const appointment = await prisma.appointment.update({
       where: { id },
       data: updateData,
-      include: { subscription: true },
+      include: { subscription: true, client: true, barbershop: true },
     });
 
     // ── DONE: Abate uso do plano (só se não era DONE antes — previne double-click) ──
