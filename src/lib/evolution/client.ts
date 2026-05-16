@@ -278,7 +278,9 @@ export async function sendMessage(
           },
           textMessage: {
             text: text.trim()
-          }
+          },
+          // Algumas versões usam 'message' em vez de 'textMessage'
+          message: text.trim() 
         }),
       }
     );
@@ -286,6 +288,7 @@ export async function sendMessage(
     const data = await res.json();
 
     if (!res.ok) {
+      console.error(`❌ [Evolution Error Details]:`, JSON.stringify(data, null, 2));
       return { error: data.message || data.error || `HTTP ${res.status}` };
     }
 
