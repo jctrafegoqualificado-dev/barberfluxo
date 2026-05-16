@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── NOVO: Auto-Fix de Webhook para Produção ──
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null));
     if (mappedStatus === "CONNECTED" && appUrl) {
       const webhookUrl = `${appUrl}/api/evolution/webhook`;
       console.log(`🔗 [Webhook Sync] Verificando webhook para: ${webhookUrl}`);
