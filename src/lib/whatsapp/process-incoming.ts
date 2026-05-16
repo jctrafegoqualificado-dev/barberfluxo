@@ -13,11 +13,22 @@ export async function processIncomingMessage(
   const { fromMe, id: evolutionId, remoteJid: keyRemoteJid } = data.key;
   const remoteJid = keyRemoteJid || body.sender || "desconhecido";
   
-  // Lógica Sênior: Se for @lid, tentamos pegar o número real em remoteJidAlt
-  const remoteJidAlt = (data.key as any).remoteJidAlt;
-  const realJid = (remoteJid.includes("@lid") && remoteJidAlt) ? remoteJidAlt : remoteJid;
+  // LOG DE AUDITORIA SÊNIOR - Vamos ver tudo o que vem no payload
+  const remoteJidAlt = (data.key as any).remoteJidAlt || (data as any).remoteJidAlt || (body as any).remoteJidAlt;
+  
+  // Se não achou no JidAlt, tenta no 'number' ou no próprio sender
+  const fallbackPhone = (data as any).number || (body as any).sender;
+  
+  let realJid = remoteJid;
+  if (remoteJid.includes("@lid")) {
+    if (remoteJidAlt) {
+      realJid = remoteJidAlt.includes("@") ? remoteJidAlt : `${remoteJidAlt}@s.whatsapp.net`;
+    } else if (fallbackPhone && !fallbackPhone.includes("@lid")) {
+      realJid = fallbackPhone.includes("@") ? fallbackPhone : `${fallbackPhone}@s.whatsapp.net`;
+    }
+  }
 
-  console.log(`📥 [Process] Received JID: ${remoteJid}${remoteJidAlt ? ` (Alt: ${remoteJidAlt})` : ""}`);
+  console.log(`🔍 [AUDITORIA] JID: ${remoteJid} | REAL_JID_DETECTADO: ${realJid}`);
  
   const pushName = data.pushName || null;
   const messageType = data.messageType || "unknown";
