@@ -258,15 +258,10 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Se o número já contiver @ (como @lid ou @g.us), usar direto.
-    // Caso contrário, limpa e adiciona @s.whatsapp.net
-    let jid = number;
-    if (!jid.includes("@")) {
-      const cleanNumber = number.replace(/\D/g, "");
-      jid = `${cleanNumber}@s.whatsapp.net`;
-    }
-
-    console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName}`);
+    // Para Evolution v2, o ideal é mandar apenas os números limpos no campo 'number'
+    const cleanNumber = number.replace(/\D/g, "");
+    
+    console.log(`✉️ [Evolution] Sending message to ${cleanNumber} via ${instanceName}`);
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
@@ -274,7 +269,7 @@ export async function sendMessage(
         method: "POST",
         headers: headers(),
         body: JSON.stringify({
-          number: jid,
+          number: cleanNumber,
           text: text.trim(),
           delay,
           linkPreview: false,
