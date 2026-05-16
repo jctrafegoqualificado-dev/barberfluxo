@@ -251,7 +251,8 @@ export async function sendMessage(
   instanceName: string,
   number: string,
   text: string,
-  delay = 1200
+  delay: number = 1200,
+  customApiKey?: string
 ): Promise<{ key: { id: string } } | { error: string }> {
   try {
     if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
@@ -268,7 +269,7 @@ export async function sendMessage(
       `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
       {
         method: "POST",
-        headers: headers(),
+        headers: headers(customApiKey),
         body: JSON.stringify({
           number: jid,
           text: text.trim(),

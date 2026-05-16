@@ -97,7 +97,8 @@ export async function processIncomingMessage(
           remoteJid,
           textContent,
           barbershopId,
-          instance.evolutionInstanceName
+          instance.evolutionInstanceName,
+          instance.evolutionToken
         );
         console.log(`🤖 [Bot Result]`, JSON.stringify(result, null, 2));
       } catch (err) {

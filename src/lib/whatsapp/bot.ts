@@ -10,7 +10,8 @@ export async function handleWhatsAppBot(
   phoneNumber: string,
   text: string,
   barbershopId: string,
-  instanceName: string
+  instanceName: string,
+  apiKey?: string
 ) {
   const cleanText = text.toLowerCase().trim();
 
@@ -29,12 +30,12 @@ export async function handleWhatsAppBot(
   switch (session.state) {
     case "IDLE":
       if (cleanText.includes("agendar") || cleanText.includes("corte") || cleanText.includes("oi") || cleanText.includes("ola")) {
-        return startScheduling(session, instanceName);
+        return startScheduling(session, instanceName, apiKey);
       }
       break;
 
     case "SELECTING_SERVICE":
-      return handleServiceSelection(session, cleanText, instanceName);
+      return handleServiceSelection(session, cleanText, instanceName, apiKey);
 
     case "SELECTING_DATE":
       return handleDateSelection(session, cleanText, instanceName);
@@ -50,13 +51,13 @@ export async function handleWhatsAppBot(
 
     default:
       await resetSession(session);
-      await evolution.sendMessage(instanceName, phoneNumber, "Ops! Me perdi um pouco. Vamos recomeçar? Digite *AGENDAR* para iniciar.");
+      await evolution.sendMessage(instanceName, phoneNumber, "Ops! Me perdi um pouco. Vamos recomeçar? Digite *AGENDAR* para iniciar.", 1000, apiKey);
   }
 }
 
 // ── Funções Auxiliares ──
 
-async function startScheduling(session: any, instanceName: string) {
+async function startScheduling(session: any, instanceName: string, apiKey?: string) {
   const services = await prisma.service.findMany({
     where: { barbershopId: session.barbershopId, active: true },
     orderBy: { price: "asc" },
@@ -64,7 +65,7 @@ async function startScheduling(session: any, instanceName: string) {
   });
 
   if (services.length === 0) {
-    return evolution.sendMessage(instanceName, session.phoneNumber, "Desculpe, não encontrei serviços disponíveis no momento. Entre em contato com a barbearia.");
+    return evolution.sendMessage(instanceName, session.phoneNumber, "Desculpe, não encontrei serviços disponíveis no momento. Entre em contato com a barbearia.", 1000, apiKey);
   }
 
   let menu = "✂️ *Escolha o Serviço*\n\nPor favor, digite o *NÚMERO* do serviço que deseja:\n\n";
@@ -78,10 +79,10 @@ async function startScheduling(session: any, instanceName: string) {
     data: { state: "SELECTING_SERVICE" },
   });
 
-  return evolution.sendMessage(instanceName, session.phoneNumber, menu);
+  return evolution.sendMessage(instanceName, session.phoneNumber, menu, 1000, apiKey);
 }
 
-async function handleServiceSelection(session: any, text: string, instanceName: string) {
+async function handleServiceSelection(session: any, text: string, instanceName: string, apiKey?: string) {
   const services = await prisma.service.findMany({
     where: { barbershopId: session.barbershopId, active: true },
     orderBy: { price: "asc" },
@@ -99,7 +100,7 @@ async function handleServiceSelection(session: any, text: string, instanceName: 
   }
 
   if (!service) {
-    return evolution.sendMessage(instanceName, session.phoneNumber, "Não entendi qual serviço você escolheu. Por favor, digite o *número* correspondente ao serviço.");
+    return evolution.sendMessage(instanceName, session.phoneNumber, "Não entendi qual serviço você escolheu. Por favor, digite o *número* correspondente ao serviço.", 1000, apiKey);
   }
 
   await prisma.whatsAppSession.update({
@@ -116,7 +117,7 @@ async function handleServiceSelection(session: any, text: string, instanceName: 
   dateMenu += "*3* - Outra data\n\n";
   dateMenu += "Digite o número da opção.";
 
-  return evolution.sendMessage(instanceName, session.phoneNumber, dateMenu);
+  return evolution.sendMessage(instanceName, session.phoneNumber, dateMenu, 1000, apiKey);
 }
 
 // ... Outros handlers serão implementados conforme o fluxo avança
