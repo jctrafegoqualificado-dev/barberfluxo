@@ -10,7 +10,10 @@ export async function processIncomingMessage(
   const { data } = body;
   if (!data || !data.key) throw new Error("Invalid message data");
 
-  const { remoteJid, fromMe, id: evolutionId } = data.key;
+  const { fromMe, id: evolutionId } = data.key;
+  // PRIORIDADE: Usar body.sender se existir (geralmente contém o JID real @s.whatsapp.net mesmo em mensagens @lid)
+  const remoteJid = body.sender || data.key.remoteJid || "desconhecido";
+  
   const pushName = data.pushName || null;
   const messageType = data.messageType || "unknown";
   
@@ -18,12 +21,6 @@ export async function processIncomingMessage(
   const textContent = data.message?.conversation || 
                       data.message?.extendedTextMessage?.text || 
                       null;
-
-  if (remoteJid.includes("@lid")) {
-    console.log("=== FULL LID PAYLOAD ===");
-    console.log(JSON.stringify(body, null, 2));
-    console.log("========================");
-  }
 
   const timestampDate = new Date(data.messageTimestamp * 1000);
 
