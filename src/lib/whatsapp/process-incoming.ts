@@ -93,12 +93,13 @@ export async function processIncomingMessage(
     const instance = await prisma.whatsAppInstance.findUnique({ where: { id: whatsappInstanceId } });
     if (instance) {
       try {
-        await handleWhatsAppBot(
+        const result = await handleWhatsAppBot(
           remoteJid,
           textContent,
           barbershopId,
           instance.evolutionInstanceName
         );
+        console.log(`🤖 [Bot Result]`, JSON.stringify(result, null, 2));
       } catch (err) {
         console.error("❌ [Bot Error]:", err);
       }
