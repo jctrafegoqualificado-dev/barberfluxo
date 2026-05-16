@@ -91,7 +91,7 @@ export async function processIncomingMessage(
     if (instance) {
       try {
         await handleWhatsAppBot(
-          remoteJid.split("@")[0],
+          remoteJid,
           textContent,
           barbershopId,
           instance.evolutionInstanceName

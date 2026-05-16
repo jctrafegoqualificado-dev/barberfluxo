@@ -258,9 +258,13 @@ export async function sendMessage(
       return { error: "Evolution API environment variables not configured" };
     }
 
-    // Limpa o número para o padrão WhatsApp (somente dígitos + @s.whatsapp.net)
-    const cleanNumber = number.replace(/\D/g, "");
-    const jid = cleanNumber.includes("@") ? cleanNumber : `${cleanNumber}@s.whatsapp.net`;
+    // Se o número já contiver @ (como @lid ou @g.us), usar direto.
+    // Caso contrário, limpa e adiciona @s.whatsapp.net
+    let jid = number;
+    if (!jid.includes("@")) {
+      const cleanNumber = number.replace(/\D/g, "");
+      jid = `${cleanNumber}@s.whatsapp.net`;
+    }
 
     console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName}`);
 
@@ -307,8 +311,12 @@ export async function sendList(
   sections: any[]
 ): Promise<any> {
   try {
-    const cleanNumber = number.replace(/\D/g, "");
-    const jid = `${cleanNumber}@s.whatsapp.net`;
+    let jid = number;
+    if (!jid.includes("@")) {
+      const cleanNumber = number.replace(/\D/g, "");
+      jid = `${cleanNumber}@s.whatsapp.net`;
+    }
+    console.log(`✉️ [Evolution] Sending list to ${jid} via ${instanceName}`);
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/message/sendList/${instanceName}`,
@@ -341,8 +349,12 @@ export async function sendButtons(
   buttons: any[]
 ): Promise<any> {
   try {
-    const cleanNumber = number.replace(/\D/g, "");
-    const jid = `${cleanNumber}@s.whatsapp.net`;
+    let jid = number;
+    if (!jid.includes("@")) {
+      const cleanNumber = number.replace(/\D/g, "");
+      jid = `${cleanNumber}@s.whatsapp.net`;
+    }
+    console.log(`✉️ [Evolution] Sending buttons to ${jid} via ${instanceName}`);
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/message/sendButtons/${instanceName}`,
