@@ -260,8 +260,11 @@ export async function sendMessage(
     }
 
     // Para Evolution v2.2.3, o payload precisa ser bem específico
-    const cleanNumber = number.replace(/\D/g, "");
-    const jid = `${cleanNumber}@s.whatsapp.net`;
+    const jid = number.includes("@") ? number : `${number.replace(/\D/g, "")}@s.whatsapp.net`;
+    
+    // Para IDs @lid ou outros JIDs completos, enviamos o JID inteiro no campo 'number'
+    // A Evolution API aceita o JID completo no campo number.
+    const numberToSend = jid.includes("@lid") ? jid : jid.split("@")[0];
     
     console.log(`✉️ [Evolution] Sending message to ${jid} via ${instanceName} (v2.2.3 mode)`);
 
@@ -271,7 +274,7 @@ export async function sendMessage(
         method: "POST",
         headers: headers(customApiKey),
         body: JSON.stringify({
-          number: jid,
+          number: numberToSend,
           text: text.trim(),
           linkPreview: false,
           delay: delay
