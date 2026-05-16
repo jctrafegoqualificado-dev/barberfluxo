@@ -19,6 +19,12 @@ export async function processIncomingMessage(
                       data.message?.extendedTextMessage?.text || 
                       null;
 
+  if (remoteJid.includes("@lid")) {
+    console.log("=== FULL LID PAYLOAD ===");
+    console.log(JSON.stringify(body, null, 2));
+    console.log("========================");
+  }
+
   const timestampDate = new Date(data.messageTimestamp * 1000);
 
   // Extrair telefone (somente números) do remoteJid
