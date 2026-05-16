@@ -339,7 +339,7 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
       }
     } else if (!clientId) {
       // Se realmente não existe ninguém com esse telefone, aí sim usamos o do contato ou criamos novo
-      clientId = contact?.userId;
+      clientId = contact?.userId || undefined;
       
       if (!clientId) {
         const newUser = await prisma.user.create({
