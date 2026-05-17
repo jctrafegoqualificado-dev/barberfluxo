@@ -8,7 +8,12 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const { user, token } = useAuthStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [branding, setBranding] = useState<{ primaryColor: string; secondaryColor: string } | null>(null);
+  const [branding, setBranding] = useState<{ 
+    primaryColor: string; 
+    secondaryColor: string;
+    logoUrl?: string | null;
+    name?: string | null;
+  } | null>(null);
 
   function hexToRgb(hex: string) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -28,7 +33,9 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
         if (data.primaryColor) {
           setBranding({
             primaryColor: data.primaryColor,
-            secondaryColor: data.secondaryColor || data.primaryColor
+            secondaryColor: data.secondaryColor || data.primaryColor,
+            logoUrl: data.logoUrl,
+            name: data.name
           });
         }
       });

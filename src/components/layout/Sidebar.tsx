@@ -39,7 +39,14 @@ const barberNav = [
   { href: "/painel/kanban", label: "Tarefas", icon: KanbanSquare },
 ];
 
-export default function Sidebar({ branding }: { branding?: { logoUrl?: string | null } }) {
+export default function Sidebar({ branding }: { 
+  branding?: { 
+    logoUrl?: string | null;
+    name?: string | null;
+    primaryColor?: string;
+    secondaryColor?: string;
+  } 
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, clearAuth } = useAuthStore();
