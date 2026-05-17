@@ -31,7 +31,7 @@ const COLUMNS: { key: Status; label: string; color: string; bg: string }[] = [
 
 const PRIORITY_BADGE: Record<Priority, string> = {
   LOW:    "bg-zinc-100 text-zinc-500",
-  NORMAL: "bg-amber-50 text-amber-600",
+  NORMAL: "bg-primary/10 text-primary/90",
   HIGH:   "bg-red-50 text-red-500",
 };
 const PRIORITY_LABEL: Record<Priority, string> = {
@@ -55,7 +55,7 @@ function DueDateBadge({ dueDate, status }: { dueDate: string | null; status: Sta
 
   const styles: Record<string, string> = {
     overdue: "bg-red-50 text-red-500 border border-red-200",
-    soon:    "bg-amber-50 text-amber-600 border border-amber-200",
+    soon:    "bg-primary/10 text-primary/90 border border-amber-200",
     ok:      "bg-zinc-50 text-zinc-500 border border-zinc-200",
   };
 
@@ -107,7 +107,7 @@ function TaskCard({
         </span>
         {task.barber && (
           <span className="flex items-center gap-1 text-xs text-zinc-500">
-            <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold">
+            <span className="w-5 h-5 rounded-full bg-primary/20 text-amber-700 flex items-center justify-center text-[10px] font-bold">
               {getInitials(task.barber.user.name)}
             </span>
             {task.barber.user.name.split(" ")[0]}
@@ -225,7 +225,7 @@ export default function KanbanPage() {
         {isOwner && (
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary/90 transition-colors"
           >
             <Plus className="w-4 h-4" /> Nova Tarefa
           </button>
@@ -234,7 +234,7 @@ export default function KanbanPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -291,7 +291,7 @@ export default function KanbanPage() {
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   placeholder="Ex: Limpar as tesouras"
-                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
@@ -301,7 +301,7 @@ export default function KanbanPage() {
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   rows={2}
                   placeholder="Detalhes opcionais..."
-                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -310,7 +310,7 @@ export default function KanbanPage() {
                   <select
                     value={form.priority}
                     onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as Priority }))}
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   >
                     <option value="LOW">Baixa</option>
                     <option value="NORMAL">Normal</option>
@@ -324,7 +324,7 @@ export default function KanbanPage() {
                   <select
                     value={form.barberId}
                     onChange={(e) => setForm((f) => ({ ...f, barberId: e.target.value }))}
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                   >
                     <option value="">Todos</option>
                     {barbers.map((b) => (
@@ -342,7 +342,7 @@ export default function KanbanPage() {
                   value={form.dueDate}
                   onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
                   min={new Date().toISOString().slice(0, 10)}
-                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div className="flex gap-3 pt-2">
@@ -356,7 +356,7 @@ export default function KanbanPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors disabled:opacity-60"
+                  className="flex-1 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
                 >
                   {saving ? "Criando..." : "Criar Tarefa"}
                 </button>

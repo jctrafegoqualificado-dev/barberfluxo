@@ -30,11 +30,11 @@ export async function GET(req: NextRequest) {
       }),
       prisma.appointment.findMany({
         where: { barberId: barber.id, date: { gte: monthStart, lte: monthEnd }, status: "DONE" },
-        select: { price: true, subscriptionId: true },
+        select: { price: true, subscriptionId: true, service: { select: { materialCost: true, commission: true } } },
       }),
       prisma.productSale.findMany({
         where: { barberId: barber.id, createdAt: { gte: monthStart, lte: monthEnd } },
-        select: { total: true },
+        select: { total: true, quantity: true, product: { select: { commissionType: true, commissionValue: true } } },
       }),
     ]);
 
@@ -43,10 +43,30 @@ export async function GET(req: NextRequest) {
     }
 
     const monthFaturado = monthAppts.reduce((s, a) => s + a.price, 0);
-    const monthComissao = monthAppts.reduce((s, a) =>
-      s + calcComissao(a.price, barber.commissionType, barber.commission), 0)
-      + productSalesMonth.reduce((s, p) =>
-      s + calcComissao(p.total, barber.productCommissionType, barber.productCommission), 0);
+    const monthComissaoServicos = monthAppts.reduce((s, a) => {
+      const materialCost = a.service?.materialCost || 0;
+      const netValue = Math.max(0, a.price - materialCost);
+      const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
+      
+      if (hasCustomCommission) {
+        return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
+      }
+      return s + calcComissao(netValue, barber.commissionType, barber.commission);
+    }, 0);
+    
+    const monthComissaoProdutos = productSalesMonth.reduce((s, p) => {
+      const commType = p.product?.commissionType || barber.productCommissionType;
+      const commValue = p.product?.commissionValue !== undefined && p.product?.commissionValue !== null 
+        ? p.product.commissionValue 
+        : barber.productCommission;
+      
+      if (commType === "FIXED") {
+        return s + (commValue * p.quantity);
+      }
+      return s + calcComissao(p.total, commType, commValue);
+    }, 0);
+    
+    const monthComissao = monthComissaoServicos + monthComissaoProdutos;
 
     const todayDone = todayAppts.filter((a) => a.status === "DONE");
     const todayFaturado = todayDone.reduce((s, a) => s + a.price, 0);

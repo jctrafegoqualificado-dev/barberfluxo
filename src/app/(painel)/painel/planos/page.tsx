@@ -122,11 +122,11 @@ export default function PlanosPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((p) => (
             <div key={p.id} className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5 relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-amber-500" />
+              <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
               <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => openEdit(p)}
-                  className="p-1.5 rounded-md text-zinc-400 hover:text-amber-600 hover:bg-amber-50"
+                  className="p-1.5 rounded-md text-zinc-400 hover:text-primary/90 hover:bg-primary/10"
                   title="Editar plano"
                   aria-label="Editar plano"
                 >
@@ -143,7 +143,7 @@ export default function PlanosPage() {
               </div>
               <p className="font-bold text-zinc-900 text-lg mt-1 pr-16">{p.name}</p>
               {p.description && <p className="text-xs text-zinc-400 mb-3">{p.description}</p>}
-              <p className="text-3xl font-bold text-amber-500 mt-2">{formatCurrency(p.price)}<span className="text-sm font-normal text-zinc-400">/{CYCLES[p.billingCycle]?.toLowerCase()}</span></p>
+              <p className="text-3xl font-bold text-primary mt-2">{formatCurrency(p.price)}<span className="text-sm font-normal text-zinc-400">/{CYCLES[p.billingCycle]?.toLowerCase()}</span></p>
               {p.maxUses && <p className="text-xs text-zinc-500 mt-1">Até {p.maxUses} usos/mês</p>}
               {p.planServices.length > 0 && (
                 <ul className="mt-4 space-y-1">
@@ -180,7 +180,7 @@ export default function PlanosPage() {
           <Input label="Preço (R$)" type="number" step="0.01" value={form.price} onChange={(e) => setField("price", e.target.value)} required />
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Ciclo de cobrança</label>
-            <select value={form.billingCycle} onChange={(e) => setField("billingCycle", e.target.value)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            <select value={form.billingCycle} onChange={(e) => setField("billingCycle", e.target.value)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
               <option value="MONTHLY">Mensal</option>
               <option value="QUARTERLY">Trimestral</option>
               <option value="YEARLY">Anual</option>
@@ -194,7 +194,7 @@ export default function PlanosPage() {
               <button 
                 type="button" 
                 onClick={() => setField("beneficiaryRules", [...form.beneficiaryRules, { name: "", maxUses: "" }])}
-                className="text-xs text-amber-600 font-medium hover:text-amber-700 flex items-center"
+                className="text-xs text-primary/90 font-medium hover:text-amber-700 flex items-center"
               >
                 <Plus className="w-3 h-3 mr-1" /> Add
               </button>
@@ -205,8 +205,8 @@ export default function PlanosPage() {
             <div className="space-y-2 mt-2">
               {form.beneficiaryRules.map((b, i) => (
                 <div key={i} className="flex gap-2 items-center">
-                  <input placeholder="Ex: Pai" value={b.name} onChange={e => { const newB = [...form.beneficiaryRules]; newB[i].name = e.target.value; setField("beneficiaryRules", newB); }} className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none" required />
-                  <input placeholder="Usos" type="number" min="1" value={b.maxUses} onChange={e => { const newB = [...form.beneficiaryRules]; newB[i].maxUses = e.target.value; setField("beneficiaryRules", newB); }} className="w-16 rounded border border-zinc-300 px-2 py-1.5 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none" required />
+                  <input placeholder="Ex: Pai" value={b.name} onChange={e => { const newB = [...form.beneficiaryRules]; newB[i].name = e.target.value; setField("beneficiaryRules", newB); }} className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-xs focus:ring-2 focus:ring-primary focus:outline-none" required />
+                  <input placeholder="Usos" type="number" min="1" value={b.maxUses} onChange={e => { const newB = [...form.beneficiaryRules]; newB[i].maxUses = e.target.value; setField("beneficiaryRules", newB); }} className="w-16 rounded border border-zinc-300 px-2 py-1.5 text-xs focus:ring-2 focus:ring-primary focus:outline-none" required />
                   <button type="button" onClick={() => setField("beneficiaryRules", form.beneficiaryRules.filter((_, idx) => idx !== i))} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
@@ -219,7 +219,7 @@ export default function PlanosPage() {
               <div className="space-y-1 max-h-40 overflow-y-auto">
                 {services.map((s) => (
                   <label key={s.id} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-50 rounded p-1">
-                    <input type="checkbox" checked={form.serviceIds.includes(s.id)} onChange={() => toggleService(s.id)} className="rounded text-amber-500" />
+                    <input type="checkbox" checked={form.serviceIds.includes(s.id)} onChange={() => toggleService(s.id)} className="rounded text-primary" />
                     <span className="text-sm text-zinc-700">{s.name}</span>
                     <span className="text-xs text-zinc-400 ml-auto">{formatCurrency(s.price)}</span>
                   </label>

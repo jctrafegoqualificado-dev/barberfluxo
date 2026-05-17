@@ -43,7 +43,7 @@ export default function CadastroPage() {
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500 mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-4">
             <Scissors className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">Crie sua conta</h1>
@@ -68,7 +68,7 @@ export default function CadastroPage() {
 
         <p className="text-center text-zinc-500 text-sm mt-4">
           Já tem conta?{" "}
-          <Link href="/login" className="text-amber-500 hover:text-amber-400 font-medium">
+          <Link href="/login" className="text-primary hover:text-primary/80 font-medium">
             Entrar
           </Link>
         </p>

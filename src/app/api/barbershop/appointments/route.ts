@@ -163,10 +163,14 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // ── Automação de WhatsApp: Confirmação de Status ──
+    // ── Automação de WhatsApp: Confirmação de Status + NPS Link ──
     if ((status === "DONE" || status === "CANCELLED") && appointment.client.phone) {
+      const host = req.headers.get("host") || "barberfluxo.com";
+      const protocol = host.includes("localhost") ? "http" : "https";
+      const appUrl = `${protocol}://${host}`;
+
       const msg = status === "DONE" 
-        ? `✅ *Atendimento Concluído!*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu atendimento no *${appointment.barbershop.name}* foi finalizado. Obrigado pela preferência! 🙏`
+        ? `✅ *Atendimento Concluído!*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu atendimento no *${appointment.barbershop.name}* foi finalizado. Obrigado pela preferência! 🙏\n\n⭐ *O que achou do seu atendimento?* Avalie em 10 segundos e ganhe *+10 pontos* de fidelidade:\n🔗 ${appUrl}/avaliar/${appointment.id}`
         : `⚠️ *Agendamento Cancelado*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu agendamento para o dia ${format(new Date(appointment.date), "dd/MM")} às ${appointment.startTime} foi cancelado. Se houver dúvidas, entre em contato.`;
       
       sendWhatsAppNotification(barbershopId, appointment.client.phone, msg).catch(console.error);

@@ -11,7 +11,8 @@ interface StatCardProps {
 
 export function StatCard({ title, value, icon: Icon, color = "amber", isCurrency }: StatCardProps) {
   const colors: Record<string, string> = {
-    amber: "bg-amber-50 text-amber-600",
+    amber: "bg-primary/10 text-primary/90",
+    primary: "bg-primary/10 text-primary",
     green: "bg-green-50 text-green-600",
     blue: "bg-blue-50 text-blue-600",
     purple: "bg-purple-50 text-purple-600",

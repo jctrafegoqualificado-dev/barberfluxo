@@ -94,24 +94,24 @@ export default function BarbeirosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-zinc-900">Barbeiros</h1>
+        <h1 className="text-2xl font-bold text-zinc-900">Profissionais</h1>
         <Button onClick={openAdd}>
-          <Plus className="w-4 h-4 mr-1" /> Novo Barbeiro
+          <Plus className="w-4 h-4 mr-1" /> Novo Profissional
         </Button>
       </div>
 
       {barbers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-zinc-400 bg-white rounded-xl border border-zinc-100">
           <Users className="w-12 h-12 mb-3" />
-          <p className="font-medium">Nenhum barbeiro cadastrado</p>
+          <p className="font-medium">Nenhum profissional cadastrado</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {barbers.map((b) => (
             <div key={b.id} className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                  <span className="text-amber-700 font-bold text-sm">{getInitials(b.user.name)}</span>
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                  <span className="text-primary font-bold text-sm">{getInitials(b.user.name)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-zinc-900">{b.user.name}</p>
@@ -136,8 +136,8 @@ export default function BarbeirosPage() {
                 <p className="text-zinc-500">📧 {b.user.email}</p>
                 {b.user.phone && <p className="text-zinc-500">📱 {b.user.phone}</p>}
                 <div className="flex items-center gap-1 mt-2">
-                  <Percent className="w-4 h-4 text-amber-500" />
-                  <span className="font-semibold text-amber-700">{b.commission}% de comissão</span>
+                  <Percent className="w-4 h-4 text-primary" />
+                  <span className="font-semibold text-primary">{b.commission}% de comissão</span>
                 </div>
                 {b.dayOff !== null && b.dayOff !== undefined && (
                   <p className="text-xs text-zinc-400 mt-1">🗓 Folga: {DAYS[b.dayOff]}</p>
@@ -148,7 +148,7 @@ export default function BarbeirosPage() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title={mode === "edit" ? "Editar Barbeiro" : "Novo Barbeiro"}>
+      <Modal open={open} onClose={() => setOpen(false)} title={mode === "edit" ? "Editar Profissional" : "Novo Profissional"}>
         <form onSubmit={handleSubmit} className="space-y-3">
           <Input label="Nome completo" value={form.name} onChange={(e) => setField("name", e.target.value)} required />
           <Input label="Apelido (opcional)" value={form.nickname} onChange={(e) => setField("nickname", e.target.value)} />
@@ -167,7 +167,7 @@ export default function BarbeirosPage() {
             type="password"
             value={form.password}
             onChange={(e) => setField("password", e.target.value)}
-            placeholder={mode === "edit" ? "••••••••" : "barber123"}
+            placeholder={mode === "edit" ? "••••••••" : "senha123"}
             required={mode === "add"}
           />
           <Input label="Comissão (%)" type="number" min="0" max="100" value={form.commission} onChange={(e) => setField("commission", e.target.value)} />
@@ -176,14 +176,14 @@ export default function BarbeirosPage() {
             <select
               value={form.dayOff}
               onChange={(e) => setField("dayOff", e.target.value)}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Sem folga fixa</option>
               {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
             </select>
           </div>
           <Button type="submit" loading={loading} className="w-full mt-2">
-            {mode === "edit" ? "Salvar alterações" : "Cadastrar Barbeiro"}
+            {mode === "edit" ? "Salvar alterações" : "Cadastrar Profissional"}
           </Button>
         </form>
       </Modal>

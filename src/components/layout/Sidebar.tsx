@@ -6,15 +6,15 @@ import { useAuthStore } from "@/store/auth";
 import NotificationBell from "@/components/layout/NotificationBell";
 import {
   LayoutDashboard, Calendar, Users, Scissors, CreditCard,
-  Package, Settings, LogOut, ChevronRight, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare
+  Package, Settings, LogOut, ChevronRight, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, UserCheck, Bell
 } from "lucide-react";
 import { useState } from "react";
 
 const ownerNav = [
   { href: "/painel", label: "Dashboard", icon: LayoutDashboard },
   { href: "/painel/agendamentos", label: "Agendamentos", icon: Calendar },
-  { href: "/painel/barbeiros", label: "Barbeiros", icon: Users },
-  { href: "/painel/servicos", label: "Serviços", icon: Scissors },
+  { href: "/painel/barbeiros", label: "Profissionais", icon: Users },
+  { href: "/painel/servicos", label: "Serviços", icon: Sparkles },
   { href: "/painel/planos", label: "Planos", icon: Layers },
   { href: "/painel/assinaturas", label: "Assinantes", icon: CreditCard },
   { href: "/painel/financeiro", label: "Financeiro", icon: TrendingUp },
@@ -26,6 +26,8 @@ const ownerNav = [
   { href: "/painel/clientes", label: "Clientes", icon: Users },
   { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
+  { href: "/painel/configuracoes/marca", label: "Identidade Visual", icon: Palette },
+  { href: "/painel/configuracoes/lembretes", label: "Lembretes", icon: Bell },
   { href: "/painel/assinatura", label: "Minha Assinatura", icon: Crown },
 ];
 
@@ -37,7 +39,7 @@ const barberNav = [
   { href: "/painel/kanban", label: "Tarefas", icon: KanbanSquare },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ branding }: { branding?: { logoUrl?: string | null } }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, clearAuth } = useAuthStore();
@@ -57,11 +59,15 @@ export default function Sidebar() {
   const sidebarContent = (
     <aside className="flex flex-col w-64 h-full bg-zinc-900 text-white">
       <div className="flex items-center gap-3 px-4 py-5 border-b border-zinc-800">
-        <div className="w-9 h-9 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
-          <Scissors className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+          {branding?.logoUrl ? (
+            <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+          ) : (
+            <Sparkles className="w-5 h-5 text-white" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold truncate">BarberFluxo</p>
+          <p className="text-sm font-bold truncate">{branding?.name || "BarberFluxo"}</p>
           <p className="text-xs text-zinc-400 truncate">{user?.name}</p>
         </div>
         <div className="flex items-center gap-1">
@@ -83,7 +89,7 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 active
-                  ? "bg-amber-500 text-white"
+                  ? "bg-primary text-white"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-800"
               )}
             >

@@ -100,7 +100,7 @@ export function AlertDialog({
         </div>
         <button 
           onClick={onClose} 
-          className="w-full px-4 py-4 text-sm font-bold text-amber-600 hover:bg-zinc-50 border-t border-zinc-100 transition-colors"
+          className="w-full px-4 py-4 text-sm font-bold text-primary/90 hover:bg-zinc-50 border-t border-zinc-100 transition-colors"
         >
           OK
         </button>

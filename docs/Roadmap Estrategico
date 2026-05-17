@@ -1,61 +1,54 @@
-# Roadmap Estratégico: BarberFluxo (Fase de Escala)
+# 🗺️ Roadmap BarberFluxo: Auditoria & Automação Sênior
 
-Este documento detalha os próximos passos para transformar o BarberFluxo em um ERP de barbearia líder de mercado, após a conclusão bem-sucedida do sistema de **Multi-Serviços**.
+## 🟢 Fase 1: Estabilização de Núcleo (100% Concluído)
+*Foco em remover bugs críticos e garantir que o sistema não "quebre" em produção.*
 
-```mermaid
-gantt
-    title Roadmap de Desenvolvimento 2026
-    dateFormat  YYYY-MM-DD
-    section Core Business
-    Multi-Serviços (Database/UI)      :done, des1, 2026-05-13, 2d
-    Edição de Comanda (UX Mobile)     :done, des2, 2026-05-14, 1d
-    Recálculo de Comissões (Multi)    :active, des3, 2026-05-15, 3d
-    section Financeiro
-    Auditoria Financeira v2           :des4, 2026-05-18, 3d
-    Integração Mercado Pago (Checkout):des5, 2026-05-21, 5d
-    Dashboard de Lucratividade        :des6, 2026-05-26, 4d
-    section Marketing & Growth
-    Automação de Retenção (WhatsApp)  :des7, 2026-06-01, 5d
-    Auto-atendimento (Triagem Bot)    :des10, 2026-06-03, 3d
-    Sistema de Fidelidade (Pontos)    :des8, 2026-06-06, 4d
-    section Infraestrutura
-    Upgrade Prisma v7                 :des9, 2026-06-10, 2d
-```
+*   **Sanitização de Exclusão:** Refatorada a API de DELETE para tratar referências de pagamentos e assinaturas.
+*   **UX Administrativa:** Implementação de modais de confirmação (ConfirmDialog) em todas as telas críticas.
+*   **Integridade de Dados:** Correção de tipagem estrita no Prisma e tratamento de campos nulos.
+*   **Sincronização de Webhook:** Auto-Fix de URL da Evolution API no acesso ao painel.
 
----
+## 🟢 Fase 2: Automação WhatsApp & Chatbot (100% Concluído)
+*Transformando o sistema em um assistente autônomo que agenda sozinho.*
 
-## 🚀 Próximas Prioridades (Backlog Refinado)
+*   **Motor de Chatbot Multi-tenant:** Infraestrutura de sessões e máquina de estados concluída.
+*   **Compatibilidade Evolution v2.2.3 / 2.3.7:** Suporte a @lid, payloads de texto e estabilidade de conexão.
+*   **Fluxo de Agendamento Completo:** Seleção de Serviço, Data, Barbeiro e Horários Reais via Chat.
+*   **Identificação de Elite:** Reconhecimento de cliente por telefone e vínculo automático de assinaturas.
 
-### 1. Refatoração de Comissões e Produção (Financeiro)
-*   **Problema:** O sistema de comissões atual olha para `appointment.price`. Com múltiplos serviços, precisamos garantir que se houver taxas diferentes por serviço, o cálculo seja granulado.
-*   **Ação:** Ajustar os endpoints `/api/barber/producao` e `/api/barbershop/financeiro` para iterar sobre a nova tabela `AppointmentService`.
+## 🟢 Fase 3: Operação, Retenção & Lembretes (100% Concluído)
+*Escalando o negócio, reduzindo no-shows e automatizando cobranças.*
 
-### 2. Integração de Pagamento Online (Mercado Pago)
-*   **Problema:** Atualmente só aceitamos registro manual de pagamento.
-*   **Ação:** Implementar o checkout transparente para que o cliente possa pagar antecipadamente ou no balcão via QR Code dinâmico, facilitando a conciliação.
+*   **Lembretes de No-Show:** Disparos automáticos e inteligentes de WhatsApp 24h antes do agendamento, integrados com Vercel Cron (`*/15 * * * *`).
+*   **Decoupled WhatsApp Architecture:** Sistema de comunicação totalmente desacoplado da API no VPS, garantindo total flexibilidade para futuras migrações de API (ex: Java, IA) sem perder lógicas.
 
-### 3. Inteligência de Retenção (Marketing)
-*   **Problema:** Clientes esquecem de agendar o próximo corte.
-*   **Ação:** Criar um script (cron) que detecta clientes que não aparecem há 20 dias e envia uma mensagem personalizada via WhatsApp: *"E aí [Nome], já está na hora de dar aquele tapa no visual? Agenda aqui: [Link]"*.
+## 🟢 Fase 4: Dashboard BI Premium (Barberfluxo Premium) (100% Concluído)
+*Painel de inteligência de negócios de altíssimo padrão visual e analítico.*
 
-### 4. Auto-atendimento Reativo (WhatsApp Bot)
-*   **Problema:** O barbeiro perde tempo respondendo "Qual o link para agendar?" ou "Tem horário amanhã?".
-*   **Ação:** Configurar o Webhook para identificar intenções de agendamento e enviar automaticamente o link de reserva ou informações de horários.
+*   **Fase 1 (Infraestrutura):** Rota multi-período dinâmica (`today`, `7d`, `30d`, `month`) e retroativos para comparação de metas.
+*   **Fase 2 (Raio-X de Hoje):** Cards analíticos em tempo real de faturamento, próximos clientes e status de instâncias do WhatsApp.
+*   **Fase 3 (KPIs Comparativos):** Ticket Médio, Novos vs Recorrentes, MRR, Projeção Matemática Mensal de Faturamento e Comissões do Mês.
+*   **Fase 4 (Quadro de Medalhas):** Rankings com barra de progresso dos Top Profissionais por receita e Top Clientes por consumo.
 
-### 5. Dashboard de Performance de Barbeiro
-*   **Problema:** O dono da barbearia tem dificuldade de ver quem é o "Top Performer".
-*   **Ação:** Criar gráficos de:
-    *   Taxa de Ocupação por Barbeiro.
-    *   Ticket Médio (ajudado agora pelo Multi-Serviço).
-    *   Taxa de Retorno de Clientes (fidelidade).
+## 🟢 Fase 5: Ecossistema de Avaliações (NPS & Fidelidade) (100% Concluído)
+*A fundação do marketing de fidelidade e termômetro de satisfação do SaaS.*
+
+*   **Banco de Dados Sincronizado:** Implementação segura via `prisma db push` das tabelas `Review` (NPS) e `LoyaltyPoint` (Fidelidade) vinculando clientes, agendamentos e profissionais.
+*   **Gatilho do NPS:** Conclusão do atendimento (`status === "DONE"`) aciona automaticamente mensagem com link único e inteligente (`/avaliar/${id}`) para o cliente dar nota de 0 a 10 e comentário.
+*   **Tela de Avaliação Premium:** Tela mobile-first pública moderna e linda com gradientes, contendo NPS de 0 a 10, formulário de feedback e banner interativo recompensando o cliente com `+10 pontos de fidelidade` após o envio.
+*   **Termômetro NPS no Dashboard:** Widget analítico avançado de NPS no painel, contendo cálculo automático da Zona de NPS (Excelente/Muito Bom/Bom/Crítico), evolução linear de temperatura (-100 a +100), e gráfico de distribuição (Promotores, Passivos e Detratores).
+
+## 🟡 Fase 6: Expansão White Label & Multi-Tenant (Em Andamento)
+*Transformando o BarberFluxo em uma plataforma de marca cinza para qualquer serviço.*
+
+*   **Identidade Visual Dinâmica:** Permitir que cada dono escolha sua paleta de cores (Primária/Secundária) e suba sua própria Logo.
+*   **Abstração de Termos:** Trocar "Barbeiro" por "Profissional" e "Corte" por "Serviço" para atender manicures, estéticas e salões de beleza.
+*   **Subdomínios Customizados:** Estudo para que cada barbearia tenha seu link único (ex: `lordbarba.barberfluxo.com.br`).
 
 ---
 
 ## 🛡️ Definição de Pronto (DoD)
-- [ ] Código testado em dispositivos móveis.
-- [ ] TypeScript sem erros (`tsc` limpo).
-- [ ] Migrations versionadas.
-- [ ] UX validada com o usuário final (barbeiro).
-
-> [!TIP]
-> Com a entrega dos Multi-Serviços, o ticket médio das barbearias tende a subir 15-20% em 30 dias. É o momento ideal para focar na retenção desses clientes.
+- [x] Código testado em dispositivos móveis (Foco iPhone).
+- [x] TypeScript sem erros (`tsc` limpo).
+- [x] Migrations e schema sincronizados via Prisma.
+- [x] Fluxo financeiro e NPS validados na UI do painel.

@@ -239,7 +239,7 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
         <div className="p-5">
           {!bookingData && (
             <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           )}
 
@@ -249,7 +249,7 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
               {bookingData.services.map((s) => (
                 <button key={s.id}
                   onClick={() => { setSelected((x) => ({ ...x, service: s.id })); setStep("datetime"); }}
-                  className="w-full text-left p-4 rounded-xl border border-zinc-200 hover:border-amber-400 hover:bg-amber-50 transition-colors">
+                  className="w-full text-left p-4 rounded-xl border border-zinc-200 hover:border-primary/80 hover:bg-primary/10 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-zinc-900">{s.name}</p>
@@ -258,7 +258,7 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
                         <Clock className="w-3 h-3" />{s.duration}min
                       </p>
                     </div>
-                    <span className="text-amber-600 font-bold">{formatCurrency(s.price)}</span>
+                    <span className="text-primary/90 font-bold">{formatCurrency(s.price)}</span>
                   </div>
                 </button>
               ))}
@@ -270,7 +270,7 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
               <p className="text-sm text-zinc-500">Escolha data e horário</p>
               {loadingSlots ? (
                 <div className="flex flex-col items-center py-12 gap-3">
-                  <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                   <p className="text-zinc-400 text-sm">Buscando horários...</p>
                 </div>
               ) : !hasAnySlot ? (
@@ -286,7 +286,7 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
                       <div key={date} className="bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden">
                         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200">
                           <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-amber-500" />
+                            <Calendar className="w-4 h-4 text-primary" />
                             <span className="font-semibold text-sm text-zinc-900">{formatDayLabel(date)}</span>
                           </div>
                           <span className="text-xs text-zinc-400">{slots.length} horário{slots.length > 1 ? "s" : ""}</span>
@@ -295,7 +295,7 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
                           {slots.map((slot) => (
                             <button key={slot}
                               onClick={() => { setSelected((x) => ({ ...x, date, slot })); setStep("dados"); }}
-                              className="py-2 rounded-lg text-sm font-semibold bg-white border border-zinc-200 hover:bg-amber-500 hover:text-white hover:border-amber-500 text-zinc-700 transition-colors">
+                              className="py-2 rounded-lg text-sm font-semibold bg-white border border-zinc-200 hover:bg-primary hover:text-white hover:border-primary text-zinc-700 transition-colors">
                               {slot}
                             </button>
                           ))}
@@ -310,10 +310,10 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
 
           {bookingData && step === "dados" && (
             <div className="space-y-4">
-              <div className="bg-amber-50 rounded-xl border border-amber-100 p-4 space-y-1 text-sm">
+              <div className="bg-primary/10 rounded-xl border border-primary/20 p-4 space-y-1 text-sm">
                 <p className="text-zinc-500">Serviço: <span className="font-semibold text-zinc-900">{selectedService?.name}</span></p>
                 <p className="text-zinc-500">Data: <span className="font-semibold text-zinc-900">{formatDayLabel(selected.date)} às {selected.slot}</span></p>
-                <p className="text-zinc-500">Valor: <span className="font-bold text-amber-600">{formatCurrency(selectedService?.price || 0)}</span></p>
+                <p className="text-zinc-500">Valor: <span className="font-bold text-primary/90">{formatCurrency(selectedService?.price || 0)}</span></p>
               </div>
 
               <form onSubmit={handleBook} className="space-y-3">
@@ -322,10 +322,10 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
                   <div className="relative">
                     <input required type="tel" value={form.phone} onChange={(e) => handlePhoneChange(e.target.value)}
                       placeholder="(41) 99999-9999"
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary" />
                     {lookingUp && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                       </div>
                     )}
                   </div>
@@ -343,18 +343,18 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
                     <label className="block text-xs font-medium text-zinc-500 mb-1">Nome</label>
                     <input required value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
                       placeholder="João"
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary" />
                   </div>
                   <div className="flex-1">
                     <label className="block text-xs font-medium text-zinc-500 mb-1">Sobrenome</label>
                     <input value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
                       placeholder="Silva"
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary" />
                   </div>
                 </div>
 
                 <button type="submit" disabled={!isFormValid || booking}
-                  className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                  className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
                   {booking ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "Confirmar Agendamento"}
                 </button>
               </form>
@@ -379,7 +379,7 @@ function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onC
                   Novo Agendamento
                 </button>
                 <button onClick={onClose}
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm">
+                  className="flex-1 bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm">
                   Fechar
                 </button>
               </div>
@@ -404,8 +404,8 @@ function getInitials(name: string) {
 }
 
 const STATUS_BG: Record<string, string> = {
-  CONFIRMED: "bg-amber-500",
-  PENDING: "bg-amber-400",
+  CONFIRMED: "bg-primary",
+  PENDING: "bg-primary/80",
   DONE: "bg-green-500",
   NO_SHOW: "bg-red-400",
   CANCELLED: "bg-zinc-300",
@@ -602,7 +602,7 @@ export default function BarbeiroAgendaPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
     </div>
   );
 
@@ -663,10 +663,10 @@ export default function BarbeiroAgendaPage() {
           <p className="text-2xl font-bold text-green-700">{d.hoje.done}</p>
           <p className="text-xs text-green-600">concluídos</p>
         </div>
-        <div className="bg-amber-50 rounded-xl border border-amber-100 p-4 text-center">
-          <Clock className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+        <div className="bg-primary/10 rounded-xl border border-primary/20 p-4 text-center">
+          <Clock className="w-5 h-5 text-primary mx-auto mb-1" />
           <p className="text-2xl font-bold text-amber-700">{d.hoje.pending}</p>
-          <p className="text-xs text-amber-600">pendentes</p>
+          <p className="text-xs text-primary/90">pendentes</p>
         </div>
         <div className="bg-white rounded-xl border border-zinc-100 p-4 text-center">
           <DollarSign className="w-5 h-5 text-zinc-400 mx-auto mb-1" />
@@ -677,8 +677,8 @@ export default function BarbeiroAgendaPage() {
 
       {/* Próximo agendamento */}
       {d.proximoAgendamento && (
-        <div className="bg-amber-500 rounded-xl p-4 text-white flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-amber-400 flex items-center justify-center shrink-0 text-white font-bold">
+        <div className="bg-primary rounded-xl p-4 text-white flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-primary/80 flex items-center justify-center shrink-0 text-white font-bold">
             {getInitials(d.proximoAgendamento.client.name)}
           </div>
           <div className="flex-1 min-w-0">
@@ -688,7 +688,7 @@ export default function BarbeiroAgendaPage() {
           </div>
           {d.proximoAgendamento.client.phone && (
             <a href={`tel:${d.proximoAgendamento.client.phone}`}
-              className="flex items-center gap-1 bg-amber-400 hover:bg-amber-300 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+              className="flex items-center gap-1 bg-primary/80 hover:bg-amber-300 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
               <Phone className="w-3.5 h-3.5" /> Ligar
             </a>
           )}
@@ -698,7 +698,7 @@ export default function BarbeiroAgendaPage() {
       {/* Resumo do mês */}
       <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
         <h2 className="font-semibold text-zinc-900 mb-4 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-amber-500" /> Minha produção este mês
+          <TrendingUp className="w-4 h-4 text-primary" /> Minha produção este mês
         </h2>
         <div className="grid grid-cols-3 gap-4">
           <div>
@@ -711,7 +711,7 @@ export default function BarbeiroAgendaPage() {
             <p className="text-xs text-zinc-400">faturado</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-amber-600">{formatCurrency(d.mes.comissao)}</p>
+            <p className="text-2xl font-bold text-primary/90">{formatCurrency(d.mes.comissao)}</p>
             <p className="text-xs text-zinc-400">sua comissão</p>
           </div>
         </div>
@@ -729,14 +729,14 @@ export default function BarbeiroAgendaPage() {
             <div className="text-center min-w-[120px]">
               <p className="text-sm font-bold text-zinc-900">{formatDayLabel(agendaDate)}</p>
               {!isToday && <p className="text-xs text-zinc-400">{agendaDate}</p>}
-              {isToday && <p className="text-xs text-amber-600 font-medium">Hoje</p>}
+              {isToday && <p className="text-xs text-primary/90 font-medium">Hoje</p>}
             </div>
             <button onClick={nextDay} className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
               <ChevronRight className="w-4 h-4 text-zinc-500" />
             </button>
             {!isToday && (
               <button onClick={() => setAgendaDate(getTodayBR())}
-                className="text-xs text-amber-600 font-semibold hover:underline px-1">
+                className="text-xs text-primary/90 font-semibold hover:underline px-1">
                 Hoje
               </button>
             )}
@@ -748,7 +748,7 @@ export default function BarbeiroAgendaPage() {
               <Lock className="w-3.5 h-3.5" /> Bloquear
             </button>
             <button onClick={() => setShowNovoAgendamento(true)}
-              className="flex items-center gap-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+              className="flex items-center gap-1.5 text-xs font-bold bg-primary hover:bg-primary/90 text-white px-3 py-1.5 rounded-lg transition-colors">
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Novo</span>
             </button>
@@ -827,7 +827,7 @@ export default function BarbeiroAgendaPage() {
               {agendaAppts.map((a) => {
                 const top = timeToTop(a.startTime);
                 const height = Math.max(a.service.duration * PX_PER_MIN, 28);
-                const bg = STATUS_BG[a.status] ?? "bg-amber-500";
+                const bg = STATUS_BG[a.status] ?? "bg-primary";
                 const isActive = a.status === "CONFIRMED" || a.status === "PENDING";
                 return (
                   <div
@@ -877,7 +877,7 @@ export default function BarbeiroAgendaPage() {
         {/* Legenda */}
         <div className="px-4 py-2.5 border-t border-zinc-100 flex items-center gap-3 flex-wrap">
           {[
-            { label: "Confirmado", color: "bg-amber-500" },
+            { label: "Confirmado", color: "bg-primary" },
             { label: "Concluído", color: "bg-green-500" },
             { label: "Não compareceu", color: "bg-red-400" },
             { label: "Cancelado", color: "bg-zinc-300" },
@@ -893,7 +893,7 @@ export default function BarbeiroAgendaPage() {
       {/* FAB */}
       <button
         onClick={() => setShowNovoAgendamento(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold px-5 py-3.5 rounded-2xl shadow-xl transition-all text-sm">
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-primary hover:bg-primary/90 active:scale-95 text-white font-bold px-5 py-3.5 rounded-2xl shadow-xl transition-all text-sm">
         <Plus className="w-5 h-5" />
         <span className="hidden sm:inline">Novo Agendamento</span>
       </button>

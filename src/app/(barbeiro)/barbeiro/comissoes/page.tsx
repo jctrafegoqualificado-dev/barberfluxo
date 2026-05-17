@@ -34,7 +34,7 @@ type Tab = "avulso" | "assinatura" | "produtos";
 
 function RateBadge({ type, rate }: { type: string; rate: number }) {
   return (
-    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-amber-700 border border-amber-200">
       {type === "PERCENTAGE" ? `${rate}% do valor` : `R$${rate} fixo`}
     </span>
   );
@@ -69,7 +69,7 @@ export default function ComissoesBarberPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
     </div>
   );
   if (!data) return null;
@@ -134,7 +134,7 @@ export default function ComissoesBarberPage() {
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="col-span-2 bg-amber-500 rounded-xl p-5 text-white">
+        <div className="col-span-2 bg-primary rounded-xl p-5 text-white">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign className="w-5 h-5 opacity-80" />
             <span className="text-sm font-medium opacity-90">Total a receber</span>
@@ -193,7 +193,7 @@ export default function ComissoesBarberPage() {
               onClick={() => setTab(t.key)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors border-b-2 ${
                 tab === t.key
-                  ? "border-amber-500 text-amber-600 bg-amber-50"
+                  ? "border-primary text-primary/90 bg-primary/10"
                   : "border-transparent text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50"
               }`}
             >
@@ -221,7 +221,7 @@ export default function ComissoesBarberPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs text-zinc-400">{formatCurrency(a.valor)}</p>
-                  <p className="text-sm font-bold text-amber-600">+{formatCurrency(a.comissao)}</p>
+                  <p className="text-sm font-bold text-primary/90">+{formatCurrency(a.comissao)}</p>
                 </div>
               </div>
             ))}
@@ -246,7 +246,7 @@ export default function ComissoesBarberPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs text-zinc-400">{formatCurrency(a.valor)}</p>
-                  <p className="text-sm font-bold text-amber-600">+{formatCurrency(a.comissao)}</p>
+                  <p className="text-sm font-bold text-primary/90">+{formatCurrency(a.comissao)}</p>
                 </div>
               </div>
             ))}
@@ -269,7 +269,7 @@ export default function ComissoesBarberPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs text-zinc-400">{formatCurrency(p.valor)}</p>
-                  <p className="text-sm font-bold text-amber-600">+{formatCurrency(p.comissao)}</p>
+                  <p className="text-sm font-bold text-primary/90">+{formatCurrency(p.comissao)}</p>
                 </div>
               </div>
             ))}

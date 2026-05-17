@@ -43,7 +43,7 @@ export default function ProducaoPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
     </div>
   );
   if (!data) return null;
@@ -74,7 +74,7 @@ export default function ProducaoPage() {
 
       {/* KPIs principais */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-amber-500 rounded-xl p-4 text-white col-span-2 sm:col-span-1">
+        <div className="bg-primary rounded-xl p-4 text-white col-span-2 sm:col-span-1">
           <p className="text-xs opacity-80 font-medium mb-1">Comissão total</p>
           <p className="text-2xl font-black">{formatCurrency(kpis.totalComissao)}</p>
           <p className="text-xs opacity-70 mt-0.5">serv. + produtos</p>
@@ -120,7 +120,7 @@ export default function ProducaoPage() {
         <div className={`rounded-xl border p-4 text-center ${
           kpis.taxaComparecimento === null ? "bg-zinc-50 border-zinc-100" :
           kpis.taxaComparecimento >= 80 ? "bg-green-50 border-green-100" :
-          kpis.taxaComparecimento >= 60 ? "bg-amber-50 border-amber-100" : "bg-red-50 border-red-100"
+          kpis.taxaComparecimento >= 60 ? "bg-primary/10 border-primary/20" : "bg-red-50 border-red-100"
         }`}>
           <p className={`text-xl font-bold ${
             kpis.taxaComparecimento === null ? "text-zinc-400" :
@@ -139,15 +139,15 @@ export default function ProducaoPage() {
         <div className="space-y-3">
           <div className="flex items-center justify-between py-3 border-b border-zinc-50">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
-                <Scissors className="w-4 h-4 text-amber-600" />
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Scissors className="w-4 h-4 text-primary/90" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-zinc-900">Serviços</p>
                 <p className="text-xs text-zinc-400">{kpis.atendimentos} atendimentos · {formatCurrency(kpis.faturado)} faturado</p>
               </div>
             </div>
-            <p className="text-lg font-bold text-amber-600">{formatCurrency(kpis.comissaoServicos)}</p>
+            <p className="text-lg font-bold text-primary/90">{formatCurrency(kpis.comissaoServicos)}</p>
           </div>
           <div className="flex items-center justify-between py-3 border-b border-zinc-50">
             <div className="flex items-center gap-3">
@@ -159,11 +159,11 @@ export default function ProducaoPage() {
                 <p className="text-xs text-zinc-400">{kpis.produtos} vendas · {formatCurrency(kpis.faturadoProdutos)} faturado</p>
               </div>
             </div>
-            <p className="text-lg font-bold text-amber-600">{formatCurrency(kpis.comissaoProdutos)}</p>
+            <p className="text-lg font-bold text-primary/90">{formatCurrency(kpis.comissaoProdutos)}</p>
           </div>
           <div className="flex items-center justify-between pt-2">
             <p className="font-bold text-zinc-900">Total a receber</p>
-            <p className="text-xl font-black text-amber-600">{formatCurrency(kpis.totalComissao)}</p>
+            <p className="text-xl font-black text-primary/90">{formatCurrency(kpis.totalComissao)}</p>
           </div>
         </div>
       </div>
@@ -180,7 +180,7 @@ export default function ProducaoPage() {
                   <span className="text-xs text-zinc-400 whitespace-nowrap">{formatCurrency(d.faturado).replace("R$\u00a0", "")}</span>
                   <div className="w-full flex items-end justify-center" style={{ height: 80 }}>
                     <div
-                      className="w-full rounded-t-md bg-amber-400 hover:bg-amber-500 transition-colors cursor-default"
+                      className="w-full rounded-t-md bg-primary/80 hover:bg-primary transition-colors cursor-default"
                       style={{ height: `${Math.max(height, 4)}%` }}
                       title={`${d.atendimentos} atend.`}
                     />
@@ -210,7 +210,7 @@ export default function ProducaoPage() {
                       <span className="text-xs text-zinc-400">{s.count}x · {formatCurrency(s.faturado)}</span>
                     </div>
                     <div className="w-full bg-zinc-100 rounded-full h-1.5">
-                      <div className="h-1.5 rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                      <div className="h-1.5 rounded-full bg-primary/80" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                   <span className="text-xs font-semibold text-zinc-500 w-8 text-right">{pct}%</span>

@@ -20,13 +20,13 @@ export async function GET(req: NextRequest) {
       barberIdFilter = barber.id;
     }
 
-    // Busca todos os usuários que são CLIENTES e possuem agendamentos ou assinaturas nesta barbearia
+    // Busca todos os usuários que são CLIENTES nesta barbearia (com agendamentos, assinaturas ou vinculados à barbearia)
     const dbClients = await prisma.user.findMany({
       where: {
         role: "CLIENT", // Note: DELETED_CLIENT is excluded automatically here
         OR: [
-          { appointments: { some: { barbershopId, status: "DONE" } } },
-          { subscriptions: { some: { barbershopId, status: "ACTIVE" } } }
+          { appointments: { some: { barbershopId } } },
+          { subscriptions: { some: { barbershopId } } }
         ]
       },
       include: {
@@ -40,6 +40,14 @@ export async function GET(req: NextRequest) {
         }
       }
     });
+
+    // Calcula a média geral das avaliações realizadas para obter a "Moral" (NPS geral) da barbearia
+    const reviews = await prisma.review.findMany({
+      where: { barbershopId }
+    });
+    const totalReviews = reviews.length;
+    const avgRating = totalReviews > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews : 0;
+    const moral = totalReviews > 0 ? Math.round(avgRating * 10) / 10 : 5.0; // Padrão 5.0 se sem reviews
 
     const clientes = dbClients.map((u) => {
       const sortedVisits = u.appointments.map(a => new Date(a.date)).sort((a, b) => a.getTime() - b.getTime());
@@ -68,6 +76,8 @@ export async function GET(req: NextRequest) {
         name: u.name,
         email: u.email,
         phone: u.phone,
+        isBlocked: u.isBlocked,
+        birthday: u.birthday ? u.birthday.toISOString() : null,
         totalVisits: sortedVisits.length,
         totalSpent,
         thisMonthVisits,
@@ -87,7 +97,7 @@ export async function GET(req: NextRequest) {
       return dateB - dateA;
     });
 
-    return NextResponse.json({ clientes });
+    return NextResponse.json({ clientes, moral });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro";
     return NextResponse.json({ error: msg }, { status: 401 });

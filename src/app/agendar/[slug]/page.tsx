@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
-import { Scissors, Check, ChevronLeft, Clock, Calendar, AlertCircle, UserCheck } from "lucide-react";
+import { Sparkles, Check, ChevronLeft, Clock, Calendar, AlertCircle, UserCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
 
@@ -134,7 +134,7 @@ export default function AgendarPage() {
   if (!shop) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -145,8 +145,8 @@ export default function AgendarPage() {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500 mb-3">
-            <Scissors className="w-7 h-7 text-white" />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-3">
+            <Sparkles className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold">{shop.name}</h1>
           {shop.description && <p className="text-zinc-400 text-sm mt-1">{shop.description}</p>}
@@ -158,7 +158,7 @@ export default function AgendarPage() {
             {(["service", "barber", "datetime", "dados"] as Step[]).map((s, i) => (
               <div key={s} className="flex items-center gap-2">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  step === s ? "bg-amber-500 text-white"
+                  step === s ? "bg-primary text-white"
                   : ["service","barber","datetime","dados"].indexOf(step) > i ? "bg-green-500 text-white"
                   : "bg-zinc-800 text-zinc-500"
                 }`}>
@@ -176,7 +176,7 @@ export default function AgendarPage() {
             <h2 className="text-lg font-semibold mb-4">Escolha o serviço</h2>
             {shop.services.map((s) => (
               <button key={s.id} onClick={() => { sel("service", s.id); setStep("barber"); }}
-                className={`w-full text-left p-4 rounded-xl border transition-colors ${selected.service === s.id ? "border-amber-500 bg-amber-500/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
+                className={`w-full text-left p-4 rounded-xl border transition-colors ${selected.service === s.id ? "border-primary bg-primary/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold">{s.name}</p>
@@ -185,23 +185,23 @@ export default function AgendarPage() {
                       <Clock className="w-3 h-3" />{s.duration}min
                     </span>
                   </div>
-                  <span className="text-amber-400 font-bold text-lg">{formatCurrency(s.price)}</span>
+                  <span className="text-primary/80 font-bold text-lg">{formatCurrency(s.price)}</span>
                 </div>
               </button>
             ))}
           </div>
         )}
 
-        {/* STEP 2 — Barbeiro */}
+        {/* STEP 2 — Profissional */}
         {step === "barber" && (
           <div className="space-y-3">
             <button onClick={() => setStep("service")} className="flex items-center gap-1 text-zinc-400 hover:text-white text-sm mb-4">
               <ChevronLeft className="w-4 h-4" /> Voltar
             </button>
-            <h2 className="text-lg font-semibold mb-4">Escolha o barbeiro</h2>
+            <h2 className="text-lg font-semibold mb-4">Escolha o profissional</h2>
             {shop.barbers.map((b) => (
               <button key={b.id} onClick={() => { sel("barber", b.id); setStep("datetime"); }}
-                className={`w-full text-left p-4 rounded-xl border transition-colors ${selected.barber === b.id ? "border-amber-500 bg-amber-500/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
+                className={`w-full text-left p-4 rounded-xl border transition-colors ${selected.barber === b.id ? "border-primary bg-primary/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
                 <p className="font-semibold">{b.user.name}</p>
                 {b.nickname && <p className="text-xs text-zinc-400">{b.nickname}</p>}
               </button>
@@ -222,7 +222,7 @@ export default function AgendarPage() {
 
             {loadingSlots ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+                <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
                 <p className="text-zinc-500 text-sm">Buscando horários disponíveis...</p>
               </div>
             ) : !hasAnySlot ? (
@@ -238,7 +238,7 @@ export default function AgendarPage() {
                     <div key={date} className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                         <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-amber-500" />
+                          <Calendar className="w-4 h-4 text-primary" />
                           <span className="font-semibold text-sm">{label}</span>
                         </div>
                         <span className="text-xs text-zinc-500">{slots.length} horário{slots.length > 1 ? "s" : ""}</span>
@@ -248,7 +248,7 @@ export default function AgendarPage() {
                           <button
                             key={slot}
                             onClick={() => pickSlot(date, slot)}
-                            className="py-2 rounded-lg text-sm font-semibold bg-zinc-800 hover:bg-amber-500 hover:text-white text-zinc-200 transition-colors"
+                            className="py-2 rounded-lg text-sm font-semibold bg-zinc-800 hover:bg-primary hover:text-white text-zinc-200 transition-colors"
                           >
                             {slot}
                           </button>
@@ -271,9 +271,9 @@ export default function AgendarPage() {
             <h2 className="text-lg font-semibold">Seus dados</h2>
             <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 space-y-1 text-sm">
               <p className="text-zinc-400">Serviço: <span className="text-white font-medium">{selectedService?.name}</span></p>
-              <p className="text-zinc-400">Barbeiro: <span className="text-white font-medium">{selectedBarber?.user.name}</span></p>
+              <p className="text-zinc-400">Profissional: <span className="text-white font-medium">{selectedBarber?.user.name}</span></p>
               <p className="text-zinc-400">Data: <span className="text-white font-medium">{formatDayLabel(selected.date)} às {selected.slot}</span></p>
-              <p className="text-zinc-400">Valor: <span className="text-amber-400 font-bold">{formatCurrency(selectedService?.price || 0)}</span></p>
+              <p className="text-zinc-400">Valor: <span className="text-primary/80 font-bold">{formatCurrency(selectedService?.price || 0)}</span></p>
             </div>
             <form onSubmit={handleBook} className="space-y-3">
               {/* Telefone primeiro — dispara lookup */}
@@ -286,11 +286,11 @@ export default function AgendarPage() {
                     value={form.phone}
                     onChange={(e) => handlePhoneChange(e.target.value)}
                     placeholder="(41) 99999-9999"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   {lookingUp && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     </div>
                   )}
                 </div>
@@ -315,7 +315,7 @@ export default function AgendarPage() {
                     value={form.firstName}
                     onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
                     placeholder="João"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div className="flex-1">
@@ -324,7 +324,7 @@ export default function AgendarPage() {
                     value={form.lastName}
                     onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
                     placeholder="Silva"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -346,7 +346,7 @@ export default function AgendarPage() {
             <p className="text-zinc-400 mb-6">Seu horário foi confirmado.</p>
             <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 text-left space-y-2 text-sm mb-6">
               <p className="text-zinc-400">Serviço: <span className="text-white">{selectedService?.name}</span></p>
-              <p className="text-zinc-400">Barbeiro: <span className="text-white">{selectedBarber?.user.name}</span></p>
+              <p className="text-zinc-400">Profissional: <span className="text-white">{selectedBarber?.user.name}</span></p>
               <p className="text-zinc-400">Data: <span className="text-white">{formatDayLabel(selected.date)} às {booked?.startTime}</span></p>
             </div>
             <Button onClick={() => { setStep("service"); setSelected({ service: "", barber: "", date: "", slot: "" }); }} variant="secondary">

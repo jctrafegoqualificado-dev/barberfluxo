@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const { id } = await params;
-    const { name, phone } = await req.json();
+    const { name, phone, isBlocked, birthday } = await req.json();
 
     // Valida que o cliente existe e pertence à barbearia (via agendamentos ou assinaturas)
     const user = await prisma.user.findUnique({ where: { id } });
@@ -18,13 +18,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // Se mudou o telefone, verifica duplicidade
     if (phone) {
       const phoneDigits = phone.replace(/\D/g, "");
-      const existing = await prisma.user.findFirst({
-        where: {
-          id: { not: id },
-          role: "CLIENT",
-        },
-      });
-      // Busca em memória para sanitizar telefones
       const allClients = await prisma.user.findMany({ where: { role: "CLIENT", id: { not: id } } });
       const duplicate = allClients.find(c => c.phone?.replace(/\D/g, "") === phoneDigits);
       if (duplicate) {
@@ -36,7 +29,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const data: any = {};
     if (name?.trim()) data.name = name.trim();
-    if (phone?.trim()) data.phone = phone.replace(/\D/g, "");
+    if (phone !== undefined) {
+      data.phone = phone ? phone.replace(/\D/g, "") : null;
+    }
+    if (typeof isBlocked === "boolean") data.isBlocked = isBlocked;
+    if (birthday !== undefined) {
+      data.birthday = birthday ? new Date(birthday) : null;
+    }
 
     const updated = await prisma.user.update({ where: { id }, data });
 

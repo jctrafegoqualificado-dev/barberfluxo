@@ -5,11 +5,35 @@ import { useAuthStore } from "@/store/auth";
 import Sidebar from "@/components/layout/Sidebar";
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [branding, setBranding] = useState<{ primaryColor: string; secondaryColor: string } | null>(null);
 
-  useEffect(() => { setMounted(true); }, []);
+  function hexToRgb(hex: string) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? 
+      `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
+      null;
+  }
+
+  useEffect(() => { 
+    setMounted(true);
+    if (token) {
+      fetch("/api/barbershop/settings", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.primaryColor) {
+          setBranding({
+            primaryColor: data.primaryColor,
+            secondaryColor: data.secondaryColor || data.primaryColor
+          });
+        }
+      });
+    }
+  }, [token]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -20,11 +44,19 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   if (!user) return null;
 
   return (
-    <div className="flex min-h-screen bg-zinc-50">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-4 pt-16 md:pt-6 md:p-6 max-w-7xl mx-auto">{children}</div>
-      </main>
-    </div>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        :root {
+          --primary: ${branding?.primaryColor ? hexToRgb(branding.primaryColor) : "245, 158, 11"};
+          --secondary: ${branding?.secondaryColor ? hexToRgb(branding.secondaryColor) : "251, 191, 36"};
+        }
+      `}} />
+      <div className="flex min-h-screen bg-zinc-50">
+        <Sidebar branding={branding || undefined} />
+        <main className="flex-1 overflow-auto">
+          <div className="p-4 pt-16 md:pt-6 md:p-6 max-w-7xl mx-auto">{children}</div>
+        </main>
+      </div>
+    </>
   );
 }

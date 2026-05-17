@@ -136,7 +136,7 @@ export default function ConfiguracoesPage() {
       {/* Link de agendamento */}
       <Card>
         <h2 className="text-base font-semibold text-zinc-900 mb-3 flex items-center gap-2">
-          <Settings className="w-4 h-4 text-amber-500" /> Link de Agendamento
+          <Settings className="w-4 h-4 text-primary" /> Link de Agendamento
         </h2>
         <p className="text-sm text-zinc-500 mb-3">Compartilhe com seus clientes para agendamento online:</p>
         <div className="flex gap-2">
@@ -155,13 +155,13 @@ export default function ConfiguracoesPage() {
       <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-amber-500" />
+            <Clock className="w-4 h-4 text-primary" />
             <h2 className="font-semibold text-zinc-900">Horários de Funcionamento</h2>
           </div>
           <button
             onClick={saveHours}
             disabled={savingHours}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-60"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
           >
             {hoursSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
             {hoursSaved ? "Salvo!" : savingHours ? "Salvando..." : "Salvar"}
@@ -170,7 +170,7 @@ export default function ConfiguracoesPage() {
 
         {loadingHours ? (
           <div className="flex items-center justify-center h-40">
-            <div className="animate-spin w-7 h-7 border-4 border-amber-500 border-t-transparent rounded-full" />
+            <div className="animate-spin w-7 h-7 border-4 border-primary border-t-transparent rounded-full" />
           </div>
         ) : (
           <div className="divide-y divide-zinc-50">
@@ -183,7 +183,7 @@ export default function ConfiguracoesPage() {
                 <button
                   type="button"
                   onClick={() => updateHour(row.dayOfWeek, "isOpen", !row.isOpen)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${row.isOpen ? "bg-amber-500" : "bg-zinc-200"}`}
+                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${row.isOpen ? "bg-primary" : "bg-zinc-200"}`}
                 >
                   <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${row.isOpen ? "translate-x-5" : "translate-x-0"}`} />
                 </button>
@@ -199,7 +199,7 @@ export default function ConfiguracoesPage() {
                     <select
                       value={row.openTime}
                       onChange={(e) => updateHour(row.dayOfWeek, "openTime", e.target.value)}
-                      className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                      className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                     >
                       {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
@@ -207,7 +207,7 @@ export default function ConfiguracoesPage() {
                     <select
                       value={row.closeTime}
                       onChange={(e) => updateHour(row.dayOfWeek, "closeTime", e.target.value)}
-                      className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                      className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                     >
                       {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
@@ -225,7 +225,7 @@ export default function ConfiguracoesPage() {
       {/* Taxas de cartão */}
       <Card>
         <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-amber-500" /> Taxas da Máquina de Cartão
+          <CreditCard className="w-4 h-4 text-primary" /> Taxas da Máquina de Cartão
         </h2>
         <p className="text-xs text-zinc-400 mb-4">Usadas para calcular receita líquida no financeiro</p>
         <div className="flex gap-4 flex-wrap">
@@ -237,7 +237,7 @@ export default function ConfiguracoesPage() {
                 value={debitFee}
                 onChange={(e) => setDebitFee(e.target.value)}
                 placeholder="ex: 1.5"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <span className="text-zinc-400 text-sm">%</span>
             </div>
@@ -250,7 +250,7 @@ export default function ConfiguracoesPage() {
                 value={creditFee}
                 onChange={(e) => setCreditFee(e.target.value)}
                 placeholder="ex: 2.99"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <span className="text-zinc-400 text-sm">%</span>
             </div>
@@ -266,7 +266,7 @@ export default function ConfiguracoesPage() {
       {/* Lembrete WhatsApp */}
       <Card>
         <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <Bell className="w-4 h-4 text-amber-500" /> Lembrete de Agendamento (WhatsApp)
+          <Bell className="w-4 h-4 text-primary" /> Lembrete de Agendamento (WhatsApp)
         </h2>
         <p className="text-xs text-zinc-400 mb-4">O cliente recebe uma mensagem automática antes do horário marcado</p>
         <div>
@@ -274,7 +274,7 @@ export default function ConfiguracoesPage() {
           <select
             value={reminderMinutes}
             onChange={(e) => setReminderMinutes(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           >
             <option value="30">30 minutos antes</option>
             <option value="60">1 hora antes</option>

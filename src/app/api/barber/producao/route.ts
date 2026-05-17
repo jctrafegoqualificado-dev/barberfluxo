@@ -27,12 +27,12 @@ export async function GET(req: NextRequest) {
     const [appointments, productSales] = await Promise.all([
       prisma.appointment.findMany({
         where: { barberId: barber.id, date: { gte: start, lte: end } },
-        include: { service: { select: { name: true } } },
+        include: { service: { select: { name: true, materialCost: true, commission: true } } },
         orderBy: { date: "asc" },
       }),
       prisma.productSale.findMany({
         where: { barberId: barber.id, createdAt: { gte: start, lte: end } },
-        include: { product: { select: { name: true } } },
+        include: { product: { select: { name: true, commissionType: true, commissionValue: true } } },
       }),
     ]);
 
@@ -40,10 +40,28 @@ export async function GET(req: NextRequest) {
     const noShow = appointments.filter((a) => a.status === "NO_SHOW").length;
     const cancelled = appointments.filter((a) => a.status === "CANCELLED").length;
     const totalFaturado = done.reduce((s, a) => s + a.price, 0);
-    const comissaoServicos = done.reduce((s, a) =>
-      s + calcComissao(a.price, barber.commissionType, barber.commission), 0);
-    const comissaoProdutos = productSales.reduce((s, p) =>
-      s + calcComissao(p.total, barber.productCommissionType, barber.productCommission), 0);
+    const comissaoServicos = done.reduce((s, a) => {
+      const materialCost = a.service?.materialCost || 0;
+      const netValue = Math.max(0, a.price - materialCost);
+      const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
+      
+      if (hasCustomCommission) {
+        return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
+      }
+      return s + calcComissao(netValue, barber.commissionType, barber.commission);
+    }, 0);
+    
+    const comissaoProdutos = productSales.reduce((s, p) => {
+      const commType = p.product?.commissionType || barber.productCommissionType;
+      const commValue = p.product?.commissionValue !== undefined && p.product?.commissionValue !== null 
+        ? p.product.commissionValue 
+        : barber.productCommission;
+      
+      if (commType === "FIXED") {
+        return s + (commValue * p.quantity);
+      }
+      return s + calcComissao(p.total, commType, commValue);
+    }, 0);
     const totalComissao = comissaoServicos + comissaoProdutos;
 
     // Ranking de serviços

@@ -51,11 +51,11 @@ export default function LoginPage() {
         {/* Conteúdo */}
         <div className="relative z-10 text-center px-12">
           {/* Logo */}
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-amber-500 mb-6 shadow-2xl">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary mb-6 shadow-2xl">
             <Scissors className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-5xl font-black text-white tracking-tight mb-2">Lord</h1>
-          <p className="text-amber-400 text-lg font-semibold mb-8">of Barba</p>
+          <p className="text-primary/80 text-lg font-semibold mb-8">of Barba</p>
 
           <div className="space-y-4 text-left max-w-xs mx-auto">
             {[
@@ -65,7 +65,7 @@ export default function LoginPage() {
               "Relatórios e métricas",
             ].map((item) => (
               <div key={item} className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -85,14 +85,14 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Logo mobile */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <Scissors className="w-5 h-5 text-white" />
             </div>
             <span className="text-2xl font-black text-zinc-900">Lord</span>
           </div>
 
           <h2 className="text-3xl font-bold text-zinc-900 mb-1">
-            Conecte-se à <span className="text-amber-500">sua conta</span>
+            Conecte-se à <span className="text-primary">sua conta</span>
           </h2>
           <p className="text-zinc-500 text-sm mb-8">Acesse o painel de gestão da barbearia</p>
 
@@ -101,13 +101,13 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setTab("admin")}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "admin" ? "bg-white shadow text-amber-600 border border-amber-200" : "text-zinc-500 hover:text-zinc-700"}`}>
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "admin" ? "bg-white shadow text-primary/90 border border-amber-200" : "text-zinc-500 hover:text-zinc-700"}`}>
               Administrador
             </button>
             <button
               type="button"
               onClick={() => setTab("barber")}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "barber" ? "bg-white shadow text-amber-600 border border-amber-200" : "text-zinc-500 hover:text-zinc-700"}`}>
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "barber" ? "bg-white shadow text-primary/90 border border-amber-200" : "text-zinc-500 hover:text-zinc-700"}`}>
               Barbeiro
             </button>
           </div>
@@ -129,7 +129,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 required
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition"
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-transparent transition"
               />
             </div>
 
@@ -143,14 +143,14 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition"
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-transparent transition"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors text-sm shadow-sm flex items-center justify-center gap-2 mt-2">
+              className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors text-sm shadow-sm flex items-center justify-center gap-2 mt-2">
               {loading
                 ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 : `Entrar como ${tab === "admin" ? "Administrador" : "Barbeiro"}`}

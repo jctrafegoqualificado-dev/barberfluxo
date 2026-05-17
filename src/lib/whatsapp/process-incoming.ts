@@ -104,8 +104,18 @@ export async function processIncomingMessage(
     }
   });
 
-  // 5. Acionar lógica do Bot (se não for mensagem enviada por nós)
-  if (!fromMe && textContent && !remoteJid.includes("g.us")) {
+  // 4.5 Verificar se o usuário vinculado está bloqueado
+  let userBlocked = false;
+  if (contact.userId) {
+    const linkedUser = await prisma.user.findUnique({ where: { id: contact.userId } });
+    if (linkedUser?.isBlocked) {
+      userBlocked = true;
+      console.warn(`🛡️ [Evolution Bot] Mensagem ignorada de contato bloqueado: ${realJid} (${linkedUser.name})`);
+    }
+  }
+
+  // 5. Acionar lógica do Bot (se não for mensagem enviada por nós e o usuário não estiver bloqueado)
+  if (!fromMe && textContent && !remoteJid.includes("g.us") && !userBlocked) {
     const instance = await prisma.whatsAppInstance.findUnique({ where: { id: whatsappInstanceId } });
     if (instance) {
       try {

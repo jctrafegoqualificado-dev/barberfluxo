@@ -23,7 +23,7 @@ interface Cliente {
 function LastVisitBadge({ days }: { days: number }) {
   if (days === 0) return <span className="text-xs font-medium text-green-600">Hoje</span>;
   if (days <= 7) return <span className="text-xs font-medium text-green-600">{days}d atrás</span>;
-  if (days <= 30) return <span className="text-xs font-medium text-amber-600">{days}d atrás</span>;
+  if (days <= 30) return <span className="text-xs font-medium text-primary/90">{days}d atrás</span>;
   return <span className="text-xs font-medium text-red-500">{days}d atrás</span>;
 }
 
@@ -65,13 +65,13 @@ export default function BarbeiroClientesPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nome ou telefone..."
-          className="w-full rounded-xl border border-zinc-200 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+          className="w-full rounded-xl border border-zinc-200 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
         />
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-zinc-100 p-16 text-center text-zinc-400">
@@ -83,7 +83,7 @@ export default function BarbeiroClientesPage() {
           <div className="divide-y divide-zinc-50">
             {filtered.map((c) => (
               <div key={c.id} className="px-5 py-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                   <span className="text-amber-700 font-bold text-sm">{getInitials(c.name)}</span>
                 </div>
 
@@ -95,7 +95,7 @@ export default function BarbeiroClientesPage() {
                     )}
                   </div>
                   {c.phone && (
-                    <a href={`tel:${c.phone}`} className="text-xs text-amber-600 hover:underline">{c.phone}</a>
+                    <a href={`tel:${c.phone}`} className="text-xs text-primary/90 hover:underline">{c.phone}</a>
                   )}
                 </div>
 
@@ -107,7 +107,7 @@ export default function BarbeiroClientesPage() {
                     </div>
                     <p className="text-sm font-bold text-zinc-900">{c.totalVisits}</p>
                     {c.thisMonthVisits > 0 && (
-                      <p className="text-xs text-amber-600">+{c.thisMonthVisits} esse mês</p>
+                      <p className="text-xs text-primary/90">+{c.thisMonthVisits} esse mês</p>
                     )}
                   </div>
 

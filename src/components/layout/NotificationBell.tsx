@@ -52,7 +52,7 @@ export default function NotificationBell() {
       >
         <Bell className="w-5 h-5 text-zinc-400" />
         {count > 0 && (
-          <span className={`absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${hasHigh ? "bg-red-500" : "bg-amber-500"}`}>
+          <span className={`absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${hasHigh ? "bg-red-500" : "bg-primary"}`}>
             {count > 9 ? "9+" : count}
           </span>
         )}
@@ -80,7 +80,7 @@ export default function NotificationBell() {
                   onClick={() => { setOpen(false); router.push(n.link); }}
                   className={`w-full text-left px-4 py-3 flex gap-3 items-start hover:brightness-95 transition-all group ${n.severity === "high" ? "bg-red-50" : "bg-white hover:bg-zinc-50"}`}
                 >
-                  <div className={`mt-0.5 shrink-0 ${n.severity === "high" ? "text-red-500" : "text-amber-500"}`}>
+                  <div className={`mt-0.5 shrink-0 ${n.severity === "high" ? "text-red-500" : "text-primary"}`}>
                     {n.type === "LOW_STOCK" ? <Package className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -88,7 +88,7 @@ export default function NotificationBell() {
                       {n.title}
                     </p>
                     <p className="text-xs text-zinc-500 mt-0.5">{n.message}</p>
-                    <p className={`text-xs font-medium mt-1 ${n.severity === "high" ? "text-red-500" : "text-amber-500"}`}>
+                    <p className={`text-xs font-medium mt-1 ${n.severity === "high" ? "text-red-500" : "text-primary"}`}>
                       Toque para resolver →
                     </p>
                   </div>

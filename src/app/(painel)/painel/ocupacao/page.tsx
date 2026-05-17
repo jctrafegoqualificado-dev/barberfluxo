@@ -34,8 +34,8 @@ interface OcupacaoData {
 }
 
 function OcupacaoGauge({ taxa }: { taxa: number }) {
-  const color = taxa >= 70 ? "text-green-600" : taxa >= 40 ? "text-amber-500" : "text-red-500";
-  const ring = taxa >= 70 ? "stroke-green-500" : taxa >= 40 ? "stroke-amber-400" : "stroke-red-400";
+  const color = taxa >= 70 ? "text-green-600" : taxa >= 40 ? "text-primary" : "text-red-500";
+  const ring = taxa >= 70 ? "stroke-green-500" : taxa >= 40 ? "stroke-primary/80" : "stroke-red-400";
   const r = 54;
   const circ = 2 * Math.PI * r;
   const offset = circ - (taxa / 100) * circ;
@@ -62,15 +62,15 @@ function OcupacaoGauge({ taxa }: { taxa: number }) {
 }
 
 function BarberOcupacaoCard({ b, rank }: { b: BarberStat; rank: number }) {
-  const color = b.taxa >= 70 ? "bg-green-400" : b.taxa >= 40 ? "bg-amber-400" : "bg-red-400";
-  const textColor = b.taxa >= 70 ? "text-green-600" : b.taxa >= 40 ? "text-amber-600" : "text-red-500";
+  const color = b.taxa >= 70 ? "bg-green-400" : b.taxa >= 40 ? "bg-primary/80" : "bg-red-400";
+  const textColor = b.taxa >= 70 ? "text-green-600" : b.taxa >= 40 ? "text-primary/90" : "text-red-500";
   const horas = Math.floor(b.minOcupados / 60);
   const min = b.minOcupados % 60;
 
   return (
     <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
           <span className="text-amber-700 font-bold text-sm">{getInitials(b.name)}</span>
         </div>
         <div className="flex-1 min-w-0">
@@ -98,7 +98,7 @@ function BarberOcupacaoCard({ b, rank }: { b: BarberStat; rank: number }) {
 
 function DiaBar({ dia, maxTaxa }: { dia: DiaData; maxTaxa: number }) {
   const height = maxTaxa > 0 ? Math.round((dia.taxa / maxTaxa) * 100) : 0;
-  const color = dia.taxa >= 70 ? "bg-green-400" : dia.taxa >= 40 ? "bg-amber-400" : dia.taxa > 0 ? "bg-red-300" : "bg-zinc-100";
+  const color = dia.taxa >= 70 ? "bg-green-400" : dia.taxa >= 40 ? "bg-primary/80" : dia.taxa > 0 ? "bg-red-300" : "bg-zinc-100";
 
   return (
     <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
@@ -159,7 +159,7 @@ export default function OcupacaoPage() {
             <button
               key={p}
               onClick={() => setPeriodo(p)}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${periodo === p ? "bg-amber-500 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${periodo === p ? "bg-primary text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}
             >
               {p === "semana" ? "Esta semana" : "Este mês"}
             </button>
@@ -169,7 +169,7 @@ export default function OcupacaoPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
       ) : data ? (
         <>
@@ -193,8 +193,8 @@ export default function OcupacaoPage() {
                   <p className="text-xs text-zinc-400">Disponível total</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center mx-auto mb-2">
-                    <Users className="w-5 h-5 text-amber-500" />
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                    <Users className="w-5 h-5 text-primary" />
                   </div>
                   <p className="text-xl font-bold text-zinc-900">{data.totalAtendimentos}</p>
                   <p className="text-xs text-zinc-400">Atendimentos</p>
@@ -247,7 +247,7 @@ export default function OcupacaoPage() {
             </div>
             <div className="flex items-center gap-4 mt-4 text-xs text-zinc-400">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-400 inline-block" />≥70% ótimo</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-400 inline-block" />40–69% regular</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-primary/80 inline-block" />40–69% regular</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-300 inline-block" />&lt;40% baixo</span>
             </div>
           </div>
@@ -279,7 +279,7 @@ export default function OcupacaoPage() {
               {/* Card geral */}
               <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5 flex items-center gap-6">
                 <div className="w-20 h-20 rounded-full border-4 border-amber-200 flex flex-col items-center justify-center shrink-0">
-                  <span className="text-2xl font-black text-amber-600">{retencao.taxaGeralRetorno}%</span>
+                  <span className="text-2xl font-black text-primary/90">{retencao.taxaGeralRetorno}%</span>
                 </div>
                 <div>
                   <p className="font-semibold text-zinc-900">Barbearia geral</p>
@@ -297,7 +297,7 @@ export default function OcupacaoPage() {
                 {retencao.porBarbeiro.map((b) => (
                   <div key={b.id} className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                         <span className="text-amber-700 font-bold text-xs">{getInitials(b.name)}</span>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -312,7 +312,7 @@ export default function OcupacaoPage() {
                           <span className="text-xs text-zinc-400">Retorno</span>
                         </div>
                         {b.taxaRetorno !== null ? (
-                          <p className={`text-lg font-black ${b.taxaRetorno >= 60 ? "text-green-600" : b.taxaRetorno >= 35 ? "text-amber-600" : "text-red-500"}`}>
+                          <p className={`text-lg font-black ${b.taxaRetorno >= 60 ? "text-green-600" : b.taxaRetorno >= 35 ? "text-primary/90" : "text-red-500"}`}>
                             {b.taxaRetorno}%
                           </p>
                         ) : (
@@ -328,7 +328,7 @@ export default function OcupacaoPage() {
                           <span className="text-xs text-zinc-400">Frequência</span>
                         </div>
                         {b.mediaFrequencia !== null ? (
-                          <p className={`text-lg font-black ${b.mediaFrequencia <= 21 ? "text-green-600" : b.mediaFrequencia <= 45 ? "text-amber-600" : "text-red-500"}`}>
+                          <p className={`text-lg font-black ${b.mediaFrequencia <= 21 ? "text-green-600" : b.mediaFrequencia <= 45 ? "text-primary/90" : "text-red-500"}`}>
                             {b.mediaFrequencia}d
                           </p>
                         ) : (

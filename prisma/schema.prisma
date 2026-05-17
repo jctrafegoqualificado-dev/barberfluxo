@@ -19,6 +19,8 @@ model User {
   phone     String?
   password  String
   role      String   @default("CLIENT") // PLATFORM_ADMIN | OWNER | BARBER | CLIENT
+  isBlocked Boolean  @default(false)
+  birthday  DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -28,6 +30,8 @@ model User {
   subscriptions    Subscription[]
   productSales     ProductSale[]     @relation("ClientProductSales")
   whatsappContacts WhatsAppContact[]
+  reviews          Review[]          @relation("ClientReviews")
+  loyaltyPoints    LoyaltyPoint[]    @relation("ClientLoyaltyPoints")
 }
 
 model Barbershop {
@@ -40,6 +44,9 @@ model Barbershop {
   state       String?
   description String?
   logoUrl     String?
+  primaryColor String? @default("#f59e0b")
+  secondaryColor String? @default("#fbbf24")
+  favIconUrl   String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -49,7 +56,9 @@ model Barbershop {
   poeOwnerPct     Float @default(50)
   debitFee        Float @default(0)
   creditFee       Float @default(0)
-  reminderMinutes Int   @default(60)
+  reminderMinutes Int     @default(60)
+  reminderEnabled Boolean @default(false)
+  reminderMessage String? // Template: "Olá {{nome}}, seu horário de {{servico}} é amanhã às {{hora}}!"
 
   ownerId String @unique
   owner   User   @relation("ShopOwner", fields: [ownerId], references: [id])
@@ -72,6 +81,8 @@ model Barbershop {
   whatsappMessages WhatsAppMessage[]
   whatsappSessions WhatsAppSession[]
   saasPayments     Payment[]
+  reviews          Review[]
+  loyaltyPoints    LoyaltyPoint[]
 }
 
 model WhatsAppInstance {
@@ -123,6 +134,7 @@ model Barber {
   tasks              Task[]
   commissionPayments CommissionPayment[]
   commissionVales    CommissionVale[]
+  reviews            Review[]
 }
 
 model Service {
@@ -131,6 +143,9 @@ model Service {
   description String?
   price       Float
   duration    Int // minutes
+  imageUrl    String?
+  commission  Float?
+  materialCost Float   @default(0)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -168,6 +183,7 @@ model Appointment {
   beneficiaryName String?
 
   services AppointmentService[]
+  review   Review?
 }
 
 model AppointmentService {
@@ -264,6 +280,8 @@ model Product {
   costPrice   Float    @default(0)
   stock       Int      @default(0)
   category    String   @default("GERAL") // GERAL | CABELO | BARBA | SKINCARE
+  commissionType  String @default("PERCENTAGE") // PERCENTAGE | FIXED
+  commissionValue Float  @default(10)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -421,3 +439,33 @@ model WhatsAppSession {
 
   @@unique([phoneNumber, barbershopId])
 }
+
+model Review {
+  id            String      @id @default(cuid())
+  rating        Int         // Nota de 0 a 10 (NPS)
+  comment       String?
+  createdAt     DateTime    @default(now())
+
+  clientId      String
+  client        User        @relation("ClientReviews", fields: [clientId], references: [id])
+  barbershopId  String
+  barbershop    Barbershop  @relation(fields: [barbershopId], references: [id])
+  barberId      String?
+  barber        Barber?     @relation(fields: [barberId], references: [id])
+  appointmentId String?     @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+}
+
+model LoyaltyPoint {
+  id            String      @id @default(cuid())
+  points        Int
+  action        String      // "EARNED" | "REDEEMED"
+  description   String?
+  createdAt     DateTime    @default(now())
+
+  clientId      String
+  client        User        @relation("ClientLoyaltyPoints", fields: [clientId], references: [id])
+  barbershopId  String
+  barbershop    Barbershop  @relation(fields: [barbershopId], references: [id])
+}
+

@@ -40,12 +40,12 @@ function MetaCard({ meta, onDelete }: { meta: Meta; onDelete: () => void }) {
     blue:   { bg: "bg-blue-50",   bar: "bg-blue-400",   text: "text-blue-700",   badge: "bg-blue-100 text-blue-700" },
     green:  { bg: "bg-green-50",  bar: "bg-green-400",  text: "text-green-700",  badge: "bg-green-100 text-green-700" },
     purple: { bg: "bg-purple-50", bar: "bg-purple-400", text: "text-purple-700", badge: "bg-purple-100 text-purple-700" },
-    amber:  { bg: "bg-amber-50",  bar: "bg-amber-400",  text: "text-amber-700",  badge: "bg-amber-100 text-amber-700" },
+    amber:  { bg: "bg-primary/10",  bar: "bg-primary/80",  text: "text-amber-700",  badge: "bg-primary/20 text-amber-700" },
   };
   const c = colorMap[config?.color || "blue"];
 
   const status = meta.pct >= 100 ? "concluída" : meta.pct >= 70 ? "no caminho" : meta.pct >= 40 ? "atenção" : "crítico";
-  const statusColor = meta.pct >= 100 ? "text-green-600" : meta.pct >= 70 ? "text-amber-600" : "text-red-500";
+  const statusColor = meta.pct >= 100 ? "text-green-600" : meta.pct >= 70 ? "text-primary/90" : "text-red-500";
 
   return (
     <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
@@ -232,7 +232,7 @@ export default function MetasPage() {
                     type="button"
                     onClick={() => setField("tipo", t.value)}
                     className={`flex items-center gap-2 p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
-                      selected ? "border-amber-500 bg-amber-50 text-amber-700" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                      selected ? "border-primary bg-primary/10 text-amber-700" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
@@ -249,7 +249,7 @@ export default function MetasPage() {
               <select
                 value={form.periodo}
                 onChange={(e) => setField("periodo", e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="MONTHLY">Mensal</option>
                 <option value="WEEKLY">Semanal</option>
@@ -274,7 +274,7 @@ export default function MetasPage() {
             <select
               value={form.barberId}
               onChange={(e) => setField("barberId", e.target.value)}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">🏠 Barbearia toda</option>
               {barbers.map((b) => (

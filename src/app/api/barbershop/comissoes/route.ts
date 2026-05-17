@@ -26,6 +26,32 @@ export async function GET(req: NextRequest) {
       include: { user: { select: { id: true, name: true, email: true } } },
     });
 
+    // --- LÓGICA DE ASSINATURA SÊNIOR ---
+    // 1. Faturamento Total de Assinaturas (Pagamentos Recebidos no mês)
+    const subPayments = await prisma.payment.findMany({
+      where: {
+        barbershopId,
+        subscriptionId: { not: null },
+        status: "PAID",
+        paidAt: { gte: start, lte: end },
+      }
+    });
+    const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
+    const poolBarbeiros = totalSubRevenue * 0.5;
+
+    // 2. Total de Atendimentos via Assinatura (Todos os barbeiros)
+    const allSubAppointmentsCount = await prisma.appointment.count({
+      where: {
+        barbershopId,
+        subscriptionId: { not: null },
+        status: "DONE",
+        date: { gte: start, lte: end },
+      }
+    });
+
+    // 3. Ticket Médio da Assinatura (R$ por atendimento)
+    const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
+
     const result = await Promise.all(barbers.map(async (b) => {
       const [avulsos, subAppointments, productSales, commissionPayment, vales] = await Promise.all([
         prisma.appointment.findMany({
@@ -63,16 +89,33 @@ export async function GET(req: NextRequest) {
       ]);
 
       const totalAvulso = avulsos.reduce((s, a) => s + a.price, 0);
-      const comissaoAvulso = avulsos.reduce((s, a) =>
-        s + calcComissao(a.price, b.commissionType, b.commission), 0);
+      const comissaoAvulso = avulsos.reduce((s, a) => {
+        const materialCost = a.service?.materialCost || 0;
+        const netValue = Math.max(0, a.price - materialCost);
+        const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
+        
+        if (hasCustomCommission) {
+          return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
+        }
+        return s + calcComissao(netValue, b.commissionType, b.commission);
+      }, 0);
 
-      const totalAssinatura = subAppointments.reduce((s, a) => s + a.price, 0);
-      const comissaoAssinatura = subAppointments.reduce((s, a) =>
-        s + calcComissao(a.price, b.commissionType, b.commission), 0);
+      // Nova regra: Comissao de Assinatura = Numero de Atendimentos * Ticket Médio do Pool
+      const totalAssinatura = subAppointments.reduce((s, a) => s + a.price, 0); // Faturamento nominal (apenas para relatório)
+      const comissaoAssinatura = subAppointments.length * ticketMedioSub;
 
       const totalProdutos = productSales.reduce((s, p) => s + p.total, 0);
-      const comissaoProdutos = productSales.reduce((s, p) =>
-        s + calcComissao(p.total, b.productCommissionType, b.productCommission), 0);
+      const comissaoProdutos = productSales.reduce((s, p) => {
+        const commType = p.product?.commissionType || b.productCommissionType;
+        const commValue = p.product?.commissionValue !== undefined && p.product?.commissionValue !== null 
+          ? p.product.commissionValue 
+          : b.productCommission;
+        
+        if (commType === "FIXED") {
+          return s + (commValue * p.quantity);
+        }
+        return s + calcComissao(p.total, commType, commValue);
+      }, 0);
 
       const totalComissao = comissaoAvulso + comissaoAssinatura + comissaoProdutos;
       const totalVales = vales.reduce((s, v) => s + v.amount, 0);
@@ -93,7 +136,7 @@ export async function GET(req: NextRequest) {
         },
         assinatura: {
           servicos: subAppointments.length,
-          faturado: totalAssinatura,
+          ticketMedio: ticketMedioSub, // Adicionado para transparência
           comissao: comissaoAssinatura,
         },
         produtos: {
@@ -111,7 +154,14 @@ export async function GET(req: NextRequest) {
       };
     }));
 
-    return NextResponse.json({ barbers: result, mes: mesLabel, monthOffset, monthKey });
+    return NextResponse.json({ 
+      barbers: result, 
+      mes: mesLabel, 
+      monthOffset, 
+      monthKey,
+      totalSubRevenue, // Dados globais para o painel
+      ticketMedioSub 
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro";
     return NextResponse.json({ error: msg }, { status: 401 });

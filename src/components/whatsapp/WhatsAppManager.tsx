@@ -570,7 +570,7 @@ const STATUS_LABEL: Record<InstanceState["kind"], string> = {
 const STATUS_COLOR: Record<InstanceState["kind"], string> = {
   loading: "",
   no_instance: "",
-  pending: "bg-amber-50 text-amber-800 border-amber-200",
+  pending: "bg-primary/10 text-amber-800 border-amber-200",
   connecting: "bg-blue-50 text-blue-800 border-blue-200",
   connected: "bg-emerald-50 text-emerald-800 border-emerald-200",
   disconnected: "bg-gray-100 text-gray-700 border-gray-200",

@@ -39,7 +39,7 @@ const MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set",
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; dot: string; label: string }> = {
   CONFIRMED: { bg: "bg-blue-50",   border: "border-blue-400",  text: "text-blue-800",  dot: "bg-blue-500",  label: "Confirmado" },
-  PENDING:   { bg: "bg-amber-50",  border: "border-amber-400", text: "text-amber-800", dot: "bg-amber-400", label: "Aguardando" },
+  PENDING:   { bg: "bg-primary/10",  border: "border-primary/80", text: "text-amber-800", dot: "bg-primary/80", label: "Aguardando" },
   DONE:      { bg: "bg-green-50",  border: "border-green-400", text: "text-green-800", dot: "bg-green-500", label: "Concluído" },
   NO_SHOW:   { bg: "bg-red-50",    border: "border-red-400",   text: "text-red-800",   dot: "bg-red-400",   label: "Faltou" },
   CANCELLED: { bg: "bg-zinc-100",  border: "border-zinc-300",  text: "text-zinc-500",  dot: "bg-zinc-400",  label: "Cancelado" },
@@ -49,7 +49,7 @@ const PAYMENT_OPTIONS = [
   { value: "PIX",    label: "PIX",     icon: Smartphone, color: "text-green-600 bg-green-50 border-green-200" },
   { value: "DEBIT",  label: "Débito",  icon: CreditCard, color: "text-blue-600 bg-blue-50 border-blue-200" },
   { value: "CREDIT", label: "Crédito", icon: CreditCard, color: "text-purple-600 bg-purple-50 border-purple-200" },
-  { value: "CASH",   label: "Dinheiro",icon: Banknote,   color: "text-amber-600 bg-amber-50 border-amber-200" },
+  { value: "CASH",   label: "Dinheiro",icon: Banknote,   color: "text-primary/90 bg-primary/10 border-amber-200" },
 ];
 const METHOD_LABELS: Record<string, string> = { PIX: "PIX", DEBIT: "Débito", CREDIT: "Crédito", CASH: "Dinheiro" };
 
@@ -135,7 +135,7 @@ function PaymentModal({
                 <p className="text-zinc-500 pr-8">
                   {appt.services.length > 0 ? appt.services.map(s => s.service.name).join(" + ") : appt.service?.name} · {appt.barber.user.name}
                 </p>
-                <p className="text-amber-600 font-bold text-lg">
+                <p className="text-primary/90 font-bold text-lg">
                   {discount > 0 ? (
                     <span className="flex flex-col">
                       <span className="text-xs text-zinc-400 line-through font-normal">{formatCurrency(totalPrice)}</span>
@@ -147,7 +147,7 @@ function PaymentModal({
                 
                 <button 
                   onClick={() => setMode("edit")}
-                  className="absolute top-3 right-3 p-2 bg-white border border-zinc-200 rounded-lg text-zinc-400 hover:text-amber-500 hover:border-amber-200 shadow-sm transition-all active:scale-95"
+                  className="absolute top-3 right-3 p-2 bg-white border border-zinc-200 rounded-lg text-zinc-400 hover:text-primary hover:border-amber-200 shadow-sm transition-all active:scale-95"
                 >
                   <Edit3 className="w-4 h-4" />
                 </button>
@@ -182,10 +182,10 @@ function PaymentModal({
                     return (
                       <label key={s.id}
                         className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${
-                          checked ? "bg-amber-50 border border-amber-200" : "hover:bg-zinc-50 border border-transparent"
+                          checked ? "bg-primary/10 border border-amber-200" : "hover:bg-zinc-50 border border-transparent"
                         }`}>
                         <input type="checkbox" checked={checked} onChange={() => toggleService(s.id)}
-                          className="rounded text-amber-500 focus:ring-amber-500 w-4 h-4" />
+                          className="rounded text-primary focus:ring-primary w-4 h-4" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-zinc-800 truncate">{s.name}</p>
                           <p className="text-xs text-zinc-400">{s.duration}min</p>
@@ -204,7 +204,7 @@ function PaymentModal({
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-zinc-400">Novo Total</p>
-                  <p className="text-lg font-bold text-amber-600">{formatCurrency(totalPrice)}</p>
+                  <p className="text-lg font-bold text-primary/90">{formatCurrency(totalPrice)}</p>
                 </div>
               </div>
             </div>
@@ -226,7 +226,7 @@ function PaymentModal({
                 }}
                 disabled={(finalPrice > 0 && !sel) || saving} 
                 className={`flex-[1.5] py-3 rounded-xl text-white text-sm font-bold active:scale-95 transition-all shadow-md ${
-                  finalPrice === 0 ? "bg-green-600 hover:bg-green-700 shadow-green-200" : "bg-amber-500 hover:bg-amber-600 shadow-amber-200"
+                  finalPrice === 0 ? "bg-green-600 hover:bg-green-700 shadow-green-200" : "bg-primary hover:bg-primary/90 shadow-amber-200"
                 }`}
               >
                 {saving ? "Salvando..." : finalPrice === 0 ? "Confirmar Uso do Plano" : "Concluir Atendimento"}
@@ -286,7 +286,7 @@ function BloqueioModal({ barbers, date, onConfirm, onClose }: {
             <div>
               <label className="block text-xs text-zinc-500 mb-1">Barbeiro</label>
               <select value={barberId} onChange={(e) => setBarberId(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 {barbers.map((b) => <option key={b.id} value={b.id}>{b.user.name}</option>)}
               </select>
             </div>
@@ -295,18 +295,18 @@ function BloqueioModal({ barbers, date, onConfirm, onClose }: {
             <div className="flex-1">
               <label className="block text-xs text-zinc-500 mb-1">Das</label>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
             <div className="flex-1">
               <label className="block text-xs text-zinc-500 mb-1">Até</label>
               <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
           </div>
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Motivo (opcional)</label>
             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex: Almoço..."
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
         </div>
         <div className="px-5 pb-5 flex gap-2">
@@ -434,12 +434,12 @@ function AgendamentoModal({
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Nome do Cliente</label>
             <input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: João Silva"
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
           <div>
             <label className="block text-xs text-zinc-500 mb-1">WhatsApp (com DDD)</label>
             <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Ex: 11999999999"
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
 
           {activeSub && activeSub.status === "OVERDUE" ? (
@@ -448,7 +448,7 @@ function AgendamentoModal({
               <p className="text-xs text-red-600 mt-1">Pagamento pendente {activeSub.nextBillingDate ? `desde ${new Date(activeSub.nextBillingDate).toLocaleDateString("pt-BR")}` : ""}. O plano não pode ser utilizado até a regularização.</p>
             </div>
           ) : activeSub && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-primary/10 border border-amber-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
               <label className="block text-xs font-bold text-amber-700 mb-1.5 uppercase tracking-wider">Assinatura Familiar Ativa</label>
               <div className="flex flex-wrap gap-2">
                 {activeSub.beneficiaries.map((b: any, i: number) => (
@@ -459,10 +459,10 @@ function AgendamentoModal({
                     disabled={b.uses >= b.maxUses}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all border ${
                       beneficiaryName === b.name 
-                        ? "bg-amber-500 text-white border-amber-600 shadow-sm" 
+                        ? "bg-primary text-white border-primary/90 shadow-sm" 
                         : b.uses >= b.maxUses
                           ? "bg-zinc-50 text-zinc-400 border-zinc-200 cursor-not-allowed"
-                          : "bg-white text-amber-700 border-amber-200 hover:bg-amber-100"
+                          : "bg-white text-amber-700 border-amber-200 hover:bg-primary/20"
                     }`}
                   >
                     {b.name}
@@ -478,7 +478,7 @@ function AgendamentoModal({
             <div>
               <label className="block text-xs text-zinc-500 mb-1">Barbeiro</label>
               <select value={barberId} onChange={(e) => setBarberId(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 {barbers.map((b) => <option key={b.id} value={b.id}>{b.user.name}</option>)}
               </select>
             </div>
@@ -492,10 +492,10 @@ function AgendamentoModal({
                   return (
                     <label key={s.id}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${
-                        checked ? "bg-amber-50 border border-amber-200" : "hover:bg-zinc-50 border border-transparent"
+                        checked ? "bg-primary/10 border border-amber-200" : "hover:bg-zinc-50 border border-transparent"
                       }`}>
                       <input type="checkbox" checked={checked} onChange={() => toggleService(s.id)}
-                        className="rounded text-amber-500 focus:ring-amber-500" />
+                        className="rounded text-primary focus:ring-primary" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-zinc-800 truncate">{s.name}</p>
                         <p className="text-xs text-zinc-400">{s.duration}min</p>
@@ -519,7 +519,7 @@ function AgendamentoModal({
                   )}
                   <div className="flex items-center justify-between pt-1 border-t border-zinc-100 mt-1">
                     <span className="text-sm font-bold text-zinc-900">Total a pagar:</span>
-                    <span className="text-lg font-black text-amber-600">{formatCurrency(finalPrice)}</span>
+                    <span className="text-lg font-black text-primary/90">{formatCurrency(finalPrice)}</span>
                   </div>
                 </div>
               )}
@@ -530,7 +530,7 @@ function AgendamentoModal({
               <label className="block text-xs font-medium text-zinc-500 ml-1">Data</label>
               <div className="relative">
                 <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" />
                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               </div>
             </div>
@@ -538,7 +538,7 @@ function AgendamentoModal({
               <label className="block text-xs font-medium text-zinc-500 ml-1">Horário de Início</label>
               <div className="relative">
                 <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all" />
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded uppercase">
                   Fim: {(() => {
                     const [h, m] = startTime.split(":").map(Number);
@@ -568,7 +568,7 @@ function AgendamentoModal({
             setSaving(false); 
             if (success) onClose(); 
           }}
-            disabled={saving || selectedServiceIds.length === 0} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-40">
+            disabled={saving || selectedServiceIds.length === 0} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-40">
             {saving ? "Salvando..." : `Agendar${selectedServiceIds.length > 1 ? ` (${selectedServiceIds.length})` : ""}`}
           </button>
         </div>
@@ -770,8 +770,8 @@ export default function AgendamentosPage() {
       {encaixePendingData && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-6 h-6 text-amber-600" />
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-primary/90" />
             </div>
             <h2 className="text-lg font-bold text-zinc-900 mb-2">Choque de Horário</h2>
             <p className="text-sm text-zinc-500 mb-6">
@@ -793,7 +793,7 @@ export default function AgendamentosPage() {
                   alert("Erro ao salvar encaixe: " + (err.error || "Desconhecido"));
                 }
                 load();
-              }} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors">Confirmar Encaixe</button>
+              }} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors">Confirmar Encaixe</button>
             </div>
           </div>
         </div>
@@ -822,17 +822,17 @@ export default function AgendamentosPage() {
             <ChevronLeft className="w-4 h-4 text-zinc-600" />
           </button>
           <button onClick={() => setDate(todayStr)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${isToday ? "bg-amber-500 text-white border-amber-500" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"}`}>
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${isToday ? "bg-primary text-white border-primary" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"}`}>
             Hoje
           </button>
           <button onClick={() => navigate(1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200" title="Próximo dia">
             <ChevronRight className="w-4 h-4 text-zinc-600" />
           </button>
-          <div className="relative flex items-center group cursor-pointer ml-2 bg-zinc-50 hover:bg-amber-50 px-3 py-1.5 rounded-lg border border-zinc-200 hover:border-amber-200 transition-all">
+          <div className="relative flex items-center group cursor-pointer ml-2 bg-zinc-50 hover:bg-primary/10 px-3 py-1.5 rounded-lg border border-zinc-200 hover:border-amber-200 transition-all">
             <input type="date" value={date} onChange={(e) => { if(e.target.value) setDate(e.target.value); }}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Selecionar data" />
-            <span className="text-base font-bold text-zinc-900 group-hover:text-amber-600 transition-colors select-none whitespace-nowrap">{dayLabel}</span>
-            <Calendar className="w-4 h-4 text-zinc-400 ml-2 group-hover:text-amber-500 transition-colors pointer-events-none" />
+            <span className="text-base font-bold text-zinc-900 group-hover:text-primary/90 transition-colors select-none whitespace-nowrap">{dayLabel}</span>
+            <Calendar className="w-4 h-4 text-zinc-400 ml-2 group-hover:text-primary transition-colors pointer-events-none" />
           </div>
         </div>
 
@@ -853,7 +853,7 @@ export default function AgendamentosPage() {
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100">
             <Lock className="w-3.5 h-3.5" /> Bloquear
           </button>
-          <button onClick={() => setShowAgendamento(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold">
+          <button onClick={() => setShowAgendamento(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold">
             <Plus className="w-4 h-4" /> Novo agendamento
           </button>
         </div>
@@ -867,7 +867,7 @@ export default function AgendamentosPage() {
             <div style={{ width: GUTTER_W, minWidth: GUTTER_W }} className="shrink-0 border-r border-zinc-100" />
             <div className="flex overflow-x-auto flex-1">
               {barbers.map((b, i) => {
-                const colors = ["bg-amber-100 text-amber-700", "bg-blue-100 text-blue-700", "bg-green-100 text-green-700", "bg-purple-100 text-purple-700", "bg-rose-100 text-rose-700"];
+                const colors = ["bg-primary/20 text-amber-700", "bg-blue-100 text-blue-700", "bg-green-100 text-green-700", "bg-purple-100 text-purple-700", "bg-rose-100 text-rose-700"];
                 const color = colors[i % colors.length];
                 return (
                   <div key={b.id} className="border-r border-zinc-100 px-3 py-3 flex items-center gap-2.5"
@@ -994,7 +994,7 @@ export default function AgendamentosPage() {
                           {a.status === "NO_SHOW" && height > ROW_H * 6 && (
                             <button
                               onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "CONFIRMED"); }}
-                              className="mt-1 text-xs bg-amber-500 text-white px-2 py-0.5 rounded font-medium hover:bg-amber-600">
+                              className="mt-1 text-xs bg-primary text-white px-2 py-0.5 rounded font-medium hover:bg-primary/90">
                               Reabrir
                             </button>
                           )}
@@ -1076,7 +1076,7 @@ export default function AgendamentosPage() {
                       )}
                       {a.status === "NO_SHOW" && (
                         <button onClick={() => updateStatus(a.id, "CONFIRMED")}
-                          className="mt-1.5 text-xs bg-amber-500 text-white px-2.5 py-1 rounded-lg font-medium hover:bg-amber-600">
+                          className="mt-1.5 text-xs bg-primary text-white px-2.5 py-1 rounded-lg font-medium hover:bg-primary/90">
                           Reabrir
                         </button>
                       )}

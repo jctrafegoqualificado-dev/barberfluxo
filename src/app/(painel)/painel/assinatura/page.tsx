@@ -119,8 +119,8 @@ export default function AssinaturaSaaSPage() {
   if (currentPlan === "PREMIUM") {
     return (
       <div className="max-w-4xl mx-auto py-12 px-6 text-center">
-        <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Crown className="w-10 h-10 text-amber-500" />
+        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Crown className="w-10 h-10 text-primary" />
         </div>
         <h1 className="text-3xl font-bold text-zinc-900 mb-2">Você é PREMIUM!</h1>
         <p className="text-zinc-500 mb-8 text-lg">Sua barbearia tem acesso total a todas as ferramentas do BarberFluxo.</p>
@@ -132,7 +132,7 @@ export default function AssinaturaSaaSPage() {
             { icon: ShieldCheck, title: "Suporte VIP", desc: "Atendimento prioritário pela nossa equipe." },
           ].map((item, i) => (
             <Card key={i} className="p-6">
-              <item.icon className="w-8 h-8 text-amber-500 mb-4" />
+              <item.icon className="w-8 h-8 text-primary mb-4" />
               <h3 className="font-bold text-zinc-900 mb-1">{item.title}</h3>
               <p className="text-sm text-zinc-500">{item.desc}</p>
             </Card>
@@ -177,20 +177,20 @@ export default function AssinaturaSaaSPage() {
         </div>
 
         {/* Plano PREMIUM */}
-        <div className="bg-zinc-900 rounded-2xl border-2 border-amber-500 p-8 flex flex-col relative shadow-xl">
-          <div className="absolute top-0 right-0 bg-amber-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
+        <div className="bg-zinc-900 rounded-2xl border-2 border-primary p-8 flex flex-col relative shadow-xl">
+          <div className="absolute top-0 right-0 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
             Recomendado
           </div>
           
           <div className="flex justify-between items-start mb-6">
             <div>
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                Plano PREMIUM <Crown className="w-4 h-4 text-amber-500" />
+                Plano PREMIUM <Crown className="w-4 h-4 text-primary" />
               </h3>
               <p className="text-sm text-zinc-400">Poder total para escalar</p>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-bold text-amber-500">R$ 199,90</span>
+              <span className="text-2xl font-bold text-primary">R$ 199,90</span>
               <p className="text-[10px] text-zinc-500">/mês</p>
             </div>
           </div>
@@ -205,7 +205,7 @@ export default function AssinaturaSaaSPage() {
 
           <Button 
             variant="primary" 
-            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
+            className="w-full bg-primary hover:bg-primary/90 text-white font-bold"
             onClick={handleUpgrade}
             loading={loading}
           >
@@ -217,7 +217,7 @@ export default function AssinaturaSaaSPage() {
       {/* Seção de Checkout - Design de Confiança */}
       <div className="max-w-2xl mx-auto mt-12 transition-all duration-500">
         <div id="checkout_section" className="hidden">
-          <Card className="p-0 overflow-hidden border-2 border-amber-500/20 shadow-2xl">
+          <Card className="p-0 overflow-hidden border-2 border-primary/20 shadow-2xl">
             <div className="bg-zinc-50 px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-green-600" />
@@ -237,14 +237,14 @@ export default function AssinaturaSaaSPage() {
             </div>
             
             <div className="p-6">
-              <div className="mb-6 flex items-center justify-between bg-amber-50 p-4 rounded-xl border border-amber-100">
+              <div className="mb-6 flex items-center justify-between bg-primary/10 p-4 rounded-xl border border-primary/20">
                 <div>
                   <p className="text-xs text-amber-700 font-bold uppercase tracking-wider">Você escolheu:</p>
                   <p className="text-lg font-bold text-zinc-900">Plano PREMIUM</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-black text-amber-600">R$ 199,90</p>
-                  <p className="text-[10px] text-amber-500">cobrança mensal</p>
+                  <p className="text-2xl font-black text-primary/90">R$ 199,90</p>
+                  <p className="text-[10px] text-primary">cobrança mensal</p>
                 </div>
               </div>
 
@@ -253,7 +253,7 @@ export default function AssinaturaSaaSPage() {
               {/* Exibição do PIX */}
               {paymentStatus === "pending" && pixData && (
                 <div className="mt-4 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="bg-white p-4 rounded-2xl border-2 border-amber-500 shadow-lg mb-6">
+                  <div className="bg-white p-4 rounded-2xl border-2 border-primary shadow-lg mb-6">
                     <img 
                       src={`data:image/jpeg;base64,${pixData.qr_code_base64}`} 
                       alt="QR Code Pix" 
@@ -278,7 +278,7 @@ export default function AssinaturaSaaSPage() {
                           navigator.clipboard.writeText(pixData.qr_code);
                           alert("Código copiado!");
                         }}
-                        className="absolute right-2 top-1.5 bg-amber-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-amber-600 transition-colors"
+                        className="absolute right-2 top-1.5 bg-primary text-white text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-primary/90 transition-colors"
                       >
                         COPIAR
                       </button>
@@ -338,7 +338,7 @@ export default function AssinaturaSaaSPage() {
 function Feature({ item, disabled, light }: { item: string; disabled?: boolean; light?: boolean }) {
   return (
     <li className={`flex items-center gap-3 text-sm ${disabled ? "text-zinc-300 line-through" : light ? "text-zinc-300" : "text-zinc-600"}`}>
-      <Check className={`w-4 h-4 shrink-0 ${disabled ? "text-zinc-200" : "text-amber-500"}`} />
+      <Check className={`w-4 h-4 shrink-0 ${disabled ? "text-zinc-200" : "text-primary"}`} />
       {item}
     </li>
   );

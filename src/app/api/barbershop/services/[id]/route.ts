@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const { name, description, price, duration, active } = await req.json();
+    const { name, description, price, duration, active, imageUrl, commission, materialCost } = await req.json();
 
     // 1. Valida posse com findFirst (cruza barbershopId)
     const existing = await prisma.service.findFirst({ 
@@ -21,7 +21,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // 2. Update direto (sem refazer query — já validamos posse)
     const service = await prisma.service.update({
       where: { id },
-      data: { name, description, price: Number(price), duration: Number(duration), active },
+      data: {
+        name,
+        description,
+        price: Number(price),
+        duration: Number(duration),
+        active,
+        imageUrl: imageUrl || null,
+        commission: commission !== null && commission !== undefined ? Number(commission) : null,
+        materialCost: Number(materialCost || 0)
+      },
     });
 
     return NextResponse.json({ service });

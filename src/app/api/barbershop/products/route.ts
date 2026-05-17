@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { name, description, price, costPrice, stock, category } = await req.json();
+    const { name, description, price, costPrice, stock, category, commissionType, commissionValue } = await req.json();
     const product = await prisma.product.create({
       data: {
         name, description,
@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
         costPrice: Number(costPrice || 0),
         stock: Number(stock || 0),
         category: category || "GERAL",
+        commissionType: commissionType || "PERCENTAGE",
+        commissionValue: Number(commissionValue || 10),
         barbershopId: payload.barbershopId!,
       },
     });

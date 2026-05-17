@@ -32,7 +32,7 @@ function PoeBar({ ownerPct }: { ownerPct: number }) {
   return (
     <div className="w-full h-5 rounded-full overflow-hidden flex">
       <div
-        className="bg-amber-500 flex items-center justify-center text-white text-xs font-bold transition-all"
+        className="bg-primary flex items-center justify-center text-white text-xs font-bold transition-all"
         style={{ width: `${ownerPct}%` }}
       >
         {ownerPct > 10 ? `${ownerPct}%` : ""}
@@ -84,7 +84,7 @@ export default function FinanceiroPage() {
   if (loading || !data) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -100,13 +100,13 @@ export default function FinanceiroPage() {
       <div className="bg-zinc-900 rounded-xl p-6 text-white">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Settings2 className="w-4 h-4 text-amber-400" />
+            <Settings2 className="w-4 h-4 text-primary/80" />
             <h2 className="font-semibold">Configurar divisão do POE</h2>
           </div>
           <button
             onClick={savePoe}
             disabled={savingPoe}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-sm font-medium transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {saved ? <Check className="w-4 h-4" /> : null}
             {saved ? "Salvo!" : savingPoe ? "Salvando..." : "Salvar"}
@@ -116,13 +116,13 @@ export default function FinanceiroPage() {
         <div className="grid sm:grid-cols-2 gap-6 mb-4">
           <div>
             <label className="text-sm text-zinc-400 mb-2 block">
-              % da Barbearia: <span className="text-amber-400 font-bold">{poeInput}%</span>
+              % da Barbearia: <span className="text-primary/80 font-bold">{poeInput}%</span>
             </label>
             <input
               type="range" min={0} max={100} step={5}
               value={poeInput}
               onChange={(e) => setPoeInput(Number(e.target.value))}
-              className="w-full accent-amber-500"
+              className="w-full accent-primary"
             />
           </div>
           <div>
@@ -151,10 +151,10 @@ export default function FinanceiroPage() {
           <p className="text-3xl font-black text-zinc-900">{formatCurrency(data.poeTotal)}</p>
           <p className="text-xs text-zinc-400 mt-1">{data.totalAssinantes} assinantes ativos</p>
         </div>
-        <div className="bg-amber-50 rounded-xl border-2 border-amber-200 p-5 text-center">
-          <p className="text-xs text-amber-600 mb-1 font-medium uppercase tracking-wide">🏠 Barbearia ({data.poeOwnerPct}%)</p>
-          <p className="text-3xl font-black text-amber-600">{formatCurrency(data.poeBarbearia)}</p>
-          <p className="text-xs text-amber-400 mt-1">Entra direto para o caixa</p>
+        <div className="bg-primary/10 rounded-xl border-2 border-amber-200 p-5 text-center">
+          <p className="text-xs text-primary/90 mb-1 font-medium uppercase tracking-wide">🏠 Barbearia ({data.poeOwnerPct}%)</p>
+          <p className="text-3xl font-black text-primary/90">{formatCurrency(data.poeBarbearia)}</p>
+          <p className="text-xs text-primary/80 mt-1">Entra direto para o caixa</p>
         </div>
         <div className="bg-blue-50 rounded-xl border-2 border-blue-200 p-5 text-center">
           <p className="text-xs text-blue-600 mb-1 font-medium uppercase tracking-wide">💈 Pool Barbeiros ({data.poeBarberPct}%)</p>
@@ -239,7 +239,7 @@ export default function FinanceiroPage() {
               </div>
               <div className="flex justify-between text-sm mt-1">
                 <span className="text-zinc-500">Barbearia retém</span>
-                <span className="font-bold text-amber-600">{formatCurrency(data.poeBarbearia)}</span>
+                <span className="font-bold text-primary/90">{formatCurrency(data.poeBarbearia)}</span>
               </div>
             </div>
           </>
@@ -274,7 +274,7 @@ export default function FinanceiroPage() {
           {Object.keys(data.avulso.byMethod).length > 0 && (
             <div className="space-y-2 border-t border-zinc-100 pt-4">
               {[
-                { key: "CASH", label: "Dinheiro", Icon: Banknote, color: "text-amber-600" },
+                { key: "CASH", label: "Dinheiro", Icon: Banknote, color: "text-primary/90" },
                 { key: "PIX", label: "PIX", Icon: Smartphone, color: "text-green-600" },
                 { key: "DEBIT", label: "Débito", Icon: CreditCard, color: "text-blue-600", fee: data.debitFee },
                 { key: "CREDIT", label: "Crédito", Icon: CreditCard, color: "text-purple-600", fee: data.creditFee },
@@ -318,10 +318,10 @@ export default function FinanceiroPage() {
           <p className="text-xl font-bold text-green-700">+{data.novasMes}</p>
           <p className="text-xs text-green-600">Novos este mês</p>
         </div>
-        <div className="bg-amber-50 rounded-xl border border-amber-100 p-4 text-center">
-          <TrendingUp className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+        <div className="bg-primary/10 rounded-xl border border-primary/20 p-4 text-center">
+          <TrendingUp className="w-5 h-5 text-primary/80 mx-auto mb-1" />
           <p className="text-xl font-bold text-amber-700">{data.taxaUtilizacao}%</p>
-          <p className="text-xs text-amber-600">Taxa de utilização</p>
+          <p className="text-xs text-primary/90">Taxa de utilização</p>
         </div>
         <div className={`rounded-xl border p-4 text-center ${data.inadimplentes > 0 ? "bg-red-50 border-red-100" : "bg-zinc-50 border-zinc-200"}`}>
           <AlertTriangle className={`w-5 h-5 mx-auto mb-1 ${data.inadimplentes > 0 ? "text-red-500" : "text-zinc-300"}`} />

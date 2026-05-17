@@ -21,7 +21,7 @@ const PAYMENT_OPTIONS = [
   { value: "PIX", label: "PIX", icon: Smartphone, color: "text-green-600 bg-green-50 border-green-200" },
   { value: "DEBIT", label: "Débito", icon: CreditCard, color: "text-blue-600 bg-blue-50 border-blue-200" },
   { value: "CREDIT", label: "Crédito", icon: CreditCard, color: "text-purple-600 bg-purple-50 border-purple-200" },
-  { value: "CASH", label: "Dinheiro", icon: Banknote, color: "text-amber-600 bg-amber-50 border-amber-200" },
+  { value: "CASH", label: "Dinheiro", icon: Banknote, color: "text-primary/90 bg-primary/10 border-amber-200" },
 ];
 
 const METHOD_LABELS: Record<string, string> = { PIX: "PIX", DEBIT: "Débito", CREDIT: "Crédito", CASH: "Dinheiro" };
@@ -59,7 +59,7 @@ function PaymentModal({ sub, onConfirm, onClose }: {
           <div className="bg-zinc-50 rounded-xl p-3 mb-4 text-sm space-y-1">
             <p className="font-semibold text-zinc-900">{sub.client.name}</p>
             <p className="text-zinc-500">{sub.plan.name}</p>
-            <p className="text-amber-600 font-bold text-lg">{formatCurrency(sub.plan.price)}</p>
+            <p className="text-primary/90 font-bold text-lg">{formatCurrency(sub.plan.price)}</p>
           </div>
           <p className="text-sm text-zinc-500 mb-3">Forma de pagamento recebida:</p>
           <div className="grid grid-cols-2 gap-2">
@@ -84,7 +84,7 @@ function PaymentModal({ sub, onConfirm, onClose }: {
           <button
             onClick={confirm}
             disabled={!selected || saving}
-            className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-40"
+            className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-40"
           >
             {saving ? "Salvando..." : "Confirmar"}
           </button>
@@ -230,10 +230,10 @@ export default function AssinaturasPage() {
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
         <div className="flex rounded-lg border border-zinc-200 overflow-hidden text-sm font-medium">
-          <button onClick={() => setFilter("all")} className={`px-3 py-2 transition-colors ${filter === "all" ? "bg-amber-500 text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Todos</button>
+          <button onClick={() => setFilter("all")} className={`px-3 py-2 transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Todos</button>
           <button onClick={() => setFilter("overdue")} className={`px-3 py-2 flex items-center gap-1 transition-colors ${filter === "overdue" ? "bg-red-500 text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>
             <AlertTriangle className="w-3.5 h-3.5" /> Vencidos {overdueSubs.length > 0 && `(${overdueSubs.length})`}
           </button>
@@ -254,7 +254,7 @@ export default function AssinaturasPage() {
 
               return (
                 <div key={s.id} className={`px-6 py-4 flex items-center gap-4 ${overdue ? "bg-red-50 border-l-4 border-red-400" : ""}`}>
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${overdue ? "bg-red-100" : "bg-amber-100"}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${overdue ? "bg-red-100" : "bg-primary/20"}`}>
                     <span className={`font-bold text-xs ${overdue ? "text-red-700" : "text-amber-700"}`}>{getInitials(s.client.name)}</span>
                   </div>
 
@@ -315,7 +315,7 @@ export default function AssinaturasPage() {
                       {s.status === "ACTIVE" && (
                         <button
                           onClick={() => setUsageModal(s)}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors whitespace-nowrap"
+                          className="text-xs px-2.5 py-1 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap"
                         >
                           Lançar uso
                         </button>
@@ -366,7 +366,7 @@ export default function AssinaturasPage() {
                     key={i}
                     onClick={() => handleUsage(usageModal.id, b.name)}
                     disabled={loading || b.uses >= b.maxUses}
-                    className="w-full flex items-center justify-between p-4 rounded-xl border border-zinc-200 hover:border-amber-500 hover:bg-amber-50 transition-all text-left disabled:opacity-40"
+                    className="w-full flex items-center justify-between p-4 rounded-xl border border-zinc-200 hover:border-primary hover:bg-primary/10 transition-all text-left disabled:opacity-40"
                   >
                     <div>
                       <p className="font-bold text-zinc-900">{b.name}</p>
@@ -375,7 +375,7 @@ export default function AssinaturasPage() {
                     {b.uses >= b.maxUses ? (
                       <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Limite atingido</span>
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 text-primary/90 flex items-center justify-center">
                         <Plus className="w-4 h-4" />
                       </div>
                     )}
@@ -411,7 +411,7 @@ export default function AssinaturasPage() {
                     <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-100">
                       <div>
                         <p className="font-bold text-zinc-900 leading-tight">{item.beneficiaryName || "Titular"}</p>
-                        <p className="text-[11px] text-amber-600 font-semibold mb-1">
+                        <p className="text-[11px] text-primary/90 font-semibold mb-1">
                           {item.services?.length > 0 
                             ? item.services.map((s: any) => s.service.name).join(" + ") 
                             : "Serviço padrão"}
@@ -440,7 +440,7 @@ export default function AssinaturasPage() {
           <Input label="WhatsApp" type="tel" value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} required />
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Plano</label>
-            <select value={form.planId} onChange={(e) => setField("planId", e.target.value)} required className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            <select value={form.planId} onChange={(e) => setField("planId", e.target.value)} required className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
               <option value="">Selecione um plano...</option>
               {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}/mês</option>)}
             </select>
