@@ -25,6 +25,28 @@ export async function GET(req: NextRequest) {
     const end = endOfMonth(refDate);
     const mesLabel = format(refDate, "MMMM yyyy", { locale: ptBR });
 
+    // --- LÓGICA DE ASSINATURA SÊNIOR (Igual ao Admin) ---
+    const subPayments = await prisma.payment.findMany({
+      where: {
+        barbershopId: barber.barbershopId,
+        subscriptionId: { not: null },
+        status: "PAID",
+        paidAt: { gte: start, lte: end },
+      }
+    });
+    const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
+    const poolBarbeiros = totalSubRevenue * 0.5;
+
+    const allSubAppointmentsCount = await prisma.appointment.count({
+      where: {
+        barbershopId: barber.barbershopId,
+        subscriptionId: { not: null },
+        status: "DONE",
+        date: { gte: start, lte: end },
+      }
+    });
+    const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
+
     const [avulsos, subAppointments, productSales] = await Promise.all([
       prisma.appointment.findMany({
         where: {
@@ -35,7 +57,7 @@ export async function GET(req: NextRequest) {
         },
         include: {
           client: { select: { name: true } },
-          service: { select: { name: true } },
+          service: { select: { name: true, materialCost: true, commission: true } },
         },
         orderBy: { date: "desc" },
       }),
@@ -48,8 +70,8 @@ export async function GET(req: NextRequest) {
         },
         include: {
           client: { select: { name: true } },
-          service: { select: { name: true } },
-          subscription: { include: { plan: { select: { name: true } } } },
+          service: { select: { name: true, materialCost: true } },
+          subscription: { include: { plan: { select: { name: true, commissionPercentage: true } } } },
         },
         orderBy: { date: "desc" },
       }),
@@ -67,31 +89,50 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Avulso
-    const avulsoItems = avulsos.map((a) => ({
-      id: a.id,
-      date: a.date,
-      time: a.startTime,
-      client: a.client.name,
-      service: a.service?.name ?? "Serviço",
-      valor: a.price,
-      comissao: calcComissao(a.price, barber.commissionType, barber.commission),
-      tipo: "avulso" as const,
-    }));
+    const avulsoItems = avulsos.map((a) => {
+      const materialCost = a.service?.materialCost || 0;
+      const netValue = Math.max(0, a.price - materialCost);
+      const hasCustomCommission = a.service?.commission != null;
+      const comissao = hasCustomCommission
+        ? calcComissao(netValue, "PERCENTAGE", a.service!.commission!)
+        : calcComissao(netValue, barber.commissionType, barber.commission);
+
+      return {
+        id: a.id,
+        date: a.date,
+        time: a.startTime,
+        client: a.client.name,
+        service: a.service?.name ?? "Serviço",
+        valor: a.price,
+        comissao,
+        tipo: "avulso" as const,
+      };
+    });
     const totalAvulsoFaturado = avulsos.reduce((s, a) => s + a.price, 0);
     const totalAvulsoComissao = avulsoItems.reduce((s, i) => s + i.comissao, 0);
 
     // Assinatura
-    const assinaturaItems = subAppointments.map((a) => ({
-      id: a.id,
-      date: a.date,
-      time: a.startTime,
-      client: a.client.name,
-      service: a.service?.name ?? "Serviço",
-      plano: a.subscription?.plan.name ?? "Assinatura",
-      valor: a.price,
-      comissao: calcComissao(a.price, barber.commissionType, barber.commission),
-      tipo: "assinatura" as const,
-    }));
+    const assinaturaItems = subAppointments.map((a) => {
+      let comissao = ticketMedioSub;
+      const customPlanCommission = a.subscription?.plan?.commissionPercentage;
+      if (customPlanCommission != null) {
+        const materialCost = a.service?.materialCost || 0;
+        const netValue = Math.max(0, a.price - materialCost);
+        comissao = calcComissao(netValue, "PERCENTAGE", customPlanCommission);
+      }
+
+      return {
+        id: a.id,
+        date: a.date,
+        time: a.startTime,
+        client: a.client.name,
+        service: a.service?.name ?? "Serviço",
+        plano: a.subscription?.plan.name ?? "Assinatura",
+        valor: a.price,
+        comissao,
+        tipo: "assinatura" as const,
+      };
+    });
     const totalAssinaturaFaturado = subAppointments.reduce((s, a) => s + a.price, 0);
     const totalAssinaturaComissao = assinaturaItems.reduce((s, i) => s + i.comissao, 0);
 

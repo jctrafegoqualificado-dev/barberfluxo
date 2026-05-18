@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
   const sub = await prisma.subscription.findFirst({
     where: { clientId: user.id, barbershopId: shop.id, status: "ACTIVE" },
-    include: { plan: { select: { name: true, maxUses: true } } },
+    include: { plan: { select: { name: true, maxUses: true, allowedBarbers: { select: { id: true } } } } },
   });
 
   if (!sub) return NextResponse.json({ subscriptionId: null });
@@ -24,5 +24,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     planName: sub.plan.name,
     usesThisCycle: sub.usesThisCycle,
     maxUses: sub.plan.maxUses,
+    allowedBarberIds: sub.plan.allowedBarbers.map((b: { id: string }) => b.id),
   });
 }

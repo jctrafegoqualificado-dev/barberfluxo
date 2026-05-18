@@ -102,7 +102,7 @@ export default function AssinaturasPage() {
   const [paymentSub, setPaymentSub] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "overdue">("all");
+  const [filter, setFilter] = useState<"all" | "active" | "overdue" | "paused" | "cancelled">("all");
   const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "" });
   const [usageModal, setUsageModal] = useState<Subscription | null>(null);
 
@@ -288,7 +288,14 @@ export default function AssinaturasPage() {
   const overdueTotal = overdueSubs.reduce((sum, s) => sum + s.plan.price, 0);
 
   const filtered = subs
-    .filter((s) => filter === "overdue" ? (s.status === "ACTIVE" && isOverdue(s.nextBillingDate)) : true)
+    .filter((s) => {
+      if (filter === "all") return true;
+      if (filter === "active") return s.status === "ACTIVE" && !isOverdue(s.nextBillingDate);
+      if (filter === "overdue") return s.status === "OVERDUE" || (s.status === "ACTIVE" && isOverdue(s.nextBillingDate));
+      if (filter === "paused") return s.status === "PAUSED";
+      if (filter === "cancelled") return s.status === "CANCELLED";
+      return true;
+    })
     .filter((s) =>
       s.client.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.client.phone ?? "").includes(search)
@@ -363,11 +370,14 @@ export default function AssinaturasPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
-        <div className="flex rounded-lg border border-zinc-200 overflow-hidden text-sm font-medium">
-          <button onClick={() => setFilter("all")} className={`px-3 py-2 transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Todos</button>
-          <button onClick={() => setFilter("overdue")} className={`px-3 py-2 flex items-center gap-1 transition-colors ${filter === "overdue" ? "bg-red-500 text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>
-            <AlertTriangle className="w-3.5 h-3.5" /> Vencidos {overdueSubs.length > 0 && `(${overdueSubs.length})`}
+        <div className="flex rounded-lg border border-zinc-200 overflow-x-auto hide-scrollbar text-sm font-medium">
+          <button onClick={() => setFilter("all")} className={`px-3 py-2 shrink-0 transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Todos</button>
+          <button onClick={() => setFilter("active")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "active" ? "bg-emerald-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Ativas</button>
+          <button onClick={() => setFilter("overdue")} className={`px-3 py-2 shrink-0 flex items-center gap-1 transition-colors border-l border-zinc-200 ${filter === "overdue" ? "bg-red-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>
+            <AlertTriangle className="w-3.5 h-3.5" /> Vencidas {overdueSubs.length > 0 && `(${overdueSubs.length})`}
           </button>
+          <button onClick={() => setFilter("paused")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "paused" ? "bg-amber-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Pausadas</button>
+          <button onClick={() => setFilter("cancelled")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "cancelled" ? "bg-zinc-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Canceladas</button>
         </div>
       </div>
 

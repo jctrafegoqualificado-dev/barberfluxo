@@ -10,20 +10,39 @@ export async function POST(req: NextRequest) {
     const { subscriptionId, method } = await req.json();
 
     const sub = await prisma.subscription.findFirst({ 
-      where: { id: subscriptionId, barbershopId } 
+      where: { id: subscriptionId, barbershopId },
+      include: { plan: true }
     });
     if (!sub) return NextResponse.json({ error: "Recurso não encontrado" }, { status: 404 });
 
-    // Registra pagamento
-    await prisma.payment.create({
-      data: {
-        amount: 0, // será preenchido pelo plano se necessário
-        method: method ?? "CASH",
-        status: "PAID",
-        paidAt: new Date(),
-        subscriptionId,
-      },
+    // Busca cobrança pendente mais antiga
+    const pendingPayment = await prisma.payment.findFirst({
+      where: { subscriptionId, status: "PENDING" },
+      orderBy: { createdAt: "asc" }
     });
+
+    if (pendingPayment) {
+      await prisma.payment.update({
+        where: { id: pendingPayment.id },
+        data: {
+          method: method ?? "CASH",
+          status: "PAID",
+          paidAt: new Date()
+        }
+      });
+    } else {
+      // Cria novo pagamento se não houver pendência
+      await prisma.payment.create({
+        data: {
+          amount: sub.plan.price,
+          method: method ?? "CASH",
+          status: "PAID",
+          paidAt: new Date(),
+          subscriptionId,
+          barbershopId, // Adicionando barbershopId já que a tabela Payment suporta
+        },
+      });
+    }
 
     // Avança próxima cobrança + reseta usos do ciclo
     await prisma.subscription.update({

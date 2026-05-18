@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const { name, description, price, billingCycle, maxUses, serviceIds, serviceQuantities, active, beneficiaryRules } = await req.json();
+    const { name, description, price, billingCycle, maxUses, serviceIds, serviceQuantities, active, beneficiaryRules, commissionPercentage, allowedBarberIds } = await req.json();
 
     // 1. Valida posse
     const existing = await prisma.plan.findFirst({
@@ -40,6 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           name,
           description,
           price: price !== undefined ? Number(String(price).replace(",", ".")) : undefined,
+          commissionPercentage: commissionPercentage !== undefined ? (commissionPercentage === "" || commissionPercentage === null ? null : Number(commissionPercentage)) : undefined,
           billingCycle,
           maxUses: maxUses === "" || maxUses === null || maxUses === undefined ? null : Number(maxUses),
           beneficiaryRules: beneficiaryRules !== undefined ? beneficiaryRules : undefined,
@@ -49,8 +50,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               create: svcData,
             },
           }),
+          ...(allowedBarberIds && Array.isArray(allowedBarberIds)
+            ? {
+                allowedBarbers: {
+                  set: allowedBarberIds.map((bid: string) => ({ id: bid })),
+                },
+              }
+            : {}),
         },
-        include: { planServices: { include: { service: true } } },
+        include: { planServices: { include: { service: true } }, allowedBarbers: true },
       });
     });
 

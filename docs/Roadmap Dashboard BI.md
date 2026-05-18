@@ -34,3 +34,19 @@ Este documento detalha o plano de ação passo-a-passo para implementar as "6 Gr
 *   [x] **Atualização do Banco (Prisma):** Injetar as tabelas de `Review` (Nota de 0 a 10 e Comentário) e `LoyaltyPoint` no sistema oficial. *(Sincronizado com Supabase com integridade referencial).*
 *   [x] **Gatilho de Envio:** Fazer com que toda vez que um atendimento mude para `DONE`, a Evolution API mande uma mensagem pro cliente pedindo para ele avaliar o corte. *(Webhook integrado com Vercel hostname dinâmico e link de fidelidade `/avaliar/[id]`).*
 *   [x] **Termômetro do Painel:** Adicionar o gráfico em formato de pizza/termômetro no painel listando se a sua barbearia é Nível "EXCELENTE" ou "RUIM" com base na média. *(Termômetro linear e circular de NPS implementado com régua de temperatura e card gamificado de fidelidade).*
+
+---
+
+## 📍 Fase 6: Insights do Concorrente (Roadmap de Expansão de BI)
+**Objetivo:** Elevar o Barberfluxo ao patamar das principais ferramentas do mercado (ex: BarberCode) trazendo inteligência preditiva e análise de capacidade.
+*   [ ] **Ocupação Média da Equipe (Capacidade Operacional):**
+    *   *Lógica:* Calcular a eficiência da barbearia (`Horas Trabalhadas` / `Horas Totais Disponíveis` da equipe ativa no período).
+    *   *Interface:* Exibir gráfico gauge (semicircular) de porcentagem e status de capacidade (Ex: Ocupação Baixa, Ideal, Sobrecarga).
+*   [ ] **Aniversariantes do Mês (Ações Proativas):**
+    *   *Lógica:* Consulta automática de clientes com data de aniversário no mês atual.
+    *   *Interface:* Card de aniversariantes listados de forma limpa, permitindo disparar mensagens pré-configuradas no WhatsApp.
+*   [ ] **Métricas de Receita Recorrente (Assinaturas e Pacotes):**
+    *   *Lógica:* Agrupar faturamento específico gerado por cobranças de mensalidades vs. atendimentos avulsos.
+    *   *Interface:* Cards dedicados a "Assinaturas Ativas", "Receita Recorrente Mensal (MRR)" e "Pacotes Vendidos".
+*   [ ] **Indicador Físico de Ação Rápida ("Abrir/Fechar Caixa"):**
+    *   *Interface:* Botão flutuante ou fixado à margem do painel que abre o fluxo de conciliação de caixa diário (frente de caixa), reduzindo cliques operacionais.

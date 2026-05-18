@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
             subscriptionId: { not: null },
             date: { gte: start, lte: end },
           },
-          include: { service: true, client: { select: { name: true } } },
+          include: { service: true, client: { select: { name: true } }, subscription: { include: { plan: true } } },
         }),
         prisma.productSale.findMany({
           where: {
@@ -103,9 +103,20 @@ export async function GET(req: NextRequest) {
         return s + calcComissao(netValue, b.commissionType, b.commission);
       }, 0);
 
-      // Nova regra: Comissao de Assinatura = Numero de Atendimentos * Ticket Médio do Pool
+      // Nova regra: Comissao de Assinatura
+      // Se o plano tiver uma comissão específica, usa ela sobre o valor nominal do serviço (descontando custo).
+      // Se não, usa o Ticket Médio do Pool (rateio igualitário).
       const totalAssinatura = subAppointments.reduce((s, a) => s + a.price, 0); // Faturamento nominal (apenas para relatório)
-      const comissaoAssinatura = subAppointments.length * ticketMedioSub;
+      
+      const comissaoAssinatura = subAppointments.reduce((s, a) => {
+        const customPlanCommission = a.subscription?.plan?.commissionPercentage;
+        if (customPlanCommission != null) {
+          const materialCost = a.service?.materialCost || 0;
+          const netValue = Math.max(0, a.price - materialCost);
+          return s + calcComissao(netValue, "PERCENTAGE", customPlanCommission);
+        }
+        return s + ticketMedioSub;
+      }, 0);
 
       const totalProdutos = productSales.reduce((s, p) => s + p.total, 0);
       const comissaoProdutos = productSales.reduce((s, p) => {

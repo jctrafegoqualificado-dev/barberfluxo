@@ -24,6 +24,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       include: { user: { select: { name: true, phone: true } } },
     });
 
+    if (subscriptionId) {
+      const sub = await prisma.subscription.findUnique({
+        where: { id: subscriptionId },
+        include: { plan: { include: { allowedBarbers: true } } },
+      });
+      if (sub && sub.plan.allowedBarbers.length > 0) {
+        const isAllowed = sub.plan.allowedBarbers.some((b) => b.id === barberId);
+        if (!isAllowed) {
+          return NextResponse.json(
+            { error: "O profissional selecionado não está autorizado a atender por este plano." },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     let client = await prisma.user.findUnique({ where: { email: clientEmail } });
     if (!client) {
       const hashed = await hashPassword(clientPhone || "client123");

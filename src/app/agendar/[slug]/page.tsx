@@ -58,6 +58,7 @@ export default function AgendarPage() {
   const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [daySlots, setDaySlots] = useState<DaySlots[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [activeSub, setActiveSub] = useState<{ subscriptionId: string; planName: string; allowedBarberIds: string[] } | null>(null);
 
   useEffect(() => {
     fetch(`/api/booking/${slug}`)
@@ -68,6 +69,7 @@ export default function AgendarPage() {
   function handlePhoneChange(phone: string) {
     setForm((f) => ({ ...f, phone }));
     setClientFound(null);
+    setActiveSub(null);
 
     if (phoneDebounce.current) clearTimeout(phoneDebounce.current);
 
@@ -82,6 +84,13 @@ export default function AgendarPage() {
         if (d.found) {
           setForm((f) => ({ ...f, firstName: d.firstName, lastName: d.lastName }));
           setClientFound(true);
+
+          // Verifica assinatura ativa
+          const subRes = await fetch(`/api/booking/${slug}/subscriber?email=${encodeURIComponent(`${digits}@cliente.barberfluxo`)}`);
+          const subData = await subRes.json();
+          if (subData.subscriptionId) {
+            setActiveSub(subData);
+          }
         } else {
           setClientFound(false);
         }
@@ -129,6 +138,9 @@ export default function AgendarPage() {
     e.preventDefault();
     setLoading(true);
     const clientName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
+    const isAllowed = !activeSub || activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(selected.barber);
+    const subscriptionId = activeSub && isAllowed ? activeSub.subscriptionId : undefined;
+
     const r = await fetch(`/api/booking/${slug}/book`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -136,6 +148,7 @@ export default function AgendarPage() {
         clientName, clientPhone: form.phone,
         barberId: selected.barber, serviceId: selected.service,
         date: selected.date, startTime: selected.slot,
+        subscriptionId,
       }),
     });
     const d = await r.json();
@@ -236,13 +249,27 @@ export default function AgendarPage() {
               <ChevronLeft className="w-4 h-4" /> Voltar
             </button>
             <h2 className="text-lg font-semibold mb-4">Escolha o profissional</h2>
-            {shop.barbers.map((b) => (
-              <button key={b.id} onClick={() => { sel("barber", b.id); setStep("datetime"); }}
-                className={`w-full text-left p-4 rounded-xl border transition-colors ${selected.barber === b.id ? "border-primary bg-primary/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
-                <p className="font-semibold">{b.user.name}</p>
-                {b.nickname && <p className="text-xs text-zinc-400">{b.nickname}</p>}
-              </button>
-            ))}
+            {shop.barbers.map((b) => {
+              const isAllowed = !activeSub || activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(b.id);
+              return (
+                <button key={b.id} onClick={() => { sel("barber", b.id); setStep("datetime"); }}
+                  className={`w-full text-left p-4 rounded-xl border transition-colors ${selected.barber === b.id ? "border-primary bg-primary/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold">{b.user.name}</p>
+                      {b.nickname && <p className="text-xs text-zinc-400">{b.nickname}</p>}
+                    </div>
+                    {activeSub && (
+                      isAllowed ? (
+                        <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-1 rounded">✓ Incluso no plano</span>
+                      ) : (
+                        <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded">💰 Não incluso</span>
+                      )
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -341,6 +368,47 @@ export default function AgendarPage() {
                     Olá, {form.firstName}! Seus dados foram encontrados.
                   </p>
                 </div>
+              )}
+
+              {activeSub && (
+                (() => {
+                  const isAllowed = activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(selected.barber);
+                  return isAllowed ? (
+                    <div className="flex flex-col gap-1 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-400 shrink-0" />
+                        <p className="text-sm text-green-400 font-bold">
+                          Assinatura Ativa: {activeSub.planName}
+                        </p>
+                      </div>
+                      <p className="text-xs text-green-500/90 pl-6">
+                        ✓ Este agendamento está 100% coberto pelo seu plano e o profissional {selectedBarber?.user.name} está autorizado!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                        <p className="text-sm text-amber-400 font-bold">
+                          Restrição de Profissional
+                        </p>
+                      </div>
+                      <p className="text-xs text-amber-400/90 pl-6">
+                        O profissional <strong>{selectedBarber?.user.name}</strong> não está incluído no seu plano de assinatura (<strong>{activeSub.planName}</strong>).
+                      </p>
+                      <div className="pl-6 flex gap-3 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setStep("barber")}
+                          className="text-xs font-bold text-amber-300 hover:text-amber-200 underline transition-all"
+                        >
+                          Alterar profissional
+                        </button>
+                        <span className="text-xs text-zinc-500">ou continue para pagar no local</span>
+                      </div>
+                    </div>
+                  );
+                })()
               )}
 
               {/* Nome e sobrenome — sempre visíveis para editar */}

@@ -238,6 +238,7 @@ export async function POST(req: NextRequest) {
     // Verifica se o cliente possui assinatura ativa
     let subscription = await prisma.subscription.findFirst({
       where: { clientId: client.id, status: "ACTIVE", barbershopId },
+      include: { plan: { include: { allowedBarbers: true } } },
     });
 
     // ── Sprint 1: Bloqueia se assinatura vencida ──
@@ -251,6 +252,21 @@ export async function POST(req: NextRequest) {
       }
       // Se não escolheu beneficiário, trata como cliente avulso (sem plano)
       subscription = null;
+    }
+
+    // ── Sprint 2: Bloqueia se barbeiro não permitido pelo plano ──
+    if (subscription && subscription.plan.allowedBarbers.length > 0) {
+      const isAllowed = subscription.plan.allowedBarbers.some((b) => b.id === barberId);
+      if (!isAllowed) {
+        if (beneficiaryName && !force) {
+          return NextResponse.json({
+            error: "BARBER_NOT_ALLOWED",
+            message: `O profissional selecionado não está autorizado para realizar serviços do plano ${subscription.plan.name}.`
+          }, { status: 403 });
+        }
+        // Se não era forçado o uso do plano, trata como cliente avulso
+        subscription = null;
+      }
     }
 
     // ── Trava de Frequência Semanal (Regra PM) ──

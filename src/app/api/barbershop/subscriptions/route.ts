@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
           include: {
             planServices: {
               include: { service: true }
-            }
+            },
+            allowedBarbers: true,
           }
         },
         payments: { orderBy: { createdAt: "desc" }, take: 1 },

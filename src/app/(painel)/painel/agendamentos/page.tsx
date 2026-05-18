@@ -399,6 +399,20 @@ function AgendamentoModal({
       });
   }, [token]);
 
+  // Ajusta barbeiro selecionado se não for permitido pelo plano
+  useEffect(() => {
+    if (activeSub && beneficiaryName && activeSub.plan?.allowedBarbers?.length > 0) {
+      const isAllowed = activeSub.plan.allowedBarbers.some((ab: any) => ab.id === barberId);
+      if (!isAllowed) {
+        // Encontra o primeiro barbeiro permitido
+        const firstAllowed = barbers.find((b) => activeSub.plan.allowedBarbers.some((ab: any) => ab.id === b.id));
+        if (firstAllowed) {
+          setBarberId(firstAllowed.id);
+        }
+      }
+    }
+  }, [activeSub, beneficiaryName, barberId, barbers]);
+
   function toggleService(id: string) {
     setSelectedServiceIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -479,7 +493,14 @@ function AgendamentoModal({
               <label className="block text-xs text-zinc-500 mb-1">Profissional</label>
               <select value={barberId} onChange={(e) => setBarberId(e.target.value)}
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                {barbers.map((b) => <option key={b.id} value={b.id}>{b.user.name}</option>)}
+                {barbers.map((b) => {
+                  const allowed = !activeSub || !beneficiaryName || !activeSub.plan?.allowedBarbers || activeSub.plan.allowedBarbers.length === 0 || activeSub.plan.allowedBarbers.some((ab: any) => ab.id === b.id);
+                  return (
+                    <option key={b.id} value={b.id} disabled={!allowed}>
+                      {b.user.name} {!allowed ? " (Não permitido pelo plano)" : ""}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}

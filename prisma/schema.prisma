@@ -135,6 +135,7 @@ model Barber {
   commissionPayments CommissionPayment[]
   commissionVales    CommissionVale[]
   reviews            Review[]
+  allowedPlans       Plan[] @relation("PlanAllowedBarbers")
 }
 
 model Service {
@@ -213,6 +214,8 @@ model Plan {
   barbershop    Barbershop     @relation(fields: [barbershopId], references: [id])
   planServices  PlanService[]
   subscriptions Subscription[]
+  commissionPercentage Float? // Comissão especial (%) para os serviços realizados dentro deste plano
+  allowedBarbers Barber[] @relation("PlanAllowedBarbers")
 }
 
 model PlanService {

@@ -8,20 +8,23 @@ import Input from "@/components/ui/Input";
 import { formatCurrency } from "@/lib/utils";
 
 interface Service { id: string; name: string; price: number }
+interface Barber { id: string; nickname: string | null; user: { name: string } }
 interface Plan {
-  id: string; name: string; description: string | null; price: number; billingCycle: string; maxUses: number | null; active: boolean;
+  id: string; name: string; description: string | null; price: number; billingCycle: string; maxUses: number | null; active: boolean; commissionPercentage?: number | null;
   planServices: { service: Service; quantity: number | null }[];
+  allowedBarbers?: Barber[];
   beneficiaryRules?: any;
   _count?: { subscriptions: number };
 }
 
 const CYCLES: Record<string, string> = { MONTHLY: "Mensal", QUARTERLY: "Trimestral", YEARLY: "Anual" };
-const EMPTY_FORM = { name: "", description: "", price: "", billingCycle: "MONTHLY", maxUses: "", serviceQuantities: [] as {serviceId: string, quantity: string, unlimited: boolean}[], beneficiaryRules: [] as {name: string, maxUses: string}[] };
+const EMPTY_FORM = { name: "", description: "", price: "", commissionPercentage: "", billingCycle: "MONTHLY", maxUses: "", serviceQuantities: [] as {serviceId: string, quantity: string, unlimited: boolean}[], beneficiaryRules: [] as {name: string, maxUses: string}[], allowedBarberIds: [] as string[] };
 
 export default function PlanosPage() {
   const { token } = useAuthStore();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,13 +33,15 @@ export default function PlanosPage() {
   function setField(k: string, v: unknown) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function load() {
-    const [pr, sr] = await Promise.all([
+    const [pr, sr, br] = await Promise.all([
       fetch("/api/barbershop/plans", { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/barbershop/barbers", { headers: { Authorization: `Bearer ${token}` } }),
     ]);
-    const [pd, sd] = await Promise.all([pr.json(), sr.json()]);
+    const [pd, sd, bd] = await Promise.all([pr.json(), sr.json(), br.json()]);
     setPlans((pd.plans || []).filter((p: Plan) => p.active));
     setServices(sd.services || []);
+    setBarbers(bd.barbers || []);
   }
 
   useEffect(() => { load(); }, []);
@@ -74,6 +79,7 @@ export default function PlanosPage() {
       name: p.name,
       description: p.description ?? "",
       price: String(p.price),
+      commissionPercentage: p.commissionPercentage != null ? String(p.commissionPercentage) : "",
       billingCycle: p.billingCycle,
       maxUses: p.maxUses != null ? String(p.maxUses) : "",
       serviceQuantities: p.planServices.map((ps) => ({
@@ -82,6 +88,7 @@ export default function PlanosPage() {
         unlimited: ps.quantity == null,
       })),
       beneficiaryRules: Array.isArray(p.beneficiaryRules) ? p.beneficiaryRules.map((b: any) => ({ name: b.name, maxUses: String(b.maxUses) })) : [],
+      allowedBarberIds: p.allowedBarbers?.map((b) => b.id) || [],
     });
     setOpen(true);
   }
@@ -93,6 +100,7 @@ export default function PlanosPage() {
     const method = editingId ? "PUT" : "POST";
     const payload = {
       ...form,
+      commissionPercentage: form.commissionPercentage === "" ? null : Number(form.commissionPercentage),
       serviceQuantities: form.serviceQuantities.map(sq => ({
         serviceId: sq.serviceId,
         quantity: sq.unlimited ? null : (sq.quantity ? Number(sq.quantity) : null),
@@ -174,7 +182,14 @@ export default function PlanosPage() {
                   </span>
                 )}
               </div>
-              {p.maxUses && <p className="text-xs text-zinc-500 mt-1">Até {p.maxUses} usos/mês</p>}
+              <div className="flex items-center gap-2 mt-1">
+                {p.maxUses && <p className="text-xs text-zinc-500">Até {p.maxUses} usos/mês</p>}
+                {p.commissionPercentage != null && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {p.commissionPercentage}% de comissão
+                  </span>
+                )}
+              </div>
               {p.planServices.length > 0 && (
                 <ul className="mt-4 space-y-1">
                   {p.planServices.map(({ service, quantity }) => (
@@ -211,7 +226,13 @@ export default function PlanosPage() {
         <form onSubmit={handleSubmit} className="space-y-3">
           <Input label="Nome do plano" value={form.name} onChange={(e) => setField("name", e.target.value)} placeholder="Ex: Plano Premium" required />
           <Input label="Descrição" value={form.description} onChange={(e) => setField("description", e.target.value)} />
-          <Input label="Preço (R$)" type="number" step="0.01" value={form.price} onChange={(e) => setField("price", e.target.value)} required />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Preço (R$)" type="number" step="0.01" value={form.price} onChange={(e) => setField("price", e.target.value)} required />
+            <Input label="Comissão Prof. (%)" type="number" step="0.1" value={form.commissionPercentage} onChange={(e) => setField("commissionPercentage", e.target.value)} placeholder="Ex: 20" />
+          </div>
+          <p className="text-[11px] text-zinc-500 leading-tight">
+            <strong>Dica:</strong> Se vazio, o barbeiro recebe o <strong className="text-zinc-700">Ticket Médio (Rateio)</strong> da barbearia. Se preenchido (ex: 20%), ele recebe esse % sobre o valor de tabela do serviço e <strong>sai do Rateio</strong>.
+          </p>
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Ciclo de cobrança</label>
             <select value={form.billingCycle} onChange={(e) => setField("billingCycle", e.target.value)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
@@ -246,6 +267,38 @@ export default function PlanosPage() {
               ))}
             </div>
           </div>
+
+          {barbers.length > 0 && (
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-1">Profissionais Permitidos</label>
+              <p className="text-[11px] text-zinc-500 mb-2 leading-tight">
+                Selecione quais barbeiros podem realizar atendimentos por este plano. Se deixar vazio, todos poderão atender.
+              </p>
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                {barbers.map((b) => {
+                  const isSelected = form.allowedBarberIds.includes(b.id);
+                  return (
+                    <label key={b.id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${isSelected ? "border-primary bg-primary/5" : "border-zinc-200 hover:border-zinc-300"}`}>
+                      <input 
+                        type="checkbox" 
+                        className="rounded text-primary focus:ring-primary"
+                        checked={isSelected}
+                        onChange={() => {
+                          setForm((f) => {
+                            if (isSelected) {
+                              return { ...f, allowedBarberIds: f.allowedBarberIds.filter(id => id !== b.id) };
+                            }
+                            return { ...f, allowedBarberIds: [...f.allowedBarberIds, b.id] };
+                          });
+                        }}
+                      />
+                      <span className="text-sm text-zinc-800">{b.nickname || b.user.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {services.length > 0 && (
             <div>

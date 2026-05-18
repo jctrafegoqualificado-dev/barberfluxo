@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { name, description, price, billingCycle, maxUses, serviceIds, serviceQuantities, beneficiaryRules } = await req.json();
+    const { name, description, price, billingCycle, maxUses, serviceIds, serviceQuantities, beneficiaryRules, commissionPercentage, allowedBarberIds } = await req.json();
 
     // serviceQuantities = [{ serviceId, quantity }] (new format)
     // serviceIds = ["id1", "id2"] (legacy fallback)
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
         name,
         description,
         price: Number(String(price).replace(",", ".")),
+        commissionPercentage: commissionPercentage != null ? Number(commissionPercentage) : null,
         billingCycle,
         maxUses: maxUses ? Number(maxUses) : null,
         beneficiaryRules: beneficiaryRules || null,
@@ -46,8 +47,15 @@ export async function POST(req: NextRequest) {
         planServices: {
           create: svcData,
         },
+        ...(allowedBarberIds && Array.isArray(allowedBarberIds) && allowedBarberIds.length > 0
+          ? {
+              allowedBarbers: {
+                connect: allowedBarberIds.map((id: string) => ({ id })),
+              },
+            }
+          : {}),
       },
-      include: { planServices: { include: { service: true } } },
+      include: { planServices: { include: { service: true } }, allowedBarbers: true },
     });
 
     return NextResponse.json({ plan }, { status: 201 });
