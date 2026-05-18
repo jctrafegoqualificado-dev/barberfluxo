@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         name: true,
+        description: true,
         primaryColor: true,
         secondaryColor: true,
         logoUrl: true,
@@ -37,6 +38,8 @@ export async function PATCH(req: NextRequest) {
     const updated = await prisma.barbershop.update({
       where: { id: barbershopId },
       data: {
+        name: body.name,
+        description: body.description,
         primaryColor: body.primaryColor,
         secondaryColor: body.secondaryColor,
         logoUrl: body.logoUrl,

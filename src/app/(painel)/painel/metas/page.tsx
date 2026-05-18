@@ -175,7 +175,7 @@ export default function MetasPage() {
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-zinc-100 text-zinc-400">
           <Target className="w-14 h-14 mb-3" />
           <p className="font-semibold text-lg">Nenhuma meta cadastrada</p>
-          <p className="text-sm mt-1">Defina metas para acompanhar o crescimento da barbearia</p>
+          <p className="text-sm mt-1">Defina metas para acompanhar o crescimento do estabelecimento</p>
           <Button className="mt-5" onClick={() => setOpen(true)}>
             <Plus className="w-4 h-4 mr-1" /> Criar primeira meta
           </Button>
@@ -185,7 +185,7 @@ export default function MetasPage() {
           {metasBarbearia.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-                🏠 Barbearia
+                🏠 Estabelecimento
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {metasBarbearia.map((m) => (
@@ -198,7 +198,7 @@ export default function MetasPage() {
           {metasBarbeiros.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-                💈 Por Barbeiro
+                💈 Por Profissional
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {metasBarbeiros.map((m) => (
@@ -276,7 +276,7 @@ export default function MetasPage() {
               onChange={(e) => setField("barberId", e.target.value)}
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">🏠 Barbearia toda</option>
+              <option value="">🏠 Geral</option>
               {barbers.map((b) => (
                 <option key={b.id} value={b.id}>💈 {b.user.name}</option>
               ))}

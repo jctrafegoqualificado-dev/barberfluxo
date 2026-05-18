@@ -42,3 +42,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const payload = requireAuth(req, ["OWNER"]);
+    const barbershopId = payload.barbershopId!;
+    const { searchParams } = new URL(req.url);
+    const subscriptionId = searchParams.get("subscriptionId");
+
+    if (!subscriptionId) return NextResponse.json({ error: "Assinatura não fornecida" }, { status: 400 });
+
+    const sub = await prisma.subscription.findFirst({
+      where: { id: subscriptionId, barbershopId },
+      include: { payments: { orderBy: { createdAt: "desc" } } }
+    });
+    if (!sub) return NextResponse.json({ error: "Assinatura não encontrada" }, { status: 404 });
+
+    const latestPayment = sub.payments.find(p => p.status === "PAID");
+    if (!latestPayment) return NextResponse.json({ error: "Nenhum pagamento confirmado encontrado para desfazer" }, { status: 400 });
+
+    await prisma.$transaction([
+      prisma.payment.delete({ where: { id: latestPayment.id } }),
+      prisma.subscription.update({
+        where: { id: subscriptionId },
+        data: {
+          nextBillingDate: addMonths(new Date(sub.nextBillingDate), -1),
+        }
+      })
+    ]);
+
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erro ao desfazer pagamento";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

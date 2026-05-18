@@ -10,12 +10,13 @@ import { formatCurrency } from "@/lib/utils";
 interface Service { id: string; name: string; price: number }
 interface Plan {
   id: string; name: string; description: string | null; price: number; billingCycle: string; maxUses: number | null; active: boolean;
-  planServices: { service: Service }[];
+  planServices: { service: Service; quantity: number | null }[];
   beneficiaryRules?: any;
+  _count?: { subscriptions: number };
 }
 
 const CYCLES: Record<string, string> = { MONTHLY: "Mensal", QUARTERLY: "Trimestral", YEARLY: "Anual" };
-const EMPTY_FORM = { name: "", description: "", price: "", billingCycle: "MONTHLY", maxUses: "", serviceIds: [] as string[], beneficiaryRules: [] as {name: string, maxUses: string}[] };
+const EMPTY_FORM = { name: "", description: "", price: "", billingCycle: "MONTHLY", maxUses: "", serviceQuantities: [] as {serviceId: string, quantity: string, unlimited: boolean}[], beneficiaryRules: [] as {name: string, maxUses: string}[] };
 
 export default function PlanosPage() {
   const { token } = useAuthStore();
@@ -41,9 +42,23 @@ export default function PlanosPage() {
   useEffect(() => { load(); }, []);
 
   function toggleService(id: string) {
+    setForm((f) => {
+      const exists = f.serviceQuantities.find(sq => sq.serviceId === id);
+      if (exists) {
+        return { ...f, serviceQuantities: f.serviceQuantities.filter(sq => sq.serviceId !== id) };
+      }
+      return { ...f, serviceQuantities: [...f.serviceQuantities, { serviceId: id, quantity: "", unlimited: true }] };
+    });
+  }
+
+  function updateServiceQty(serviceId: string, field: string, value: any) {
     setForm((f) => ({
       ...f,
-      serviceIds: f.serviceIds.includes(id) ? f.serviceIds.filter((s) => s !== id) : [...f.serviceIds, id],
+      serviceQuantities: f.serviceQuantities.map(sq =>
+        sq.serviceId === serviceId
+          ? { ...sq, [field]: value, ...(field === "unlimited" && value ? { quantity: "" } : {}) }
+          : sq
+      ),
     }));
   }
 
@@ -61,7 +76,11 @@ export default function PlanosPage() {
       price: String(p.price),
       billingCycle: p.billingCycle,
       maxUses: p.maxUses != null ? String(p.maxUses) : "",
-      serviceIds: p.planServices.map((ps) => ps.service.id),
+      serviceQuantities: p.planServices.map((ps) => ({
+        serviceId: ps.service.id,
+        quantity: ps.quantity != null ? String(ps.quantity) : "",
+        unlimited: ps.quantity == null,
+      })),
       beneficiaryRules: Array.isArray(p.beneficiaryRules) ? p.beneficiaryRules.map((b: any) => ({ name: b.name, maxUses: String(b.maxUses) })) : [],
     });
     setOpen(true);
@@ -74,6 +93,10 @@ export default function PlanosPage() {
     const method = editingId ? "PUT" : "POST";
     const payload = {
       ...form,
+      serviceQuantities: form.serviceQuantities.map(sq => ({
+        serviceId: sq.serviceId,
+        quantity: sq.unlimited ? null : (sq.quantity ? Number(sq.quantity) : null),
+      })),
       beneficiaryRules: form.beneficiaryRules.length > 0 ? form.beneficiaryRules.map(b => ({ name: b.name, maxUses: Number(b.maxUses) })) : null
     };
     const res = await fetch(url, {
@@ -143,14 +166,25 @@ export default function PlanosPage() {
               </div>
               <p className="font-bold text-zinc-900 text-lg mt-1 pr-16">{p.name}</p>
               {p.description && <p className="text-xs text-zinc-400 mb-3">{p.description}</p>}
-              <p className="text-3xl font-bold text-primary mt-2">{formatCurrency(p.price)}<span className="text-sm font-normal text-zinc-400">/{CYCLES[p.billingCycle]?.toLowerCase()}</span></p>
+              <div className="flex items-baseline justify-between mt-2 flex-wrap gap-2">
+                <p className="text-3xl font-bold text-primary">{formatCurrency(p.price)}<span className="text-sm font-normal text-zinc-400">/{CYCLES[p.billingCycle]?.toLowerCase()}</span></p>
+                {p._count?.subscriptions != null && p._count.subscriptions > 0 && (
+                  <span className="text-[11px] font-bold text-zinc-600 bg-zinc-50 border border-zinc-100 px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                    <Layers className="w-3 h-3 text-primary" /> {p._count.subscriptions} ativa{p._count.subscriptions === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
               {p.maxUses && <p className="text-xs text-zinc-500 mt-1">Até {p.maxUses} usos/mês</p>}
               {p.planServices.length > 0 && (
                 <ul className="mt-4 space-y-1">
-                  {p.planServices.map(({ service }) => (
+                  {p.planServices.map(({ service, quantity }) => (
                     <li key={service.id} className="flex items-center gap-2 text-sm text-zinc-700">
                       <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                      {service.name}
+                      {quantity != null ? (
+                        <><span className="font-bold text-primary">{quantity}x</span> {service.name}</>
+                      ) : (
+                        <>{service.name} <span className="text-[10px] text-zinc-400 ml-1">(ilimitado)</span></>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -215,15 +249,49 @@ export default function PlanosPage() {
 
           {services.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-2">Serviços inclusos</label>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {services.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-50 rounded p-1">
-                    <input type="checkbox" checked={form.serviceIds.includes(s.id)} onChange={() => toggleService(s.id)} className="rounded text-primary" />
-                    <span className="text-sm text-zinc-700">{s.name}</span>
-                    <span className="text-xs text-zinc-400 ml-auto">{formatCurrency(s.price)}</span>
-                  </label>
-                ))}
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">Serviços inclusos</label>
+              <div className="space-y-2 max-h-52 overflow-y-auto">
+                {services.map((s) => {
+                  const sq = form.serviceQuantities.find(sq => sq.serviceId === s.id);
+                  const isSelected = !!sq;
+                  return (
+                    <div key={s.id} className={`rounded-xl border p-3 transition-all ${isSelected ? "border-primary bg-primary/5" : "border-zinc-200 hover:border-zinc-300"}`}>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleService(s.id)} className="rounded text-primary" />
+                        <span className="text-sm font-medium text-zinc-800 flex-1">{s.name}</span>
+                        <span className="text-xs text-zinc-400">{formatCurrency(s.price)}</span>
+                      </div>
+                      {isSelected && (
+                        <div className="flex items-center gap-3 mt-2 pl-6">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={sq.unlimited}
+                              onChange={(e) => updateServiceQty(s.id, "unlimited", e.target.checked)}
+                              className="rounded text-primary"
+                            />
+                            <span className="text-xs font-medium text-zinc-600">Ilimitado</span>
+                          </label>
+                          {!sq.unlimited && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-zinc-500">Qtd:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={sq.quantity}
+                                onChange={(e) => updateServiceQty(s.id, "quantity", e.target.value)}
+                                placeholder="Ex: 4"
+                                className="w-16 rounded border border-zinc-300 px-2 py-1 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
+                                required
+                              />
+                              <span className="text-[10px] text-zinc-400">usos/ciclo</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Scissors, Calendar, Users, CreditCard, ChevronRight } from "lucide-react";
+import { Sparkles, Calendar, Users, CreditCard, ChevronRight } from "lucide-react";
 
 export default function Home() {
   return (
@@ -7,7 +7,7 @@ export default function Home() {
       <header className="flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-            <Scissors className="w-5 h-5 text-white" />
+            <Sparkles className="w-5 h-5 text-white" />
           </div>
           <span className="font-bold text-lg">BarberFluxo</span>
         </div>
@@ -19,10 +19,10 @@ export default function Home() {
 
       <main className="max-w-4xl mx-auto px-6 py-24 text-center">
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-primary/80 text-sm font-medium mb-6">
-          🚀 Sistema completo para barbearias
+          🚀 Sistema completo para prestadores de serviços
         </div>
         <h1 className="text-5xl font-bold mb-6 leading-tight">
-          Gerencie sua barbearia<br />
+          Gerencie seu estabelecimento<br />
           <span className="text-primary/80">do jeito certo</span>
         </h1>
         <p className="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto">
@@ -43,7 +43,7 @@ export default function Home() {
           {[
             { icon: Calendar, title: "Agendamento Online 24h", desc: "Clientes agendam pelo celular a qualquer hora, sem depender do WhatsApp." },
             { icon: CreditCard, title: "Clube de Assinaturas", desc: "Fidelize clientes com planos mensais. Receita recorrente e previsível." },
-            { icon: Users, title: "Gestão de Barbeiros", desc: "Controle comissões, agenda e desempenho de cada profissional." },
+            { icon: Users, title: "Gestão de Profissionais", desc: "Controle comissões, agenda e desempenho de cada profissional." },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="bg-zinc-900 rounded-2xl border border-zinc-800 p-6">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">

@@ -93,7 +93,7 @@ export default function FinanceiroPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">Financeiro — Modelo POE</h1>
-        <p className="text-zinc-500 text-sm mt-1">Distribuição do pote de assinaturas entre barbearia e barbeiros</p>
+        <p className="text-zinc-500 text-sm mt-1">Distribuição do pote de assinaturas entre estabelecimento e profissionais</p>
       </div>
 
       {/* Configuração do POE */}
@@ -116,7 +116,7 @@ export default function FinanceiroPage() {
         <div className="grid sm:grid-cols-2 gap-6 mb-4">
           <div>
             <label className="text-sm text-zinc-400 mb-2 block">
-              % da Barbearia: <span className="text-primary/80 font-bold">{poeInput}%</span>
+              % do Estabelecimento: <span className="text-primary/80 font-bold">{poeInput}%</span>
             </label>
             <input
               type="range" min={0} max={100} step={5}
@@ -127,7 +127,7 @@ export default function FinanceiroPage() {
           </div>
           <div>
             <label className="text-sm text-zinc-400 mb-2 block">
-              % dos Barbeiros: <span className="text-blue-400 font-bold">{100 - poeInput}%</span>
+              % dos Profissionais: <span className="text-blue-400 font-bold">{100 - poeInput}%</span>
             </label>
             <input
               type="range" min={0} max={100} step={5}
@@ -139,8 +139,8 @@ export default function FinanceiroPage() {
         </div>
         <PoeBar ownerPct={poeInput} />
         <div className="flex justify-between text-xs text-zinc-400 mt-1">
-          <span>🏠 Barbearia</span>
-          <span>💈 Barbeiros</span>
+          <span>🏠 Estabelecimento</span>
+          <span>💈 Profissionais</span>
         </div>
       </div>
 
@@ -152,12 +152,12 @@ export default function FinanceiroPage() {
           <p className="text-xs text-zinc-400 mt-1">{data.totalAssinantes} assinantes ativos</p>
         </div>
         <div className="bg-primary/10 rounded-xl border-2 border-amber-200 p-5 text-center">
-          <p className="text-xs text-primary/90 mb-1 font-medium uppercase tracking-wide">🏠 Barbearia ({data.poeOwnerPct}%)</p>
+          <p className="text-xs text-primary/90 mb-1 font-medium uppercase tracking-wide">🏠 Estabelecimento ({data.poeOwnerPct}%)</p>
           <p className="text-3xl font-black text-primary/90">{formatCurrency(data.poeBarbearia)}</p>
           <p className="text-xs text-primary/80 mt-1">Entra direto para o caixa</p>
         </div>
         <div className="bg-blue-50 rounded-xl border-2 border-blue-200 p-5 text-center">
-          <p className="text-xs text-blue-600 mb-1 font-medium uppercase tracking-wide">💈 Pool Barbeiros ({data.poeBarberPct}%)</p>
+          <p className="text-xs text-blue-600 mb-1 font-medium uppercase tracking-wide">💈 Pool Profissionais ({data.poeBarberPct}%)</p>
           <p className="text-3xl font-black text-blue-600">{formatCurrency(data.poolBarbeiros)}</p>
           <p className="text-xs text-blue-400 mt-1">Dividido pelos serviços</p>
         </div>
@@ -179,11 +179,11 @@ export default function FinanceiroPage() {
         </div>
       </div>
 
-      {/* Partilha por Barbeiro */}
+      {/* Partilha por Profissional */}
       <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-zinc-900">Partilha por Barbeiro</h2>
+            <h2 className="font-semibold text-zinc-900">Partilha por Profissional</h2>
             <p className="text-xs text-zinc-400 mt-0.5">
               Cada serviço vale {formatCurrency(data.ticketPorServico)} · {data.totalServicos} serviços no total
             </p>
@@ -234,11 +234,11 @@ export default function FinanceiroPage() {
             {/* Totais */}
             <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100">
               <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">Total distribuído aos barbeiros</span>
+                <span className="text-zinc-500">Total distribuído aos profissionais</span>
                 <span className="font-bold text-zinc-900">{formatCurrency(data.poolBarbeiros)}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-zinc-500">Barbearia retém</span>
+                <span className="text-zinc-500">Estabelecimento retém</span>
                 <span className="font-bold text-primary/90">{formatCurrency(data.poeBarbearia)}</span>
               </div>
             </div>

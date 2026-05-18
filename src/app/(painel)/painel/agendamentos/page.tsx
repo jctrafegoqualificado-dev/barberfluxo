@@ -284,7 +284,7 @@ function BloqueioModal({ barbers, date, onConfirm, onClose }: {
         <div className="px-5 py-4 space-y-3">
           {barbers.length > 0 && (
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Barbeiro</label>
+              <label className="block text-xs text-zinc-500 mb-1">Profissional</label>
               <select value={barberId} onChange={(e) => setBarberId(e.target.value)}
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 {barbers.map((b) => <option key={b.id} value={b.id}>{b.user.name}</option>)}
@@ -476,7 +476,7 @@ function AgendamentoModal({
           )}
           {barbers.length > 0 && (
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Barbeiro</label>
+              <label className="block text-xs text-zinc-500 mb-1">Profissional</label>
               <select value={barberId} onChange={(e) => setBarberId(e.target.value)}
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 {barbers.map((b) => <option key={b.id} value={b.id}>{b.user.name}</option>)}
@@ -775,7 +775,7 @@ export default function AgendamentosPage() {
             </div>
             <h2 className="text-lg font-bold text-zinc-900 mb-2">Choque de Horário</h2>
             <p className="text-sm text-zinc-500 mb-6">
-              Este barbeiro já possui um agendamento neste mesmo horário. Deseja forçar a criação como um <strong>ENCAIXE</strong>?
+              Este profissional já possui um agendamento neste mesmo horário. Deseja forçar a criação como um <strong>ENCAIXE</strong>?
             </p>
             <div className="flex gap-3">
               <button onClick={() => setEncaixePendingData(null)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
@@ -1016,7 +1016,7 @@ export default function AgendamentosPage() {
 
               {barbers.length === 0 && (
                 <div className="flex-1 flex items-center justify-center text-zinc-400 py-20">
-                  <p className="text-sm">Nenhum barbeiro cadastrado</p>
+                  <p className="text-sm">Nenhum profissional cadastrado</p>
                 </div>
               )}
             </div>

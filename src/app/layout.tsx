@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "BarberFluxo — Gestão de Barbearia",
-  description: "Sistema completo de gestão para barbearias",
+  title: "BarberFluxo — Sistema de Gestão e Agendamento",
+  description: "Sistema completo de gestão, assinaturas e agendamento para prestadores de serviços",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

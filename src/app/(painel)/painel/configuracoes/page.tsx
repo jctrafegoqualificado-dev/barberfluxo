@@ -130,7 +130,7 @@ export default function ConfiguracoesPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">Configurações</h1>
-        <p className="text-zinc-500 text-sm mt-1">Gerencie horários e informações da barbearia</p>
+        <p className="text-zinc-500 text-sm mt-1">Gerencie horários e informações do estabelecimento</p>
       </div>
 
       {/* Link de agendamento */}

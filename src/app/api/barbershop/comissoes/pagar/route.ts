@@ -8,12 +8,12 @@ export async function POST(req: NextRequest) {
     const payload = requireAuth(req);
     if (!payload.barbershopId) return NextResponse.json({ error: "Sem barbearia" }, { status: 403 });
 
-    const { barberId, month, amount } = await req.json();
+    const { barberId, month, amount, type = "STANDARD" } = await req.json();
 
     const payment = await prisma.commissionPayment.upsert({
-      where: { barberId_month: { barberId, month } },
+      where: { barberId_month_type: { barberId, month, type } },
       update: { amount, paidAt: new Date() },
-      create: { barberId, month, amount, barbershopId: payload.barbershopId },
+      create: { barberId, month, amount, type, barbershopId: payload.barbershopId },
     });
 
     return NextResponse.json({ payment });
@@ -28,10 +28,10 @@ export async function DELETE(req: NextRequest) {
     const payload = requireAuth(req);
     if (!payload.barbershopId) return NextResponse.json({ error: "Sem barbearia" }, { status: 403 });
 
-    const { barberId, month } = await req.json();
+    const { barberId, month, type = "STANDARD" } = await req.json();
 
     await prisma.commissionPayment.delete({
-      where: { barberId_month: { barberId, month } },
+      where: { barberId_month_type: { barberId, month, type } },
     }).catch(() => {}); // ignora se já não existe
 
     return NextResponse.json({ ok: true });

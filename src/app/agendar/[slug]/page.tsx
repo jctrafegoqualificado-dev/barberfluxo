@@ -7,7 +7,17 @@ import { formatCurrency } from "@/lib/utils";
 
 interface Service { id: string; name: string; price: number; duration: number; description: string | null }
 interface Barber { id: string; nickname: string | null; user: { name: string } }
-interface Shop { id: string; name: string; slug: string; description: string | null; services: Service[]; barbers: Barber[] }
+interface Shop { 
+  id: string; 
+  name: string; 
+  slug: string; 
+  description: string | null; 
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  services: Service[]; 
+  barbers: Barber[] 
+}
 interface DaySlots { date: string; label: string; slots: string[] }
 
 type Step = "service" | "barber" | "datetime" | "dados" | "confirmado";
@@ -17,6 +27,13 @@ const MESES_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set",
 
 function localDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function hexToRgb(hex: string) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? 
+    `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
+    null;
 }
 
 function formatDayLabel(dateStr: string) {
@@ -139,15 +156,35 @@ export default function AgendarPage() {
     );
   }
 
+  const primaryRgb = shop.primaryColor ? hexToRgb(shop.primaryColor) : "245, 158, 11";
+  const secondaryRgb = shop.secondaryColor ? hexToRgb(shop.secondaryColor) : "251, 191, 36";
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="max-w-md mx-auto px-4 py-8">
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        :root {
+          --primary: ${primaryRgb};
+          --secondary: ${secondaryRgb};
+        }
+      `}} />
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <div className="max-w-md mx-auto px-4 py-8">
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-3">
-            <Sparkles className="w-7 h-7 text-white" />
-          </div>
+          {shop.logoUrl ? (
+            <div className="inline-flex items-center justify-center mb-3">
+              <img 
+                src={shop.logoUrl} 
+                alt={shop.name} 
+                className="w-16 h-16 rounded-2xl object-cover border-2 border-primary/20 shadow-md"
+              />
+            </div>
+          ) : (
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-3">
+              <Sparkles className="w-7 h-7 text-white" />
+            </div>
+          )}
           <h1 className="text-2xl font-bold">{shop.name}</h1>
           {shop.description && <p className="text-zinc-400 text-sm mt-1">{shop.description}</p>}
         </div>
@@ -357,5 +394,6 @@ export default function AgendarPage() {
 
       </div>
     </div>
+    </>
   );
 }

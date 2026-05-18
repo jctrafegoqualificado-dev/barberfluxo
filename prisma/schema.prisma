@@ -221,6 +221,7 @@ model PlanService {
   plan      Plan    @relation(fields: [planId], references: [id])
   serviceId String
   service   Service @relation(fields: [serviceId], references: [id])
+  quantity  Int?    // null = ilimitado, number = máx. usos por ciclo
 }
 
 model Subscription {
@@ -312,6 +313,7 @@ model CommissionPayment {
   id     String   @id @default(cuid())
   month  String // "2026-05"
   amount Float
+  type   String   @default("STANDARD") // STANDARD | SUBSCRIPTION
   paidAt DateTime @default(now())
   notes  String?
 
@@ -320,7 +322,7 @@ model CommissionPayment {
   barbershopId String
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
 
-  @@unique([barberId, month])
+  @@unique([barberId, month, type])
 }
 
 model CommissionVale {

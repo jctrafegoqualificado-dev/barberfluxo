@@ -152,7 +152,7 @@ export default function OcupacaoPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Taxa de Ocupação</h1>
-          <p className="text-zinc-500 text-sm mt-1">Baseado em comandas fechadas — tempo real trabalhado por cada barbeiro</p>
+          <p className="text-zinc-500 text-sm mt-1">Baseado em comandas fechadas — tempo real trabalhado por cada profissional</p>
         </div>
         <div className="flex rounded-lg border border-zinc-200 overflow-hidden">
           {(["semana", "mes"] as const).map((p) => (
@@ -254,10 +254,10 @@ export default function OcupacaoPage() {
 
           {/* Por barbeiro */}
           <div>
-            <h2 className="font-semibold text-zinc-900 mb-3">Ocupação por Barbeiro</h2>
+            <h2 className="font-semibold text-zinc-900 mb-3">Ocupação por Profissional</h2>
             {data.porBarbeiro.length === 0 ? (
               <div className="bg-white rounded-xl border border-zinc-100 p-10 text-center text-zinc-400">
-                Nenhum barbeiro cadastrado
+                Nenhum profissional cadastrado
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -282,7 +282,7 @@ export default function OcupacaoPage() {
                   <span className="text-2xl font-black text-primary/90">{retencao.taxaGeralRetorno}%</span>
                 </div>
                 <div>
-                  <p className="font-semibold text-zinc-900">Barbearia geral</p>
+                  <p className="font-semibold text-zinc-900">Retenção geral</p>
                   <p className="text-sm text-zinc-500">
                     {retencao.totalRetornaram} de {retencao.totalLastMonth} clientes do mês passado retornaram
                   </p>

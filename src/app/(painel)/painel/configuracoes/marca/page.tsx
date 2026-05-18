@@ -10,6 +10,8 @@ export default function MarcaPage() {
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
   const [form, setForm] = useState({
+    name: "",
+    description: "",
     primaryColor: "#f59e0b",
     secondaryColor: "#fbbf24",
     logoUrl: "",
@@ -25,6 +27,8 @@ export default function MarcaPage() {
       .then(data => {
         if (data && !data.error) {
           setForm({
+            name: data.name || "",
+            description: data.description || "",
             primaryColor: data.primaryColor || "#f59e0b",
             secondaryColor: data.secondaryColor || "#fbbf24",
             logoUrl: data.logoUrl || "",
@@ -81,12 +85,45 @@ export default function MarcaPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Identidade Visual</h1>
-        <p className="text-zinc-500">Customize as cores e a marca do seu ecossistema White Label.</p>
+        <p className="text-zinc-500">Customize as cores, textos e a marca do seu ecossistema White Label.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Configurações */}
         <div className="space-y-6">
+          {/* Dados Gerais do Estabelecimento */}
+          <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-6">
+            <div className="flex items-center gap-2 text-zinc-900 font-bold border-b border-zinc-100 pb-4">
+              <Palette className="w-5 h-5 text-primary" />
+              Dados do Estabelecimento
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-700">Nome do Estabelecimento</label>
+                <input 
+                  type="text" 
+                  placeholder="Meu Estabelecimento"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-700">Slogan ou Frase (Descrição no agendamento)</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: A melhor barbearia da cidade!"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Paleta de Cores */}
           <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-6">
             <div className="flex items-center gap-2 text-zinc-900 font-bold border-b border-zinc-100 pb-4">
               <Palette className="w-5 h-5 text-primary" />
@@ -166,32 +203,40 @@ export default function MarcaPage() {
 
         {/* Preview */}
         <div className="space-y-6">
-          <div className="bg-zinc-950 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden group min-h-[340px] flex flex-col justify-between">
+          <div className="bg-zinc-950 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden group min-h-[360px] flex flex-col justify-between">
             <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-20" style={{ backgroundColor: form.primaryColor }} />
             
             <div>
-              <h3 className="text-white/30 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">Live Preview</h3>
+              <h3 className="text-white/30 text-[10px] font-bold uppercase tracking-[0.2em] mb-6">Live Preview</h3>
               
-              <div className="flex flex-wrap gap-6 items-center">
+              <div className="text-center py-4 border-b border-white/5 mb-6">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 text-white font-black text-xl shadow-lg" style={{ backgroundColor: form.primaryColor }}>
+                  {form.name ? form.name.charAt(0).toUpperCase() : "B"}
+                </div>
+                <h4 className="text-white font-bold text-lg">{form.name || "Seu Estabelecimento"}</h4>
+                <p className="text-zinc-400 text-xs mt-1">{form.description || "Seu slogan ou frase de impacto aparecerá aqui"}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-4 items-center justify-center">
                 <div 
-                  className="px-8 py-3.5 rounded-2xl font-bold text-white shadow-xl transition-all duration-500 transform hover:scale-105 active:scale-95 cursor-default"
+                  className="px-6 py-2.5 rounded-xl font-bold text-white shadow-xl text-sm transition-all duration-500 cursor-default"
                   style={{ backgroundColor: form.primaryColor }}
                 >
                   Botão Principal
                 </div>
 
-                <div className="flex items-center gap-2.5 font-bold transition-all duration-300" style={{ color: form.primaryColor }}>
-                  <CheckCircle2 className="w-6 h-6" />
+                <div className="flex items-center gap-1.5 font-bold text-sm" style={{ color: form.primaryColor }}>
+                  <CheckCircle2 className="w-5 h-5" />
                   Destaque Ativo
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 mt-6">
                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-inner" style={{ backgroundColor: form.primaryColor }}>
-                    B
+                    {form.name ? form.name.charAt(0).toUpperCase() : "B"}
                   </div>
                   <div className="flex-1">
                     <div className="w-24 h-2.5 bg-white/20 rounded-full mb-2" />

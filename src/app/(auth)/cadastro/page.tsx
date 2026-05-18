@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Scissors } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -44,10 +44,10 @@ export default function CadastroPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-4">
-            <Scissors className="w-7 h-7 text-white" />
+            <Sparkles className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">Crie sua conta</h1>
-          <p className="text-zinc-400 text-sm mt-1">Comece a gerir sua barbearia</p>
+          <p className="text-zinc-400 text-sm mt-1">Comece a gerir seu estabelecimento</p>
         </div>
 
         <form onSubmit={handleRegister} className="bg-zinc-900 rounded-2xl p-6 space-y-4 border border-zinc-800">
@@ -57,7 +57,7 @@ export default function CadastroPage() {
             </div>
           )}
           <Input label="Nome completo" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="João Silva" required className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500" />
-          <Input label="Nome da barbearia" value={form.shopName} onChange={(e) => set("shopName", e.target.value)} placeholder="Barbearia do João" required className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500" />
+          <Input label="Nome do estabelecimento" value={form.shopName} onChange={(e) => set("shopName", e.target.value)} placeholder="Meu Estabelecimento" required className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500" />
           <Input label="E-mail" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="seu@email.com" required className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500" />
           <Input label="WhatsApp" type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(41) 99999-9999" className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500" />
           <Input label="Senha" type="password" value={form.password} onChange={(e) => set("password", e.target.value)} placeholder="••••••••" required className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500" />

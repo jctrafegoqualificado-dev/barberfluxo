@@ -30,7 +30,7 @@ export default function WhatsAppManager() {
           {showBadge && <StatusBadge kind={state.kind} />}
         </div>
         <p className="mt-2 text-sm text-gray-600">
-          Conecte um número de WhatsApp para enviar e receber mensagens da barbearia.
+          Conecte um número de WhatsApp para enviar e receber mensagens do estabelecimento.
         </p>
       </header>
 
@@ -139,7 +139,7 @@ function NoInstanceView({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="ex: barbearia-producao"
+              placeholder="ex: instancia-producao"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none"
             />
           </div>
@@ -361,7 +361,7 @@ function ConnectedView({
         WhatsApp conectado
       </h2>
       <p className="mt-2 max-w-md text-sm text-gray-600">
-        Sua barbearia está pronta para enviar e receber mensagens.
+        Seu estabelecimento está pronto para enviar e receber mensagens.
       </p>
 
       <dl className="mt-5 w-full max-w-sm space-y-2 rounded-md bg-gray-50 p-3 text-left text-sm">
@@ -394,7 +394,7 @@ function ConnectedView({
           className="mt-5 w-full max-w-sm rounded-md border border-red-200 bg-red-50 p-3 text-left"
         >
           <p className="text-sm text-red-900">
-            Tem certeza? A barbearia parará de enviar e receber mensagens até
+            Tem certeza? O estabelecimento parará de enviar e receber mensagens até
             reconectar.
           </p>
           <div className="mt-3 flex gap-2 justify-end">
@@ -450,7 +450,7 @@ function DisconnectedView({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="ex: barbearia-producao"
+              placeholder="ex: instancia-producao"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none"
             />
           </div>

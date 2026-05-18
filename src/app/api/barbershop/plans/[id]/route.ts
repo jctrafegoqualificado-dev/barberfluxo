@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const { name, description, price, billingCycle, maxUses, serviceIds, active, beneficiaryRules } = await req.json();
+    const { name, description, price, billingCycle, maxUses, serviceIds, serviceQuantities, active, beneficiaryRules } = await req.json();
 
     // 1. Valida posse
     const existing = await prisma.plan.findFirst({
@@ -20,9 +20,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // 2. Update direto
     const plan = await prisma.$transaction(async (tx) => {
-      if (Array.isArray(serviceIds)) {
+      // Use new serviceQuantities format or fall back to legacy serviceIds
+      const hasNewFormat = Array.isArray(serviceQuantities);
+      const hasLegacyFormat = Array.isArray(serviceIds);
+      if (hasNewFormat || hasLegacyFormat) {
         await tx.planService.deleteMany({ where: { planId: id } });
       }
+      const svcData = hasNewFormat
+        ? serviceQuantities.map((sq: { serviceId: string; quantity: number | null }) => ({
+            serviceId: sq.serviceId,
+            quantity: sq.quantity ?? null,
+          }))
+        : hasLegacyFormat
+          ? serviceIds.map((sid: string) => ({ serviceId: sid, quantity: null }))
+          : undefined;
       return tx.plan.update({
         where: { id },
         data: {
@@ -33,9 +44,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           maxUses: maxUses === "" || maxUses === null || maxUses === undefined ? null : Number(maxUses),
           beneficiaryRules: beneficiaryRules !== undefined ? beneficiaryRules : undefined,
           active,
-          ...(Array.isArray(serviceIds) && {
+          ...(svcData && {
             planServices: {
-              create: serviceIds.map((sid: string) => ({ serviceId: sid })),
+              create: svcData,
             },
           }),
         },

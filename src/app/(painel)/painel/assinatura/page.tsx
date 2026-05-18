@@ -123,7 +123,7 @@ export default function AssinaturaSaaSPage() {
           <Crown className="w-10 h-10 text-primary" />
         </div>
         <h1 className="text-3xl font-bold text-zinc-900 mb-2">Você é PREMIUM!</h1>
-        <p className="text-zinc-500 mb-8 text-lg">Sua barbearia tem acesso total a todas as ferramentas do BarberFluxo.</p>
+        <p className="text-zinc-500 mb-8 text-lg">Seu estabelecimento tem acesso total a todas as ferramentas do BarberFluxo.</p>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
           {[
@@ -150,7 +150,7 @@ export default function AssinaturaSaaSPage() {
       />
 
       <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold text-zinc-900">Turbine sua Barbearia</h1>
+        <h1 className="text-3xl font-bold text-zinc-900">Turbine seu Estabelecimento</h1>
         <p className="text-zinc-500 mt-2">Escolha o plano ideal para o seu crescimento</p>
       </div>
 
@@ -167,7 +167,7 @@ export default function AssinaturaSaaSPage() {
           
           <ul className="space-y-4 flex-1 mb-8">
             <Feature item="Agendamento Online" />
-            <Feature item="Gestão de Barbeiros" />
+            <Feature item="Gestão de Profissionais" />
             <Feature item="Controle de Comissões" />
             <Feature disabled item="WhatsApp Automático" />
             <Feature disabled item="Dashboard de Lucro" />

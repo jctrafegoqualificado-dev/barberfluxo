@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
-import { Scissors } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 type Tab = "admin" | "barber";
 
@@ -52,14 +52,14 @@ export default function LoginPage() {
         <div className="relative z-10 text-center px-12">
           {/* Logo */}
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary mb-6 shadow-2xl">
-            <Scissors className="w-10 h-10 text-white" />
+            <Sparkles className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-5xl font-black text-white tracking-tight mb-2">Lord</h1>
-          <p className="text-primary/80 text-lg font-semibold mb-8">of Barba</p>
+          <h1 className="text-5xl font-black text-white tracking-tight mb-2">Barber</h1>
+          <p className="text-primary/80 text-lg font-semibold mb-8">Fluxo</p>
 
           <div className="space-y-4 text-left max-w-xs mx-auto">
             {[
-              "Gestão completa da barbearia",
+              "Gestão completa do estabelecimento",
               "Agendamentos em tempo real",
               "Controle de comissões",
               "Relatórios e métricas",
@@ -77,7 +77,7 @@ export default function LoginPage() {
         </div>
 
         {/* Rodapé */}
-        <p className="absolute bottom-6 text-zinc-600 text-xs">© 2026 Lord of Barba</p>
+        <p className="absolute bottom-6 text-zinc-600 text-xs">© 2026 BarberFluxo</p>
       </div>
 
       {/* Lado direito — formulário */}
@@ -86,15 +86,15 @@ export default function LoginPage() {
           {/* Logo mobile */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Scissors className="w-5 h-5 text-white" />
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <span className="text-2xl font-black text-zinc-900">Lord</span>
+            <span className="text-2xl font-black text-zinc-900">BarberFluxo</span>
           </div>
 
           <h2 className="text-3xl font-bold text-zinc-900 mb-1">
             Conecte-se à <span className="text-primary">sua conta</span>
           </h2>
-          <p className="text-zinc-500 text-sm mb-8">Acesse o painel de gestão da barbearia</p>
+          <p className="text-zinc-500 text-sm mb-8">Acesse o painel de gestão do estabelecimento</p>
 
           {/* Tabs */}
           <div className="flex rounded-xl border border-zinc-200 p-1 mb-6 bg-zinc-50">
@@ -108,7 +108,7 @@ export default function LoginPage() {
               type="button"
               onClick={() => setTab("barber")}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "barber" ? "bg-white shadow text-primary/90 border border-amber-200" : "text-zinc-500 hover:text-zinc-700"}`}>
-              Barbeiro
+              Profissional
             </button>
           </div>
 
@@ -153,7 +153,7 @@ export default function LoginPage() {
               className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors text-sm shadow-sm flex items-center justify-center gap-2 mt-2">
               {loading
                 ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : `Entrar como ${tab === "admin" ? "Administrador" : "Barbeiro"}`}
+                : `Entrar como ${tab === "admin" ? "Administrador" : "Profissional"}`}
             </button>
           </form>
         </div>

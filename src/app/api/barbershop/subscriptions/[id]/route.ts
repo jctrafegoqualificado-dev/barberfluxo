@@ -54,3 +54,32 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    const { id } = await params;
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { id, barbershopId: payload.barbershopId! },
+      include: {
+        client: { select: { id: true, name: true, email: true, phone: true } },
+        plan: {
+          include: {
+            planServices: {
+              include: { service: true }
+            }
+          }
+        },
+        payments: { orderBy: { createdAt: "desc" } },
+      },
+    });
+
+    if (!subscription) return NextResponse.json({ error: "Assinatura não encontrada" }, { status: 404 });
+
+    return NextResponse.json({ subscription });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erro ao carregar assinatura";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+

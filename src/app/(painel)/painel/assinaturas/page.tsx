@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2 } from "lucide-react";
+import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2, Users, TrendingUp, DollarSign, MessageSquare, Calendar, Edit2, Clock, FileText, RotateCcw } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -105,10 +105,49 @@ export default function AssinaturasPage() {
   const [filter, setFilter] = useState<"all" | "overdue">("all");
   const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "" });
   const [usageModal, setUsageModal] = useState<Subscription | null>(null);
-  const [historyModal, setHistoryModal] = useState<Subscription | null>(null);
-  const [historyItems, setHistoryItems] = useState<any[]>([]);
+
+  // Extrato do Assinante (Sprint 2)
+  const [extratoSub, setExtratoSub] = useState<any | null>(null);
+  const [extratoTab, setExtratoTab] = useState<"info" | "consumo" | "pagamentos">("info");
+  const [extratoHistory, setExtratoHistory] = useState<any[]>([]);
+  const [extratoLoading, setExtratoLoading] = useState(false);
+
+  // States para o inline edit e cobrança WhatsApp
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState("");
 
   function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+
+  function handleWhatsAppCobrança(s: Subscription) {
+    const phone = s.client.phone?.replace(/\D/g, "");
+    if (!phone) {
+      alert("Este cliente não possui telefone cadastrado!");
+      return;
+    }
+    const message = `Olá, ${s.client.name}! Tudo bem? Passando para lembrar que a mensalidade do seu plano *${s.plan.name}* venceu em ${new Date(s.nextBillingDate).toLocaleDateString("pt-BR")}. Se preferir realizar o pagamento via PIX, a nossa chave é a cadastrada na barbearia. Assim que realizar o pagamento, me avise para darmos baixa aqui! Obrigado! 💈`;
+    const encodedText = encodeURIComponent(message);
+    window.open(`https://wa.me/${phone.startsWith("55") ? phone : "55" + phone}?text=${encodedText}`, "_blank");
+  }
+
+  async function handleUpdateBillingDate(id: string) {
+    if (!editDate) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/barbershop/subscriptions/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ nextBillingDate: editDate }),
+      });
+      if (!res.ok) {
+        alert("Erro ao atualizar data de cobrança");
+      } else {
+        setEditingId(null);
+        load();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function load() {
     const [sr, pr] = await Promise.all([
@@ -159,17 +198,60 @@ export default function AssinaturasPage() {
     }
   }
 
-  async function loadHistory(s: any) {
-    setHistoryModal(s);
-    setLoading(true);
+  async function loadExtrato(s: Subscription) {
+    setExtratoTab("info");
+    setExtratoLoading(true);
+    setExtratoSub(null);
+    setExtratoHistory([]);
     try {
-      const res = await fetch(`/api/barbershop/subscriptions/${s.id}/history`, {
+      const [detailRes, histRes] = await Promise.all([
+        fetch(`/api/barbershop/subscriptions/${s.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/barbershop/subscriptions/${s.id}/history`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const [detailData, histData] = await Promise.all([detailRes.json(), histRes.json()]);
+      setExtratoSub(detailData.subscription || null);
+      setExtratoHistory(histData.history || []);
+    } finally {
+      setExtratoLoading(false);
+    }
+  }
+
+  async function handleExtratoPayment(subscriptionId: string, method: string) {
+    setExtratoLoading(true);
+    try {
+      await fetch("/api/barbershop/subscriptions/pagamento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subscriptionId, method }),
+      });
+      // Recarrega o extrato e a lista principal
+      const sub = subs.find(s => s.id === subscriptionId);
+      if (sub) await loadExtrato(sub);
+      load();
+    } finally {
+      setExtratoLoading(false);
+    }
+  }
+
+  async function handleUndoPayment(subscriptionId: string) {
+    if (!confirm("Deseja realmente desfazer o último pagamento confirmado?")) return;
+    setExtratoLoading(true);
+    try {
+      const res = await fetch(`/api/barbershop/subscriptions/pagamento?subscriptionId=${subscriptionId}`, {
+        method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      setHistoryItems(data.history || []);
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Erro ao desfazer pagamento");
+        return;
+      }
+      // Recarrega o extrato e a lista principal
+      const sub = subs.find(s => s.id === subscriptionId);
+      if (sub) await loadExtrato(sub);
+      load();
     } finally {
-      setLoading(false);
+      setExtratoLoading(false);
     }
   }
 
@@ -199,6 +281,12 @@ export default function AssinaturasPage() {
 
   const overdueSubs = subs.filter((s) => s.status === "ACTIVE" && isOverdue(s.nextBillingDate));
 
+  // Cálculo das métricas para os cards de destaque
+  const totalActive = subs.filter((s) => s.status === "ACTIVE").length;
+  const overdueCount = overdueSubs.length;
+  const mrr = subs.filter((s) => s.status === "ACTIVE").reduce((sum, s) => sum + s.plan.price, 0);
+  const overdueTotal = overdueSubs.reduce((sum, s) => sum + s.plan.price, 0);
+
   const filtered = subs
     .filter((s) => filter === "overdue" ? (s.status === "ACTIVE" && isOverdue(s.nextBillingDate)) : true)
     .filter((s) =>
@@ -227,6 +315,49 @@ export default function AssinaturasPage() {
         </Button>
       </div>
 
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Users className="w-5.5 h-5.5" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Assinantes Ativos</p>
+            <p className="text-2xl font-bold text-zinc-900 mt-0.5">{totalActive}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-5.5 h-5.5" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Faturamento (MRR)</p>
+            <p className="text-2xl font-bold text-zinc-900 mt-0.5">{formatCurrency(mrr)}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-5.5 h-5.5" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Vencidos (Qtd)</p>
+            <p className="text-2xl font-bold text-zinc-900 mt-0.5">{overdueCount}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+            <DollarSign className="w-5.5 h-5.5" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Inadimplência Total</p>
+            <p className="text-2xl font-bold text-zinc-900 mt-0.5">{formatCurrency(overdueTotal)}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
@@ -253,7 +384,7 @@ export default function AssinaturasPage() {
               const lastPaid = s.payments.find((p) => p.status === "PAID");
 
               return (
-                <div key={s.id} className={`px-6 py-4 flex items-center gap-4 ${overdue ? "bg-red-50 border-l-4 border-red-400" : ""}`}>
+                <div key={s.id} className={`px-6 py-4 flex items-center gap-4 group ${overdue ? "bg-red-50 border-l-4 border-red-400" : ""}`}>
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${overdue ? "bg-red-100" : "bg-primary/20"}`}>
                     <span className={`font-bold text-xs ${overdue ? "text-red-700" : "text-amber-700"}`}>{getInitials(s.client.name)}</span>
                   </div>
@@ -306,7 +437,46 @@ export default function AssinaturasPage() {
                     <p className={`text-xs ${overdue ? "text-red-500 font-semibold" : "text-zinc-400"}`}>
                       {overdue ? "Venceu em" : "Próx. cobrança"}
                     </p>
-                    <p className={`text-xs ${overdue ? "text-red-600 font-bold" : "text-zinc-600"}`}>{formatDate(s.nextBillingDate)}</p>
+                    {editingId === s.id ? (
+                      <div className="flex items-center gap-1 mt-1 justify-center">
+                        <input
+                          type="date"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                          className="text-xs p-1.5 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-primary w-28 bg-white text-zinc-800"
+                        />
+                        <button
+                          onClick={() => handleUpdateBillingDate(s.id)}
+                          className="p-1 rounded bg-green-500 text-white hover:bg-green-600 transition-colors"
+                          title="Salvar"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="p-1 rounded bg-red-500 text-white hover:bg-red-600 transition-colors"
+                          title="Cancelar"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-1 group mt-0.5">
+                        <p className={`text-xs ${overdue ? "text-red-600 font-bold" : "text-zinc-600"}`}>{formatDate(s.nextBillingDate)}</p>
+                        <button
+                          onClick={() => {
+                            setEditingId(s.id);
+                            const d = new Date(s.nextBillingDate);
+                            const formatted = d.toISOString().split('T')[0];
+                            setEditDate(formatted);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded text-zinc-400 hover:text-zinc-700 transition-all"
+                          title="Editar data de cobrança"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
@@ -321,18 +491,27 @@ export default function AssinaturasPage() {
                         </button>
                       )}
                       {overdue && (
-                        <button
-                          onClick={() => setPaymentSub(s)}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors whitespace-nowrap"
-                        >
-                          Dar baixa (Pagto)
-                        </button>
+                        <>
+                          <button
+                            onClick={() => setPaymentSub(s)}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors whitespace-nowrap"
+                          >
+                            Dar baixa (Pagto)
+                          </button>
+                          <button
+                            onClick={() => handleWhatsAppCobrança(s)}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-semibold flex items-center gap-1 transition-colors whitespace-nowrap"
+                            title="Cobrar via WhatsApp"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" /> Cobrar PIX
+                          </button>
+                        </>
                       )}
                       <button
-                        onClick={() => loadHistory(s)}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-zinc-200 text-zinc-600 font-semibold hover:bg-zinc-50 transition-colors whitespace-nowrap"
+                        onClick={() => loadExtrato(s)}
+                        className="text-xs px-2.5 py-1 rounded-lg border border-zinc-200 text-zinc-600 font-semibold hover:bg-zinc-50 transition-colors whitespace-nowrap flex items-center gap-1"
                       >
-                        Ver Histórico
+                        <FileText className="w-3.5 h-3.5" /> Extrato
                       </button>
                       <button
                         onClick={() => handleDelete(s.id)}
@@ -390,45 +569,330 @@ export default function AssinaturasPage() {
         </div>
       )}
 
-      {/* Modal de Histórico de Uso */}
-      {historyModal && (
+      {/* Modal Extrato do Assinante — 3 Abas */}
+      {extratoSub && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
-              <h2 className="font-semibold text-zinc-900">Histórico de Usos: {historyModal.client.name}</h2>
-              <button onClick={() => setHistoryModal(null)} className="p-1 rounded-lg hover:bg-zinc-100"><X className="w-4 h-4 text-zinc-500" /></button>
-            </div>
-            <div className="p-5 overflow-y-auto flex-1">
-              {loading ? (
-                <p className="text-center py-10 text-zinc-500">Carregando histórico...</p>
-              ) : historyItems.length === 0 ? (
-                <div className="text-center py-10">
-                  <p className="text-zinc-400">Nenhum uso registrado neste ciclo.</p>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-zinc-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-zinc-900 text-lg">Extrato — {extratoSub.client.name}</h2>
+                  <p className="text-xs text-zinc-400 mt-0.5">{extratoSub.plan.name} • {formatCurrency(extratoSub.plan.price)}/mês</p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {historyItems.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-100">
-                      <div>
-                        <p className="font-bold text-zinc-900 leading-tight">{item.beneficiaryName || "Titular"}</p>
-                        <p className="text-[11px] text-primary/90 font-semibold mb-1">
-                          {item.services?.length > 0 
-                            ? item.services.map((s: any) => s.service.name).join(" + ") 
-                            : "Serviço padrão"}
-                        </p>
-                        <p className="text-xs text-zinc-400">{new Date(item.date).toLocaleDateString("pt-BR")} às {item.startTime}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-medium text-zinc-600">Barbeiro: {item.barber.user.name}</p>
-                        <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest">Plano Utilizado</p>
+                <button onClick={() => setExtratoSub(null)} className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
+                  <X className="w-5 h-5 text-zinc-500" />
+                </button>
+              </div>
+              {/* Tabs */}
+              <div className="flex gap-1 mt-4 bg-zinc-100 rounded-xl p-1">
+                {(["info", "consumo", "pagamentos"] as const).map((tab) => {
+                  const labels = { info: "Informações", consumo: "Consumo", pagamentos: "Pagamentos" };
+                  const icons = { info: <FileText className="w-3.5 h-3.5" />, consumo: <Clock className="w-3.5 h-3.5" />, pagamentos: <DollarSign className="w-3.5 h-3.5" /> };
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setExtratoTab(tab)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                        extratoTab === tab
+                          ? "bg-white text-zinc-900 shadow-sm"
+                          : "text-zinc-500 hover:text-zinc-700"
+                      }`}
+                    >
+                      {icons[tab]} {labels[tab]}
+                      {tab === "pagamentos" && extratoSub.payments && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                          extratoSub.payments.filter((p: any) => p.status === "PENDING").length > 0
+                            ? "bg-red-100 text-red-600"
+                            : "bg-zinc-200 text-zinc-600"
+                        }`}>
+                          {extratoSub.payments.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1">
+              {extratoLoading ? (
+                <p className="text-center py-16 text-zinc-400 font-medium">Carregando extrato...</p>
+              ) : extratoTab === "info" ? (
+                /* === ABA INFORMAÇÕES === */
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-zinc-50 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Cliente</p>
+                      <p className="text-sm font-bold text-zinc-900 mt-1">{extratoSub.client.name}</p>
+                      <p className="text-xs text-zinc-500">{extratoSub.client.phone || "Sem telefone"}</p>
+                    </div>
+                    <div className="bg-zinc-50 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Plano</p>
+                      <p className="text-sm font-bold text-zinc-900 mt-1">{extratoSub.plan.name}</p>
+                      <p className="text-xs text-primary font-bold">{formatCurrency(extratoSub.plan.price)}/mês</p>
+                    </div>
+                    <div className="bg-zinc-50 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Início</p>
+                      <p className="text-sm font-bold text-zinc-900 mt-1">{formatDate(extratoSub.startDate)}</p>
+                    </div>
+                    <div className={`rounded-xl p-4 ${isOverdue(extratoSub.nextBillingDate) ? "bg-red-50" : "bg-zinc-50"}`}>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Próx. Cobrança</p>
+                      <p className={`text-sm font-bold mt-1 ${isOverdue(extratoSub.nextBillingDate) ? "text-red-600" : "text-zinc-900"}`}>
+                        {formatDate(extratoSub.nextBillingDate)}
+                      </p>
+                      {isOverdue(extratoSub.nextBillingDate) && <p className="text-[10px] text-red-500 font-bold mt-0.5">VENCIDO</p>}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-zinc-50 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Status</p>
+                      <div className="mt-1.5"><Badge status={extratoSub.status} /></div>
+                    </div>
+                    <div className="bg-zinc-50 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Usos no Ciclo</p>
+                      <p className="text-sm font-bold text-zinc-900 mt-1">
+                        {extratoSub.usesThisCycle}{extratoSub.plan.maxUses ? ` / ${extratoSub.plan.maxUses}` : " (ilimitado)"}
+                      </p>
+                    </div>
+                  </div>
+                  {extratoSub.plan.planServices?.length > 0 && (
+                    <div className="border border-zinc-100 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Serviços Inclusos</p>
+                      <div className="space-y-1.5">
+                        {extratoSub.plan.planServices.map((ps: any) => (
+                          <div key={ps.service.id} className="flex items-center gap-2 text-sm">
+                            <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                            <span className="text-zinc-700">{ps.service.name}</span>
+                            <span className="text-zinc-400 ml-auto text-xs">{formatCurrency(ps.service.price)}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
+                  )}
+                  {Array.isArray(extratoSub.beneficiaries) && extratoSub.beneficiaries.length > 0 && (
+                    <div className="border border-zinc-100 rounded-xl p-4">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Beneficiários</p>
+                      <div className="space-y-2">
+                        {extratoSub.beneficiaries.map((b: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between bg-zinc-50 rounded-lg p-3">
+                            <span className="text-sm font-semibold text-zinc-800">{b.name}</span>
+                            <span className={`text-xs font-bold px-2 py-1 rounded-md ${b.uses >= b.maxUses ? "bg-red-100 text-red-600" : "bg-emerald-50 text-emerald-700"}`}>
+                              {b.uses}/{b.maxUses} usos
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : extratoTab === "consumo" ? (
+                /* === ABA CONSUMO === */
+                <div>
+                  {/* Painel Saldo de Serviços */}
+                  {extratoSub.plan.planServices?.length > 0 && (() => {
+                    // Calcula usos por serviço a partir do histórico
+                    const usageByService: Record<string, number> = {};
+                    extratoHistory.forEach((item: any) => {
+                      if (item.services?.length > 0) {
+                        item.services.forEach((as: any) => {
+                          usageByService[as.service.id] = (usageByService[as.service.id] || 0) + 1;
+                        });
+                      } else if (item.serviceId) {
+                        usageByService[item.serviceId] = (usageByService[item.serviceId] || 0) + 1;
+                      }
+                    });
+                    return (
+                      <div className="border border-zinc-100 rounded-xl p-4 mb-5">
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Serviços Disponíveis</p>
+                        <div className="space-y-2">
+                          {extratoSub.plan.planServices.map((ps: any) => {
+                            const used = usageByService[ps.service.id] || 0;
+                            const limit = ps.quantity;
+                            const isUnlimited = limit == null;
+                            const isExhausted = !isUnlimited && used >= limit;
+                            const pct = isUnlimited ? 0 : Math.min((used / limit) * 100, 100);
+                            return (
+                              <div key={ps.service.id} className="flex items-center justify-between bg-zinc-50 rounded-lg p-3">
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-zinc-800">{ps.service.name}</p>
+                                  {!isUnlimited && (
+                                    <div className="w-full bg-zinc-200 rounded-full h-1.5 mt-1.5">
+                                      <div
+                                        className={`h-1.5 rounded-full transition-all ${isExhausted ? "bg-red-500" : "bg-emerald-500"}`}
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ml-3 shrink-0 ${
+                                  isUnlimited
+                                    ? "bg-blue-50 text-blue-600"
+                                    : isExhausted
+                                      ? "bg-red-100 text-red-600"
+                                      : "bg-emerald-50 text-emerald-700"
+                                }`}>
+                                  {isUnlimited ? `${used} (∞)` : `${used} / ${limit}`}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Timeline de Usos</p>
+                    {extratoSub.nextBillingDate && (
+                      <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-2.5 py-1 rounded-full">
+                        Fim do ciclo: {formatDate(extratoSub.nextBillingDate)}
+                      </span>
+                    )}
+                  </div>
+                  {extratoHistory.length === 0 ? (
+                    <div className="text-center py-16">
+                      <Clock className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
+                      <p className="text-zinc-400 font-medium">Nenhum uso registrado neste ciclo.</p>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {/* Timeline line */}
+                      <div className="absolute left-[18px] top-2 bottom-2 w-0.5 bg-zinc-100" />
+                      <div className="space-y-4">
+                        {extratoHistory.map((item: any, i: number) => (
+                          <div key={i} className="flex gap-4 relative">
+                            <div className="w-9 h-9 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center shrink-0 z-10">
+                              <Check className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <div className="flex-1 bg-zinc-50 rounded-xl p-3.5 border border-zinc-100">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-sm font-bold text-zinc-900">{item.beneficiaryName || "Titular"}</p>
+                                  <p className="text-xs text-primary font-semibold mt-0.5">
+                                    {item.services?.length > 0
+                                      ? item.services.map((s: any) => s.service.name).join(" + ")
+                                      : "Serviço padrão"}
+                                  </p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[11px] font-semibold text-zinc-600">{item.barber?.user?.name}</p>
+                                  <p className="text-[10px] text-zinc-400">
+                                    {new Date(item.date).toLocaleDateString("pt-BR")} às {item.startTime}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* === ABA PAGAMENTOS === */
+                <div>
+                  {(() => {
+                    const payments = extratoSub.payments || [];
+                    const totalPaid = payments.filter((p: any) => p.status === "PAID").reduce((s: number, p: any) => s + p.amount, 0);
+                    const totalPending = payments.filter((p: any) => p.status === "PENDING").reduce((s: number, p: any) => s + p.amount, 0);
+                    const hasPaid = payments.some((p: any) => p.status === "PAID");
+                    return (
+                      <>
+                        {/* Resumo financeiro */}
+                        <div className="grid grid-cols-2 gap-3 mb-5">
+                          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Total Pago</p>
+                            <p className="text-xl font-bold text-emerald-700 mt-1">{formatCurrency(totalPaid)}</p>
+                          </div>
+                          <div className={`rounded-xl p-4 border ${totalPending > 0 ? "bg-red-50 border-red-100" : "bg-zinc-50 border-zinc-100"}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${totalPending > 0 ? "text-red-600" : "text-zinc-400"}`}>Inadimplência</p>
+                            <p className={`text-xl font-bold mt-1 ${totalPending > 0 ? "text-red-700" : "text-zinc-400"}`}>{formatCurrency(totalPending)}</p>
+                          </div>
+                        </div>
+                        {/* Lista de pagamentos */}
+                        {payments.length === 0 ? (
+                          <div className="text-center py-12">
+                            <DollarSign className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
+                            <p className="text-zinc-400 font-medium">Nenhum registro de pagamento.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {payments.map((p: any, i: number) => (
+                              <div key={i} className={`flex items-center justify-between p-3.5 rounded-xl border ${
+                                p.status === "PAID"
+                                  ? "bg-emerald-50/50 border-emerald-100"
+                                  : "bg-red-50/50 border-red-100"
+                              }`}>
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                    p.status === "PAID" ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-500"
+                                  }`}>
+                                    {p.status === "PAID" ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-bold text-zinc-900">{formatCurrency(p.amount || extratoSub.plan.price)}</p>
+                                    <p className="text-[10px] text-zinc-500">
+                                      {p.paidAt
+                                        ? `Pago em ${new Date(p.paidAt).toLocaleDateString("pt-BR")} via ${METHOD_LABELS[p.method] || p.method}`
+                                        : `Criado em ${new Date(p.createdAt).toLocaleDateString("pt-BR")}`
+                                      }
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                                    p.status === "PAID"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-red-100 text-red-600"
+                                  }`}>
+                                    {p.status === "PAID" ? "Confirmado" : "Pendente"}
+                                  </span>
+                                  {p.status === "PAID" && i === payments.findIndex((px: any) => px.status === "PAID") && (
+                                    <button
+                                      onClick={() => handleUndoPayment(extratoSub.id)}
+                                      disabled={extratoLoading}
+                                      className="text-[10px] font-semibold text-zinc-500 hover:text-red-600 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-red-50 transition-all disabled:opacity-40"
+                                      title="Desfazer baixa"
+                                    >
+                                      <RotateCcw className="w-3 h-3" /> Desfazer
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* Botão dar baixa se há pendências */}
+                        {isOverdue(extratoSub.nextBillingDate) && extratoSub.status === "ACTIVE" && (
+                          <div className="mt-5 pt-4 border-t border-zinc-100">
+                            <p className="text-xs font-bold text-zinc-500 mb-3">Registrar pagamento recebido:</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {PAYMENT_OPTIONS.map(({ value, label, icon: Icon, color }) => (
+                                <button
+                                  key={value}
+                                  onClick={() => handleExtratoPayment(extratoSub.id, value)}
+                                  disabled={extratoLoading}
+                                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all hover:scale-105 ${color} disabled:opacity-40`}
+                                >
+                                  <Icon className="w-5 h-5" />
+                                  <span className="text-[10px] font-bold">{label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
-            <div className="p-5 border-t border-zinc-50">
-              <button onClick={() => setHistoryModal(null)} className="w-full py-3 rounded-xl bg-zinc-900 text-white font-bold hover:bg-zinc-800">Fechar</button>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-zinc-100">
+              <button onClick={() => setExtratoSub(null)} className="w-full py-3 rounded-xl bg-zinc-900 text-white font-bold hover:bg-zinc-800 transition-colors">Fechar</button>
             </div>
           </div>
         </div>

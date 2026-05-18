@@ -202,7 +202,7 @@ export default function ClientesPage() {
     const cleanPhone = phone.replace(/\D/g, "");
     let text = "";
     if (type === "reengage") {
-      text = `Olá ${name}! Sentimos sua falta na barbearia ultimamente. 💈 Que tal reservar um horário para dar aquele trato no visual esta semana? Agende online clicando aqui!`;
+      text = `Olá ${name}! Sentimos sua falta ultimamente. 💈 Que tal reservar um horário para dar aquele trato no visual esta semana? Agende online clicando aqui!`;
     } else {
       text = `Parabéns, ${name}! 🥳 Desejamos um feliz aniversário e muita saúde! Para comemorar seu dia especial, preparamos um desconto exclusivo para você em seu próximo corte. Reserve seu horário!`;
     }

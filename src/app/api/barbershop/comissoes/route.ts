@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
 
     const result = await Promise.all(barbers.map(async (b) => {
-      const [avulsos, subAppointments, productSales, commissionPayment, vales] = await Promise.all([
+      const [avulsos, subAppointments, productSales, standardPayment, subscriptionPayment, vales] = await Promise.all([
         prisma.appointment.findMany({
           where: {
             barberId: b.id,
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
             subscriptionId: null,
             date: { gte: start, lte: end },
           },
-          include: { service: true },
+          include: { service: true, client: { select: { name: true } } },
         }),
         prisma.appointment.findMany({
           where: {
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
             subscriptionId: { not: null },
             date: { gte: start, lte: end },
           },
-          include: { service: true },
+          include: { service: true, client: { select: { name: true } } },
         }),
         prisma.productSale.findMany({
           where: {
@@ -80,7 +80,10 @@ export async function GET(req: NextRequest) {
           include: { product: true },
         }),
         prisma.commissionPayment.findUnique({
-          where: { barberId_month: { barberId: b.id, month: monthKey } },
+          where: { barberId_month_type: { barberId: b.id, month: monthKey, type: "STANDARD" } },
+        }),
+        prisma.commissionPayment.findUnique({
+          where: { barberId_month_type: { barberId: b.id, month: monthKey, type: "SUBSCRIPTION" } },
         }),
         prisma.commissionVale.findMany({
           where: { barberId: b.id, month: monthKey },
@@ -119,7 +122,9 @@ export async function GET(req: NextRequest) {
 
       const totalComissao = comissaoAvulso + comissaoAssinatura + comissaoProdutos;
       const totalVales = vales.reduce((s, v) => s + v.amount, 0);
-      const liquidoAPagar = Math.max(0, totalComissao - totalVales);
+      
+      const liquidoAPagar = Math.max(0, comissaoAvulso + comissaoProdutos - totalVales);
+      const liquidoAssinatura = comissaoAssinatura;
 
       return {
         id: b.id,
@@ -147,9 +152,13 @@ export async function GET(req: NextRequest) {
         totalComissao,
         totalVales,
         liquidoAPagar,
+        liquidoAssinatura,
         vales: vales.map((v) => ({ id: v.id, amount: v.amount, description: v.description, createdAt: v.createdAt })),
-        paid: commissionPayment
-          ? { paidAt: commissionPayment.paidAt, amount: commissionPayment.amount }
+        paid: standardPayment
+          ? { paidAt: standardPayment.paidAt, amount: standardPayment.amount }
+          : null,
+        subPaid: subscriptionPayment
+          ? { paidAt: subscriptionPayment.paidAt, amount: subscriptionPayment.amount }
           : null,
       };
     }));

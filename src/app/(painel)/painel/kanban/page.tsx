@@ -213,7 +213,7 @@ export default function KanbanPage() {
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Kanban</h1>
           <p className="text-zinc-500 text-sm mt-1">
-            Organize e atribua tarefas para os barbeiros
+            Organize e atribua tarefas para os profissionais
             {overdueCount > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 text-red-500 font-medium">
                 <AlertCircle className="w-3.5 h-3.5" />
@@ -290,7 +290,7 @@ export default function KanbanPage() {
                   required
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="Ex: Limpar as tesouras"
+                  placeholder="Ex: Organizar recepção"
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -319,7 +319,7 @@ export default function KanbanPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">
-                    <User className="w-3 h-3 inline mr-1" />Barbeiro
+                    <User className="w-3 h-3 inline mr-1" />Profissional
                   </label>
                   <select
                     value={form.barberId}
