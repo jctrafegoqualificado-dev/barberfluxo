@@ -14,6 +14,7 @@ interface Product {
   price: number;
   costPrice: number;
   stock: number;
+  barcode: string | null;
   category: string;
   active: boolean;
   commissionType: string;
@@ -50,6 +51,8 @@ export default function ProdutosPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [sellQty, setSellQty] = useState(1);
+  const [sellPaymentMethod, setSellPaymentMethod] = useState("CASH");
+  const [barcodeSearch, setBarcodeSearch] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -58,6 +61,7 @@ export default function ProdutosPage() {
     costPrice: "",
     stock: "",
     category: "GERAL",
+    barcode: "",
     commissionType: "PERCENTAGE",
     commissionValue: "10"
   });
@@ -88,6 +92,7 @@ export default function ProdutosPage() {
       price: parseFloat(form.price),
       costPrice: parseFloat(form.costPrice || "0"),
       stock: parseInt(form.stock || "0"),
+      barcode: form.barcode || null,
       category: form.category,
       commissionType: form.commissionType,
       commissionValue: parseFloat(form.commissionValue || "0")
@@ -102,7 +107,7 @@ export default function ProdutosPage() {
     setLoading(false);
     setOpenAdd(false);
     setForm({
-      name: "", description: "", price: "", costPrice: "", stock: "", category: "GERAL",
+      name: "", description: "", price: "", costPrice: "", stock: "", barcode: "", category: "GERAL",
       commissionType: "PERCENTAGE", commissionValue: "10"
     });
     load();
@@ -119,6 +124,7 @@ export default function ProdutosPage() {
       price: parseFloat(form.price),
       costPrice: parseFloat(form.costPrice || "0"),
       stock: parseInt(form.stock || "0"),
+      barcode: form.barcode || null,
       category: form.category,
       commissionType: form.commissionType,
       commissionValue: parseFloat(form.commissionValue || "0")
@@ -141,7 +147,7 @@ export default function ProdutosPage() {
     const res = await fetch(`/api/barbershop/products/${selectedProduct.id}/sell`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ quantity: sellQty }),
+      body: JSON.stringify({ quantity: sellQty, paymentMethod: sellPaymentMethod }),
     });
     const data = await res.json();
     if (!res.ok) { alert(data.error); setLoading(false); return; }
@@ -165,6 +171,7 @@ export default function ProdutosPage() {
       price: String(p.price),
       costPrice: String(p.costPrice),
       stock: String(p.stock),
+      barcode: p.barcode || "",
       category: p.category,
       commissionType: p.commissionType || "PERCENTAGE",
       commissionValue: String(p.commissionValue ?? 10)
@@ -186,9 +193,26 @@ export default function ProdutosPage() {
           <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Produtos</h1>
           <p className="text-zinc-500 text-sm mt-1">{products.length} produto{products.length !== 1 ? "s" : ""} cadastrados</p>
         </div>
-        <Button onClick={() => setOpenAdd(true)}>
-          <Plus className="w-4 h-4 mr-1" /> Novo Produto
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Input 
+              placeholder="Bipar Código de Barras..." 
+              value={barcodeSearch}
+              onChange={(e) => {
+                setBarcodeSearch(e.target.value);
+                const found = products.find(p => p.barcode === e.target.value);
+                if (found) {
+                  openSellModal(found);
+                  setBarcodeSearch("");
+                }
+              }}
+              className="w-64"
+            />
+          </div>
+          <Button onClick={() => setOpenAdd(true)}>
+            <Plus className="w-4 h-4 mr-1" /> Novo Produto
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -374,6 +398,7 @@ export default function ProdutosPage() {
         <form onSubmit={handleAdd} className="space-y-4">
           <Input label="Nome" value={form.name} onChange={(e) => setField("name", e.target.value)} placeholder="Ex: Pomada Modeladora Matte" required />
           <Input label="Descrição (opcional)" value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Breve descrição do produto" />
+          <Input label="Código de Barras (opcional)" value={form.barcode} onChange={(e) => setField("barcode", e.target.value)} placeholder="Bipe aqui" />
           
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -442,6 +467,7 @@ export default function ProdutosPage() {
         <form onSubmit={handleEdit} className="space-y-4">
           <Input label="Nome" value={form.name} onChange={(e) => setField("name", e.target.value)} required />
           <Input label="Descrição (opcional)" value={form.description} onChange={(e) => setField("description", e.target.value)} />
+          <Input label="Código de Barras (opcional)" value={form.barcode} onChange={(e) => setField("barcode", e.target.value)} />
           
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -529,6 +555,20 @@ export default function ProdutosPage() {
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-2">Forma de Pagamento (Caixa)</label>
+              <select 
+                value={sellPaymentMethod} 
+                onChange={(e) => setSellPaymentMethod(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="PIX">Pix</option>
+                <option value="CREDIT_CARD">Cartão de Crédito</option>
+                <option value="DEBIT_CARD">Cartão de Débito</option>
+                <option value="CASH">Dinheiro Vivo</option>
+              </select>
             </div>
 
             <div className="bg-primary/10 rounded-xl p-4 flex justify-between items-center">

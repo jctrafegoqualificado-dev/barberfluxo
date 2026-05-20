@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
 
     const result = await Promise.all(barbers.map(async (b) => {
-      const [avulsos, subAppointments, productSales, standardPayment, subscriptionPayment, vales] = await Promise.all([
+      const [avulsos, subAppointments, productSales, standardPayment, subscriptionPayment, vales, reviews] = await Promise.all([
         prisma.appointment.findMany({
           where: {
             barberId: b.id,
@@ -88,6 +88,9 @@ export async function GET(req: NextRequest) {
         prisma.commissionVale.findMany({
           where: { barberId: b.id, month: monthKey },
           orderBy: { createdAt: "asc" },
+        }),
+        prisma.review.findMany({
+          where: { barberId: b.id, createdAt: { gte: start, lte: end } }
         }),
       ]);
 
@@ -137,6 +140,15 @@ export async function GET(req: NextRequest) {
       const liquidoAPagar = Math.max(0, comissaoAvulso + comissaoProdutos - totalVales);
       const liquidoAssinatura = comissaoAssinatura;
 
+      let promoters = 0;
+      let detractors = 0;
+      reviews.forEach((r: any) => {
+        if (r.rating >= 9) promoters++;
+        else if (r.rating <= 6) detractors++;
+      });
+      const totalReviews = reviews.length;
+      const npsScore = totalReviews > 0 ? Math.round(((promoters - detractors) / totalReviews) * 100) : null;
+
       return {
         id: b.id,
         name: b.user.name,
@@ -171,6 +183,7 @@ export async function GET(req: NextRequest) {
         subPaid: subscriptionPayment
           ? { paidAt: subscriptionPayment.paidAt, amount: subscriptionPayment.amount }
           : null,
+        npsScore,
       };
     }));
 

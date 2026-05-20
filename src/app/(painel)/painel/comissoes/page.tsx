@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import {
   DollarSign, Percent, Hash, Edit2, Check, X,
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, BadgeCheck, RotateCcw, Banknote, Trash2, Plus,
-  Scissors, CreditCard
+  Scissors, CreditCard, Printer, Download
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency, getInitials } from "@/lib/utils";
@@ -56,9 +56,10 @@ interface ComissaoUpdate {
   productCommission: string;
 }
 
-function BarberCard({ barber, monthKey, activeTab, onSave, onPay, onUnpay, onAddVale, onDeleteVale }: {
+function BarberCard({ barber, monthKey, monthOffset, activeTab, onSave, onPay, onUnpay, onAddVale, onDeleteVale }: {
   barber: BarberComissao;
   monthKey: string;
+  monthOffset: number;
   activeTab: "standard" | "subscription";
   onSave: (id: string, data: ComissaoUpdate) => Promise<void>;
   onPay: (barberId: string, month: string, amount: number, type: string) => Promise<void>;
@@ -298,6 +299,10 @@ function BarberCard({ barber, monthKey, activeTab, onSave, onPay, onUnpay, onAdd
                   className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-red-500 transition-colors">
                   <RotateCcw className="w-2.5 h-2.5" /> desfazer
                 </button>
+                <a href={`/painel/comissoes/recibo?barberId=${barber.id}&monthOffset=${monthOffset}&type=STANDARD`} target="_blank"
+                  className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-700 transition-colors bg-white px-2 py-1 rounded-md border border-zinc-200">
+                  <Printer className="w-3 h-3" /> recibo
+                </a>
               </div>
             ) : (
               <div className="space-y-2">
@@ -348,6 +353,10 @@ function BarberCard({ barber, monthKey, activeTab, onSave, onPay, onUnpay, onAdd
                   className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-red-500 transition-colors">
                   <RotateCcw className="w-2.5 h-2.5" /> desfazer
                 </button>
+                <a href={`/painel/comissoes/recibo?barberId=${barber.id}&monthOffset=${monthOffset}&type=SUBSCRIPTION`} target="_blank"
+                  className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-700 transition-colors bg-white px-2 py-1 rounded-md border border-zinc-200">
+                  <Printer className="w-3 h-3" /> recibo
+                </a>
               </div>
             ) : (
               <div className="space-y-2">
@@ -541,10 +550,25 @@ export default function ComissoesPage() {
   const totalValesGeral = activeTab === "standard"
     ? barbers.reduce((s, b) => s + b.totalVales, 0)
     : 0;
-
   const totalPago = activeTab === "standard"
     ? barbers.reduce((s, b) => s + (b.paid ? b.paid.amount : 0), 0)
     : barbers.reduce((s, b) => s + (b.subPaid ? b.subPaid.amount : 0), 0);
+
+  async function exportCSV() {
+    let csv = "Barbeiro,Total Recebido,Total Vales,Liquido Pago\n";
+    barbers.forEach(b => {
+      const recebido = b.avulso.comissao + b.produtos.comissao + b.assinatura.comissao;
+      const vales = b.totalVales;
+      const pago = b.liquidoAPagar + b.liquidoAssinatura;
+      csv += `${b.name},${recebido.toFixed(2)},${vales.toFixed(2)},${pago.toFixed(2)}\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `comissoes_${monthKey}.csv`;
+    link.click();
+  }
 
   return (
     <div className="space-y-6">
@@ -554,6 +578,9 @@ export default function ComissoesPage() {
           <p className="text-zinc-500 text-sm mt-1 capitalize">{mes}</p>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={exportCSV} className="flex items-center gap-2 bg-white border border-zinc-200 px-4 py-2 rounded-xl text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors">
+            <Download className="w-4 h-4" /> CSV
+          </button>
           <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-xl px-3 py-2">
             <button onClick={() => setMonth((m) => m + 1)} className="p-1 rounded hover:bg-zinc-100 transition-colors">
               <ChevronLeft className="w-4 h-4 text-zinc-500" />
@@ -639,7 +666,7 @@ export default function ComissoesPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredBarbers.map((b) => (
-            <BarberCard key={b.id} barber={b} monthKey={monthKey} activeTab={activeTab} onSave={handleSave} onPay={handlePay} onUnpay={handleUnpay} onAddVale={handleAddVale} onDeleteVale={handleDeleteVale} />
+            <BarberCard key={b.id} barber={b} monthKey={monthKey} monthOffset={month} activeTab={activeTab} onSave={handleSave} onPay={handlePay} onUnpay={handleUnpay} onAddVale={handleAddVale} onDeleteVale={handleDeleteVale} />
           ))}
         </div>
       )}

@@ -84,6 +84,9 @@ export async function GET(req: NextRequest) {
       // NPS Reviews
       periodReviews,
       prevPeriodReviews,
+      // Epic 3
+      birthdayClients,
+      openingHours,
     ] = await Promise.all([
       // Today appointments (always real-time)
       prisma.appointment.findMany({
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest) {
       // Period ALL appointments
       prisma.appointment.findMany({
         where: { barbershopId, date: { gte: periodStart, lte: periodEnd } },
-        select: { price: true, clientId: true, barberId: true, date: true, status: true },
+        select: { price: true, clientId: true, barberId: true, date: true, status: true, service: { select: { duration: true } } },
         orderBy: { date: "asc" }
       }),
       // Previous period DONE appointments (for comparison)
@@ -158,6 +161,19 @@ export async function GET(req: NextRequest) {
       prisma.review.findMany({
         where: { barbershopId, createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd } }
       }),
+      // Epic 3: Aniversariantes do mês
+      prisma.user.findMany({
+        where: {
+          appointments: { some: { barbershopId } },
+          birthday: { not: null },
+        },
+        select: { id: true, name: true, phone: true, birthday: true },
+      }),
+      // Epic 3: Horários de funcionamento para gauge de ocupação
+      prisma.openingHour.findMany({
+        where: { barbershopId, isOpen: true },
+        select: { dayOfWeek: true, openTime: true, closeTime: true },
+      }),
     ]);
 
     // --- CALCULATIONS ---
@@ -181,6 +197,40 @@ export async function GET(req: NextRequest) {
       else if (a.status === "CANCELLED") appointmentStatusCounts.CANCELLED++;
       else if (a.status === "NO_SHOW") appointmentStatusCounts.NO_SHOW++;
     });
+
+    // Epic 3: Aniversariantes do mês atual
+    const currentMonth = now.getMonth() + 1;
+    const birthdaysThisMonth = birthdayClients
+      .filter(c => c.birthday && new Date(c.birthday).getMonth() + 1 === currentMonth)
+      .sort((a, b) => new Date(a.birthday!).getDate() - new Date(b.birthday!).getDate())
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        day: new Date(c.birthday!).getDate(),
+      }));
+
+    // Epic 3: Gauge de Ocupação da Equipe
+    const totalDays = differenceInDays(periodEnd, periodStart) + 1;
+    const totalAvailableMinutes = (() => {
+      let mins = 0;
+      for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
+        const dow = d.getDay();
+        const oh = openingHours.find(h => h.dayOfWeek === dow);
+        if (!oh) continue;
+        const [openH, openM] = oh.openTime.split(":").map(Number);
+        const [closeH, closeM] = oh.closeTime.split(":").map(Number);
+        mins += ((closeH * 60 + closeM) - (openH * 60 + openM));
+      }
+      return mins * Math.max(1, activeBarbers);
+    })();
+    const totalUsedMinutes = periodAllAppointments
+      .filter(a => a.status === "DONE" || a.status === "PENDING")
+      .reduce((sum, a) => sum + ((a as { service?: { duration: number } | null }).service?.duration || 30), 0);
+    const occupationPct = totalAvailableMinutes > 0
+      ? Math.min(100, Math.round((totalUsedMinutes / totalAvailableMinutes) * 100))
+      : 0;
+    const occupationStatus = occupationPct >= 80 ? "SOBRECARGA" : occupationPct >= 50 ? "IDEAL" : "BAIXA";
 
     // Revenue
     const periodRevenue = doneAppointmentsInPeriod.reduce((s, a) => s + a.price, 0);
@@ -401,6 +451,15 @@ export async function GET(req: NextRequest) {
       charts: {
         dailyRevenue,
         appointmentStatus: appointmentStatusCounts,
+      },
+
+      // Epic 3: Operacional
+      birthdaysThisMonth,
+      occupation: {
+        pct: occupationPct,
+        status: occupationStatus,
+        usedMinutes: totalUsedMinutes,
+        availableMinutes: totalAvailableMinutes,
       },
     });
   } catch (e: unknown) {

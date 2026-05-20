@@ -32,7 +32,11 @@ export function verifyToken(token: string) {
 export function getTokenFromRequest(req: NextRequest) {
   const auth = req.headers.get("authorization");
   if (auth?.startsWith("Bearer ")) return auth.slice(7);
-  return req.cookies.get("token")?.value || null;
+  const cookieToken = req.cookies.get("token")?.value;
+  if (cookieToken) return cookieToken;
+  const urlToken = req.nextUrl.searchParams.get("token");
+  if (urlToken) return urlToken;
+  return null;
 }
 
 export function requireAuth(req: NextRequest, allowedRoles?: string[]) {

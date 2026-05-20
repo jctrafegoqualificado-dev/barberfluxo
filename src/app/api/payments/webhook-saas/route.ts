@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import MercadoPago, { Payment } from "mercadopago";
+import MercadoPago, { Payment as MPPayment } from "mercadopago";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const client = new MercadoPago({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
-    const paymentApi = new Payment(client);
+    const paymentApi = new MPPayment(client);
     const mpPayment = await paymentApi.get({ id: paymentId });
 
     const barbershopId = mpPayment.external_reference;
@@ -28,10 +28,19 @@ export async function POST(req: NextRequest) {
         data: { saasPlan: "PREMIUM" },
       });
 
-      // 2. Log de sucesso e auditoria do pagamento
-      // (O registro na tabela Payment foi suspenso temporariamente pois a tabela Payment está atrelada à 'Subscription' do cliente final e não à 'Barbershop').
-      console.log(`Pagamento MercadoPago [${paymentId}] concluído com sucesso.`);
-      console.log(`✅ [SaaS Webhook] Plano PREMIUM liberado para barbearia: ${barbershopId}`);
+      // 2. Salva o pagamento automatizado na tabela de Faturamento SaaS
+      await prisma.payment.create({
+        data: {
+          amount: Number(mpPayment.transaction_amount),
+          method: mpPayment.payment_method_id === "pix" ? "PIX" : "CREDIT_CARD",
+          status: "PAID",
+          paidAt: new Date(),
+          externalId: String(paymentId),
+          barbershopId: barbershopId
+        }
+      });
+
+      console.log(`✅ [SaaS Webhook] Pagamento automatizado MercadoPago [${paymentId}] salvo com sucesso. Barbearia: ${barbershopId}`);
     }
 
     return NextResponse.json({ ok: true });

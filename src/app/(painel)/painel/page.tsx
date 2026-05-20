@@ -4,7 +4,7 @@ import {
   Calendar, DollarSign, Users, Clock, CheckCircle, TrendingUp, TrendingDown,
   UserPlus, RefreshCw, Banknote, BadgeCheck, Wifi, WifiOff, Sparkles,
   Crown, ChevronRight, BarChart3, ArrowUpRight, ArrowDownRight, Target, Loader2,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon, Gift, MessageCircle, Zap
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Badge } from "@/components/ui/Badge";
@@ -64,6 +64,8 @@ interface DashboardData {
     dailyRevenue: Array<{ date: string; revenue: number }>;
     appointmentStatus: { DONE: number; PENDING: number; CANCELLED: number; NO_SHOW: number };
   };
+  birthdaysThisMonth: Array<{ id: string; name: string; phone: string | null; day: number }>;
+  occupation: { pct: number; status: string; usedMinutes: number; availableMinutes: number };
 }
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -150,11 +152,19 @@ export default function DashboardPage() {
   }
 
   if (!data) return null;
+  if ((data as any).error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-red-500">
+        <p className="font-bold">Erro ao carregar Dashboard:</p>
+        <p className="text-sm">{(data as any).error}</p>
+      </div>
+    );
+  }
 
-  const maxBarberRevenue = data.topBarbers[0]?.revenue || 1;
-  const maxClientSpent = data.topClients[0]?.totalSpent || 1;
+  const maxBarberRevenue = data.topBarbers?.[0]?.revenue || 1;
+  const maxClientSpent = data.topClients?.[0]?.totalSpent || 1;
 
-  const wsConnected = data.whatsapp.status === "CONNECTED";
+  const wsConnected = data.whatsapp?.status === "CONNECTED";
 
   return (
     <div className="space-y-6">
@@ -670,6 +680,99 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* === EPIC 3: GAUGE + ANIVERSARIANTES === */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Gauge de Ocupação da Equipe */}
+        <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Zap className="w-4 h-4 text-primary" />
+            <h3 className="font-bold text-zinc-900 text-sm">Ocupação da Equipe</h3>
+          </div>
+          <div className="h-40 relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { value: data.occupation.pct, fill: data.occupation.pct >= 80 ? '#EF4444' : data.occupation.pct >= 50 ? '#10B981' : '#3B82F6' },
+                    { value: 100 - data.occupation.pct, fill: '#F4F4F5' },
+                  ]}
+                  startAngle={180}
+                  endAngle={0}
+                  innerRadius={55}
+                  outerRadius={75}
+                  paddingAngle={0}
+                  dataKey="value"
+                  strokeWidth={0}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-end pointer-events-none pb-4">
+              <span className={`text-3xl font-black ${
+                data.occupation.pct >= 80 ? 'text-red-500' : data.occupation.pct >= 50 ? 'text-emerald-600' : 'text-blue-500'
+              }`}>{data.occupation.pct}%</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full mt-1 ${
+                data.occupation.status === 'SOBRECARGA' ? 'bg-red-50 text-red-500' :
+                data.occupation.status === 'IDEAL' ? 'bg-emerald-50 text-emerald-600' :
+                'bg-blue-50 text-blue-500'
+              }`}>{data.occupation.status}</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-zinc-400 text-center mt-2">
+            {Math.round(data.occupation.usedMinutes / 60)}h usadas de {Math.round(data.occupation.availableMinutes / 60)}h disponíveis
+          </p>
+        </div>
+
+        {/* Aniversariantes do Mês */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-zinc-150 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Gift className="w-4 h-4 text-pink-500" />
+              <h3 className="font-bold text-zinc-900 text-sm">Aniversários em Maio</h3>
+            </div>
+            <span className="text-[10px] text-pink-500 font-bold bg-pink-50 px-2 py-0.5 rounded-full border border-pink-100">
+              {data.birthdaysThisMonth.length} cliente{data.birthdaysThisMonth.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {data.birthdaysThisMonth.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-zinc-400">
+              <Gift className="w-8 h-8 mb-2 text-zinc-200" />
+              <p className="text-sm">Nenhum aniversário este mês</p>
+              <p className="text-[11px] text-zinc-300 mt-1">Cadastre as datas de nascimento dos clientes</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-50 max-h-52 overflow-y-auto">
+              {data.birthdaysThisMonth.map((c) => {
+                const phone = c.phone?.replace(/\D/g, '');
+                const msg = encodeURIComponent(`Parabéns, ${c.name.split(' ')[0]}! 🎂 A equipe da barbearia deseja um feliz aniversário!`);
+                return (
+                  <div key={c.id} className="px-5 py-3 flex items-center gap-4 hover:bg-zinc-50/50 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-pink-50 border border-pink-100 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-black text-pink-500">{c.day}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-zinc-900 truncate">{c.name}</p>
+                      <p className="text-[10px] text-zinc-400">Dia {c.day} de maio</p>
+                    </div>
+                    {phone && (
+                      <a
+                        href={`https://wa.me/55${phone}?text=${msg}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-600 text-[11px] font-bold hover:bg-green-100 transition-colors border border-green-100 shrink-0"
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                        Felicitar
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* === AGENDA DE HOJE === */}
       <div className="bg-white rounded-2xl shadow-sm border border-zinc-150 overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
@@ -701,6 +804,15 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* === US-07: FAB - AÇÃO RÁPIDA === */}
+      <a
+        href="/painel/agendamentos"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-white font-bold text-sm shadow-xl shadow-primary/30 hover:shadow-primary/50 hover:scale-105 active:scale-95 transition-all"
+      >
+        <Calendar className="w-4 h-4" />
+        Novo Agendamento
+      </a>
     </div>
   );
 }

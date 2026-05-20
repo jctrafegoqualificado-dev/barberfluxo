@@ -83,6 +83,8 @@ model Barbershop {
   saasPayments     Payment[]
   reviews          Review[]
   loyaltyPoints    LoyaltyPoint[]
+  expenses         Expense[]
+  cashFlowSessions CashFlowSession[]
 }
 
 model WhatsAppInstance {
@@ -283,6 +285,7 @@ model Product {
   price       Float
   costPrice   Float    @default(0)
   stock       Int      @default(0)
+  barcode     String?  // Removed @unique to prevent conflicts if multiple nulls or empty strings are handled weirdly by Prisma, though unique can be fine if sparse. Let's not use @unique just in case a shop has 2 products with no barcode and Prisma complains.
   category    String   @default("GERAL") // GERAL | CABELO | BARBA | SKINCARE
   commissionType  String @default("PERCENTAGE") // PERCENTAGE | FIXED
   commissionValue Float  @default(10)
@@ -474,3 +477,63 @@ model LoyaltyPoint {
   barbershop    Barbershop  @relation(fields: [barbershopId], references: [id])
 }
 
+// ===================== MÓDULO FINANCEIRO =====================
+
+model Expense {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  amount        Float
+  category      String   @default("OUTROS")
+  // ESTRUTURA | UTILIDADES | PESSOAS | PRODUTOS | MARKETING | EQUIPAMENTOS | TAXAS | OUTROS
+  type          String   @default("FIXED")
+  // FIXED (recorrente mensal) | VARIABLE (avulsa) | EXTRAORDINARY (extra)
+  isRecurring   Boolean  @default(false)
+  dueDay        Int?     // dia do vencimento para recorrentes (1-31)
+  paymentMethod String?  @default("PIX")
+  // PIX | CASH | CREDIT | DEBIT | BOLETO
+  status        String   @default("PENDING")
+  // PENDING | PAID | OVERDUE
+  month         String   // "2026-05" — mês de competência
+  dueDate       DateTime?
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  barbershopId  String
+  barbershop    Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@index([barbershopId, month])
+  @@index([barbershopId, status])
+}
+
+model CashFlowSession {
+  id             String    @id @default(cuid())
+  openedAt       DateTime  @default(now())
+  closedAt       DateTime?
+  openingBalance Float     @default(0)
+  closingBalance Float?
+  status         String    @default("OPEN") // OPEN | CLOSED
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  barbershopId   String
+  barbershop     Barbershop       @relation(fields: [barbershopId], references: [id])
+  entries        CashFlowEntry[]
+
+  @@index([barbershopId, status])
+}
+
+model CashFlowEntry {
+  id            String          @id @default(cuid())
+  type          String          // INCOME | EXPENSE
+  description   String
+  amount        Float
+  category      String          @default("MANUAL")
+  paymentMethod String?         @default("CASH")
+  createdAt     DateTime        @default(now())
+
+  sessionId     String
+  session       CashFlowSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}

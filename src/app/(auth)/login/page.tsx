@@ -28,7 +28,7 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setAuth(data.user, data.token);
-      if (data.user.role === "PLATFORM_ADMIN") router.push("/admin");
+      if (data.user.role === "PLATFORM_ADMIN") router.push("/plataforma");
       else if (data.user.role === "BARBER") router.push("/barbeiro");
       else if (data.user.isBarber) router.push("/barbeiro");
       else router.push("/painel");

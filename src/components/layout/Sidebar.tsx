@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import NotificationBell from "@/components/layout/NotificationBell";
+import CashWidget from "@/components/financeiro/CashWidget";
 import {
   LayoutDashboard, Calendar, Users, Scissors, CreditCard,
   Package, Settings, LogOut, ChevronRight, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, UserCheck, Bell
@@ -84,6 +85,8 @@ export default function Sidebar({ branding }: {
           </button>
         </div>
       </div>
+
+      <CashWidget />
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {nav.map(({ href, label, icon: Icon }) => {

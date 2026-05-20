@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const { name, description, price, costPrice, stock, category, active, commissionType, commissionValue } = await req.json();
+    const { name, description, price, costPrice, stock, barcode, category, active, commissionType, commissionValue } = await req.json();
 
     // 1. Valida posse com findFirst (cruza barbershopId)
     const existing = await prisma.product.findFirst({ 
@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const product = await prisma.product.update({
       where: { id },
       data: {
-        name, description, price: Number(price), costPrice: Number(costPrice), stock: Number(stock), category, active,
+        name, description, price: Number(price), costPrice: Number(costPrice), stock: Number(stock), barcode: barcode || null, category, active,
         commissionType: commissionType || "PERCENTAGE",
         commissionValue: Number(commissionValue || 10)
       },

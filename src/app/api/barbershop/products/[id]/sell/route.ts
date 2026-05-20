@@ -7,7 +7,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const { quantity, clientId } = await req.json();
+    const { quantity, clientId, paymentMethod } = await req.json();
     const qty = Number(quantity) || 1;
 
     // 1. Valida posse e busca estoque
@@ -39,6 +39,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (product.stock > 0) {
       await prisma.product.update({ where: { id }, data: { stock: { decrement: qty } } });
+    }
+
+    // 2. Integração com Fluxo de Caixa (Opcional, apenas se houver caixa aberto)
+    if (paymentMethod) {
+      const openSession = await prisma.cashFlowSession.findFirst({
+        where: { barbershopId, status: "OPEN" },
+        orderBy: { openedAt: "desc" }
+      });
+      if (openSession) {
+        await prisma.cashFlowEntry.create({
+          data: {
+            sessionId: openSession.id,
+            type: "INCOME",
+            description: `Venda: ${qty}x ${product.name}`,
+            amount: product.price * qty,
+            category: "VENDA_PRODUTO",
+            paymentMethod: paymentMethod || "CASH",
+          }
+        });
+      }
     }
 
     return NextResponse.json({ sale }, { status: 201 });
