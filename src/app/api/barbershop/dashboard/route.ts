@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       // Today's data
       todayAppointments,
       // Period data
-      periodDoneAppointments,
+      periodAllAppointments,
       prevPeriodDoneAppointments,
       // Period product sales
       periodProductSales,
@@ -96,10 +96,11 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { startTime: "asc" },
       }),
-      // Period DONE appointments
+      // Period ALL appointments
       prisma.appointment.findMany({
-        where: { barbershopId, status: "DONE", date: { gte: periodStart, lte: periodEnd } },
-        select: { price: true, clientId: true, barberId: true, date: true },
+        where: { barbershopId, date: { gte: periodStart, lte: periodEnd } },
+        select: { price: true, clientId: true, barberId: true, date: true, status: true },
+        orderBy: { date: "asc" }
       }),
       // Previous period DONE appointments (for comparison)
       prisma.appointment.findMany({
@@ -160,16 +161,37 @@ export async function GET(req: NextRequest) {
     ]);
 
     // --- CALCULATIONS ---
+    const doneAppointmentsInPeriod = periodAllAppointments.filter((a) => a.status === "DONE");
+
+    // Charts Data
+    const dailyRevenue: { date: string; revenue: number }[] = [];
+    for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
+      dailyRevenue.push({ date: format(d, "dd/MM"), revenue: 0 });
+    }
+    doneAppointmentsInPeriod.forEach(a => {
+      const dateStr = format(a.date, "dd/MM");
+      const day = dailyRevenue.find(d => d.date === dateStr);
+      if (day) day.revenue += a.price;
+    });
+
+    const appointmentStatusCounts = { DONE: 0, PENDING: 0, CANCELLED: 0, NO_SHOW: 0 };
+    periodAllAppointments.forEach(a => {
+      if (a.status === "DONE") appointmentStatusCounts.DONE++;
+      else if (a.status === "PENDING" || a.status === "CONFIRMED") appointmentStatusCounts.PENDING++;
+      else if (a.status === "CANCELLED") appointmentStatusCounts.CANCELLED++;
+      else if (a.status === "NO_SHOW") appointmentStatusCounts.NO_SHOW++;
+    });
 
     // Revenue
-    const periodRevenue = periodDoneAppointments.reduce((s, a) => s + a.price, 0);
+    const periodRevenue = doneAppointmentsInPeriod.reduce((s, a) => s + a.price, 0);
+
     const prevPeriodRevenue = prevPeriodDoneAppointments.reduce((s, a) => s + a.price, 0);
     const revenueChange = prevPeriodRevenue > 0
       ? Math.round(((periodRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100)
       : null;
 
     // Appointments count
-    const periodAppointments = periodDoneAppointments.length;
+    const periodAppointments = doneAppointmentsInPeriod.length;
     const prevPeriodAppointments = prevPeriodDoneAppointments.length;
     const appointmentsChange = prevPeriodAppointments > 0
       ? Math.round(((periodAppointments - prevPeriodAppointments) / prevPeriodAppointments) * 100)
@@ -183,7 +205,7 @@ export async function GET(req: NextRequest) {
       : null;
 
     // Unique clients (retention rate)
-    const periodClientIds = new Set(periodDoneAppointments.map((a) => a.clientId));
+    const periodClientIds = new Set(doneAppointmentsInPeriod.map((a) => a.clientId));
     const prevClientIds = new Set(prevPeriodDoneAppointments.map((a) => a.clientId));
     const periodUniqueClients = periodClientIds.size;
     const prevUniqueClients = prevClientIds.size;
@@ -374,6 +396,12 @@ export async function GET(req: NextRequest) {
       // FASE 4: Rankings
       topBarbers,
       topClients,
+
+      // Charts (Fase 6)
+      charts: {
+        dailyRevenue,
+        appointmentStatus: appointmentStatusCounts,
+      },
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";

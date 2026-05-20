@@ -3,11 +3,16 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Calendar, DollarSign, Users, Clock, CheckCircle, TrendingUp, TrendingDown,
   UserPlus, RefreshCw, Banknote, BadgeCheck, Wifi, WifiOff, Sparkles,
-  Crown, ChevronRight, BarChart3, ArrowUpRight, ArrowDownRight, Target, Loader2
+  Crown, ChevronRight, BarChart3, ArrowUpRight, ArrowDownRight, Target, Loader2,
+  PieChart as PieChartIcon
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
+  PieChart, Pie, Cell
+} from "recharts";
 
 type Period = "today" | "7d" | "30d" | "month";
 
@@ -55,6 +60,10 @@ interface DashboardData {
     passives: number;
     detractors: number;
   };
+  charts: {
+    dailyRevenue: Array<{ date: string; revenue: number }>;
+    appointmentStatus: { DONE: number; PENDING: number; CANCELLED: number; NO_SHOW: number };
+  };
 }
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -64,28 +73,43 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "month", label: "Este mês" },
 ];
 
-function KpiCard({ title, value, change, isCurrency, icon: Icon, color }: {
-  title: string; value: number; change: number | null;
+function KpiCard({ title, value, change, prevValue, isCurrency, icon: Icon, color }: {
+  title: string; value: number; change: number | null; prevValue?: number;
   isCurrency?: boolean; icon: React.ElementType; color: string;
 }) {
   const positive = change !== null && change >= 0;
+  const formatVal = (v: number) => isCurrency ? formatCurrency(v) : v.toLocaleString("pt-BR");
+
   return (
-    <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-5 hover:shadow-md transition-all hover:-translate-y-0.5 group">
       <div className="flex items-center justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
           <Icon className="w-5 h-5" />
         </div>
-        {change !== null && (
-          <div className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${positive ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>
+        {change !== null ? (
+          <div className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full transition-all ${
+            positive ? "bg-green-50 text-green-600 border border-green-100" : "bg-red-50 text-red-500 border border-red-100"
+          }`}>
             {positive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             {positive ? "+" : ""}{change}%
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-zinc-50 text-zinc-400 border border-zinc-100">
+            <span>Novo período</span>
           </div>
         )}
       </div>
       <p className="text-2xl font-black text-zinc-900 tracking-tight">
-        {isCurrency ? formatCurrency(value) : value.toLocaleString("pt-BR")}
+        {formatVal(value)}
       </p>
-      <p className="text-xs text-zinc-500 mt-1 font-medium">{title}</p>
+      <div className="flex items-center justify-between mt-1">
+        <p className="text-xs text-zinc-500 font-medium">{title}</p>
+        {prevValue !== undefined && prevValue > 0 && (
+          <p className="text-[10px] text-zinc-400">
+            vs <span className="font-bold text-zinc-500">{formatVal(prevValue)}</span>
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -231,6 +255,7 @@ export default function DashboardPage() {
           title="Faturamento"
           value={data.kpis.revenue.value}
           change={data.kpis.revenue.change}
+          prevValue={data.kpis.revenue.prevValue}
           isCurrency icon={DollarSign}
           color="bg-green-50 text-green-600"
         />
@@ -238,6 +263,7 @@ export default function DashboardPage() {
           title="Atendimentos"
           value={data.kpis.appointments.value}
           change={data.kpis.appointments.change}
+          prevValue={data.kpis.appointments.prevValue}
           icon={Calendar}
           color="bg-blue-50 text-blue-600"
         />
@@ -245,6 +271,7 @@ export default function DashboardPage() {
           title="Ticket Médio"
           value={data.kpis.ticketMedio.value}
           change={data.kpis.ticketMedio.change}
+          prevValue={data.kpis.ticketMedio.prevValue}
           isCurrency icon={Target}
           color="bg-purple-50 text-purple-600"
         />
@@ -252,6 +279,7 @@ export default function DashboardPage() {
           title="Clientes Únicos"
           value={data.kpis.clients.value}
           change={data.kpis.clients.change}
+          prevValue={data.kpis.clients.prevValue}
           icon={Users}
           color="bg-amber-50 text-amber-600"
         />
@@ -342,6 +370,92 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* === FASE 6: GRÁFICOS (VISUALIZAÇÃO DE DADOS) === */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Faturamento Diário (Bar Chart) */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-zinc-150 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            <h3 className="font-bold text-zinc-900 text-sm">Faturamento Diário</h3>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.charts.dailyRevenue} barCategoryGap="30%">
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#A1A1AA' }} axisLine={false} tickLine={false} interval={Math.ceil(data.charts.dailyRevenue.length / 10)} />
+                <YAxis tickFormatter={(val) => `R$${val}`} tick={{ fontSize: 10, fill: '#A1A1AA' }} axisLine={false} tickLine={false} width={45} />
+                <RechartsTooltip
+                  formatter={(val: number) => [formatCurrency(val), "Faturamento"]}
+                  labelFormatter={(label) => `📅 ${label}`}
+                  contentStyle={{ borderRadius: '10px', border: '1px solid #F3F4F6', boxShadow: '0 4px 12px rgb(0 0 0 / 0.08)', padding: '8px 12px' }}
+                  labelStyle={{ fontWeight: '700', color: '#18181B', marginBottom: '2px' }}
+                  itemStyle={{ color: '#F59E0B', fontWeight: '600' }}
+                  cursor={{ fill: '#FEF3C7', radius: 4 }}
+                />
+                <Bar dataKey="revenue" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Status dos Agendamentos (Donut Chart) */}
+        <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <PieChartIcon className="w-4 h-4 text-blue-500" />
+            <h3 className="font-bold text-zinc-900 text-sm">Status dos Agendamentos</h3>
+          </div>
+          {(() => {
+            const donutData = [
+              { name: 'Finalizados', value: data.charts.appointmentStatus.DONE, color: '#10B981' },
+              { name: 'Pendentes', value: data.charts.appointmentStatus.PENDING, color: '#3B82F6' },
+              { name: 'Cancelados', value: data.charts.appointmentStatus.CANCELLED, color: '#EF4444' },
+              { name: 'No-Show', value: data.charts.appointmentStatus.NO_SHOW, color: '#F59E0B' },
+            ];
+            const total = donutData.reduce((a, b) => a + b.value, 0);
+            return (
+              <>
+                <div className="h-44 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={donutData}
+                        innerRadius={52}
+                        outerRadius={72}
+                        paddingAngle={4}
+                        dataKey="value"
+                        strokeWidth={0}
+                      >
+                        {donutData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        formatter={(val: number, name: string) => [val, name]}
+                        contentStyle={{ borderRadius: '10px', border: '1px solid #F3F4F6', boxShadow: '0 4px 12px rgb(0 0 0 / 0.08)', padding: '6px 10px' }}
+                        itemStyle={{ fontWeight: '600', fontSize: '12px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-black text-zinc-900">{total}</span>
+                    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Total</span>
+                  </div>
+                </div>
+                {/* Legenda */}
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3 pt-3 border-t border-zinc-100">
+                  {donutData.map((item) => (
+                    <div key={item.name} className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="text-[10px] text-zinc-500 font-medium truncate">{item.name}</span>
+                      <span className="text-[10px] font-black text-zinc-800 ml-auto">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </div>
 
       {/* === FASE 4: RANKINGS === */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
