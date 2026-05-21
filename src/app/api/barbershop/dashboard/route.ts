@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import {
   startOfDay, endOfDay, startOfMonth, endOfMonth,
-  subDays, subMonths, getDaysInMonth, getDate, format,
+  subDays, getDaysInMonth, getDate, format,
   differenceInDays
 } from "date-fns";
 
@@ -59,37 +59,9 @@ export async function GET(req: NextRequest) {
     const todayEnd = endOfDay(now);
     const monthKey = format(now, "yyyy-MM");
 
-    // --- PARALLEL QUERIES ---
-    const [
-      // Today's data
-      todayAppointments,
-      // Period data
-      periodAllAppointments,
-      prevPeriodDoneAggregates,
-      prevPeriodDistinctClients,
-      // Period product sales
-      periodProductSales,
-      prevPeriodProductSales,
-      // Global counts
-      activeSubscriptions,
-      activeBarbers,
-      // Commissions
-      commissionPayments,
-      commissionVales,
-      // WhatsApp status
-      whatsappInstance,
-      // Top barbers (period)
-      topBarbersRaw,
-      // Top clients (period)
-      topClientsRaw,
-      // NPS Reviews
-      periodReviews,
-      prevPeriodReviews,
-      // Epic 3
-      birthdayClients,
-      openingHours,
-    ] = await Promise.all([
-      // Today appointments (always real-time)
+    // --- BATCHED QUERIES (OPTIMIZED FOR TRANSACTION POOLERS) ---
+    // Batch 1: Real-time & Period Main Data
+    const [todayAppointments, periodAllAppointments] = await Promise.all([
       prisma.appointment.findMany({
         where: { barbershopId, date: { gte: todayStart, lte: todayEnd } },
         include: {
@@ -100,92 +72,111 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { startTime: "asc" },
       }),
-      // Period ALL appointments
       prisma.appointment.findMany({
         where: { barbershopId, date: { gte: periodStart, lte: periodEnd } },
         select: { price: true, clientId: true, barberId: true, date: true, status: true, service: { select: { duration: true } } },
         orderBy: { date: "asc" }
-      }),
-      // Previous period aggregates (Revenue and Count)
+      })
+    ]);
+
+    // Batch 2: Previous Period Data
+    const [prevPeriodDoneAggregates, prevPeriodDistinctClients] = await Promise.all([
       prisma.appointment.aggregate({
         where: { barbershopId, status: "DONE", date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
         _sum: { price: true },
         _count: { _all: true }
       }),
-      // Previous period distinct clients (for retention)
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
         select: { clientId: true },
         distinct: ['clientId']
-      }),
-      // Period product sales
+      })
+    ]);
+
+    // Batch 3: Product Sales & Active Subscriptions
+    const [periodProductSales, activeSubscriptions, activeBarbers] = await Promise.all([
       prisma.productSale.aggregate({
         where: { barbershopId, createdAt: { gte: periodStart, lte: periodEnd } },
         _sum: { total: true },
         _count: true,
       }),
-      // Previous period product sales
-      prisma.productSale.aggregate({
-        where: { barbershopId, createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd } },
-        _sum: { total: true },
-      }),
-      // Subscriptions
       prisma.subscription.findMany({
         where: { barbershopId, status: "ACTIVE" },
         include: { plan: { select: { price: true } } },
       }),
-      // Active barbers count
-      prisma.barber.count({ where: { barbershopId, active: true } }),
-      // Commissions (current month)
+      prisma.barber.count({ where: { barbershopId, active: true } })
+    ]);
+
+    // Batch 4: Commissions, WhatsApp, Hours
+    const [commissionPayments, commissionVales, whatsappInstance, openingHours] = await Promise.all([
       prisma.commissionPayment.findMany({ where: { barbershopId, month: monthKey } }),
       prisma.commissionVale.findMany({ where: { barbershopId, month: monthKey } }),
-      // WhatsApp instance status
       prisma.whatsAppInstance.findUnique({
         where: { barbershopId },
         select: { status: true, lastConnectedAt: true },
       }),
-      // Top barbers by revenue (period)
-      prisma.appointment.groupBy({
-        by: ["barberId"],
-        where: { barbershopId, status: "DONE", date: { gte: periodStart, lte: periodEnd } },
-        _sum: { price: true },
-        _count: true,
-        orderBy: { _sum: { price: "desc" } },
-        take: 5,
-      }),
-      // Top clients by total spent (period)
-      prisma.appointment.groupBy({
-        by: ["clientId"],
-        where: { barbershopId, status: "DONE", date: { gte: periodStart, lte: periodEnd } },
-        _sum: { price: true },
-        _count: true,
-        orderBy: { _sum: { price: "desc" } },
-        take: 5,
-      }),
-      // NPS Reviews
+      prisma.openingHour.findMany({
+        where: { barbershopId, isOpen: true },
+        select: { dayOfWeek: true, openTime: true, closeTime: true },
+      })
+    ]);
+
+    // Batch 5: NPS Reviews & Birthday Clients
+    const [periodReviews, prevPeriodReviews, birthdayClients] = await Promise.all([
       prisma.review.findMany({
         where: { barbershopId, createdAt: { gte: periodStart, lte: periodEnd } }
       }),
       prisma.review.findMany({
         where: { barbershopId, createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd } }
       }),
-      // Epic 3: Aniversariantes do mês
       prisma.user.findMany({
         where: {
           appointments: { some: { barbershopId } },
           birthday: { not: null },
         },
         select: { id: true, name: true, phone: true, birthday: true },
-      }),
-      // Epic 3: Horários de funcionamento para gauge de ocupação
-      prisma.openingHour.findMany({
-        where: { barbershopId, isOpen: true },
-        select: { dayOfWeek: true, openTime: true, closeTime: true },
-      }),
+      })
     ]);
 
     // --- CALCULATIONS ---
     const doneAppointmentsInPeriod = periodAllAppointments.filter((a) => a.status === "DONE");
+
+    // Top Barbers and Top Clients calculated dynamically in memory (eliminates 2 slow database group-by queries)
+    const barberRevenueMap: Record<string, { revenue: number; count: number }> = {};
+    doneAppointmentsInPeriod.forEach((a) => {
+      if (!barberRevenueMap[a.barberId]) {
+        barberRevenueMap[a.barberId] = { revenue: 0, count: 0 };
+      }
+      barberRevenueMap[a.barberId].revenue += a.price;
+      barberRevenueMap[a.barberId].count += 1;
+    });
+
+    const topBarbersRaw = Object.entries(barberRevenueMap)
+      .map(([barberId, data]) => ({
+        barberId,
+        _sum: { price: data.revenue },
+        _count: data.count,
+      }))
+      .sort((a, b) => (b._sum.price || 0) - (a._sum.price || 0))
+      .slice(0, 5);
+
+    const clientSpentMap: Record<string, { spent: number; count: number }> = {};
+    doneAppointmentsInPeriod.forEach((a) => {
+      if (!clientSpentMap[a.clientId]) {
+        clientSpentMap[a.clientId] = { spent: 0, count: 0 };
+      }
+      clientSpentMap[a.clientId].spent += a.price;
+      clientSpentMap[a.clientId].count += 1;
+    });
+
+    const topClientsRaw = Object.entries(clientSpentMap)
+      .map(([clientId, data]) => ({
+        clientId,
+        _sum: { price: data.spent },
+        _count: data.count,
+      }))
+      .sort((a, b) => (b._sum.price || 0) - (a._sum.price || 0))
+      .slice(0, 5);
 
     // Charts Data
     const dailyRevenue: { date: string; revenue: number }[] = [];
@@ -219,7 +210,6 @@ export async function GET(req: NextRequest) {
       }));
 
     // Epic 3: Gauge de Ocupação da Equipe
-    const totalDays = differenceInDays(periodEnd, periodStart) + 1;
     const totalAvailableMinutes = (() => {
       let mins = 0;
       for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
