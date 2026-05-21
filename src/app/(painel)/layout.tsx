@@ -49,6 +49,11 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
       return;
     }
 
+    if (user.role !== "OWNER") {
+      router.push("/barbeiro");
+      return;
+    }
+
     // Interceptor Global de Fetch para deslogar em 401
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {

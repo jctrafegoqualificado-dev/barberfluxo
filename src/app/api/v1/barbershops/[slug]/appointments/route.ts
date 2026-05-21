@@ -155,6 +155,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       });
     }
 
+    // Busca assinatura ativa do cliente para vincular ao agendamento
+    let subscription = await prisma.subscription.findFirst({
+      where: { clientId: client.id, status: "ACTIVE", barbershopId: shop.id },
+      include: { plan: { include: { allowedBarbers: true } } },
+    });
+
+    if (subscription && subscription.plan.allowedBarbers.length > 0) {
+      const isAllowed = subscription.plan.allowedBarbers.some((b) => b.id === barber.id);
+      if (!isAllowed) {
+        subscription = null; // Barbeiro não permitido pelo plano, trata como avulso
+      }
+    }
+
     const appointment = await prisma.appointment.create({
       data: {
         date: dayStart,
@@ -168,6 +181,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         barbershopId: shop.id,
         barberId: barber.id,
         serviceId: service.id,
+        subscriptionId: subscription?.id || null,
       },
       include: {
         client: { select: { id: true, name: true, phone: true } },

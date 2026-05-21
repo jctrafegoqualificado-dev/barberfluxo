@@ -439,8 +439,8 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
             <>
               <button
                 onClick={() => setShowPayment(true)}
-                className="w-full flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 font-semibold hover:bg-green-100 active:bg-green-200 transition-colors text-left">
-                <CheckCircle className="w-5 h-5 shrink-0" />
+                className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-green-500 border border-green-600 text-white font-bold hover:bg-green-600 active:bg-green-700 transition-colors shadow-lg shadow-green-500/20 text-lg">
+                <CheckCircle className="w-6 h-6 shrink-0" />
                 <span>Marcar como concluído</span>
               </button>
               <button
@@ -695,27 +695,6 @@ export default function BarbeiroAgendaPage() {
         </div>
       )}
 
-      {/* Resumo do mês */}
-      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
-        <h2 className="font-semibold text-zinc-900 mb-4 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-primary" /> Minha produção este mês
-        </h2>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <p className="text-2xl font-bold text-zinc-900">{d.mes.atendimentos}</p>
-            <p className="text-xs text-zinc-400">atendimentos</p>
-            <p className="text-xs text-zinc-400 mt-0.5">{d.mes.avulso} avulsos · {d.mes.assinatura} assinaturas</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-zinc-900">{formatCurrency(d.mes.faturado)}</p>
-            <p className="text-xs text-zinc-400">faturado</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-primary/90">{formatCurrency(d.mes.comissao)}</p>
-            <p className="text-xs text-zinc-400">sua comissão</p>
-          </div>
-        </div>
-      </div>
 
       {/* Agenda — Calendário */}
       <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
@@ -887,6 +866,28 @@ export default function BarbeiroAgendaPage() {
               <span className="text-[11px] text-zinc-400">{label}</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Resumo do mês */}
+      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
+        <h2 className="font-semibold text-zinc-900 mb-4 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-primary" /> Minha produção este mês
+        </h2>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <p className="text-2xl font-bold text-zinc-900">{d.mes.atendimentos}</p>
+            <p className="text-xs text-zinc-400">atendimentos</p>
+            <p className="text-xs text-zinc-400 mt-0.5">{d.mes.avulso} avulsos · {d.mes.assinatura} assinaturas</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-zinc-900">{formatCurrency(d.mes.faturado)}</p>
+            <p className="text-xs text-zinc-400">faturado</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-primary/90">{formatCurrency(d.mes.comissao)}</p>
+            <p className="text-xs text-zinc-400">sua comissão</p>
+          </div>
         </div>
       </div>
 

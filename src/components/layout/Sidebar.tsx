@@ -45,7 +45,7 @@ const barberNav = [
   { href: "/barbeiro/producao", label: "Produção", icon: TrendingUp },
   { href: "/barbeiro/comissoes", label: "Comissões", icon: CreditCard },
   { href: "/barbeiro/clientes", label: "Clientes", icon: Users },
-  { href: "/painel/kanban", label: "Tarefas", icon: KanbanSquare },
+  { href: "/barbeiro/tarefas", label: "Tarefas", icon: KanbanSquare },
 ];
 
 export default function Sidebar({ branding }: { 
