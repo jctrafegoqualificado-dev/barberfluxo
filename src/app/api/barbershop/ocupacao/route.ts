@@ -21,9 +21,21 @@ export async function GET(req: NextRequest) {
     const end = periodo === "semana" ? endOfWeek(now, { weekStartsOn: 1 }) : endOfMonth(now);
 
     // Horários de funcionamento da barbearia
-    const openingHours = await prisma.openingHour.findMany({
+    let openingHours = await prisma.openingHour.findMany({
       where: { barbershopId, isOpen: true },
     });
+
+    // Fallback caso não existam horários configurados no banco (como Lord of Barba)
+    if (openingHours.length === 0) {
+      openingHours = [1, 2, 3, 4, 5, 6].map((day) => ({
+        id: "default",
+        barbershopId,
+        dayOfWeek: day,
+        openTime: "09:00",
+        closeTime: "20:00",
+        isOpen: true,
+      }));
+    }
 
     const minutesByDay: Record<number, number> = {};
     for (const oh of openingHours) {
@@ -43,7 +55,12 @@ export async function GET(req: NextRequest) {
         date: { gte: start, lte: end },
         status: "DONE",
       },
-      include: { service: true },
+      include: { 
+        service: true,
+        services: {
+          include: { service: true }
+        }
+      },
     });
 
     // Dias úteis no período
@@ -67,9 +84,15 @@ export async function GET(req: NextRequest) {
     let totalOcupadoGeral = 0;
     for (const appt of appointments) {
       if (barberStats[appt.barberId]) {
-        barberStats[appt.barberId].minOcupados += appt.service?.duration ?? 0;
+        let duration = 0;
+        if (appt.services && appt.services.length > 0) {
+          duration = appt.services.reduce((sum, s) => sum + (s.duration ?? s.service?.duration ?? 0), 0);
+        } else {
+          duration = appt.service?.duration ?? 0;
+        }
+        barberStats[appt.barberId].minOcupados += duration;
         barberStats[appt.barberId].atendimentos += 1;
-        totalOcupadoGeral += appt.service?.duration ?? 0;
+        totalOcupadoGeral += duration;
       }
     }
 
@@ -97,11 +120,19 @@ export async function GET(req: NextRequest) {
       const minDisp = (minutesByDay[dayOfWeek] || 0) * barbers.length;
       const minOcup = appointments
         .filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dateStr)
-        .reduce((s, a) => s + (a.service?.duration ?? 0), 0);
+        .reduce((s, a) => {
+          let duration = 0;
+          if (a.services && a.services.length > 0) {
+            duration = a.services.reduce((sum, s) => sum + (s.duration ?? s.service?.duration ?? 0), 0);
+          } else {
+            duration = a.service?.duration ?? 0;
+          }
+          return s + duration;
+        }, 0);
       const taxa = minDisp > 0 ? Math.min(Math.round((minOcup / minDisp) * 100), 100) : 0;
       return {
         data: dateStr,
-        label: format(d, "EEE dd/MM", { locale: ptBR }),
+        label: `${["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][dayOfWeek]} ${format(d, "dd/MM")}`,
         taxa,
         atendimentos: appointments.filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dateStr).length,
       };

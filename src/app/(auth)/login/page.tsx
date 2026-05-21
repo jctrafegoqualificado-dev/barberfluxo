@@ -43,19 +43,22 @@ export default function LoginPage() {
     <div className="min-h-screen flex">
       {/* Lado esquerdo — foto + branding */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center"
-        style={{ background: "linear-gradient(135deg, #111 0%, #1a1a1a 100%)" }}>
-        {/* Overlay com padrão */}
-        <div className="absolute inset-0 opacity-20"
-          style={{ backgroundImage: "repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)", backgroundSize: "20px 20px" }} />
+        style={{ background: "linear-gradient(135deg, #0f0f0f 0%, #171717 100%)" }}>
+        
+        {/* Glow de fundo */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-[#FF5F00] opacity-[0.06] blur-[100px] pointer-events-none" />
 
         {/* Conteúdo */}
         <div className="relative z-10 text-center px-12">
           {/* Logo */}
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary mb-6 shadow-2xl">
-            <Sparkles className="w-10 h-10 text-white" />
+          <div className="flex justify-center mb-10">
+            <img 
+              src="/IA de barbearia.png transparente.png" 
+              alt="IA de Barbearia" 
+              className="w-64 object-contain" 
+              style={{ filter: "brightness(0) invert(1)" }}
+            />
           </div>
-          <h1 className="text-5xl font-black text-white tracking-tight mb-2">Barber</h1>
-          <p className="text-primary/80 text-lg font-semibold mb-8">Fluxo</p>
 
           <div className="space-y-4 text-left max-w-xs mx-auto">
             {[
@@ -77,18 +80,19 @@ export default function LoginPage() {
         </div>
 
         {/* Rodapé */}
-        <p className="absolute bottom-6 text-zinc-600 text-xs">© 2026 BarberFluxo</p>
+        <p className="absolute bottom-6 text-zinc-600 text-xs">© 2026 IA de Barbearia</p>
       </div>
 
       {/* Lado direito — formulário */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 bg-white">
         <div className="w-full max-w-md">
           {/* Logo mobile */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-2xl font-black text-zinc-900">BarberFluxo</span>
+          <div className="flex items-center justify-center mb-8 lg:hidden">
+            <img 
+              src="/IA de barbearia.png transparente.png" 
+              alt="IA de Barbearia" 
+              className="w-40 object-contain" 
+            />
           </div>
 
           <h2 className="text-3xl font-bold text-zinc-900 mb-1">
@@ -145,6 +149,11 @@ export default function LoginPage() {
                 required
                 className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-transparent transition"
               />
+              <div className="flex justify-end mt-1.5">
+                <a href="/recuperar-senha" className="text-xs text-zinc-400 hover:text-primary transition-colors">
+                  Esqueceu sua senha?
+                </a>
+              </div>
             </div>
 
             <button
@@ -156,6 +165,13 @@ export default function LoginPage() {
                 : `Entrar como ${tab === "admin" ? "Administrador" : "Profissional"}`}
             </button>
           </form>
+
+          <p className="text-center text-sm text-zinc-500 mt-6">
+            Não tem uma conta?{" "}
+            <a href="/cadastro" className="font-semibold text-primary hover:underline transition-all">
+              Cadastre-se grátis
+            </a>
+          </p>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2, Users, TrendingUp, DollarSign, MessageSquare, Calendar, Edit2, Clock, FileText, RotateCcw } from "lucide-react";
+import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2, Users, TrendingUp, DollarSign, MessageSquare, Calendar, Edit2, Clock, FileText, RotateCcw, ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -116,6 +116,12 @@ export default function AssinaturasPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
 
+  // Sorting & Pagination states
+  const [sortField, setSortField] = useState<"name" | "price" | "nextBillingDate">("nextBillingDate");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
   function handleWhatsAppCobrança(s: Subscription) {
@@ -160,6 +166,11 @@ export default function AssinaturasPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  // Reset pagination when searching or filtering
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter]);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -224,7 +235,6 @@ export default function AssinaturasPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ subscriptionId, method }),
       });
-      // Recarrega o extrato e a lista principal
       const sub = subs.find(s => s.id === subscriptionId);
       if (sub) await loadExtrato(sub);
       load();
@@ -246,7 +256,6 @@ export default function AssinaturasPage() {
         alert(data.error || "Erro ao desfazer pagamento");
         return;
       }
-      // Recarrega o extrato e a lista principal
       const sub = subs.find(s => s.id === subscriptionId);
       if (sub) await loadExtrato(sub);
       load();
@@ -279,9 +288,25 @@ export default function AssinaturasPage() {
     }
   }
 
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection(field === "name" ? "asc" : "desc");
+    }
+    setCurrentPage(1);
+  };
+
+  const renderSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) return <ArrowUpDown className="w-3.5 h-3.5 ml-1 text-zinc-400 group-hover:text-zinc-600 transition-colors shrink-0" />;
+    return sortDirection === "asc" 
+      ? <ChevronUp className="w-3.5 h-3.5 ml-1 text-primary font-bold shrink-0" />
+      : <ChevronDown className="w-3.5 h-3.5 ml-1 text-primary font-bold shrink-0" />;
+  };
+
   const overdueSubs = subs.filter((s) => s.status === "ACTIVE" && isOverdue(s.nextBillingDate));
 
-  // Cálculo das métricas para os cards de destaque
   const totalActive = subs.filter((s) => s.status === "ACTIVE").length;
   const overdueCount = overdueSubs.length;
   const mrr = subs.filter((s) => s.status === "ACTIVE").reduce((sum, s) => sum + s.plan.price, 0);
@@ -300,6 +325,34 @@ export default function AssinaturasPage() {
       s.client.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.client.phone ?? "").includes(search)
     );
+
+  const sorted = [...filtered].sort((a, b) => {
+    let valA: any;
+    let valB: any;
+
+    if (sortField === "name") {
+      valA = a.client.name;
+      valB = b.client.name;
+    } else if (sortField === "price") {
+      valA = a.plan.price;
+      valB = b.plan.price;
+    } else if (sortField === "nextBillingDate") {
+      valA = a.nextBillingDate;
+      valB = b.nextBillingDate;
+    }
+
+    if (typeof valA === "string") {
+      return sortDirection === "asc"
+        ? valA.localeCompare(valB)
+        : valB.localeCompare(valA);
+    }
+
+    return sortDirection === "asc" ? valA - valB : valB - valA;
+  });
+
+  const totalRows = sorted.length;
+  const totalPages = Math.ceil(totalRows / rowsPerPage);
+  const paginated = sorted.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   return (
     <div className="space-y-6">
@@ -365,177 +418,298 @@ export default function AssinaturasPage() {
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full md:flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente..." className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white text-zinc-800" />
         </div>
-        <div className="flex rounded-lg border border-zinc-200 overflow-x-auto hide-scrollbar text-sm font-medium">
-          <button onClick={() => setFilter("all")} className={`px-3 py-2 shrink-0 transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Todos</button>
-          <button onClick={() => setFilter("active")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "active" ? "bg-emerald-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Ativas</button>
-          <button onClick={() => setFilter("overdue")} className={`px-3 py-2 shrink-0 flex items-center gap-1 transition-colors border-l border-zinc-200 ${filter === "overdue" ? "bg-red-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>
-            <AlertTriangle className="w-3.5 h-3.5" /> Vencidas {overdueSubs.length > 0 && `(${overdueSubs.length})`}
-          </button>
-          <button onClick={() => setFilter("paused")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "paused" ? "bg-amber-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Pausadas</button>
-          <button onClick={() => setFilter("cancelled")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "cancelled" ? "bg-zinc-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Canceladas</button>
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex rounded-lg border border-zinc-200 overflow-x-auto hide-scrollbar text-sm font-medium">
+            <button onClick={() => setFilter("all")} className={`px-3 py-2 shrink-0 transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Todos</button>
+            <button onClick={() => setFilter("active")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "active" ? "bg-emerald-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Ativas</button>
+            <button onClick={() => setFilter("overdue")} className={`px-3 py-2 shrink-0 flex items-center gap-1 transition-colors border-l border-zinc-200 ${filter === "overdue" ? "bg-red-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>
+              <AlertTriangle className="w-3.5 h-3.5" /> Vencidas {overdueSubs.length > 0 && `(${overdueSubs.length})`}
+            </button>
+            <button onClick={() => setFilter("paused")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "paused" ? "bg-amber-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Pausadas</button>
+            <button onClick={() => setFilter("cancelled")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "cancelled" ? "bg-zinc-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Canceladas</button>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500 ml-auto md:ml-0 bg-white px-3 py-2 rounded-lg border border-zinc-200">
+            <span>Mostrar:</span>
+            <select
+              value={rowsPerPage}
+              onChange={(e) => {
+                setRowsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-transparent border-none font-bold focus:outline-none text-zinc-700 cursor-pointer"
+            >
+              {[10, 25, 50].map((num) => (
+                <option key={num} value={num}>{num}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
-        {filtered.length === 0 ? (
+      <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden flex flex-col justify-between">
+        {paginated.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-zinc-400">
             <CreditCard className="w-12 h-12 mb-3" />
             <p className="font-medium">Nenhum assinante encontrado</p>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-50">
-            {filtered.map((s) => {
-              const overdue = s.status === "ACTIVE" && isOverdue(s.nextBillingDate);
-              const lastPaid = s.payments.find((p) => p.status === "PAID");
-
-              return (
-                <div key={s.id} className={`px-6 py-4 flex items-center gap-4 group ${overdue ? "bg-red-50 border-l-4 border-red-400" : ""}`}>
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${overdue ? "bg-red-100" : "bg-primary/20"}`}>
-                    <span className={`font-bold text-xs ${overdue ? "text-red-700" : "text-amber-700"}`}>{getInitials(s.client.name)}</span>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`font-semibold truncate ${overdue ? "text-red-800" : "text-zinc-900"}`}>{s.client.name}</p>
-                      {overdue && (
-                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                          <AlertTriangle className="w-3 h-3" /> Vencido
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-zinc-400">{s.client.email}</p>
-                    {lastPaid && (
-                      <p className="text-xs text-green-600 mt-0.5 flex items-center gap-1">
-                        <Check className="w-3 h-3" /> Último pagamento: {METHOD_LABELS[lastPaid.method] ?? lastPaid.method} · {lastPaid.paidAt ? new Date(lastPaid.paidAt).toLocaleDateString("pt-BR") : "—"}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="text-center hidden sm:block">
-                    <p className="text-xs text-zinc-400">Plano</p>
-                    <p className="text-sm font-medium text-zinc-700">{s.plan.name}</p>
-                  </div>
-
-                  <div className="text-center hidden md:block">
-                    <p className="text-xs text-zinc-400">Valor</p>
-                    <p className="text-sm font-bold text-zinc-900">{formatCurrency(s.plan.price)}/mês</p>
-                  </div>
-
-                  <div className="text-center hidden md:block">
-                    <p className="text-xs text-zinc-400">Usos no Mês</p>
-                    {Array.isArray(s.beneficiaries) && s.beneficiaries.length > 0 ? (
-                      <div className="flex flex-col gap-0.5 mt-0.5">
-                        {s.beneficiaries.map((b: any, idx: number) => (
-                          <p key={idx} className="text-[11px] font-medium text-zinc-700 whitespace-nowrap">
-                            <span className="text-zinc-500">{b.name}:</span> {b.uses}/{b.maxUses}
-                          </p>
-                        ))}
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-zinc-50/80 text-zinc-500 text-xs font-bold uppercase tracking-wider border-b border-zinc-200">
+                  <tr>
+                    <th onClick={() => handleSort("name")} className="px-6 py-4 cursor-pointer hover:bg-zinc-100/50 transition-colors group select-none text-zinc-700">
+                      <div className="flex items-center">
+                        Cliente
+                        {renderSortIcon("name")}
                       </div>
-                    ) : (
-                      <p className="text-sm font-medium text-zinc-700 mt-0.5">
-                        {s.usesThisCycle}{s.plan.maxUses ? `/${s.plan.maxUses}` : ""}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="text-center hidden lg:block">
-                    <p className={`text-xs ${overdue ? "text-red-500 font-semibold" : "text-zinc-400"}`}>
-                      {overdue ? "Venceu em" : "Próx. cobrança"}
-                    </p>
-                    {editingId === s.id ? (
-                      <div className="flex items-center gap-1 mt-1 justify-center">
-                        <input
-                          type="date"
-                          value={editDate}
-                          onChange={(e) => setEditDate(e.target.value)}
-                          className="text-xs p-1.5 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-primary w-28 bg-white text-zinc-800"
-                        />
-                        <button
-                          onClick={() => handleUpdateBillingDate(s.id)}
-                          className="p-1 rounded bg-green-500 text-white hover:bg-green-600 transition-colors"
-                          title="Salvar"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="p-1 rounded bg-red-500 text-white hover:bg-red-600 transition-colors"
-                          title="Cancelar"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                    </th>
+                    <th className="px-6 py-4 select-none text-zinc-700">Plano</th>
+                    <th onClick={() => handleSort("price")} className="px-6 py-4 text-right cursor-pointer hover:bg-zinc-100/50 transition-colors group select-none text-zinc-700">
+                      <div className="flex items-center justify-end">
+                        Preço Mensal
+                        {renderSortIcon("price")}
                       </div>
-                    ) : (
-                      <div className="flex items-center justify-center gap-1 group mt-0.5">
-                        <p className={`text-xs ${overdue ? "text-red-600 font-bold" : "text-zinc-600"}`}>{formatDate(s.nextBillingDate)}</p>
-                        <button
-                          onClick={() => {
-                            setEditingId(s.id);
-                            const d = new Date(s.nextBillingDate);
-                            const formatted = d.toISOString().split('T')[0];
-                            setEditDate(formatted);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded text-zinc-400 hover:text-zinc-700 transition-all"
-                          title="Editar data de cobrança"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
+                    </th>
+                    <th className="px-6 py-4 text-center select-none text-zinc-700">Usos no Mês/Ciclo</th>
+                    <th onClick={() => handleSort("nextBillingDate")} className="px-6 py-4 text-center cursor-pointer hover:bg-zinc-100/50 transition-colors group select-none text-zinc-700">
+                      <div className="flex items-center justify-center">
+                        Vencimento / Próx. Fatura
+                        {renderSortIcon("nextBillingDate")}
                       </div>
-                    )}
-                  </div>
+                    </th>
+                    <th className="px-6 py-4 text-center select-none text-zinc-700">Status</th>
+                    <th className="px-6 py-4 text-right select-none font-bold text-zinc-700">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {paginated.map((s) => {
+                    const overdue = s.status === "ACTIVE" && isOverdue(s.nextBillingDate);
+                    const lastPaid = s.payments.find((p) => p.status === "PAID");
 
-                  <div className="flex flex-col items-end gap-2">
-                    <Badge status={s.status} />
-                    <div className="flex gap-2">
-                      {s.status === "ACTIVE" && (
-                        <button
-                          onClick={() => setUsageModal(s)}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap"
-                        >
-                          Lançar uso
-                        </button>
-                      )}
-                      {overdue && (
-                        <>
-                          <button
-                            onClick={() => setPaymentSub(s)}
-                            className="text-xs px-2.5 py-1 rounded-lg bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors whitespace-nowrap"
-                          >
-                            Dar baixa (Pagto)
-                          </button>
-                          <button
-                            onClick={() => handleWhatsAppCobrança(s)}
-                            className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-semibold flex items-center gap-1 transition-colors whitespace-nowrap"
-                            title="Cobrar via WhatsApp"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" /> Cobrar PIX
-                          </button>
-                        </>
-                      )}
+                    return (
+                      <tr key={s.id} className={`hover:bg-zinc-50/40 transition-colors ${overdue ? "bg-red-50/20" : ""}`}>
+                        {/* Cliente Info */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${overdue ? "bg-red-100 text-red-700" : "bg-primary/20 text-amber-700"}`}>
+                              <span className="font-bold text-xs">{getInitials(s.client.name)}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`font-semibold truncate ${overdue ? "text-red-800 font-bold" : "text-zinc-900"}`}>{s.client.name}</p>
+                                {overdue && (
+                                  <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                                    <AlertTriangle className="w-2.5 h-2.5" /> Vencido
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-zinc-400">{s.client.email}</p>
+                              {s.client.phone && <p className="text-[10px] text-zinc-400 mt-0.5">Whats: {s.client.phone}</p>}
+                              {lastPaid && (
+                                <p className="text-[10px] text-green-600 mt-0.5 flex items-center gap-1">
+                                  <Check className="w-2.5 h-2.5" /> Último: {METHOD_LABELS[lastPaid.method] ?? lastPaid.method} em {lastPaid.paidAt ? new Date(lastPaid.paidAt).toLocaleDateString("pt-BR") : "—"}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Plano */}
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-medium text-zinc-700">{s.plan.name}</span>
+                        </td>
+
+                        {/* Preço Mensal */}
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-bold text-zinc-900">{formatCurrency(s.plan.price)}</span>
+                          <span className="text-[10px] text-zinc-400 block mt-0.5">/mês</span>
+                        </td>
+
+                        {/* Usos no Mês/Ciclo */}
+                        <td className="px-6 py-4 text-center">
+                          {Array.isArray(s.beneficiaries) && s.beneficiaries.length > 0 ? (
+                            <div className="flex flex-col gap-0.5 inline-block text-left">
+                              {s.beneficiaries.map((b: any, idx: number) => (
+                                <p key={idx} className="text-[11px] font-medium text-zinc-700 whitespace-nowrap">
+                                  <span className="text-zinc-500">{b.name}:</span> {b.uses}/{b.maxUses}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-sm font-medium text-zinc-700">
+                              {s.usesThisCycle}{s.plan.maxUses ? `/${s.plan.maxUses}` : ""}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Vencimento / Próx. Fatura */}
+                        <td className="px-6 py-4 text-center">
+                          {editingId === s.id ? (
+                            <div className="flex items-center gap-1 justify-center">
+                              <input
+                                type="date"
+                                value={editDate}
+                                onChange={(e) => setEditDate(e.target.value)}
+                                className="text-xs p-1.5 border border-zinc-200 rounded focus:outline-none focus:ring-1 focus:ring-primary w-28 bg-white text-zinc-800"
+                              />
+                              <button
+                                onClick={() => handleUpdateBillingDate(s.id)}
+                                className="p-1.5 rounded bg-green-500 text-white hover:bg-green-600 transition-colors"
+                                title="Salvar"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="p-1.5 rounded bg-red-500 text-white hover:bg-red-600 transition-colors"
+                                title="Cancelar"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1.5 group">
+                              <span className={`text-xs font-medium ${overdue ? "text-red-600 font-bold" : "text-zinc-600"}`}>
+                                {formatDate(s.nextBillingDate)}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setEditingId(s.id);
+                                  const d = new Date(s.nextBillingDate);
+                                  const formatted = d.toISOString().split('T')[0];
+                                  setEditDate(formatted);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded text-zinc-400 hover:text-zinc-700 transition-all"
+                                title="Editar data de cobrança"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex justify-center">
+                            <Badge status={s.status} />
+                          </div>
+                        </td>
+
+                        {/* Ações */}
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap max-w-[280px] ml-auto">
+                            {s.status === "ACTIVE" && (
+                              <button
+                                onClick={() => setUsageModal(s)}
+                                className="text-[11px] px-2 py-1 rounded-md bg-primary text-white font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap shadow-sm"
+                              >
+                                Lançar uso
+                              </button>
+                            )}
+                            {overdue && (
+                              <>
+                                <button
+                                  onClick={() => setPaymentSub(s)}
+                                  className="text-[11px] px-2 py-1 rounded-md bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors whitespace-nowrap shadow-sm"
+                                >
+                                  Dar baixa (Pagto)
+                                </button>
+                                <button
+                                  onClick={() => handleWhatsAppCobrança(s)}
+                                  className="text-[11px] px-2 py-1 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white font-semibold flex items-center gap-1 transition-colors whitespace-nowrap shadow-sm"
+                                  title="Cobrar via WhatsApp"
+                                >
+                                  <MessageSquare className="w-3 h-3" /> PIX
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => loadExtrato(s)}
+                              className="text-[11px] px-2 py-1 rounded-md border border-zinc-200 text-zinc-600 font-semibold hover:bg-zinc-50 transition-colors whitespace-nowrap flex items-center gap-0.5 shadow-sm"
+                            >
+                              <FileText className="w-3 h-3" /> Extrato
+                            </button>
+                            <button
+                              onClick={() => handleDelete(s.id)}
+                              className="p-1 rounded-md hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                              title="Excluir assinatura"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer Pagination Widget */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-zinc-100 bg-zinc-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">
+                  Mostrando {(currentPage - 1) * rowsPerPage + 1} a{" "}
+                  {Math.min(currentPage * rowsPerPage, totalRows)} de {totalRows} assinantes
+                </p>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 disabled:opacity-50 disabled:hover:bg-white transition-all shadow-sm"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-zinc-600" />
+                  </button>
+                  
+                  {Array.from({ length: totalPages }).map((_, idx) => {
+                    const pNum = idx + 1;
+                    if (
+                      totalPages > 5 &&
+                      pNum !== 1 &&
+                      pNum !== totalPages &&
+                      Math.abs(currentPage - pNum) > 1
+                    ) {
+                      if (pNum === 2 && currentPage > 3) {
+                        return <span key="ell-1" className="px-1.5 text-zinc-400 text-xs self-center">...</span>;
+                      }
+                      if (pNum === totalPages - 1 && currentPage < totalPages - 2) {
+                        return <span key="ell-2" className="px-1.5 text-zinc-400 text-xs self-center">...</span>;
+                      }
+                      return null;
+                    }
+
+                    return (
                       <button
-                        onClick={() => loadExtrato(s)}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-zinc-200 text-zinc-600 font-semibold hover:bg-zinc-50 transition-colors whitespace-nowrap flex items-center gap-1"
+                        key={pNum}
+                        onClick={() => setCurrentPage(pNum)}
+                        className={`w-8 h-8 rounded-lg text-xs font-bold border transition-all duration-150 ${
+                          currentPage === pNum
+                            ? "bg-primary border-primary text-white shadow-sm"
+                            : "border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600"
+                        }`}
                       >
-                        <FileText className="w-3.5 h-3.5" /> Extrato
+                        {pNum}
                       </button>
-                      <button
-                        onClick={() => handleDelete(s.id)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
-                        title="Excluir assinatura"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
+                    );
+                  })}
+
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 disabled:opacity-50 disabled:hover:bg-white transition-all shadow-sm"
+                  >
+                    <ChevronRight className="w-4 h-4 text-zinc-600" />
+                  </button>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

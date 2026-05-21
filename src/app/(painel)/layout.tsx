@@ -44,7 +44,28 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (!mounted) return;
-    if (!user) router.push("/login");
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    // Interceptor Global de Fetch para deslogar em 401
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+      const url = typeof args[0] === 'string' ? args[0] : (args[0] instanceof URL ? args[0].href : (args[0] as Request)?.url);
+      
+      if (response.status === 401 && url?.includes('/api/')) {
+        useAuthStore.getState().clearAuth();
+        document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        router.push("/login");
+      }
+      return response;
+    };
+
+    return () => {
+      window.fetch = originalFetch;
+    };
   }, [user, router, mounted]);
 
   if (!mounted) return null;

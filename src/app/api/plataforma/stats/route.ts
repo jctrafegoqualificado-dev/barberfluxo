@@ -28,16 +28,19 @@ export async function GET(req: NextRequest) {
     // Plan distribution
     let mrr = 0;
     let basicCount = 0;
-    let premiumCount = 0;
+    let proCount = 0;
+    let eliteCount = 0; // inclui PREMIUM legado
     shops.forEach(s => {
       if (s.active) {
-        if (s.saasPlan === "BASIC") { mrr += 97; basicCount++; }
-        if (s.saasPlan === "PREMIUM") { mrr += 197; premiumCount++; }
+        if (s.saasPlan === "BASIC") { basicCount++; }
+        if (s.saasPlan === "PRO") { mrr += 154.9; proCount++; }
+        if (s.saasPlan === "ELITE" || s.saasPlan === "PREMIUM") { mrr += 197.9; eliteCount++; }
       }
     });
 
-    // Conversion rate (Basic → Premium)
-    const conversionRate = totalShops > 0 ? Math.round((premiumCount / totalShops) * 100) : 0;
+    // Conversion rate (Basic → qualquer plano pago)
+    const paidCount = proCount + eliteCount;
+    const conversionRate = totalShops > 0 ? Math.round((paidCount / totalShops) * 100) : 0;
 
     // New in last 7 days
     const newLast7Days = shops.filter(s => new Date(s.createdAt) >= sevenDaysAgo).length;
@@ -95,7 +98,7 @@ export async function GET(req: NextRequest) {
       churnRate,
       newLast7Days,
       newLast30Days,
-      planDistribution: { basic: basicCount, premium: premiumCount },
+      planDistribution: { basic: basicCount, pro: proCount, elite: eliteCount },
       saasPayments: allSaasPayments,
       saasRevenueThisMonth,
       saasRevenueTotal,

@@ -24,10 +24,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Barbershop not found" }, { status: 404 });
     }
 
-    // 2. Validar plano Premium
-    if (barbershop.saasPlan !== "PREMIUM") {
+    // 2. Validar plano pago (PRO, ELITE ou PREMIUM legado)
+    const paidPlans = ["PRO", "ELITE", "PREMIUM"];
+    if (!paidPlans.includes(barbershop.saasPlan)) {
       return NextResponse.json(
-        { error: "WhatsApp requires Premium plan" },
+        { error: "WhatsApp requer um plano pago (PRO ou ELITE)" },
         { status: 403 }
       );
     }

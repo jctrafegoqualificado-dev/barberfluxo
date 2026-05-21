@@ -120,7 +120,7 @@ export default function PlataformaDashboard() {
             <ArrowUpRight className="w-5 h-5 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
           </div>
           <h2 className="text-3xl font-black text-white mt-2">{stats.conversionRate}%</h2>
-          <p className="text-xs text-zinc-500 mt-1">{stats.planDistribution.premium} assinantes Premium</p>
+          <p className="text-xs text-zinc-500 mt-1">{(stats.planDistribution.pro || 0) + (stats.planDistribution.elite || 0)} assinantes pagos</p>
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 relative overflow-hidden group">
@@ -130,7 +130,8 @@ export default function PlataformaDashboard() {
           </div>
           <div className="mt-3 flex items-center gap-3 text-sm">
             <span className="text-zinc-300">Basic: <strong className="text-white">{stats.planDistribution.basic}</strong></span>
-            <span className="text-indigo-400">Premium: <strong>{stats.planDistribution.premium}</strong></span>
+            <span className="text-amber-400">PRO: <strong>{stats.planDistribution.pro || 0}</strong></span>
+            <span className="text-violet-400">ELITE: <strong>{stats.planDistribution.elite || 0}</strong></span>
           </div>
         </div>
       </div>
@@ -215,14 +216,14 @@ export default function PlataformaDashboard() {
                         <circle
                           cx="18" cy="18" r="14" fill="none"
                           stroke="#818cf8" strokeWidth="4"
-                          strokeDasharray={`${(stats.planDistribution.premium / stats.totalShops) * 88} 88`}
+                          strokeDasharray={`${((stats.planDistribution.elite || 0) / stats.totalShops) * 88} 88`}
                           strokeLinecap="round"
                         />
                         <circle
                           cx="18" cy="18" r="14" fill="none"
                           stroke="#6ee7b7" strokeWidth="4"
                           strokeDasharray={`${(stats.planDistribution.basic / stats.totalShops) * 88} 88`}
-                          strokeDashoffset={`-${(stats.planDistribution.premium / stats.totalShops) * 88}`}
+                          strokeDashoffset={`-${((stats.planDistribution.elite || 0) / stats.totalShops) * 88}`}
                           strokeLinecap="round"
                         />
                       </>
@@ -235,8 +236,12 @@ export default function PlataformaDashboard() {
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-indigo-400" />
-                    <span className="text-sm text-zinc-300">Premium <strong className="text-white">{stats.planDistribution.premium}</strong></span>
+                    <div className="w-3 h-3 rounded-full bg-violet-400" />
+                    <span className="text-sm text-zinc-300">ELITE <strong className="text-white">{stats.planDistribution.elite || 0}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-400" />
+                    <span className="text-sm text-zinc-300">PRO <strong className="text-white">{stats.planDistribution.pro || 0}</strong></span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-emerald-300" />
@@ -319,7 +324,9 @@ export default function PlataformaDashboard() {
             >
               <option value="ALL">Todos Planos</option>
               <option value="BASIC">Basic</option>
-              <option value="PREMIUM">Premium</option>
+              <option value="PRO">PRO</option>
+              <option value="ELITE">ELITE</option>
+              <option value="PREMIUM">Premium (legado)</option>
             </select>
             <select
               value={filterStatus}
@@ -384,13 +391,16 @@ export default function PlataformaDashboard() {
                         onChange={(e) => changePlan(shop.id, e.target.value)}
                         disabled={actionLoading === `plan-${shop.id}`}
                         className={`px-3 py-1 text-xs font-bold rounded-xl transition-colors appearance-none cursor-pointer outline-none border-0 ${
-                          shop.saasPlan === "PREMIUM"
-                            ? "bg-indigo-500/20 text-indigo-400"
+                          shop.saasPlan === "ELITE" || shop.saasPlan === "PREMIUM"
+                            ? "bg-violet-500/20 text-violet-400"
+                            : shop.saasPlan === "PRO"
+                            ? "bg-amber-500/20 text-amber-400"
                             : "bg-zinc-800 text-zinc-300"
                         }`}
                       >
                         <option value="BASIC">BASIC</option>
-                        <option value="PREMIUM">PREMIUM</option>
+                        <option value="PRO">PRO</option>
+                        <option value="ELITE">ELITE</option>
                       </select>
                     </td>
                     <td className="p-4">

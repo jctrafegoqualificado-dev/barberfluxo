@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "BarberFluxo — Sistema de Gestão e Agendamento",
-  description: "Sistema completo de gestão, assinaturas e agendamento para prestadores de serviços",
+  title: "IA de Barbearia — Gestão Completa + Agente de IA",
+  description: "Sistema completo de gestão, assinaturas e agendamento para barbearias",
 };
+
+import { Toaster } from 'sonner';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className="h-full">
       <body
-        className={`${inter.className} min-h-full antialiased`}
+        className={`${plusJakartaSans.className} min-h-full antialiased`}
         suppressHydrationWarning
-      >{children}</body>
+      >
+        {children}
+        <Toaster position="top-right" />
+      </body>
     </html>
   );
 }

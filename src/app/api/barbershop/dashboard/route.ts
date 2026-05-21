@@ -65,7 +65,8 @@ export async function GET(req: NextRequest) {
       todayAppointments,
       // Period data
       periodAllAppointments,
-      prevPeriodDoneAppointments,
+      prevPeriodDoneAggregates,
+      prevPeriodDistinctClients,
       // Period product sales
       periodProductSales,
       prevPeriodProductSales,
@@ -105,10 +106,17 @@ export async function GET(req: NextRequest) {
         select: { price: true, clientId: true, barberId: true, date: true, status: true, service: { select: { duration: true } } },
         orderBy: { date: "asc" }
       }),
-      // Previous period DONE appointments (for comparison)
+      // Previous period aggregates (Revenue and Count)
+      prisma.appointment.aggregate({
+        where: { barbershopId, status: "DONE", date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
+        _sum: { price: true },
+        _count: { _all: true }
+      }),
+      // Previous period distinct clients (for retention)
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
-        select: { price: true, clientId: true },
+        select: { clientId: true },
+        distinct: ['clientId']
       }),
       // Period product sales
       prisma.productSale.aggregate({
@@ -235,14 +243,14 @@ export async function GET(req: NextRequest) {
     // Revenue
     const periodRevenue = doneAppointmentsInPeriod.reduce((s, a) => s + a.price, 0);
 
-    const prevPeriodRevenue = prevPeriodDoneAppointments.reduce((s, a) => s + a.price, 0);
+    const prevPeriodRevenue = prevPeriodDoneAggregates._sum.price || 0;
     const revenueChange = prevPeriodRevenue > 0
       ? Math.round(((periodRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100)
       : null;
 
     // Appointments count
     const periodAppointments = doneAppointmentsInPeriod.length;
-    const prevPeriodAppointments = prevPeriodDoneAppointments.length;
+    const prevPeriodAppointments = prevPeriodDoneAggregates._count._all || 0;
     const appointmentsChange = prevPeriodAppointments > 0
       ? Math.round(((periodAppointments - prevPeriodAppointments) / prevPeriodAppointments) * 100)
       : null;
@@ -256,9 +264,8 @@ export async function GET(req: NextRequest) {
 
     // Unique clients (retention rate)
     const periodClientIds = new Set(doneAppointmentsInPeriod.map((a) => a.clientId));
-    const prevClientIds = new Set(prevPeriodDoneAppointments.map((a) => a.clientId));
     const periodUniqueClients = periodClientIds.size;
-    const prevUniqueClients = prevClientIds.size;
+    const prevUniqueClients = prevPeriodDistinctClients.length;
     const clientsChange = prevUniqueClients > 0
       ? Math.round(((periodUniqueClients - prevUniqueClients) / prevUniqueClients) * 100)
       : null;

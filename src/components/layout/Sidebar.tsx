@@ -7,25 +7,33 @@ import NotificationBell from "@/components/layout/NotificationBell";
 import CashWidget from "@/components/financeiro/CashWidget";
 import {
   LayoutDashboard, Calendar, Users, Scissors, CreditCard,
-  Package, Settings, LogOut, ChevronRight, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, UserCheck, Bell
+  Package, Settings, LogOut, ChevronRight, ChevronDown, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, Bell, Banknote, BarChart3, Wallet
 } from "lucide-react";
 import { useState } from "react";
 
-const ownerNav = [
+const ownerTopNav = [
   { href: "/painel", label: "Dashboard", icon: LayoutDashboard },
   { href: "/painel/agendamentos", label: "Agendamentos", icon: Calendar },
+  { href: "/painel/clientes", label: "Clientes", icon: Users },
   { href: "/painel/barbeiros", label: "Profissionais", icon: Users },
   { href: "/painel/servicos", label: "Serviços", icon: Sparkles },
-  { href: "/painel/planos", label: "Planos", icon: Layers },
-  { href: "/painel/assinaturas", label: "Assinantes", icon: CreditCard },
-  { href: "/painel/financeiro", label: "Financeiro", icon: TrendingUp },
   { href: "/painel/ocupacao", label: "Ocupação", icon: Clock },
   { href: "/painel/metas", label: "Metas", icon: Target },
-  { href: "/painel/comissoes", label: "Comissões", icon: DollarSign },
   { href: "/painel/kanban", label: "Kanban", icon: KanbanSquare },
   { href: "/painel/produtos", label: "Produtos", icon: Package },
-  { href: "/painel/clientes", label: "Clientes", icon: Users },
   { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare },
+];
+
+const ownerFinanceNav = [
+  { href: "/painel/financeiro", label: "Fluxo & POE", icon: TrendingUp },
+  { href: "/painel/financeiro/indicadores", label: "Indicadores (BI)", icon: BarChart3 },
+  { href: "/painel/assinaturas", label: "Assinantes", icon: CreditCard },
+  { href: "/painel/comissoes", label: "Comissões", icon: DollarSign },
+  { href: "/painel/planos", label: "Planos", icon: Layers },
+  { href: "/painel/fluxo-caixa", label: "Fluxo de Caixa", icon: Banknote },
+];
+
+const ownerBottomNav = [
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
   { href: "/painel/configuracoes/marca", label: "Identidade Visual", icon: Palette },
   { href: "/painel/configuracoes/lembretes", label: "Lembretes", icon: Bell },
@@ -53,7 +61,13 @@ export default function Sidebar({ branding }: {
   const { user, clearAuth } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const nav = user?.role === "BARBER" ? barberNav : ownerNav;
+  const [financeOpen, setFinanceOpen] = useState(() =>
+    pathname.startsWith("/painel/financeiro") ||
+    pathname.startsWith("/painel/assinaturas") ||
+    pathname.startsWith("/painel/comissoes") ||
+    pathname.startsWith("/painel/planos") ||
+    pathname.startsWith("/painel/fluxo-caixa")
+  );
 
   function logout() {
     clearAuth();
@@ -71,7 +85,7 @@ export default function Sidebar({ branding }: {
           {branding?.logoUrl ? (
             <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" />
           ) : (
-            <Sparkles className="w-5 h-5 text-white" />
+            <Scissors className="w-5 h-5 text-white" />
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -89,26 +103,122 @@ export default function Sidebar({ branding }: {
       <CashWidget />
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {nav.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (href !== "/painel" && href !== "/barbeiro" && pathname.startsWith(href));
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={navClick}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                active
-                  ? "bg-primary text-white"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+        {user?.role === "BARBER" ? (
+          barberNav.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href || (href !== "/barbeiro" && pathname.startsWith(href));
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={navClick}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  active
+                    ? "bg-amber-500 text-white animate-pulse" // use default highlight colors but premium styling
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                )}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="flex-1">{label}</span>
+                {active && <ChevronRight className="w-4 h-4" />}
+              </Link>
+            );
+          })
+        ) : (
+          <>
+            {/* Top Items */}
+            {ownerTopNav.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || (href !== "/painel" && pathname === href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={navClick}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  )}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="flex-1">{label}</span>
+                  {active && <ChevronRight className="w-4 h-4" />}
+                </Link>
+              );
+            })}
+
+            {/* Collapsible Gestão Financeira */}
+            <div>
+              <button
+                onClick={() => setFinanceOpen(!financeOpen)}
+                className={cn(
+                  "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-zinc-400 hover:text-white hover:bg-zinc-800",
+                  (pathname.startsWith("/painel/financeiro") ||
+                    pathname.startsWith("/painel/assinaturas") ||
+                    pathname.startsWith("/painel/comissoes") ||
+                    pathname.startsWith("/painel/planos") ||
+                    pathname.startsWith("/painel/fluxo-caixa")) && "text-amber-400 font-semibold bg-zinc-800/30"
+                )}
+              >
+                <Wallet className="w-4 h-4 shrink-0" />
+                <span className="flex-1 text-left">Gestão Financeira</span>
+                {financeOpen ? (
+                  <ChevronDown className="w-4 h-4 shrink-0 transition-transform rotate-0" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 shrink-0" />
+                )}
+              </button>
+
+              {/* Sub-menus with indentation */}
+              {financeOpen && (
+                <div className="mt-1 pl-4 space-y-1 border-l border-zinc-800 ml-5">
+                  {ownerFinanceNav.map(({ href, label, icon: Icon }) => {
+                    const active = pathname === href || (href !== "/painel/financeiro" && pathname.startsWith(href));
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={navClick}
+                        className={cn(
+                          "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                          active
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                        )}
+                      >
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="flex-1 text-left">{label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span className="flex-1">{label}</span>
-              {active && <ChevronRight className="w-4 h-4" />}
-            </Link>
-          );
-        })}
+            </div>
+
+            {/* Bottom Items */}
+            {ownerBottomNav.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={navClick}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  )}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="flex-1">{label}</span>
+                  {active && <ChevronRight className="w-4 h-4" />}
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       <div className="px-3 py-4 border-t border-zinc-800">

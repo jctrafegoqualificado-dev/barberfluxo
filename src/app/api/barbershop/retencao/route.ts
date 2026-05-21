@@ -75,7 +75,8 @@ export async function GET(req: NextRequest) {
       let totalIntervals = 0;
       let intervalCount = 0;
       for (const dates of Object.values(visitsByClient)) {
-        const sorted = dates.sort((a, b) => a.getTime() - b.getTime());
+        const uniqueDateStrings = Array.from(new Set(dates.map((d) => d.toISOString().split("T")[0])));
+        const sorted = uniqueDateStrings.map((ds) => new Date(ds)).sort((a, b) => a.getTime() - b.getTime());
         for (let i = 1; i < sorted.length; i++) {
           totalIntervals += differenceInDays(sorted[i], sorted[i - 1]);
           intervalCount++;

@@ -101,7 +101,7 @@ function DiaBar({ dia, maxTaxa }: { dia: DiaData; maxTaxa: number }) {
   const color = dia.taxa >= 70 ? "bg-green-400" : dia.taxa >= 40 ? "bg-primary/80" : dia.taxa > 0 ? "bg-red-300" : "bg-zinc-100";
 
   return (
-    <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+    <div className="flex flex-col items-center gap-1 flex-1 min-w-[38px] sm:min-w-[44px]">
       <span className="text-xs font-medium text-zinc-600">{dia.taxa > 0 ? `${dia.taxa}%` : ""}</span>
       <div className="w-full flex items-end justify-center" style={{ height: 80 }}>
         <div
@@ -109,7 +109,7 @@ function DiaBar({ dia, maxTaxa }: { dia: DiaData; maxTaxa: number }) {
           style={{ height: `${Math.max(height, dia.taxa > 0 ? 4 : 0)}%` }}
         />
       </div>
-      <span className="text-xs text-zinc-400 text-center leading-tight">{dia.label}</span>
+      <span className="text-xs text-zinc-400 text-center leading-tight whitespace-nowrap">{dia.label}</span>
       {dia.atendimentos > 0 && (
         <span className="text-xs font-medium text-zinc-600">{dia.atendimentos}</span>
       )}
@@ -237,13 +237,15 @@ export default function OcupacaoPage() {
           )}
 
           {/* Gráfico de barras por dia */}
-          <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-6">
+          <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-6 overflow-hidden">
             <h2 className="font-semibold text-zinc-900 mb-1">Ocupação por Dia</h2>
             <p className="text-xs text-zinc-400 mb-5">% do tempo disponível utilizado · número abaixo = atendimentos</p>
-            <div className="flex items-end gap-1">
-              {data.porDia.map((dia) => (
-                <DiaBar key={dia.data} dia={dia} maxTaxa={maxTaxa} />
-              ))}
+            <div className="overflow-x-auto pb-2 scrollbar-thin">
+              <div className="flex items-end gap-1.5 min-w-max w-full">
+                {data.porDia.map((dia) => (
+                  <DiaBar key={dia.data} dia={dia} maxTaxa={maxTaxa} />
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-4 mt-4 text-xs text-zinc-400">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-400 inline-block" />≥70% ótimo</span>

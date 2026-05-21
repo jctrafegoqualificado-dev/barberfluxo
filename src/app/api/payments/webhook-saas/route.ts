@@ -22,10 +22,16 @@ export async function POST(req: NextRequest) {
     if (!barbershopId) return NextResponse.json({ ok: true });
 
     if (mpPayment.status === "approved") {
-      // 1. Atualiza o plano da barbearia para PREMIUM
+      // Determina o plano pelo valor pago (Nova LP do CEO)
+      // PRO (Gestão) = R$ 154,90. ELITE (Gestão + Assistente) = R$ 197,90
+      const amount = Number(mpPayment.transaction_amount);
+      let saasPlan: "PRO" | "ELITE" = "ELITE"; // default
+      if (amount <= 170) saasPlan = "PRO"; 
+
+      // 1. Atualiza o plano da barbearia
       await prisma.barbershop.update({
         where: { id: barbershopId },
-        data: { saasPlan: "PREMIUM" },
+        data: { saasPlan: saasPlan },
       });
 
       // 2. Salva o pagamento automatizado na tabela de Faturamento SaaS
