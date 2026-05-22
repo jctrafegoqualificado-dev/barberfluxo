@@ -4,6 +4,21 @@ import { requireAuth, hashPassword } from "@/lib/auth";
 import { addMonths } from "date-fns";
 import { sendSubscriptionConfirmation } from "@/lib/email";
 
+function clampDay(day: number, year: number, month: number): number {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  return Math.min(day, daysInMonth);
+}
+
+function initialBillingDate(billingDay: number | null): Date {
+  if (!billingDay) return addMonths(new Date(), 1);
+  const now = new Date();
+  const thisMonthDay = clampDay(billingDay, now.getFullYear(), now.getMonth());
+  const candidate = new Date(now.getFullYear(), now.getMonth(), thisMonthDay);
+  if (candidate > now) return candidate;
+  const next = addMonths(now, 1);
+  return new Date(next.getFullYear(), next.getMonth(), clampDay(billingDay, next.getFullYear(), next.getMonth()));
+}
+
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
@@ -40,8 +55,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = requireAuth(req, ["OWNER"]);
-    const { clientName, clientPhone, planId } = await req.json();
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    const { clientName, clientPhone, planId, billingDay } = await req.json();
+    const billingDayNum = billingDay ? Number(billingDay) : null;
 
     if (!planId) return NextResponse.json({ error: "Selecione um plano" }, { status: 400 });
     if (!clientPhone) return NextResponse.json({ error: "WhatsApp obrigatório" }, { status: 400 });
@@ -81,7 +97,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Cliente já possui assinatura ativa" }, { status: 400 });
     }
 
-    const nextBilling = addMonths(new Date(), 1);
+    const nextBilling = initialBillingDate(billingDayNum);
 
     // Inicializa beneficiários se o plano possuir regras para dependentes
     const beneficiaries = Array.isArray(plan.beneficiaryRules)
@@ -94,6 +110,7 @@ export async function POST(req: NextRequest) {
         planId,
         barbershopId: payload.barbershopId!,
         nextBillingDate: nextBilling,
+        billingDay: billingDayNum,
         beneficiaries,
         payments: {
           create: { amount: plan.price, method: "PIX", status: "PENDING" },

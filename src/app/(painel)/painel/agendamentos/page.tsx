@@ -323,23 +323,27 @@ function BloqueioModal({ barbers, date, onConfirm, onClose }: {
 
 /* ─── Modal de agendamento (multi-serviço) ─── */
 function AgendamentoModal({
-  barbers, date, onConfirm, onClose
+  barbers, date, onConfirm, onClose, initialBarberId, initialStartTime
 }: {
   barbers: Barber[]; date: string;
   onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceIds: string[]; date: string; startTime: string; beneficiaryName?: string; price?: number }) => Promise<boolean>;
   onClose: () => void;
+  initialBarberId?: string;
+  initialStartTime?: string;
 }) {
   const { token } = useAuthStore();
   const [services, setServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
-  const [barberId, setBarberId] = useState(barbers[0]?.id ?? "");
+  const [barberId, setBarberId] = useState(initialBarberId ?? barbers[0]?.id ?? "");
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState(date);
-  const [startTime, setStartTime] = useState("09:00");
+  const [startTime, setStartTime] = useState(initialStartTime ?? "09:00");
   const [saving, setSaving] = useState(false);
   const [activeSub, setActiveSub] = useState<{ id: string; beneficiaries: any[]; plan: any; status?: string; nextBillingDate?: string } | null>(null);
   const [beneficiaryName, setBeneficiaryName] = useState("");
+  const [clientSuggestions, setClientSuggestions] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   function handleSelectBeneficiary(b: any) {
     if (b.uses >= b.maxUses) return;
@@ -357,6 +361,16 @@ function AgendamentoModal({
       });
     }
   }
+
+  // Autocomplete de clientes ao digitar o nome
+  useEffect(() => {
+    if (clientName.length < 2) { setClientSuggestions([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/barbershop/clients?q=${encodeURIComponent(clientName)}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json()).then(d => setClientSuggestions(d.clients || []));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [clientName, token]);
 
   // Busca assinatura ao digitar o telefone
   useEffect(() => {
@@ -447,8 +461,35 @@ function AgendamentoModal({
         <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Nome do Cliente</label>
-            <input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: João Silva"
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            <div className="relative">
+              <input
+                value={clientName}
+                onChange={(e) => { setClientName(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Ex: João Silva"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {showSuggestions && clientSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  {clientSuggestions.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onMouseDown={() => {
+                        setClientName(c.name);
+                        setClientPhone(c.phone ?? "");
+                        setShowSuggestions(false);
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-50 flex items-center justify-between gap-2 border-b border-zinc-100 last:border-0"
+                    >
+                      <span className="font-medium text-zinc-900">{c.name}</span>
+                      {c.phone && <span className="text-xs text-zinc-400 shrink-0">{c.phone}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-xs text-zinc-500 mb-1">WhatsApp (com DDD)</label>
@@ -610,11 +651,16 @@ export default function AgendamentosPage() {
   const [modalAppt, setModalAppt] = useState<Appointment | null>(null);
   const [showBloqueio, setShowBloqueio] = useState(false);
   const [showAgendamento, setShowAgendamento] = useState(false);
+  const [agendamentoInit, setAgendamentoInit] = useState<{ barberId: string; startTime: string } | null>(null);
   const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void; type?: "danger" | "info" } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string; type?: "info" | "danger" | "success" } | null>(null);
   const [nowPx, setNowPx] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const draggingId = useRef<string | null>(null);
+  const dragOffset = useRef<number>(0);
+  const didDrag = useRef(false);
+  const [dragOver, setDragOver] = useState<{ barberId: string; mins: number } | null>(null);
 
 
   /* Carrega dados */
@@ -666,17 +712,31 @@ export default function AgendamentosPage() {
 
   /* Ações */
   async function updateStatus(id: string, status: string, paymentMethod?: string, price?: number) {
-    await fetch("/api/barbershop/appointments", {
+    // Optimistic update: muda o card imediatamente sem esperar a API
+    const prev = appointments;
+    setAppointments(cur =>
+      cur.map(a => a.id === id
+        ? { ...a, status, ...(paymentMethod ? { paymentMethod } : {}), ...(price !== undefined ? { price } : {}) }
+        : a
+      )
+    );
+
+    const res = await fetch("/api/barbershop/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ 
-        id, 
-        status, 
+      body: JSON.stringify({
+        id,
+        status,
         ...(paymentMethod ? { paymentMethod } : {}),
-        ...(price !== undefined ? { price } : {})
+        ...(price !== undefined ? { price } : {}),
       }),
     });
-    load();
+
+    if (!res.ok) {
+      // Reverte para o estado anterior se a API falhar
+      setAppointments(prev);
+      load();
+    }
   }
 
   async function handleBloqueio(data: { barberId: string; startTime: string; endTime: string; reason: string }) {
@@ -725,6 +785,28 @@ export default function AgendamentosPage() {
   async function deleteBloqueio(id: string) {
     await fetch(`/api/barbershop/bloqueios/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     load();
+  }
+
+  async function moveAppointment(apptId: string, newBarberId: string, newStartMins: number) {
+    const appt = appointments.find(a => a.id === apptId);
+    if (!appt) return;
+    const duration = toMin(appt.endTime) - toMin(appt.startTime);
+    const clamped = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - duration, newStartMins));
+    const newStartTime = `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
+    const endMins = clamped + duration;
+    const newEndTime = `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
+    if (newStartTime === appt.startTime && newBarberId === appt.barber.id) return;
+    const prev = appointments;
+    setAppointments(cur => cur.map(a => a.id === apptId
+      ? { ...a, startTime: newStartTime, endTime: newEndTime, barber: { ...a.barber, id: newBarberId } }
+      : a
+    ));
+    const res = await fetch("/api/barbershop/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: apptId, startTime: newStartTime, endTime: newEndTime, barberId: newBarberId }),
+    });
+    if (!res.ok) { setAppointments(prev); load(); }
   }
 
   async function deleteAppointment(id: string) {
@@ -786,7 +868,9 @@ export default function AgendamentosPage() {
       {showAgendamento && (
         <AgendamentoModal barbers={barbers} date={date}
           onConfirm={handleNovoAgendamento}
-          onClose={() => setShowAgendamento(false)} />
+          initialBarberId={agendamentoInit?.barberId}
+          initialStartTime={agendamentoInit?.startTime}
+          onClose={() => { setShowAgendamento(false); setAgendamentoInit(null); }} />
       )}
       {encaixePendingData && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
@@ -926,7 +1010,44 @@ export default function AgendamentosPage() {
 
                 return (
                   <div key={b.id} className="relative border-r border-zinc-100"
-                    style={{ minWidth: COL_MIN_W, flex: 1, height: (TOTAL_MINS / 5) * ROW_H }}>
+                    style={{ minWidth: COL_MIN_W, flex: 1, height: (TOTAL_MINS / 5) * ROW_H }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      const offsetY = e.clientY - rect.top - dragOffset.current;
+                      const snapped = Math.round(Math.max(0, offsetY) / (ROW_H * 3)) * 15;
+                      setDragOver({ barberId: b.id, mins: START_HOUR * 60 + Math.min(TOTAL_MINS - 15, snapped) });
+                    }}
+                    onDragLeave={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const id = draggingId.current;
+                      if (!id) return;
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      const offsetY = e.clientY - rect.top - dragOffset.current;
+                      const snapped = Math.round(Math.max(0, offsetY) / (ROW_H * 3)) * 15;
+                      moveAppointment(id, b.id, START_HOUR * 60 + Math.min(TOTAL_MINS - 15, snapped));
+                      draggingId.current = null;
+                      setDragOver(null);
+                      didDrag.current = true;
+                      setTimeout(() => { didDrag.current = false; }, 100);
+                    }}>
+
+                    {/* Click em célula vazia → novo agendamento */}
+                    <div className="absolute inset-0 cursor-crosshair" style={{ zIndex: 0 }}
+                      onClick={(e) => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const offsetY = e.clientY - rect.top;
+                        const snappedMins = Math.round(offsetY / (ROW_H * 3)) * 15;
+                        const totalMins = Math.max(0, Math.min(TOTAL_MINS - 15, snappedMins)) + START_HOUR * 60;
+                        const h = String(Math.floor(totalMins / 60)).padStart(2, "0");
+                        const m = String(totalMins % 60).padStart(2, "0");
+                        setAgendamentoInit({ barberId: b.id, startTime: `${h}:${m}` });
+                        setShowAgendamento(true);
+                      }}
+                    />
 
                     {/* Linhas de grade */}
                     {gridLines.map((top, i) => (
@@ -970,14 +1091,26 @@ export default function AgendamentosPage() {
 
                       return (
                         <div key={a.id}
-                          className={`absolute ${s.bg} border-l-4 ${s.border} rounded-r-lg overflow-hidden px-1.5 py-1 cursor-pointer hover:brightness-95 transition-all shadow-sm`}
-                          style={{ 
-                            top, 
+                          draggable
+                          onDragStart={(e) => {
+                            draggingId.current = a.id;
+                            dragOffset.current = e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top;
+                            e.dataTransfer.effectAllowed = "move";
+                            e.dataTransfer.setData("text/plain", a.id);
+                            setTimeout(() => { (e.target as HTMLElement).style.opacity = "0.45"; }, 0);
+                          }}
+                          onDragEnd={(e) => {
+                            (e.target as HTMLElement).style.opacity = "1";
+                            setDragOver(null);
+                          }}
+                          className={`absolute ${s.bg} border-l-4 ${s.border} rounded-r-lg overflow-hidden px-1.5 py-1 cursor-grab active:cursor-grabbing hover:brightness-95 transition-all shadow-sm select-none`}
+                          style={{
+                            top,
                             height,
                             left: `calc(${leftPct}% + 4px)`,
                             width: `calc(${widthPct}% - 8px)`
                           }}
-                          onClick={() => setModalAppt(a)}>
+                          onClick={() => { if (didDrag.current) return; setModalAppt(a); }}>
                           <p className={`text-xs font-bold truncate ${s.text}`}>{a.client.name}</p>
                           <div className="flex items-center justify-between gap-1">
                             <p className={`text-[10px] truncate opacity-80 flex-1 ${s.text}`}>
@@ -1022,6 +1155,15 @@ export default function AgendamentosPage() {
                         </div>
                       );
                     })}
+
+                    {/* Indicador de drop */}
+                    {dragOver?.barberId === b.id && (
+                      <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+                        style={{ top: ((dragOver.mins - START_HOUR * 60) / 5) * ROW_H }}>
+                        <div className="w-2.5 h-2.5 rounded-full bg-primary shrink-0 -ml-1.5" />
+                        <div className="h-0.5 bg-primary flex-1 opacity-80" />
+                      </div>
+                    )}
 
                     {/* Linha do horário atual */}
                     {isToday && nowPx !== null && (

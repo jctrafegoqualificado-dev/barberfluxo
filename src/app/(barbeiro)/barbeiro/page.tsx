@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Calendar, CheckCircle, XCircle, UserX, Clock, DollarSign, TrendingUp, Phone, ChevronLeft, ChevronRight, Scissors, Plus, X, AlertCircle, UserCheck, Lock, Trash2 } from "lucide-react";
+import { Calendar, CheckCircle, XCircle, UserX, Clock, DollarSign, TrendingUp, Phone, ChevronLeft, ChevronRight, Scissors, Plus, Minus, Package, X, AlertTriangle, Lock, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
@@ -8,12 +8,10 @@ import { Badge } from "@/components/ui/Badge";
 interface Appointment {
   id: string; startTime: string; endTime: string; status: string; price: number;
   client: { name: string; phone: string | null };
-  service: { name: string; duration: number };
+  service: { name: string; duration: number } | null;
   subscription: { plan: { name: string } } | null;
 }
 
-interface Service { id: string; name: string; price: number; duration: number; description: string | null }
-interface DaySlots { date: string; slots: string[] }
 interface Block { id: string; startTime: string; endTime: string; reason: string | null }
 
 const DURATIONS = [
@@ -42,6 +40,153 @@ function addMinutes(time: string, minutes: number): string {
   const [h, m] = time.split(":").map(Number);
   const total = h * 60 + m + minutes;
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function VenderProdutoModal({ token, onClose }: { token: string; onClose: () => void }) {
+  const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
+  const [qtys, setQtys] = useState<Record<string, number>>({});
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setProducts((d.products || []).filter((p: any) => p.active !== false)))
+      .finally(() => setLoadingProducts(false));
+  }, [token]);
+
+  function changeQty(id: string, delta: number) {
+    setQtys(q => {
+      const cur = q[id] ?? 0;
+      const next = Math.max(0, cur + delta);
+      if (next === 0) { const { [id]: _removed, ...rest } = q; return rest; }
+      return { ...q, [id]: next };
+    });
+  }
+
+  const total = Object.entries(qtys).reduce(
+    (sum, [id, q]) => sum + (products.find(p => p.id === id)?.price ?? 0) * q, 0
+  );
+  const hasItems = Object.values(qtys).some(q => q > 0);
+
+  async function handleSell() {
+    if (!hasItems) return;
+    setSaving(true);
+    await Promise.all(
+      Object.entries(qtys)
+        .filter(([, q]) => q > 0)
+        .map(([pid, qty]) =>
+          fetch(`/api/barbershop/products/${pid}/sell`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ quantity: qty, paymentMethod }),
+          })
+        )
+    );
+    setSaving(false);
+    setDone(true);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4 text-primary" />
+            <h2 className="font-bold text-zinc-900">Vender Produto</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100">
+            <X className="w-5 h-5 text-zinc-500" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {done ? (
+            <div className="text-center py-6">
+              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+              <p className="font-bold text-zinc-900 text-lg">Venda registrada!</p>
+              <p className="text-sm text-zinc-500 mt-1">Total: {formatCurrency(total)}</p>
+              <button onClick={onClose} className="mt-5 w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors">
+                Fechar
+              </button>
+            </div>
+          ) : (
+            <>
+              {loadingProducts ? (
+                <p className="text-xs text-zinc-400 py-4 text-center">Carregando produtos...</p>
+              ) : products.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-6 text-zinc-400">
+                  <Package className="w-8 h-8" />
+                  <p className="text-sm">Sem produtos no estoque.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {products.map(p => {
+                    const qty = qtys[p.id] ?? 0;
+                    return (
+                      <div key={p.id} className={`flex items-center gap-2 p-2.5 rounded-xl border transition-colors ${qty > 0 ? "border-primary/30 bg-primary/5" : "border-zinc-100"}`}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-zinc-800 truncate">{p.name}</p>
+                          <p className="text-xs text-zinc-400">
+                            {formatCurrency(p.price)}{p.stock > 0 ? ` · ${p.stock} em estoque` : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => changeQty(p.id, -1)} disabled={qty === 0}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-zinc-200 disabled:opacity-30 hover:bg-zinc-50 transition-colors">
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="w-5 text-center text-sm font-bold text-zinc-800">{qty}</span>
+                          <button onClick={() => changeQty(p.id, 1)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors">
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {hasItems && (
+                <>
+                  <div className="pt-3 border-t border-zinc-100">
+                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Forma de pagamento</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: "CASH", label: "Dinheiro" },
+                        { id: "PIX", label: "Pix" },
+                        { id: "CREDIT_CARD", label: "Cartão Crédito" },
+                        { id: "DEBIT_CARD", label: "Cartão Débito" },
+                      ].map((pm) => (
+                        <button key={pm.id} onClick={() => setPaymentMethod(pm.id)}
+                          className={`p-2.5 rounded-xl border text-sm font-semibold transition-colors ${paymentMethod === pm.id ? "bg-primary border-primary text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-primary/40"}`}>
+                          {pm.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
+                    <span className="text-sm font-bold text-zinc-900">Total:</span>
+                    <span className="text-xl font-black text-primary/90">{formatCurrency(total)}</span>
+                  </div>
+
+                  <button onClick={handleSell} disabled={saving}
+                    className="w-full py-3 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                    {saving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Package className="w-4 h-4" /> Confirmar Venda</>}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function BloquearAgendaModal({ token, date, onClose, onBlocked }: { token: string; date: string; onClose: () => void; onBlocked: () => void }) {
@@ -138,253 +283,261 @@ function formatDayLabel(dateStr: string) {
   return `${DIAS_PT[d.getDay()]}, ${d.getDate()} ${MESES_PT[d.getMonth()]}`;
 }
 
-type BookStep = "service" | "datetime" | "dados" | "confirmado";
-
-function NovoAgendamentoModal({ token, onClose, onBooked }: { token: string; onClose: () => void; onBooked: () => void }) {
-  const [bookingData, setBookingData] = useState<{ barberId: string; slug: string; services: Service[] } | null>(null);
-  const [step, setStep] = useState<BookStep>("service");
-  const [selected, setSelected] = useState({ service: "", date: "", slot: "" });
-  const [daySlots, setDaySlots] = useState<DaySlots[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "" });
-  const [clientFound, setClientFound] = useState<boolean | null>(null);
-  const [lookingUp, setLookingUp] = useState(false);
-  const [booking, setBooking] = useState(false);
-  const [booked, setBooked] = useState<{ startTime: string } | null>(null);
-  const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+/* ─── Modal de agendamento do barbeiro (admin-grade) ─── */
+function BarberAgendamentoModal({
+  barberId, date, onConfirm, onClose, initialStartTime,
+}: {
+  barberId: string;
+  date: string;
+  onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceIds: string[]; date: string; startTime: string; beneficiaryName?: string; price?: number }) => Promise<boolean>;
+  onClose: () => void;
+  initialStartTime?: string;
+}) {
+  const { token } = useAuthStore();
+  const [services, setServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState(date);
+  const [startTime, setStartTime] = useState(initialStartTime ?? "09:00");
+  const [saving, setSaving] = useState(false);
+  const [activeSub, setActiveSub] = useState<{ id: string; beneficiaries: any[]; plan: any; nextBillingDate?: string; _overdue?: boolean } | null>(null);
+  const [beneficiaryName, setBeneficiaryName] = useState("");
+  const [clientSuggestions, setClientSuggestions] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
-    fetch("/api/barber/booking-data", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => setBookingData(d));
+    if (clientName.length < 2) { setClientSuggestions([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/barbershop/clients?q=${encodeURIComponent(clientName)}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json()).then(d => setClientSuggestions(d.clients || []));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [clientName, token]);
+
+  function handleSelectBeneficiary(b: any) {
+    if (b.uses >= b.maxUses) return;
+    setBeneficiaryName(b.name);
+    if (activeSub?.plan?.planServices) {
+      const planServiceIds = activeSub.plan.planServices.map((ps: any) => ps.serviceId);
+      setSelectedServiceIds(prev => {
+        const newIds = [...prev];
+        planServiceIds.forEach((id: string) => { if (!newIds.includes(id)) newIds.push(id); });
+        return newIds;
+      });
+    }
+  }
+
+  useEffect(() => {
+    const phone = clientPhone.replace(/\D/g, "");
+    if (phone.length >= 10) {
+      fetch(`/api/barbershop/subscriptions?phone=${phone}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => {
+          const sub = (d.subscriptions || []).find((s: any) => s.status === "ACTIVE");
+          if (sub && Array.isArray(sub.beneficiaries)) {
+            const isOverdue = new Date(sub.nextBillingDate) < new Date();
+            if (isOverdue) {
+              setActiveSub({ ...sub, _overdue: true });
+              setBeneficiaryName("");
+            } else {
+              setActiveSub(sub);
+              setBeneficiaryName(sub.beneficiaries[0]?.name || "");
+            }
+            if (sub.client?.name && !clientName) setClientName(sub.client.name);
+          } else {
+            setActiveSub(null);
+            setBeneficiaryName("");
+          }
+        });
+    } else {
+      setActiveSub(null);
+      setBeneficiaryName("");
+    }
+  }, [clientPhone, token]);
+
+  useEffect(() => {
+    fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setServices((d.services || []).filter((s: any) => s.active)));
   }, [token]);
 
-  useEffect(() => {
-    if (step !== "datetime" || !bookingData || !selected.service) return;
-    setLoadingSlots(true);
-    setDaySlots([]);
-    const today = new Date();
-    const dates: string[] = [];
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-    }
-    Promise.all(
-      dates.map((date) =>
-        fetch(`/api/booking/${bookingData.slug}/slots?barberId=${bookingData.barberId}&serviceId=${selected.service}&date=${date}&barber=true`)
-          .then((r) => r.json())
-          .then((d) => ({ date, slots: d.slots || [] }))
-      )
-    ).then((results) => { setDaySlots(results); setLoadingSlots(false); });
-  }, [step, selected.service, bookingData]);
-
-  function handlePhoneChange(phone: string) {
-    setForm((f) => ({ ...f, phone }));
-    setClientFound(null);
-    if (phoneDebounce.current) clearTimeout(phoneDebounce.current);
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 8) return;
-    phoneDebounce.current = setTimeout(async () => {
-      setLookingUp(true);
-      try {
-        const r = await fetch(`/api/booking/${bookingData!.slug}/cliente?phone=${encodeURIComponent(phone)}`);
-        const d = await r.json();
-        if (d.found) { setForm((f) => ({ ...f, firstName: d.firstName, lastName: d.lastName })); setClientFound(true); }
-        else setClientFound(false);
-      } finally { setLookingUp(false); }
-    }, 600);
+  function toggleService(id: string) {
+    setSelectedServiceIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
 
-  async function handleBook(e: React.FormEvent) {
-    e.preventDefault();
-    if (!bookingData) return;
-    setBooking(true);
-    const clientName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
-    const r = await fetch(`/api/booking/${bookingData.slug}/book`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientName, clientPhone: form.phone,
-        barberId: bookingData.barberId, serviceId: selected.service,
-        date: selected.date, startTime: selected.slot,
-      }),
-    });
-    const d = await r.json();
-    if (r.ok) { setBooked(d.appointment); setStep("confirmado"); onBooked(); }
-    setBooking(false);
-  }
+  const totalPrice = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.price, 0);
+  const totalDuration = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.duration, 0);
 
-  const selectedService = bookingData?.services.find((s) => s.id === selected.service);
-  const hasAnySlot = daySlots.some((d) => d.slots.length > 0);
-  const isFormValid = form.firstName.trim().length > 0 && form.phone.replace(/\D/g, "").length >= 8;
+  let discount = 0;
+  if (activeSub && beneficiaryName && !activeSub._overdue) {
+    const coveredService = services.find(s =>
+      selectedServiceIds.includes(s.id) &&
+      s.name.toLowerCase().includes("corte") &&
+      !s.name.toLowerCase().includes("+")
+    );
+    if (coveredService) discount = coveredService.price;
+  }
+  const finalPrice = Math.max(0, totalPrice - discount);
+
+  const endTimeDisplay = (() => {
+    const [h, m] = startTime.split(":").map(Number);
+    const endTotal = h * 60 + m + totalDuration;
+    return `${String(Math.floor(endTotal / 60)).padStart(2, "0")}:${String(endTotal % 60).padStart(2, "0")}`;
+  })();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 sticky top-0 bg-white z-10">
-          <div className="flex items-center gap-2">
-            {step !== "service" && step !== "confirmado" && (
-              <button onClick={() => setStep(step === "datetime" ? "service" : "datetime")} className="p-1 rounded-lg hover:bg-zinc-100">
-                <ChevronLeft className="w-5 h-5 text-zinc-500" />
-              </button>
-            )}
-            <h2 className="font-bold text-zinc-900">Novo Agendamento</h2>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100">
-            <X className="w-5 h-5 text-zinc-500" />
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+          <h2 className="font-semibold text-zinc-900">Novo agendamento</h2>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-zinc-100"><X className="w-4 h-4 text-zinc-500" /></button>
         </div>
+        <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Nome do Cliente</label>
+            <div className="relative">
+              <input
+                value={clientName}
+                onChange={(e) => { setClientName(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Ex: João Silva"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {showSuggestions && clientSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  {clientSuggestions.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onMouseDown={() => {
+                        setClientName(c.name);
+                        setClientPhone(c.phone ?? "");
+                        setShowSuggestions(false);
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-50 flex items-center justify-between gap-2 border-b border-zinc-100 last:border-0"
+                    >
+                      <span className="font-medium text-zinc-900">{c.name}</span>
+                      {c.phone && <span className="text-xs text-zinc-400 shrink-0">{c.phone}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">WhatsApp (com DDD)</label>
+            <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Ex: 11999999999"
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
 
-        <div className="p-5">
-          {!bookingData && (
-            <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          {activeSub?._overdue ? (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
+              <p className="text-xs font-bold text-red-700 uppercase tracking-wider">⚠️ Assinatura Vencida</p>
+              <p className="text-xs text-red-600 mt-1">Pagamento pendente. O plano não pode ser utilizado até a regularização.</p>
+            </div>
+          ) : activeSub && (
+            <div className="bg-primary/10 border border-amber-200 rounded-xl p-3 animate-in fade-in slide-in-from-top-2">
+              <label className="block text-xs font-bold text-amber-700 mb-1.5 uppercase tracking-wider">Assinatura Familiar Ativa</label>
+              <div className="flex flex-wrap gap-2">
+                {activeSub.beneficiaries.map((b: any, i: number) => (
+                  <button key={i} type="button" onClick={() => handleSelectBeneficiary(b)} disabled={b.uses >= b.maxUses}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                      beneficiaryName === b.name
+                        ? "bg-primary text-white border-primary/90 shadow-sm"
+                        : b.uses >= b.maxUses
+                          ? "bg-zinc-50 text-zinc-400 border-zinc-200 cursor-not-allowed"
+                          : "bg-white text-amber-700 border-amber-200 hover:bg-primary/20"
+                    }`}>
+                    {b.name}
+                    <span className="block text-[10px] opacity-80">
+                      {b.uses >= b.maxUses ? "Cota esgotada" : `${b.uses}/${b.maxUses} usos`}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
-          {bookingData && step === "service" && (
-            <div className="space-y-2">
-              <p className="text-sm text-zinc-500 mb-4">Escolha o serviço</p>
-              {bookingData.services.map((s) => (
-                <button key={s.id}
-                  onClick={() => { setSelected((x) => ({ ...x, service: s.id })); setStep("datetime"); }}
-                  className="w-full text-left p-4 rounded-xl border border-zinc-200 hover:border-primary/80 hover:bg-primary/10 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-zinc-900">{s.name}</p>
-                      {s.description && <p className="text-xs text-zinc-400 mt-0.5">{s.description}</p>}
-                      <p className="text-xs text-zinc-400 mt-1 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />{s.duration}min
-                      </p>
-                    </div>
-                    <span className="text-primary/90 font-bold">{formatCurrency(s.price)}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {bookingData && step === "datetime" && (
-            <div className="space-y-3">
-              <p className="text-sm text-zinc-500">Escolha data e horário</p>
-              {loadingSlots ? (
-                <div className="flex flex-col items-center py-12 gap-3">
-                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                  <p className="text-zinc-400 text-sm">Buscando horários...</p>
-                </div>
-              ) : !hasAnySlot ? (
-                <div className="flex flex-col items-center py-12 gap-3 bg-zinc-50 rounded-xl border border-zinc-200">
-                  <AlertCircle className="w-10 h-10 text-zinc-400" />
-                  <p className="text-zinc-500 text-sm text-center">Nenhum horário disponível<br />nos próximos 14 dias</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {daySlots.map(({ date, slots }) => {
-                    if (slots.length === 0) return null;
-                    return (
-                      <div key={date} className="bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-primary" />
-                            <span className="font-semibold text-sm text-zinc-900">{formatDayLabel(date)}</span>
-                          </div>
-                          <span className="text-xs text-zinc-400">{slots.length} horário{slots.length > 1 ? "s" : ""}</span>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2 p-3">
-                          {slots.map((slot) => (
-                            <button key={slot}
-                              onClick={() => { setSelected((x) => ({ ...x, date, slot })); setStep("dados"); }}
-                              className="py-2 rounded-lg text-sm font-semibold bg-white border border-zinc-200 hover:bg-primary hover:text-white hover:border-primary text-zinc-700 transition-colors">
-                              {slot}
-                            </button>
-                          ))}
-                        </div>
+          {services.length > 0 && (
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1.5">Serviços <span className="text-zinc-400">(selecione um ou mais)</span></label>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-lg border border-zinc-200 p-2">
+                {services.map((s) => {
+                  const checked = selectedServiceIds.includes(s.id);
+                  return (
+                    <label key={s.id}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                        checked ? "bg-primary/10 border border-amber-200" : "hover:bg-zinc-50 border border-transparent"
+                      }`}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleService(s.id)}
+                        className="rounded text-primary focus:ring-primary" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-800 truncate">{s.name}</p>
+                        <p className="text-xs text-zinc-400">{s.duration}min</p>
                       </div>
-                    );
-                  })}
+                      <span className="text-sm font-bold text-zinc-700 shrink-0">R$ {s.price.toFixed(2)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {selectedServiceIds.length > 0 && (
+                <div className="flex flex-col gap-1 mt-2 px-1">
+                  <div className="flex items-center justify-between text-xs text-zinc-500">
+                    <span>{selectedServiceIds.length} serviço(s) · {totalDuration}min</span>
+                    <span>Subtotal: {formatCurrency(totalPrice)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex items-center justify-between text-xs text-green-600 font-medium">
+                      <span>Desconto Plano ({beneficiaryName})</span>
+                      <span>-{formatCurrency(discount)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-1 border-t border-zinc-100 mt-1">
+                    <span className="text-sm font-bold text-zinc-900">Total a pagar:</span>
+                    <span className="text-lg font-black text-primary/90">{formatCurrency(finalPrice)}</span>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {bookingData && step === "dados" && (
-            <div className="space-y-4">
-              <div className="bg-primary/10 rounded-xl border border-primary/20 p-4 space-y-1 text-sm">
-                <p className="text-zinc-500">Serviço: <span className="font-semibold text-zinc-900">{selectedService?.name}</span></p>
-                <p className="text-zinc-500">Data: <span className="font-semibold text-zinc-900">{formatDayLabel(selected.date)} às {selected.slot}</span></p>
-                <p className="text-zinc-500">Valor: <span className="font-bold text-primary/90">{formatCurrency(selectedService?.price || 0)}</span></p>
-              </div>
-
-              <form onSubmit={handleBook} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-500 mb-1">WhatsApp do cliente</label>
-                  <div className="relative">
-                    <input required type="tel" value={form.phone} onChange={(e) => handlePhoneChange(e.target.value)}
-                      placeholder="(41) 99999-9999"
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary" />
-                    {lookingUp && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {clientFound === true && (
-                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5">
-                    <UserCheck className="w-4 h-4 text-green-600 shrink-0" />
-                    <p className="text-sm text-green-700 font-medium">Olá, {form.firstName}! Dados encontrados.</p>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-zinc-500 mb-1">Nome</label>
-                    <input required value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                      placeholder="João"
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-zinc-500 mb-1">Sobrenome</label>
-                    <input value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                      placeholder="Silva"
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary" />
-                  </div>
-                </div>
-
-                <button type="submit" disabled={!isFormValid || booking}
-                  className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-                  {booking ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "Confirmar Agendamento"}
-                </button>
-              </form>
-            </div>
-          )}
-
-          {step === "confirmado" && (
-            <div className="text-center py-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              <h3 className="text-xl font-bold text-zinc-900 mb-1">Agendado!</h3>
-              <p className="text-zinc-500 text-sm mb-6">O horário foi confirmado com sucesso.</p>
-              <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 text-left space-y-1.5 text-sm mb-6">
-                <p className="text-zinc-500">Cliente: <span className="font-semibold text-zinc-900">{form.firstName} {form.lastName}</span></p>
-                <p className="text-zinc-500">Serviço: <span className="font-semibold text-zinc-900">{selectedService?.name}</span></p>
-                <p className="text-zinc-500">Data: <span className="font-semibold text-zinc-900">{formatDayLabel(selected.date)} às {booked?.startTime}</span></p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setStep("service"); setSelected({ service: "", date: "", slot: "" }); setForm({ firstName: "", lastName: "", phone: "" }); setBooked(null); setClientFound(null); }}
-                  className="flex-1 border border-zinc-200 text-zinc-700 font-semibold py-2.5 rounded-xl hover:bg-zinc-50 transition-colors text-sm">
-                  Novo Agendamento
-                </button>
-                <button onClick={onClose}
-                  className="flex-1 bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm">
-                  Fechar
-                </button>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-500 ml-1">Data</label>
+              <div className="relative">
+                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               </div>
             </div>
-          )}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-500 ml-1">Horário de Início</label>
+              <div className="relative">
+                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded uppercase">
+                  Fim: {endTimeDisplay}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50">Cancelar</button>
+          <button
+            onClick={async () => {
+              if (!clientName || !clientPhone || selectedServiceIds.length === 0 || !selectedDate) return;
+              setSaving(true);
+              const success = await onConfirm({ clientName, clientPhone, barberId, serviceIds: selectedServiceIds, date: selectedDate, startTime, beneficiaryName, price: finalPrice });
+              setSaving(false);
+              if (success) onClose();
+            }}
+            disabled={saving || selectedServiceIds.length === 0}
+            className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-40">
+            {saving ? "Salvando..." : `Agendar${selectedServiceIds.length > 1 ? ` (${selectedServiceIds.length})` : ""}`}
+          </button>
         </div>
       </div>
     </div>
@@ -416,25 +569,69 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
   onClose: () => void;
   onUpdate: (id: string, status: string, paymentMethod?: string) => void;
 }) {
+  const { token } = useAuthStore();
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
+  const [qtys, setQtys] = useState<Record<string, number>>({});
+  const [saving, setSaving] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const isActive = appt.status === "CONFIRMED" || appt.status === "PENDING";
+
+  useEffect(() => {
+    if (!showPayment || !token) return;
+    setLoadingProducts(true);
+    fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setProducts(d.products || []))
+      .finally(() => setLoadingProducts(false));
+  }, [showPayment, token]);
+
+  function changeQty(id: string, delta: number) {
+    setQtys(q => {
+      const cur = q[id] ?? 0;
+      const next = Math.max(0, cur + delta);
+      if (next === 0) { const { [id]: _removed, ...rest } = q; return rest; }
+      return { ...q, [id]: next };
+    });
+  }
+
+  const productTotal = Object.entries(qtys).reduce(
+    (sum, [id, q]) => sum + (products.find(p => p.id === id)?.price ?? 0) * q, 0
+  );
+  const hasProducts = Object.values(qtys).some(q => q > 0);
+
+  async function handleConfirm() {
+    setSaving(true);
+    const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
+    if (toSell.length > 0) {
+      await Promise.all(toSell.map(([pid, qty]) =>
+        fetch(`/api/barbershop/products/${pid}/sell`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ quantity: qty, paymentMethod }),
+        })
+      ));
+    }
+    onUpdate(appt.id, "DONE", paymentMethod);
+    onClose();
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white w-full max-w-lg rounded-t-2xl">
-        {/* Info do agendamento */}
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
           <div>
             <p className="font-bold text-zinc-900 text-lg">{appt.client.name}</p>
-            <p className="text-sm text-zinc-500">{appt.service.name} · {appt.startTime}–{appt.endTime}</p>
+            <p className="text-sm text-zinc-500">{appt.service?.name ?? "Serviço"} · {appt.startTime}–{appt.endTime}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-zinc-100">
             <X className="w-5 h-5 text-zinc-500" />
           </button>
         </div>
 
-        <div className="p-5 space-y-3">
+        <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
           {isActive && !showPayment && (
             <>
               <button
@@ -478,9 +675,70 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
                   </button>
                 ))}
               </div>
+
+              {/* Produtos vendidos */}
+              <div className="pt-3 border-t border-zinc-100">
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5" /> Produtos vendidos (opcional)
+                </p>
+                {loadingProducts && (
+                  <p className="text-xs text-zinc-400 py-2">Carregando produtos...</p>
+                )}
+                {!loadingProducts && products.length === 0 && (
+                  <div className="flex items-center gap-2 py-2 px-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                    <Package className="w-4 h-4 text-zinc-400 shrink-0" />
+                    <p className="text-xs text-zinc-500">Sem produtos no estoque. O administrador pode cadastrá-los em <span className="font-semibold">Produtos</span>.</p>
+                  </div>
+                )}
+                {products.length > 0 && (
+                  <div className="space-y-2">
+                    {products.map(p => {
+                      const qty = qtys[p.id] ?? 0;
+                      return (
+                        <div key={p.id} className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-zinc-800 truncate">{p.name}</p>
+                            <p className="text-xs text-zinc-400">
+                              {formatCurrency(p.price)}{p.stock > 0 ? ` · ${p.stock} em estoque` : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => changeQty(p.id, -1)}
+                              disabled={qty === 0}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-zinc-200 disabled:opacity-30 hover:bg-zinc-50 transition-colors"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="w-5 text-center text-sm font-bold text-zinc-800">{qty}</span>
+                            <button
+                              onClick={() => changeQty(p.id, 1)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {hasProducts && (
+                  <p className="text-xs text-green-600 font-semibold mt-2 flex items-center gap-1">
+                    <Package className="w-3 h-3" /> +{formatCurrency(productTotal)} em produtos
+                  </p>
+                )}
+              </div>
+
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setShowPayment(false)} className="flex-1 py-3 border border-zinc-200 text-zinc-600 font-semibold rounded-xl hover:bg-zinc-50 transition-colors">Voltar</button>
-                <button onClick={() => { onUpdate(appt.id, "DONE", paymentMethod); onClose(); }} className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors">Confirmar Pagamento</button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={saving}
+                  className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors disabled:opacity-60"
+                >
+                  {saving ? "Salvando..." : "Confirmar"}
+                </button>
               </div>
             </div>
           )}
@@ -511,7 +769,6 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
             </a>
           )}
         </div>
-        <div className="pb-6" />
       </div>
     </div>
   );
@@ -523,11 +780,20 @@ export default function BarbeiroAgendaPage() {
   const [loading, setLoading] = useState(true);
   const [agendaDate, setAgendaDate] = useState(getTodayBR);
   const [showNovoAgendamento, setShowNovoAgendamento] = useState(false);
+  const [agendamentoInitTime, setAgendamentoInitTime] = useState<string | undefined>(undefined);
   const [showBloquear, setShowBloquear] = useState(false);
+  const [showVenderProduto, setShowVenderProduto] = useState(false);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [agendaAppts, setAgendaAppts] = useState<Appointment[]>([]);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [myBarberId, setMyBarberId] = useState<string | null>(null);
+  const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const colRef = useRef<HTMLDivElement>(null);
+  const draggingId = useRef<string | null>(null);
+  const dragOffset = useRef<number>(0);
+  const didDrag = useRef(false);
+  const [dragOver, setDragOver] = useState<{ mins: number } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -553,6 +819,13 @@ export default function BarbeiroAgendaPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadAgenda(agendaDate); }, [agendaDate, loadAgenda]);
 
+  useEffect(() => {
+    if (!token) return;
+    fetch("/api/barber/booking-data", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (d.barberId) setMyBarberId(d.barberId); });
+  }, [token]);
+
   // Auto-scroll para o horário atual
   useEffect(() => {
     if (!calendarRef.current) return;
@@ -560,6 +833,32 @@ export default function BarbeiroAgendaPage() {
     const top = (br.getHours() * 60 + br.getMinutes() - CAL_START * 60) * PX_PER_MIN;
     calendarRef.current.scrollTop = Math.max(0, top - 80);
   }, [agendaDate]);
+
+  async function moveAppointment(apptId: string, newStartMins: number) {
+    const appt = agendaAppts.find(a => a.id === apptId);
+    if (!appt) return;
+    const duration = timeToMin(appt.endTime) - timeToMin(appt.startTime);
+    const clamped = Math.max(CAL_START * 60, Math.min(CAL_END * 60 - duration, newStartMins));
+    const newStartTime = `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
+    if (newStartTime === appt.startTime) return;
+    const endMins = clamped + duration;
+    const newEndTime = `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
+    const prev = agendaAppts;
+    setAgendaAppts(cur => cur.map(a => a.id === apptId ? { ...a, startTime: newStartTime, endTime: newEndTime } : a));
+    const res = await fetch("/api/barbershop/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: apptId, startTime: newStartTime }),
+    });
+    if (!res.ok) setAgendaAppts(prev);
+  }
+
+  function calcDropMins(clientY: number): number {
+    const rect = colRef.current?.getBoundingClientRect();
+    if (!rect) return CAL_START * 60;
+    const rawMins = (clientY - rect.top - dragOffset.current) / PX_PER_MIN + CAL_START * 60;
+    return Math.round(rawMins / 15) * 15;
+  }
 
   async function deleteBlock(id: string) {
     await fetch("/api/barber/blocks", {
@@ -570,19 +869,45 @@ export default function BarbeiroAgendaPage() {
     loadAgenda(agendaDate);
   }
 
+  async function handleNovoAgendamento(data: any): Promise<boolean> {
+    try {
+      const res = await fetch("/api/barbershop/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...data, force: false }),
+      });
+      if (res.status === 409) {
+        setEncaixePendingData(data);
+        return false;
+      }
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Erro ao agendar: " + (err.error || "Tente novamente."));
+        return false;
+      }
+      load();
+      loadAgenda(agendaDate);
+      return true;
+    } catch (e: any) {
+      alert("Erro de conexão: " + e.message);
+      return false;
+    }
+  }
+
   async function updateStatus(id: string, status: string, paymentMethod?: string) {
+    const prev = agendaAppts;
+    setAgendaAppts(cur => cur.map(a => a.id === id ? { ...a, status } : a));
     const r = await fetch("/api/barbershop/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id, status, paymentMethod }),
     });
     if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      alert("Erro ao atualizar: " + (d.error || r.status));
+      setAgendaAppts(prev);
+      loadAgenda(agendaDate);
       return;
     }
     load();
-    loadAgenda(agendaDate);
   }
 
   function prevDay() {
@@ -615,19 +940,52 @@ export default function BarbeiroAgendaPage() {
 
   const d = data;
 
-  // Current time indicator
   const brNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
   const nowTop = (brNow.getHours() * 60 + brNow.getMinutes() - CAL_START * 60) * PX_PER_MIN;
   const showNowLine = isToday && nowTop >= 0 && nowTop <= totalHeight;
 
   return (
     <div className="space-y-6">
-      {showNovoAgendamento && (
-        <NovoAgendamentoModal
-          token={token!}
-          onClose={() => setShowNovoAgendamento(false)}
-          onBooked={() => { load(); loadAgenda(agendaDate); }}
+      {showNovoAgendamento && myBarberId && (
+        <BarberAgendamentoModal
+          barberId={myBarberId}
+          date={agendaDate}
+          onConfirm={handleNovoAgendamento}
+          initialStartTime={agendamentoInitTime}
+          onClose={() => { setShowNovoAgendamento(false); setAgendamentoInitTime(undefined); }}
         />
+      )}
+      {encaixePendingData && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-primary/90" />
+            </div>
+            <h2 className="text-lg font-bold text-zinc-900 mb-2">Choque de Horário</h2>
+            <p className="text-sm text-zinc-500 mb-6">
+              Este horário já está ocupado. Deseja forçar a criação como um <strong>ENCAIXE</strong>?
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setEncaixePendingData(null)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
+              <button onClick={async () => {
+                const pending = encaixePendingData;
+                setEncaixePendingData(null);
+                setShowNovoAgendamento(false);
+                const res = await fetch("/api/barbershop/appointments", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ ...pending, force: true }),
+                });
+                if (!res.ok) {
+                  const err = await res.json();
+                  alert("Erro ao salvar encaixe: " + (err.error || "Desconhecido"));
+                }
+                load();
+                loadAgenda(agendaDate);
+              }} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors">Confirmar Encaixe</button>
+            </div>
+          </div>
+        </div>
       )}
       {showBloquear && (
         <BloquearAgendaModal
@@ -637,11 +995,17 @@ export default function BarbeiroAgendaPage() {
           onBlocked={() => loadAgenda(agendaDate)}
         />
       )}
+      {showVenderProduto && (
+        <VenderProdutoModal
+          token={token!}
+          onClose={() => setShowVenderProduto(false)}
+        />
+      )}
       {selectedAppt && (
         <ApptActionModal
           appt={selectedAppt}
           onClose={() => setSelectedAppt(null)}
-          onUpdate={(id, status) => { updateStatus(id, status); setSelectedAppt(null); }}
+          onUpdate={(id, status, paymentMethod) => { updateStatus(id, status, paymentMethod); setSelectedAppt(null); }}
         />
       )}
 
@@ -684,7 +1048,7 @@ export default function BarbeiroAgendaPage() {
           <div className="flex-1 min-w-0">
             <p className="text-xs opacity-80 font-medium mb-0.5">PRÓXIMO CLIENTE</p>
             <p className="font-bold truncate">{d.proximoAgendamento.client.name}</p>
-            <p className="text-sm opacity-90">{d.proximoAgendamento.service.name} · {d.proximoAgendamento.startTime}</p>
+            <p className="text-sm opacity-90">{d.proximoAgendamento.service?.name ?? "Serviço"} · {d.proximoAgendamento.startTime}</p>
           </div>
           {d.proximoAgendamento.client.phone && (
             <a href={`tel:${d.proximoAgendamento.client.phone}`}
@@ -695,13 +1059,11 @@ export default function BarbeiroAgendaPage() {
         </div>
       )}
 
-
       {/* Agenda — Calendário */}
       <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
         {/* Header */}
         <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            {/* Navegação de dias */}
             <button onClick={prevDay} className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
               <ChevronLeft className="w-4 h-4 text-zinc-500" />
             </button>
@@ -722,6 +1084,11 @@ export default function BarbeiroAgendaPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button onClick={() => setShowVenderProduto(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 border border-zinc-200 bg-white hover:bg-zinc-50 px-3 py-1.5 rounded-lg transition-colors">
+              <Package className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Vender</span>
+            </button>
             <button onClick={() => setShowBloquear(true)}
               className="flex items-center gap-1.5 text-xs font-semibold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors">
               <Lock className="w-3.5 h-3.5" /> Bloquear
@@ -751,7 +1118,27 @@ export default function BarbeiroAgendaPage() {
             </div>
 
             {/* Área de eventos */}
-            <div className="flex-1 relative border-l border-zinc-100" style={{ height: `${totalHeight}px` }}>
+            <div
+              ref={colRef}
+              className="flex-1 relative border-l border-zinc-100"
+              style={{ height: `${totalHeight}px` }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver({ mins: calcDropMins(e.clientY) });
+              }}
+              onDragLeave={(e) => {
+                if (!colRef.current?.contains(e.relatedTarget as Node)) setDragOver(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = draggingId.current;
+                const mins = calcDropMins(e.clientY);
+                setDragOver(null);
+                didDrag.current = true;
+                setTimeout(() => { didDrag.current = false; }, 100);
+                if (id) moveAppointment(id, mins);
+              }}
+            >
               {/* Linhas de hora */}
               {hours.map((h) => (
                 <div
@@ -774,6 +1161,34 @@ export default function BarbeiroAgendaPage() {
                 <div style={{ top: `${nowTop}px` }} className="absolute left-0 right-0 z-30 flex items-center pointer-events-none">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1.5 shrink-0" />
                   <div className="flex-1 border-t-2 border-red-500" />
+                </div>
+              )}
+
+              {/* Click em slot vazio → novo agendamento */}
+              <div
+                className="absolute inset-0 cursor-crosshair"
+                style={{ zIndex: 0 }}
+                onClick={(e) => {
+                  if (didDrag.current) return;
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  const rawMins = (e.clientY - rect.top) / PX_PER_MIN + CAL_START * 60;
+                  const snapped = Math.round(rawMins / 15) * 15;
+                  const clamped = Math.max(CAL_START * 60, Math.min(CAL_END * 60 - 15, snapped));
+                  const h = String(Math.floor(clamped / 60)).padStart(2, "0");
+                  const m = String(clamped % 60).padStart(2, "0");
+                  setAgendamentoInitTime(`${h}:${m}`);
+                  setShowNovoAgendamento(true);
+                }}
+              />
+
+              {/* Drop indicator */}
+              {dragOver && (
+                <div
+                  style={{ top: `${(dragOver.mins - CAL_START * 60) * PX_PER_MIN}px` }}
+                  className="absolute left-0 right-0 z-40 flex items-center pointer-events-none"
+                >
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400 -ml-1.5 shrink-0" />
+                  <div className="flex-1 border-t-2 border-amber-400 border-dashed" />
                 </div>
               )}
 
@@ -805,21 +1220,29 @@ export default function BarbeiroAgendaPage() {
               {/* Agendamentos */}
               {agendaAppts.map((a) => {
                 const top = timeToTop(a.startTime);
-                const height = Math.max(a.service.duration * PX_PER_MIN, 28);
+                const height = Math.max((a.service?.duration ?? 30) * PX_PER_MIN, 28);
                 const bg = STATUS_BG[a.status] ?? "bg-primary";
                 const isActive = a.status === "CONFIRMED" || a.status === "PENDING";
                 return (
                   <div
                     key={a.id}
+                    draggable
                     style={{ top: `${top}px`, height: `${height}px` }}
-                    className={`absolute left-1 right-1 ${bg} rounded-lg px-2 py-1 z-20 overflow-hidden cursor-pointer active:brightness-90`}
-                    onClick={() => setSelectedAppt(a)}
+                    className={`absolute left-1 right-1 ${bg} rounded-lg px-2 py-1 z-20 overflow-hidden cursor-grab select-none active:brightness-90`}
+                    onDragStart={(e) => {
+                      draggingId.current = a.id;
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      dragOffset.current = e.clientY - rect.top;
+                      setTimeout(() => { (e.target as HTMLElement).style.opacity = "0.45"; }, 0);
+                    }}
+                    onDragEnd={(e) => { (e.target as HTMLElement).style.opacity = "1"; draggingId.current = null; }}
+                    onClick={() => { if (didDrag.current) return; setSelectedAppt(a); }}
                   >
                     <div className="flex items-start gap-1 h-full">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-white truncate leading-tight">{a.client.name}</p>
                         {height >= 42 && (
-                          <p className="text-[11px] text-white/85 truncate leading-tight">{a.service.name}</p>
+                          <p className="text-[11px] text-white/85 truncate leading-tight">{a.service?.name ?? "Serviço"}</p>
                         )}
                         {height >= 58 && a.client.phone && (
                           <p className="text-[10px] text-white/70 flex items-center gap-0.5 leading-tight truncate">
@@ -827,7 +1250,6 @@ export default function BarbeiroAgendaPage() {
                           </p>
                         )}
                       </div>
-                      {/* Botão ✓ sempre visível para fechar rápido */}
                       {isActive && (
                         <button
                           onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "DONE"); }}

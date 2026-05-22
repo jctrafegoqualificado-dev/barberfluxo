@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 
 interface Subscription {
-  id: string; status: string; startDate: string; nextBillingDate: string; usesThisCycle: number;
+  id: string; status: string; startDate: string; nextBillingDate: string; billingDay: number | null; usesThisCycle: number;
   client: { id: string; name: string; email: string; phone: string | null };
   plan: { id: string; name: string; price: number; maxUses: number | null };
   payments: { status: string; amount: number; method: string; paidAt: string | null }[];
@@ -103,7 +103,7 @@ export default function AssinaturasPage() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "overdue" | "paused" | "cancelled">("all");
-  const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "" });
+  const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "", billingDay: "" });
   const [usageModal, setUsageModal] = useState<Subscription | null>(null);
 
   // Extrato do Assinante (Sprint 2)
@@ -185,7 +185,7 @@ export default function AssinaturasPage() {
       const data = await res.json();
       if (!res.ok) { alert(data.error || "Erro ao criar assinatura"); return; }
       setOpen(false);
-      setForm({ clientName: "", clientPhone: "", planId: "" });
+      setForm({ clientName: "", clientPhone: "", planId: "", billingDay: "" });
       load();
     } finally {
       setLoading(false);
@@ -574,22 +574,29 @@ export default function AssinaturasPage() {
                               </button>
                             </div>
                           ) : (
-                            <div className="flex items-center justify-center gap-1.5 group">
-                              <span className={`text-xs font-medium ${overdue ? "text-red-600 font-bold" : "text-zinc-600"}`}>
-                                {formatDate(s.nextBillingDate)}
-                              </span>
-                              <button
-                                onClick={() => {
-                                  setEditingId(s.id);
-                                  const d = new Date(s.nextBillingDate);
-                                  const formatted = d.toISOString().split('T')[0];
-                                  setEditDate(formatted);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded text-zinc-400 hover:text-zinc-700 transition-all"
-                                title="Editar data de cobrança"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                              </button>
+                            <div className="flex flex-col items-center gap-0.5">
+                              <div className="flex items-center justify-center gap-1.5 group">
+                                <span className={`text-xs font-medium ${overdue ? "text-red-600 font-bold" : "text-zinc-600"}`}>
+                                  {formatDate(s.nextBillingDate)}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setEditingId(s.id);
+                                    const d = new Date(s.nextBillingDate);
+                                    const formatted = d.toISOString().split('T')[0];
+                                    setEditDate(formatted);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded text-zinc-400 hover:text-zinc-700 transition-all"
+                                  title="Editar data de cobrança"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                              {s.billingDay && (
+                                <span className="text-[10px] font-semibold text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-full">
+                                  todo dia {s.billingDay}
+                                </span>
+                              )}
                             </div>
                           )}
                         </td>
@@ -826,6 +833,9 @@ export default function AssinaturasPage() {
                       <p className={`text-sm font-bold mt-1 ${isOverdue(extratoSub.nextBillingDate) ? "text-red-600" : "text-zinc-900"}`}>
                         {formatDate(extratoSub.nextBillingDate)}
                       </p>
+                      {extratoSub.billingDay && (
+                        <p className="text-[10px] text-primary font-semibold mt-0.5">vence todo dia {extratoSub.billingDay}</p>
+                      )}
                       {isOverdue(extratoSub.nextBillingDate) && <p className="text-[10px] text-red-500 font-bold mt-0.5">VENCIDO</p>}
                     </div>
                   </div>
@@ -1092,6 +1102,16 @@ export default function AssinaturasPage() {
               <option value="">Selecione um plano...</option>
               {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}/mês</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Dia de vencimento <span className="text-zinc-400 font-normal">(opcional)</span></label>
+            <select value={form.billingDay} onChange={(e) => setField("billingDay", e.target.value)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">Sem dia fixo</option>
+              {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>Dia {d}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-zinc-400 mt-1">Quando definido, a próxima cobrança sempre cai neste dia do mês.</p>
           </div>
           <Button type="submit" loading={loading} className="w-full mt-2">Registrar Assinante</Button>
         </form>

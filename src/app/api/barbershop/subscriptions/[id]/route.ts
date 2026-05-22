@@ -35,12 +35,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const { id } = await params;
-    const { status, planId, nextBillingDate } = await req.json();
+    const { status, planId, nextBillingDate, billingDay } = await req.json();
 
     const data: any = {};
     if (status) data.status = status;
     if (planId) data.planId = planId;
     if (nextBillingDate) data.nextBillingDate = new Date(nextBillingDate);
+    if (billingDay !== undefined) data.billingDay = billingDay ? Number(billingDay) : null;
 
     const subscription = await prisma.subscription.update({
       where: { id, barbershopId: payload.barbershopId! },

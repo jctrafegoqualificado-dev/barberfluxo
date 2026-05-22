@@ -44,6 +44,7 @@ const barberNav = [
   { href: "/barbeiro", label: "Minha Agenda", icon: Calendar },
   { href: "/barbeiro/producao", label: "Produção", icon: TrendingUp },
   { href: "/barbeiro/comissoes", label: "Comissões", icon: CreditCard },
+  { href: "/barbeiro/assinaturas", label: "Assinantes", icon: Layers },
   { href: "/barbeiro/clientes", label: "Clientes", icon: Users },
   { href: "/barbeiro/tarefas", label: "Tarefas", icon: KanbanSquare },
 ];

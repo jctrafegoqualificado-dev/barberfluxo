@@ -3,6 +3,22 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { addMonths } from "date-fns";
 
+function clampDay(day: number, year: number, month: number): number {
+  return Math.min(day, new Date(year, month + 1, 0).getDate());
+}
+
+function advanceBillingDate(current: Date, billingDay: number | null): Date {
+  const next = addMonths(current, 1);
+  if (!billingDay) return next;
+  return new Date(next.getFullYear(), next.getMonth(), clampDay(billingDay, next.getFullYear(), next.getMonth()));
+}
+
+function revertBillingDate(current: Date, billingDay: number | null): Date {
+  const prev = addMonths(current, -1);
+  if (!billingDay) return prev;
+  return new Date(prev.getFullYear(), prev.getMonth(), clampDay(billingDay, prev.getFullYear(), prev.getMonth()));
+}
+
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
@@ -48,7 +64,7 @@ export async function POST(req: NextRequest) {
     await prisma.subscription.update({
       where: { id: subscriptionId },
       data: {
-        nextBillingDate: addMonths(new Date(sub.nextBillingDate), 1),
+        nextBillingDate: advanceBillingDate(new Date(sub.nextBillingDate), (sub as any).billingDay ?? null),
         usesThisCycle: 0,
         status: "ACTIVE",
       },
@@ -85,7 +101,7 @@ export async function DELETE(req: NextRequest) {
       prisma.subscription.update({
         where: { id: subscriptionId },
         data: {
-          nextBillingDate: addMonths(new Date(sub.nextBillingDate), -1),
+          nextBillingDate: revertBillingDate(new Date(sub.nextBillingDate), (sub as any).billingDay ?? null),
         }
       })
     ]);
