@@ -78,34 +78,50 @@ export async function GET(req: NextRequest) {
       })
     ]);
 
-    // In-memory derivations from Phase A
-    const doneAppointmentsInPeriod = periodAllAppointments.filter((a) => a.status === "DONE");
-
+    // In-memory derivations from Phase A — single pass over doneAppointmentsInPeriod
     const barberRevenueMap: Record<string, { revenue: number; count: number }> = {};
-    doneAppointmentsInPeriod.forEach((a) => {
+    const clientSpentMap: Record<string, { spent: number; count: number }> = {};
+    const periodClientSet = new Set<string>();
+    let periodRevenue = 0;
+
+    // dailyRevenueMap initialized here so it's filled in the same pass
+    const dailyRevenueMap = new Map<string, number>();
+    for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
+      dailyRevenueMap.set(format(d, "dd/MM"), 0);
+    }
+
+    for (const a of periodAllAppointments) {
+      if (a.status !== "DONE") continue;
       if (!barberRevenueMap[a.barberId]) barberRevenueMap[a.barberId] = { revenue: 0, count: 0 };
       barberRevenueMap[a.barberId].revenue += a.price;
       barberRevenueMap[a.barberId].count += 1;
-    });
+
+      if (!clientSpentMap[a.clientId]) clientSpentMap[a.clientId] = { spent: 0, count: 0 };
+      clientSpentMap[a.clientId].spent += a.price;
+      clientSpentMap[a.clientId].count += 1;
+
+      periodClientSet.add(a.clientId);
+      periodRevenue += a.price;
+
+      const dateStr = format(a.date, "dd/MM");
+      const prev = dailyRevenueMap.get(dateStr);
+      if (prev !== undefined) dailyRevenueMap.set(dateStr, prev + a.price);
+    }
+
+    const doneAppointmentsInPeriod = periodAllAppointments.filter((a) => a.status === "DONE");
+    const periodClientIds = Array.from(periodClientSet);
+
     const topBarbersRaw = Object.entries(barberRevenueMap)
       .map(([barberId, data]) => ({ barberId, _sum: { price: data.revenue }, _count: data.count }))
       .sort((a, b) => (b._sum.price || 0) - (a._sum.price || 0))
       .slice(0, 5);
     const topBarberIds = topBarbersRaw.map((b) => b.barberId);
 
-    const clientSpentMap: Record<string, { spent: number; count: number }> = {};
-    doneAppointmentsInPeriod.forEach((a) => {
-      if (!clientSpentMap[a.clientId]) clientSpentMap[a.clientId] = { spent: 0, count: 0 };
-      clientSpentMap[a.clientId].spent += a.price;
-      clientSpentMap[a.clientId].count += 1;
-    });
     const topClientsRaw = Object.entries(clientSpentMap)
       .map(([clientId, data]) => ({ clientId, _sum: { price: data.spent }, _count: data.count }))
       .sort((a, b) => (b._sum.price || 0) - (a._sum.price || 0))
       .slice(0, 5);
     const topClientIds = topClientsRaw.map((c) => c.clientId);
-
-    const periodClientIds = Array.from(new Set(doneAppointmentsInPeriod.map((a) => a.clientId)));
 
     // --- PHASE B: everything else in one parallel wave ---
     const [
@@ -194,26 +210,17 @@ export async function GET(req: NextRequest) {
 
     // --- PHASE C: in-memory calculations + response ---
 
-    // Daily revenue via Map (O(N) em vez de O(N*M))
-    const dailyRevenueMap = new Map<string, number>();
-    for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
-      dailyRevenueMap.set(format(d, "dd/MM"), 0);
-    }
-    doneAppointmentsInPeriod.forEach((a) => {
-      const dateStr = format(a.date, "dd/MM");
-      if (dailyRevenueMap.has(dateStr)) {
-        dailyRevenueMap.set(dateStr, dailyRevenueMap.get(dateStr)! + a.price);
-      }
-    });
     const dailyRevenue = Array.from(dailyRevenueMap, ([date, revenue]) => ({ date, revenue }));
 
+    // Single pass over periodAllAppointments for status counts + used minutes
     const appointmentStatusCounts = { DONE: 0, PENDING: 0, CANCELLED: 0, NO_SHOW: 0 };
-    periodAllAppointments.forEach((a) => {
-      if (a.status === "DONE") appointmentStatusCounts.DONE++;
-      else if (a.status === "PENDING" || a.status === "CONFIRMED") appointmentStatusCounts.PENDING++;
+    let totalUsedMinutes = 0;
+    for (const a of periodAllAppointments) {
+      if (a.status === "DONE") { appointmentStatusCounts.DONE++; totalUsedMinutes += (a as { service?: { duration: number } | null }).service?.duration ?? 30; }
+      else if (a.status === "PENDING" || a.status === "CONFIRMED") { appointmentStatusCounts.PENDING++; totalUsedMinutes += (a as { service?: { duration: number } | null }).service?.duration ?? 30; }
       else if (a.status === "CANCELLED") appointmentStatusCounts.CANCELLED++;
       else if (a.status === "NO_SHOW") appointmentStatusCounts.NO_SHOW++;
-    });
+    }
 
     // Aniversariantes — já filtrados por mês no banco, só normaliza shape
     const birthdaysThisMonth = birthdaysThisMonthRaw.map((c) => ({
@@ -236,16 +243,12 @@ export async function GET(req: NextRequest) {
       }
       return mins * Math.max(1, activeBarbers);
     })();
-    const totalUsedMinutes = periodAllAppointments
-      .filter((a) => a.status === "DONE" || a.status === "PENDING")
-      .reduce((sum, a) => sum + ((a as { service?: { duration: number } | null }).service?.duration || 30), 0);
     const occupationPct = totalAvailableMinutes > 0
       ? Math.min(100, Math.round((totalUsedMinutes / totalAvailableMinutes) * 100))
       : 0;
     const occupationStatus = occupationPct >= 80 ? "SOBRECARGA" : occupationPct >= 50 ? "IDEAL" : "BAIXA";
 
     // KPIs
-    const periodRevenue = doneAppointmentsInPeriod.reduce((s, a) => s + a.price, 0);
     const prevPeriodRevenue = prevPeriodDoneAggregates._sum.price || 0;
     const revenueChange = prevPeriodRevenue > 0
       ? Math.round(((periodRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100)
