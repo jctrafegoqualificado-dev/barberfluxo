@@ -9,7 +9,7 @@ import {
 
 /**
  * Dashboard BI — Multi-Period API
- * 
+ *
  * Supports: ?period=today|7d|30d|month|custom&from=YYYY-MM-DD&to=YYYY-MM-DD
  */
 export async function GET(req: NextRequest) {
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     const now = new Date();
 
-    // --- FASE 1: Parse period filter ---
+    // --- Parse period filter ---
     const period = req.nextUrl.searchParams.get("period") || "month";
     const customFrom = req.nextUrl.searchParams.get("from");
     const customTo = req.nextUrl.searchParams.get("to");
@@ -50,7 +50,6 @@ export async function GET(req: NextRequest) {
         break;
     }
 
-    // Calculate previous period (same duration, shifted back)
     const periodDays = differenceInDays(periodEnd, periodStart) + 1;
     const prevPeriodEnd = new Date(periodStart.getTime() - 1);
     const prevPeriodStart = startOfDay(subDays(periodStart, periodDays));
@@ -58,9 +57,9 @@ export async function GET(req: NextRequest) {
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
     const monthKey = format(now, "yyyy-MM");
+    const currentMonth = now.getMonth() + 1;
 
-    // --- BATCHED QUERIES (OPTIMIZED FOR TRANSACTION POOLERS) ---
-    // Batch 1: Real-time & Period Main Data
+    // --- PHASE A: fetch what we need to derive IDs/aggregates from ---
     const [todayAppointments, periodAllAppointments] = await Promise.all([
       prisma.appointment.findMany({
         where: { barbershopId, date: { gte: todayStart, lte: todayEnd } },
@@ -79,22 +78,63 @@ export async function GET(req: NextRequest) {
       })
     ]);
 
-    // Batch 2: Previous Period Data
-    const [prevPeriodDoneAggregates, prevPeriodDistinctClients] = await Promise.all([
+    // In-memory derivations from Phase A
+    const doneAppointmentsInPeriod = periodAllAppointments.filter((a) => a.status === "DONE");
+
+    const barberRevenueMap: Record<string, { revenue: number; count: number }> = {};
+    doneAppointmentsInPeriod.forEach((a) => {
+      if (!barberRevenueMap[a.barberId]) barberRevenueMap[a.barberId] = { revenue: 0, count: 0 };
+      barberRevenueMap[a.barberId].revenue += a.price;
+      barberRevenueMap[a.barberId].count += 1;
+    });
+    const topBarbersRaw = Object.entries(barberRevenueMap)
+      .map(([barberId, data]) => ({ barberId, _sum: { price: data.revenue }, _count: data.count }))
+      .sort((a, b) => (b._sum.price || 0) - (a._sum.price || 0))
+      .slice(0, 5);
+    const topBarberIds = topBarbersRaw.map((b) => b.barberId);
+
+    const clientSpentMap: Record<string, { spent: number; count: number }> = {};
+    doneAppointmentsInPeriod.forEach((a) => {
+      if (!clientSpentMap[a.clientId]) clientSpentMap[a.clientId] = { spent: 0, count: 0 };
+      clientSpentMap[a.clientId].spent += a.price;
+      clientSpentMap[a.clientId].count += 1;
+    });
+    const topClientsRaw = Object.entries(clientSpentMap)
+      .map(([clientId, data]) => ({ clientId, _sum: { price: data.spent }, _count: data.count }))
+      .sort((a, b) => (b._sum.price || 0) - (a._sum.price || 0))
+      .slice(0, 5);
+    const topClientIds = topClientsRaw.map((c) => c.clientId);
+
+    const periodClientIds = Array.from(new Set(doneAppointmentsInPeriod.map((a) => a.clientId)));
+
+    // --- PHASE B: everything else in one parallel wave ---
+    const [
+      prevPeriodDoneAggregates,
+      prevPeriodDistinctClientsGroups,
+      periodProductSales,
+      activeSubscriptions,
+      activeBarbers,
+      commissionPayments,
+      commissionVales,
+      whatsappInstance,
+      openingHours,
+      periodReviews,
+      prevPeriodReviews,
+      birthdaysThisMonthRaw,
+      clientsBeforePeriod,
+      barberUsers,
+      clientUsers,
+    ] = await Promise.all([
       prisma.appointment.aggregate({
         where: { barbershopId, status: "DONE", date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
         _sum: { price: true },
         _count: { _all: true }
       }),
-      prisma.appointment.findMany({
+      prisma.appointment.groupBy({
+        by: ["clientId"],
         where: { barbershopId, status: "DONE", date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
-        select: { clientId: true },
-        distinct: ['clientId']
-      })
-    ]);
-
-    // Batch 3: Product Sales & Active Subscriptions
-    const [periodProductSales, activeSubscriptions, activeBarbers] = await Promise.all([
+        _count: true,
+      }),
       prisma.productSale.aggregate({
         where: { barbershopId, createdAt: { gte: periodStart, lte: periodEnd } },
         _sum: { total: true },
@@ -104,11 +144,7 @@ export async function GET(req: NextRequest) {
         where: { barbershopId, status: "ACTIVE" },
         include: { plan: { select: { price: true } } },
       }),
-      prisma.barber.count({ where: { barbershopId, active: true } })
-    ]);
-
-    // Batch 4: Commissions, WhatsApp, Hours
-    const [commissionPayments, commissionVales, whatsappInstance, openingHours] = await Promise.all([
+      prisma.barber.count({ where: { barbershopId, active: true } }),
       prisma.commissionPayment.findMany({ where: { barbershopId, month: monthKey } }),
       prisma.commissionVale.findMany({ where: { barbershopId, month: monthKey } }),
       prisma.whatsAppInstance.findUnique({
@@ -118,103 +154,81 @@ export async function GET(req: NextRequest) {
       prisma.openingHour.findMany({
         where: { barbershopId, isOpen: true },
         select: { dayOfWeek: true, openTime: true, closeTime: true },
-      })
+      }),
+      prisma.review.findMany({ where: { barbershopId, createdAt: { gte: periodStart, lte: periodEnd } } }),
+      prisma.review.findMany({ where: { barbershopId, createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd } } }),
+      prisma.$queryRaw<Array<{ id: string; name: string; phone: string | null; day: number }>>`
+        SELECT u.id, u.name, u.phone, EXTRACT(DAY FROM u.birthday)::int AS day
+        FROM "User" u
+        WHERE u.birthday IS NOT NULL
+          AND EXTRACT(MONTH FROM u.birthday) = ${currentMonth}
+          AND EXISTS (
+            SELECT 1 FROM "Appointment" a
+            WHERE a."clientId" = u.id AND a."barbershopId" = ${barbershopId}
+          )
+        ORDER BY day ASC
+      `,
+      periodClientIds.length > 0
+        ? prisma.appointment.groupBy({
+            by: ["clientId"],
+            where: {
+              barbershopId, status: "DONE", date: { lt: periodStart },
+              clientId: { in: periodClientIds },
+            },
+            _count: true,
+          })
+        : Promise.resolve([] as Array<{ clientId: string }>),
+      topBarberIds.length > 0
+        ? prisma.barber.findMany({
+            where: { id: { in: topBarberIds } },
+            include: { user: { select: { name: true } } },
+          })
+        : Promise.resolve([] as Array<{ id: string; user: { name: string } }>),
+      topClientIds.length > 0
+        ? prisma.user.findMany({
+            where: { id: { in: topClientIds } },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([] as Array<{ id: string; name: string }>),
     ]);
 
-    // Batch 5: NPS Reviews & Birthday Clients
-    const [periodReviews, prevPeriodReviews, birthdayClients] = await Promise.all([
-      prisma.review.findMany({
-        where: { barbershopId, createdAt: { gte: periodStart, lte: periodEnd } }
-      }),
-      prisma.review.findMany({
-        where: { barbershopId, createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd } }
-      }),
-      prisma.user.findMany({
-        where: {
-          appointments: { some: { barbershopId } },
-          birthday: { not: null },
-        },
-        select: { id: true, name: true, phone: true, birthday: true },
-      })
-    ]);
+    // --- PHASE C: in-memory calculations + response ---
 
-    // --- CALCULATIONS ---
-    const doneAppointmentsInPeriod = periodAllAppointments.filter((a) => a.status === "DONE");
-
-    // Top Barbers and Top Clients calculated dynamically in memory (eliminates 2 slow database group-by queries)
-    const barberRevenueMap: Record<string, { revenue: number; count: number }> = {};
-    doneAppointmentsInPeriod.forEach((a) => {
-      if (!barberRevenueMap[a.barberId]) {
-        barberRevenueMap[a.barberId] = { revenue: 0, count: 0 };
-      }
-      barberRevenueMap[a.barberId].revenue += a.price;
-      barberRevenueMap[a.barberId].count += 1;
-    });
-
-    const topBarbersRaw = Object.entries(barberRevenueMap)
-      .map(([barberId, data]) => ({
-        barberId,
-        _sum: { price: data.revenue },
-        _count: data.count,
-      }))
-      .sort((a, b) => (b._sum.price || 0) - (a._sum.price || 0))
-      .slice(0, 5);
-
-    const clientSpentMap: Record<string, { spent: number; count: number }> = {};
-    doneAppointmentsInPeriod.forEach((a) => {
-      if (!clientSpentMap[a.clientId]) {
-        clientSpentMap[a.clientId] = { spent: 0, count: 0 };
-      }
-      clientSpentMap[a.clientId].spent += a.price;
-      clientSpentMap[a.clientId].count += 1;
-    });
-
-    const topClientsRaw = Object.entries(clientSpentMap)
-      .map(([clientId, data]) => ({
-        clientId,
-        _sum: { price: data.spent },
-        _count: data.count,
-      }))
-      .sort((a, b) => (b._sum.price || 0) - (a._sum.price || 0))
-      .slice(0, 5);
-
-    // Charts Data
-    const dailyRevenue: { date: string; revenue: number }[] = [];
+    // Daily revenue via Map (O(N) em vez de O(N*M))
+    const dailyRevenueMap = new Map<string, number>();
     for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
-      dailyRevenue.push({ date: format(d, "dd/MM"), revenue: 0 });
+      dailyRevenueMap.set(format(d, "dd/MM"), 0);
     }
-    doneAppointmentsInPeriod.forEach(a => {
+    doneAppointmentsInPeriod.forEach((a) => {
       const dateStr = format(a.date, "dd/MM");
-      const day = dailyRevenue.find(d => d.date === dateStr);
-      if (day) day.revenue += a.price;
+      if (dailyRevenueMap.has(dateStr)) {
+        dailyRevenueMap.set(dateStr, dailyRevenueMap.get(dateStr)! + a.price);
+      }
     });
+    const dailyRevenue = Array.from(dailyRevenueMap, ([date, revenue]) => ({ date, revenue }));
 
     const appointmentStatusCounts = { DONE: 0, PENDING: 0, CANCELLED: 0, NO_SHOW: 0 };
-    periodAllAppointments.forEach(a => {
+    periodAllAppointments.forEach((a) => {
       if (a.status === "DONE") appointmentStatusCounts.DONE++;
       else if (a.status === "PENDING" || a.status === "CONFIRMED") appointmentStatusCounts.PENDING++;
       else if (a.status === "CANCELLED") appointmentStatusCounts.CANCELLED++;
       else if (a.status === "NO_SHOW") appointmentStatusCounts.NO_SHOW++;
     });
 
-    // Epic 3: Aniversariantes do mês atual
-    const currentMonth = now.getMonth() + 1;
-    const birthdaysThisMonth = birthdayClients
-      .filter(c => c.birthday && new Date(c.birthday).getMonth() + 1 === currentMonth)
-      .sort((a, b) => new Date(a.birthday!).getDate() - new Date(b.birthday!).getDate())
-      .map(c => ({
-        id: c.id,
-        name: c.name,
-        phone: c.phone,
-        day: new Date(c.birthday!).getDate(),
-      }));
+    // Aniversariantes — já filtrados por mês no banco, só normaliza shape
+    const birthdaysThisMonth = birthdaysThisMonthRaw.map((c) => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      day: c.day,
+    }));
 
-    // Epic 3: Gauge de Ocupação da Equipe
+    // Gauge de Ocupação
     const totalAvailableMinutes = (() => {
       let mins = 0;
       for (let d = new Date(periodStart); d <= periodEnd; d.setDate(d.getDate() + 1)) {
         const dow = d.getDay();
-        const oh = openingHours.find(h => h.dayOfWeek === dow);
+        const oh = openingHours.find((h) => h.dayOfWeek === dow);
         if (!oh) continue;
         const [openH, openM] = oh.openTime.split(":").map(Number);
         const [closeH, closeM] = oh.closeTime.split(":").map(Number);
@@ -223,66 +237,51 @@ export async function GET(req: NextRequest) {
       return mins * Math.max(1, activeBarbers);
     })();
     const totalUsedMinutes = periodAllAppointments
-      .filter(a => a.status === "DONE" || a.status === "PENDING")
+      .filter((a) => a.status === "DONE" || a.status === "PENDING")
       .reduce((sum, a) => sum + ((a as { service?: { duration: number } | null }).service?.duration || 30), 0);
     const occupationPct = totalAvailableMinutes > 0
       ? Math.min(100, Math.round((totalUsedMinutes / totalAvailableMinutes) * 100))
       : 0;
     const occupationStatus = occupationPct >= 80 ? "SOBRECARGA" : occupationPct >= 50 ? "IDEAL" : "BAIXA";
 
-    // Revenue
+    // KPIs
     const periodRevenue = doneAppointmentsInPeriod.reduce((s, a) => s + a.price, 0);
-
     const prevPeriodRevenue = prevPeriodDoneAggregates._sum.price || 0;
     const revenueChange = prevPeriodRevenue > 0
       ? Math.round(((periodRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100)
       : null;
 
-    // Appointments count
     const periodAppointments = doneAppointmentsInPeriod.length;
     const prevPeriodAppointments = prevPeriodDoneAggregates._count._all || 0;
     const appointmentsChange = prevPeriodAppointments > 0
       ? Math.round(((periodAppointments - prevPeriodAppointments) / prevPeriodAppointments) * 100)
       : null;
 
-    // Ticket médio
     const ticketMedio = periodAppointments > 0 ? periodRevenue / periodAppointments : 0;
     const prevTicketMedio = prevPeriodAppointments > 0 ? prevPeriodRevenue / prevPeriodAppointments : 0;
     const ticketChange = prevTicketMedio > 0
       ? Math.round(((ticketMedio - prevTicketMedio) / prevTicketMedio) * 100)
       : null;
 
-    // Unique clients (retention rate)
-    const periodClientIds = new Set(doneAppointmentsInPeriod.map((a) => a.clientId));
-    const periodUniqueClients = periodClientIds.size;
-    const prevUniqueClients = prevPeriodDistinctClients.length;
+    const periodUniqueClients = periodClientIds.length;
+    const prevUniqueClients = prevPeriodDistinctClientsGroups.length;
     const clientsChange = prevUniqueClients > 0
       ? Math.round(((periodUniqueClients - prevUniqueClients) / prevUniqueClients) * 100)
       : null;
 
-    // New vs returning clients (this period)
-    const clientsBeforePeriod = await prisma.appointment.groupBy({
-      by: ["clientId"],
-      where: {
-        barbershopId, status: "DONE", date: { lt: periodStart },
-        clientId: { in: Array.from(periodClientIds) },
-      },
-      _count: true,
-    });
     const returningClientIds = new Set(clientsBeforePeriod.map((r) => r.clientId));
-    const newClients = Array.from(periodClientIds).filter((id) => !returningClientIds.has(id)).length;
+    const newClients = periodClientIds.filter((id) => !returningClientIds.has(id)).length;
     const returningClients = returningClientIds.size;
 
-    // MRR
     const mrr = activeSubscriptions.reduce((sum, s) => sum + s.plan.price, 0);
 
-    // Projection (month only)
+    // Projeção
     const diaAtual = getDate(now);
     const diasNoMes = getDaysInMonth(now);
     const monthRevenue = period === "month" ? periodRevenue : 0;
     const projecaoMes = diaAtual > 0 ? (monthRevenue / diaAtual) * diasNoMes : 0;
 
-    // Today metrics
+    // Hoje
     const todayDone = todayAppointments.filter((a) => a.status === "DONE");
     const todayPending = todayAppointments.filter((a) => a.status === "PENDING" || a.status === "CONFIRMED");
     const todayRevenue = todayDone.reduce((s, a) => s + a.price, 0);
@@ -290,7 +289,6 @@ export async function GET(req: NextRequest) {
       .filter((a) => a.status !== "CANCELLED" && a.status !== "NO_SHOW")
       .reduce((s, a) => s + (a.service?.price || 0), 0);
 
-    // Next client
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const nextAppointment = todayAppointments.find((a) => {
       if (a.status !== "CONFIRMED" && a.status !== "PENDING") return false;
@@ -298,21 +296,11 @@ export async function GET(req: NextRequest) {
       return h * 60 + m >= nowMinutes;
     }) || null;
 
-    // Comissões
     const totalComissaoPaga = commissionPayments.reduce((s, p) => s + p.amount, 0);
     const totalVales = commissionVales.reduce((s, v) => s + v.amount, 0);
 
-    // --- FASE 4: RANKINGS ---
-    // Top barbers — enrich with names
-    const barberIds = topBarbersRaw.map((b) => b.barberId);
-    const barberUsers = barberIds.length > 0
-      ? await prisma.barber.findMany({
-          where: { id: { in: barberIds } },
-          include: { user: { select: { name: true } } },
-        })
-      : [];
+    // Rankings enrichment
     const barberMap = new Map(barberUsers.map((b) => [b.id, b.user.name]));
-
     const topBarbers = topBarbersRaw.map((b) => ({
       id: b.barberId,
       name: barberMap.get(b.barberId) || "Profissional",
@@ -320,16 +308,7 @@ export async function GET(req: NextRequest) {
       appointments: b._count,
     }));
 
-    // Top clients — enrich with names
-    const clientIds = topClientsRaw.map((c) => c.clientId);
-    const clientUsers = clientIds.length > 0
-      ? await prisma.user.findMany({
-          where: { id: { in: clientIds } },
-          select: { id: true, name: true },
-        })
-      : [];
     const clientMap = new Map(clientUsers.map((c) => [c.id, c.name]));
-
     const topClients = topClientsRaw.map((c) => ({
       id: c.clientId,
       name: clientMap.get(c.clientId) || "Cliente",
@@ -337,62 +316,42 @@ export async function GET(req: NextRequest) {
       visits: c._count,
     }));
 
-    // Product sales
     const productSalesTotal = periodProductSales._sum.total || 0;
 
-    // NPS & Reviews Calculations
+    // NPS
     const calculateNpsMetrics = (reviewsList: typeof periodReviews) => {
       if (reviewsList.length === 0) {
         return { score: null, promoters: 0, passives: 0, detractors: 0, average: 0, total: 0, level: "N/A" };
       }
-
       const total = reviewsList.length;
       let promoters = 0;
       let passives = 0;
       let detractors = 0;
       let sum = 0;
-
       reviewsList.forEach((r) => {
         sum += r.rating;
         if (r.rating >= 9) promoters++;
         else if (r.rating >= 7) passives++;
         else detractors++;
       });
-
       const promoterPct = (promoters / total) * 100;
       const detractorPct = (detractors / total) * 100;
       const score = Math.round(promoterPct - detractorPct);
       const average = Math.round((sum / total) * 10) / 10;
-
       let level = "BOM";
       if (score >= 75) level = "EXCELENTE";
       else if (score >= 50) level = "MUITO BOM";
       else if (score < 0) level = "CRÍTICO";
-
-      return {
-        score,
-        promoters,
-        passives,
-        detractors,
-        average,
-        total,
-        level,
-      };
+      return { score, promoters, passives, detractors, average, total, level };
     };
 
     const nps = calculateNpsMetrics(periodReviews);
     const prevNps = calculateNpsMetrics(prevPeriodReviews);
-    let npsChange: number | null = null;
-    if (nps.score !== null && prevNps.score !== null) {
-      npsChange = nps.score - prevNps.score;
-    }
+    const npsChange = (nps.score !== null && prevNps.score !== null) ? nps.score - prevNps.score : null;
 
     return NextResponse.json({
-      // Period info
       period,
       periodLabel: `${format(periodStart, "dd/MM")} - ${format(periodEnd, "dd/MM")}`,
-
-      // FASE 5: NPS
       nps: {
         score: nps.score,
         change: npsChange,
@@ -403,8 +362,6 @@ export async function GET(req: NextRequest) {
         passives: nps.passives,
         detractors: nps.detractors,
       },
-
-      // FASE 2: Raio-X de Hoje
       today: {
         appointments: todayAppointments,
         total: todayAppointments.length,
@@ -415,14 +372,10 @@ export async function GET(req: NextRequest) {
         expectedRevenue: todayExpectedRevenue,
         nextAppointment,
       },
-
-      // WhatsApp status
       whatsapp: {
         status: whatsappInstance?.status || "DISCONNECTED",
         lastConnectedAt: whatsappInstance?.lastConnectedAt || null,
       },
-
-      // FASE 3: KPIs Comparativos
       kpis: {
         revenue: { value: periodRevenue, change: revenueChange, prevValue: prevPeriodRevenue },
         appointments: { value: periodAppointments, change: appointmentsChange, prevValue: prevPeriodAppointments },
@@ -432,25 +385,17 @@ export async function GET(req: NextRequest) {
         returningClients,
         productSales: productSalesTotal,
       },
-
-      // Extra
       mrr,
       activeSubscriptions: activeSubscriptions.length,
       activeBarbers,
       projecaoMes: Math.round(projecaoMes),
       comissoes: { totalPago: totalComissaoPaga, totalVales, barbeirosPagos: commissionPayments.length },
-
-      // FASE 4: Rankings
       topBarbers,
       topClients,
-
-      // Charts (Fase 6)
       charts: {
         dailyRevenue,
         appointmentStatus: appointmentStatusCounts,
       },
-
-      // Epic 3: Operacional
       birthdaysThisMonth,
       occupation: {
         pct: occupationPct,
