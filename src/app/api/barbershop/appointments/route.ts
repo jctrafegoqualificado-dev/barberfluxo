@@ -140,46 +140,67 @@ export async function PATCH(req: NextRequest) {
     });
 
     // ── DONE: Abate uso do plano (só se não era DONE antes — previne double-click) ──
-    if (status === "DONE" && previousState?.status !== "DONE" && (appointment.subscriptionId || appointment.beneficiaryName)) {
+    if (status === "DONE" && previousState?.status !== "DONE" && appointment.subscriptionId) {
       const sub = await prisma.subscription.findUnique({
-        where: { id: appointment.subscriptionId || undefined },
+        where: { id: appointment.subscriptionId },
       });
 
-      if (sub && appointment.beneficiaryName && Array.isArray(sub.beneficiaries)) {
-        const updatedBeneficiaries = (sub.beneficiaries as any[]).map((b: any) =>
-          b.name.toLowerCase() === appointment.beneficiaryName?.toLowerCase() ? { ...b, uses: b.uses + 1 } : b
-        );
-        
-        await prisma.subscription.update({
-          where: { id: sub.id },
-          data: {
-            usesThisCycle: sub.usesThisCycle + 1,
-            beneficiaries: updatedBeneficiaries || undefined,
-          },
-        });
+      if (sub) {
+        if (appointment.beneficiaryName && Array.isArray(sub.beneficiaries)) {
+          const beneficiaries = sub.beneficiaries as any[];
+          const bIndex = beneficiaries.findIndex(
+            (b: any) => b.name.toLowerCase() === appointment.beneficiaryName?.toLowerCase()
+          );
+          const bEntry = beneficiaries[bIndex];
+          if (bIndex !== -1 && bEntry && bEntry.uses < bEntry.maxUses) {
+            await prisma.subscription.update({
+              where: { id: sub.id },
+              data: {
+                usesThisCycle: sub.usesThisCycle + 1,
+                beneficiaries: beneficiaries.map((b, i) =>
+                  i === bIndex ? { ...b, uses: b.uses + 1 } : b
+                ),
+              },
+            });
+          }
+        } else if (!appointment.beneficiaryName) {
+          await prisma.subscription.update({
+            where: { id: sub.id },
+            data: { usesThisCycle: sub.usesThisCycle + 1 },
+          });
+        }
       }
     }
 
     // ── CANCELLED: Devolve uso do plano se já tinha sido DONE ──
-    if (status === "CANCELLED" && previousState?.status === "DONE" && (appointment.subscriptionId || appointment.beneficiaryName)) {
+    if (status === "CANCELLED" && previousState?.status === "DONE" && appointment.subscriptionId) {
       const sub = await prisma.subscription.findUnique({
-        where: { id: appointment.subscriptionId || undefined },
+        where: { id: appointment.subscriptionId },
       });
 
-      if (sub && appointment.beneficiaryName && Array.isArray(sub.beneficiaries)) {
-        const updatedBeneficiaries = (sub.beneficiaries as any[]).map((b: any) =>
-          b.name.toLowerCase() === appointment.beneficiaryName?.toLowerCase() 
-            ? { ...b, uses: Math.max(0, b.uses - 1) } 
-            : b
-        );
-        
-        await prisma.subscription.update({
-          where: { id: sub.id },
-          data: {
-            usesThisCycle: Math.max(0, sub.usesThisCycle - 1),
-            beneficiaries: updatedBeneficiaries || undefined,
-          },
-        });
+      if (sub) {
+        if (appointment.beneficiaryName && Array.isArray(sub.beneficiaries)) {
+          const beneficiaries = sub.beneficiaries as any[];
+          const bIndex = beneficiaries.findIndex(
+            (b: any) => b.name.toLowerCase() === appointment.beneficiaryName?.toLowerCase()
+          );
+          if (bIndex !== -1) {
+            await prisma.subscription.update({
+              where: { id: sub.id },
+              data: {
+                usesThisCycle: Math.max(0, sub.usesThisCycle - 1),
+                beneficiaries: beneficiaries.map((b, i) =>
+                  i === bIndex ? { ...b, uses: Math.max(0, b.uses - 1) } : b
+                ),
+              },
+            });
+          }
+        } else if (!appointment.beneficiaryName) {
+          await prisma.subscription.update({
+            where: { id: sub.id },
+            data: { usesThisCycle: Math.max(0, sub.usesThisCycle - 1) },
+          });
+        }
       }
     }
 
@@ -232,16 +253,15 @@ export async function POST(req: NextRequest) {
     const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
-    // Encontra ou cria o cliente (Busca por dígitos limpos)
+    // Encontra ou cria o cliente — busca direta, sem full table scan
     const phoneDigits = clientPhone.replace(/\D/g, "");
-    const clients = await prisma.user.findMany({ where: { role: "CLIENT" } });
-    let client = clients.find(c => c.phone && c.phone.replace(/\D/g, "") === phoneDigits);
+    const clientEmail = `${phoneDigits}@cliente.barberfluxo.com`;
+    let client = await prisma.user.findFirst({ where: { phone: phoneDigits, role: "CLIENT" } })
+      ?? await prisma.user.findUnique({ where: { email: clientEmail } });
 
     if (!client) {
-      const email = `${phoneDigits}@cliente.barberfluxo.com`;
-      const hashed = "123456"; // default dummy password for shadow clients
       client = await prisma.user.create({
-        data: { name: clientName, email, phone: clientPhone, password: hashed, role: "CLIENT" },
+        data: { name: clientName, email: clientEmail, phone: phoneDigits, password: "123456", role: "CLIENT" },
       });
     }
 

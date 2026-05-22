@@ -72,18 +72,17 @@ export async function POST(req: NextRequest) {
 
     const cleanPhone = clientPhone.replace(/\D/g, "") || "sem-telefone";
 
-    // Sprint 1: Busca por telefone sanitizado (evita duplicidade)
-    const allClients = await prisma.user.findMany({ where: { role: "CLIENT" } });
-    let client = allClients.find(c => c.phone?.replace(/\D/g, "") === cleanPhone) || null;
+    // Busca direta por telefone — evita full table scan
+    const clientEmail = `${cleanPhone}@cliente.barberfluxo.com`;
+    let client = await prisma.user.findFirst({
+      where: { phone: cleanPhone, role: "CLIENT" },
+    });
 
     if (!client) {
-      const clientEmail = `${cleanPhone}@cliente.barberfluxo.com`;
-      // Verifica se o email já existe (fallback)
       client = await prisma.user.findUnique({ where: { email: clientEmail } });
     }
 
     if (!client) {
-      const clientEmail = `${cleanPhone}@cliente.barberfluxo.com`;
       const hashed = await hashPassword(clientPhone);
       client = await prisma.user.create({
         data: { name: clientName, email: clientEmail, phone: cleanPhone, password: hashed, role: "CLIENT" },
@@ -104,25 +103,27 @@ export async function POST(req: NextRequest) {
       ? plan.beneficiaryRules.map((r: any) => ({ name: r.name, maxUses: r.maxUses, uses: 0 }))
       : undefined;
 
-    const subscription = await prisma.subscription.create({
-      data: {
-        clientId: client.id,
-        planId,
-        barbershopId: payload.barbershopId!,
-        nextBillingDate: nextBilling,
-        billingDay: billingDayNum,
-        beneficiaries,
-        payments: {
-          create: { amount: plan.price, method: "PIX", status: "PENDING" },
+    const subscription = await prisma.$transaction(async (tx) => {
+      return tx.subscription.create({
+        data: {
+          clientId: client.id,
+          planId,
+          barbershopId: payload.barbershopId!,
+          nextBillingDate: nextBilling,
+          billingDay: billingDayNum,
+          beneficiaries,
+          payments: {
+            create: { amount: plan.price, method: "PIX", status: "PENDING" },
+          },
         },
-      },
-      include: {
-        client: { select: { id: true, name: true, email: true, phone: true } },
-        plan: true,
-      },
+        include: {
+          client: { select: { id: true, name: true, email: true, phone: true } },
+          plan: true,
+        },
+      });
     });
 
-    // Envia email de confirmação ao cliente
+    // E-mail é fire-and-forget — falha não reverte a assinatura criada
     sendSubscriptionConfirmation({
       to: client.email,
       clientName: client.name,
@@ -130,7 +131,9 @@ export async function POST(req: NextRequest) {
       planName: plan.name,
       price: plan.price,
       nextBilling,
-    }).catch(console.error);
+    }).catch((err) => {
+      console.error(`[subscriptions] E-mail de confirmação falhou para ${client.email}:`, err);
+    });
 
     return NextResponse.json({ subscription }, { status: 201 });
   } catch (e: unknown) {
