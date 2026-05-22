@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
+import { validateApiKey } from "./api-keys/middleware";
 
 const _JWT_SECRET = process.env.JWT_SECRET;
 if (!_JWT_SECRET) {
@@ -47,4 +48,27 @@ export function requireAuth(req: NextRequest, allowedRoles?: string[]) {
     throw new Error("FORBIDDEN");
   }
   return payload;
+}
+
+export async function requireAuthWithApiKey(
+  req: NextRequest,
+  allowedRoles?: string[]
+): Promise<{ id: string; email: string; role: string; barbershopId?: string; source: "jwt" | "api_key" }> {
+  const auth = req.headers.get("authorization");
+  const rawToken = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+
+  if (rawToken?.startsWith("bf_")) {
+    const result = await validateApiKey(req);
+    if (!result.valid) throw new Error("UNAUTHORIZED");
+    return {
+      id: "api_key",
+      email: "",
+      role: "API_KEY",
+      barbershopId: result.barbershopId,
+      source: "api_key",
+    };
+  }
+
+  const payload = requireAuth(req, allowedRoles);
+  return { ...payload, source: "jwt" };
 }

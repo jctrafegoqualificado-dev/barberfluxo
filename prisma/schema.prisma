@@ -89,6 +89,7 @@ model Barbershop {
   loyaltyPoints    LoyaltyPoint[]
   expenses         Expense[]
   cashFlowSessions CashFlowSession[]
+  apiKeys          ApiKey[]
 }
 
 model WhatsAppInstance {
@@ -483,6 +484,21 @@ model LoyaltyPoint {
   client        User        @relation("ClientLoyaltyPoints", fields: [clientId], references: [id])
   barbershopId  String
   barbershop    Barbershop  @relation(fields: [barbershopId], references: [id])
+}
+
+model ApiKey {
+  id           String     @id @default(cuid())
+  keyHash      String     @unique
+  keyPrefix    String
+  name         String
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([barbershopId])
+  @@index([keyHash])
 }
 
 // ===================== MÓDULO FINANCEIRO =====================
