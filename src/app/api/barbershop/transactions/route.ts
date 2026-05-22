@@ -24,32 +24,49 @@ export async function GET(req: NextRequest) {
     const monthStart = startOfMonth(new Date(month + "-15"));
     const monthEnd = endOfMonth(monthStart);
 
-    // Fetch shop fees
-    const shop = await prisma.barbershop.findUnique({ where: { id: barbershopId } });
+    const prevMonthStart = startOfMonth(addMonths(monthStart, -1));
+    const prevMonthEnd = endOfMonth(prevMonthStart);
+    const prevMonthStr = format(prevMonthStart, "yyyy-MM");
+
+    // Todas as 5 queries em paralelo (antes eram 3 waves sequenciais)
+    const [shop, appointments, expenses, prevAppts, prevExpenses] = await Promise.all([
+      prisma.barbershop.findUnique({
+        where: { id: barbershopId },
+        select: { debitFee: true, creditFee: true },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          barbershopId,
+          status: "DONE",
+          date: { gte: monthStart, lte: monthEnd },
+        },
+        select: {
+          id: true,
+          paymentMethod: true,
+          price: true,
+          date: true,
+          subscriptionId: true,
+          client: { select: { name: true } },
+          service: { select: { name: true } },
+          services: { select: { service: { select: { name: true } } } },
+        },
+        orderBy: { date: "desc" },
+      }),
+      prisma.expense.findMany({
+        where: { barbershopId, month },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.appointment.aggregate({
+        where: { barbershopId, status: "DONE", date: { gte: prevMonthStart, lte: prevMonthEnd } },
+        _sum: { price: true },
+      }),
+      prisma.expense.aggregate({
+        where: { barbershopId, month: prevMonthStr },
+        _sum: { amount: true },
+      }),
+    ]);
     const debitFee = shop?.debitFee ?? 0;
     const creditFee = shop?.creditFee ?? 0;
-
-    // ── 1. Appointments (Entradas)
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        barbershopId,
-        status: "DONE",
-        date: { gte: monthStart, lte: monthEnd },
-      },
-      include: {
-        client: { select: { name: true } },
-        barber: { include: { user: { select: { name: true } } } },
-        service: { select: { name: true } },
-        services: { include: { service: { select: { name: true } } } },
-      },
-      orderBy: { date: "desc" },
-    });
-
-    // ── 2. Expenses (Saídas)
-    const expenses = await prisma.expense.findMany({
-      where: { barbershopId, month },
-      orderBy: { createdAt: "desc" },
-    });
 
     // ── 3. Build unified transaction list
     type Transaction = {
@@ -69,11 +86,37 @@ export async function GET(req: NextRequest) {
 
     const transactions: Transaction[] = [];
 
+    // KPIs + avulso breakdown — 1 pass sobre appointments (antes: 3 passes)
+    let totalReceitas = 0;
+    let totalTaxas = 0;
+    let taxasDebito = 0;
+    let taxasCredito = 0;
+    const avulsoByMethod: Record<string, { count: number; bruto: number; taxa: number; liquido: number }> = {};
+    let avulsoBrutoTotal = 0;
+    let avulsoLiquidoTotal = 0;
+
     for (const appt of appointments) {
       const method = appt.paymentMethod ?? "CASH";
-      const feeRate = method === "DEBIT" || method === "DEBIT_CARD" ? debitFee / 100
-        : method === "CREDIT" || method === "CREDIT_CARD" ? creditFee / 100 : 0;
+      const isDebit = method === "DEBIT" || method === "DEBIT_CARD";
+      const isCredit = method === "CREDIT" || method === "CREDIT_CARD";
+      const feeRate = isDebit ? debitFee / 100 : isCredit ? creditFee / 100 : 0;
       const fee = appt.price * feeRate;
+
+      totalReceitas += appt.price;
+      totalTaxas += fee;
+      if (isDebit) taxasDebito += fee;
+      if (isCredit) taxasCredito += fee;
+
+      if (!appt.subscriptionId) {
+        if (!avulsoByMethod[method]) avulsoByMethod[method] = { count: 0, bruto: 0, taxa: 0, liquido: 0 };
+        avulsoByMethod[method].count += 1;
+        avulsoByMethod[method].bruto += appt.price;
+        avulsoByMethod[method].taxa += fee;
+        avulsoByMethod[method].liquido += appt.price - fee;
+        avulsoBrutoTotal += appt.price;
+        avulsoLiquidoTotal += appt.price - fee;
+      }
+
       const serviceNames = appt.services?.length > 0
         ? appt.services.map((s) => s.service?.name ?? "Serviço").join(", ")
         : appt.service?.name ?? "Serviço";
@@ -94,7 +137,22 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // KPIs + transactions de expenses — 1 pass
+    let totalDespesas = 0;
+    let despesasFixas = 0;
+    let totalPendentes = 0;
+    let countPending = 0;
+    let countExpenseAll = 0;
     for (const exp of expenses) {
+      totalDespesas += exp.amount;
+      if (exp.type === "FIXED") despesasFixas += exp.amount;
+      if (exp.status === "PENDING") {
+        totalPendentes += exp.amount;
+        countPending++;
+      }
+      if (exp.status === "OVERDUE") countPending++;
+      countExpenseAll++;
+
       transactions.push({
         id: exp.id,
         type: "EXPENSE",
@@ -104,79 +162,26 @@ export async function GET(req: NextRequest) {
         net: exp.amount,
         paymentMethod: exp.paymentMethod ?? "PIX",
         paymentMethodLabel: PAYMENT_LABELS[exp.paymentMethod ?? "PIX"] ?? exp.paymentMethod ?? "PIX",
-        status: exp.status, // PAID | PENDING | OVERDUE
+        status: exp.status,
         date: exp.dueDate?.toISOString() ?? exp.createdAt.toISOString(),
         category: exp.category,
         clientOrBarber: undefined,
       });
     }
 
-    // Sort all by date desc
     transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // ── 4. KPIs
-    const totalReceitas = appointments.reduce((s, a) => s + a.price, 0);
-    let taxasDebito = 0;
-    let taxasCredito = 0;
-    const totalTaxas = appointments.reduce((a, ap) => {
-      const method = ap.paymentMethod ?? "CASH";
-      const feeRate = method === "DEBIT" || method === "DEBIT_CARD" ? debitFee / 100
-        : method === "CREDIT" || method === "CREDIT_CARD" ? creditFee / 100 : 0;
-      const taxa = ap.price * feeRate;
-      if (method === "DEBIT" || method === "DEBIT_CARD") taxasDebito += taxa;
-      if (method === "CREDIT" || method === "CREDIT_CARD") taxasCredito += taxa;
-      return a + taxa;
-    }, 0);
-    const totalDespesas = expenses.reduce((s, e) => s + e.amount, 0);
-    const despesasFixas = expenses.filter(e => e.type === "FIXED").reduce((s, e) => s + e.amount, 0);
     const despesasVariaveis = totalDespesas - despesasFixas;
     const saldo = totalReceitas - totalTaxas - totalDespesas;
-    const totalPendentes = expenses.filter(e => e.status === "PENDING").reduce((s, e) => s + e.amount, 0);
 
-    // ── 5. Filter by tab
+    // Filter by tab
     let filtered = transactions;
     if (tab === "income") filtered = transactions.filter(t => t.type === "INCOME");
     else if (tab === "expense") filtered = transactions.filter(t => t.type === "EXPENSE");
     else if (tab === "pending") filtered = transactions.filter(t => t.status === "PENDING" || t.status === "OVERDUE");
 
-    // ── 6. Previous month for comparison
-    const prevMonthStart = startOfMonth(addMonths(monthStart, -1));
-    const prevMonthEnd = endOfMonth(prevMonthStart);
-    const prevMonthStr = format(prevMonthStart, "yyyy-MM");
-    const [prevAppts, prevExpenses] = await Promise.all([
-      prisma.appointment.aggregate({
-        where: { barbershopId, status: "DONE", date: { gte: prevMonthStart, lte: prevMonthEnd } },
-        _sum: { price: true },
-      }),
-      prisma.expense.aggregate({
-        where: { barbershopId, month: prevMonthStr },
-        _sum: { amount: true },
-      }),
-    ]);
     const prevReceitas = prevAppts._sum.price ?? 0;
     const prevDespesas = prevExpenses._sum.amount ?? 0;
-
-    // ── 7. Caixa Avulso Breakdown
-    const avulsoByMethod: Record<string, { count: number; bruto: number; taxa: number; liquido: number }> = {};
-    let avulsoBrutoTotal = 0;
-    let avulsoLiquidoTotal = 0;
-
-    for (const ap of appointments) {
-      if (ap.subscriptionId) continue; // Pula os que são de assinatura
-      
-      const method = ap.paymentMethod ?? "CASH";
-      const feeRate = method === "DEBIT" || method === "DEBIT_CARD" ? debitFee / 100
-        : method === "CREDIT" || method === "CREDIT_CARD" ? creditFee / 100 : 0;
-      const taxa = ap.price * feeRate;
-      
-      if (!avulsoByMethod[method]) avulsoByMethod[method] = { count: 0, bruto: 0, taxa: 0, liquido: 0 };
-      avulsoByMethod[method].count += 1;
-      avulsoByMethod[method].bruto += ap.price;
-      avulsoByMethod[method].taxa += taxa;
-      avulsoByMethod[method].liquido += ap.price - taxa;
-      avulsoBrutoTotal += ap.price;
-      avulsoLiquidoTotal += ap.price - taxa;
-    }
 
     return NextResponse.json({
       month,
@@ -204,9 +209,9 @@ export async function GET(req: NextRequest) {
       },
       counts: {
         all: transactions.length,
-        income: transactions.filter(t => t.type === "INCOME").length,
-        expense: transactions.filter(t => t.type === "EXPENSE").length,
-        pending: transactions.filter(t => t.status === "PENDING" || t.status === "OVERDUE").length,
+        income: appointments.length,
+        expense: countExpenseAll,
+        pending: countPending,
       },
     });
   } catch (e: unknown) {

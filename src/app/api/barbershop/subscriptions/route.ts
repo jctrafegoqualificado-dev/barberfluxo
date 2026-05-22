@@ -72,13 +72,13 @@ export async function POST(req: NextRequest) {
 
     const cleanPhone = clientPhone.replace(/\D/g, "") || "sem-telefone";
 
-    // Sprint 1: Busca por telefone sanitizado (evita duplicidade)
-    const allClients = await prisma.user.findMany({ where: { role: "CLIENT" } });
-    let client = allClients.find(c => c.phone?.replace(/\D/g, "") === cleanPhone) || null;
+    // Busca por telefone sanitizado direto no DB (evita carregar todos os clientes)
+    let client = cleanPhone !== "sem-telefone"
+      ? await prisma.user.findFirst({ where: { role: "CLIENT", phone: { contains: cleanPhone } } })
+      : null;
 
     if (!client) {
       const clientEmail = `${cleanPhone}@cliente.barberfluxo.com`;
-      // Verifica se o email já existe (fallback)
       client = await prisma.user.findUnique({ where: { email: clientEmail } });
     }
 

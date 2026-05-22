@@ -21,96 +21,131 @@ export async function GET(req: NextRequest) {
     const mesLabel = format(refDate, "MMMM yyyy", { locale: ptBR });
     const monthKey = format(refDate, "yyyy-MM");
 
-    const barbers = await prisma.barber.findMany({
-      where: { barbershopId, active: true },
-      include: { user: { select: { id: true, name: true, email: true } } },
-    });
+    // 10 queries globais em paralelo (antes: 3 sequenciais + N*7 no loop por barbeiro)
+    const [
+      barbers,
+      subPayments,
+      allSubAppointmentsCount,
+      allAvulsos,
+      allSubAppointments,
+      allProductSales,
+      allCommissionPayments,
+      allVales,
+      allReviews,
+    ] = await Promise.all([
+      prisma.barber.findMany({
+        where: { barbershopId, active: true },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      }),
+      prisma.payment.findMany({
+        where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end } },
+        select: { amount: true },
+      }),
+      prisma.appointment.count({
+        where: { barbershopId, subscriptionId: { not: null }, status: "DONE", date: { gte: start, lte: end } },
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: start, lte: end } },
+        select: {
+          barberId: true, price: true,
+          service: { select: { materialCost: true, commission: true } },
+        },
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: start, lte: end } },
+        select: {
+          barberId: true, price: true,
+          service: { select: { materialCost: true } },
+          subscription: { select: { plan: { select: { commissionPercentage: true } } } },
+        },
+      }),
+      prisma.productSale.findMany({
+        where: { barbershopId, createdAt: { gte: start, lte: end } },
+        select: {
+          barberId: true, total: true, quantity: true,
+          product: { select: { commissionType: true, commissionValue: true } },
+        },
+      }),
+      prisma.commissionPayment.findMany({
+        where: { barbershopId, month: monthKey },
+        select: { barberId: true, type: true, paidAt: true, amount: true },
+      }),
+      prisma.commissionVale.findMany({
+        where: { barbershopId, month: monthKey },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.review.findMany({
+        where: { barbershopId, createdAt: { gte: start, lte: end } },
+        select: { barberId: true, rating: true },
+      }),
+    ]);
 
-    // --- LÓGICA DE ASSINATURA SÊNIOR ---
-    // 1. Faturamento Total de Assinaturas (Pagamentos Recebidos no mês)
-    const subPayments = await prisma.payment.findMany({
-      where: {
-        barbershopId,
-        subscriptionId: { not: null },
-        status: "PAID",
-        paidAt: { gte: start, lte: end },
-      }
-    });
     const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
     const poolBarbeiros = totalSubRevenue * 0.5;
-
-    // 2. Total de Atendimentos via Assinatura (Todos os barbeiros)
-    const allSubAppointmentsCount = await prisma.appointment.count({
-      where: {
-        barbershopId,
-        subscriptionId: { not: null },
-        status: "DONE",
-        date: { gte: start, lte: end },
-      }
-    });
-
-    // 3. Ticket Médio da Assinatura (R$ por atendimento)
     const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
 
-    const result = await Promise.all(barbers.map(async (b) => {
-      const [avulsos, subAppointments, productSales, standardPayment, subscriptionPayment, vales, reviews] = await Promise.all([
-        prisma.appointment.findMany({
-          where: {
-            barberId: b.id,
-            status: "DONE",
-            subscriptionId: null,
-            date: { gte: start, lte: end },
-          },
-          include: { service: true, client: { select: { name: true } } },
-        }),
-        prisma.appointment.findMany({
-          where: {
-            barberId: b.id,
-            status: "DONE",
-            subscriptionId: { not: null },
-            date: { gte: start, lte: end },
-          },
-          include: { service: true, client: { select: { name: true } }, subscription: { include: { plan: true } } },
-        }),
-        prisma.productSale.findMany({
-          where: {
-            barberId: b.id,
-            createdAt: { gte: start, lte: end },
-          },
-          include: { product: true },
-        }),
-        prisma.commissionPayment.findUnique({
-          where: { barberId_month_type: { barberId: b.id, month: monthKey, type: "STANDARD" } },
-        }),
-        prisma.commissionPayment.findUnique({
-          where: { barberId_month_type: { barberId: b.id, month: monthKey, type: "SUBSCRIPTION" } },
-        }),
-        prisma.commissionVale.findMany({
-          where: { barberId: b.id, month: monthKey },
-          orderBy: { createdAt: "asc" },
-        }),
-        prisma.review.findMany({
-          where: { barberId: b.id, createdAt: { gte: start, lte: end } }
-        }),
-      ]);
+    // Indexa todas as listas por barberId — O(N) cada
+    const avulsosByBarber = new Map<string, typeof allAvulsos>();
+    for (const a of allAvulsos) {
+      if (!a.barberId) continue;
+      const list = avulsosByBarber.get(a.barberId) ?? [];
+      list.push(a);
+      avulsosByBarber.set(a.barberId, list);
+    }
+    const subApptsByBarber = new Map<string, typeof allSubAppointments>();
+    for (const a of allSubAppointments) {
+      if (!a.barberId) continue;
+      const list = subApptsByBarber.get(a.barberId) ?? [];
+      list.push(a);
+      subApptsByBarber.set(a.barberId, list);
+    }
+    const productSalesByBarber = new Map<string, typeof allProductSales>();
+    for (const p of allProductSales) {
+      if (!p.barberId) continue;
+      const list = productSalesByBarber.get(p.barberId) ?? [];
+      list.push(p);
+      productSalesByBarber.set(p.barberId, list);
+    }
+    const valesByBarber = new Map<string, typeof allVales>();
+    for (const v of allVales) {
+      const list = valesByBarber.get(v.barberId) ?? [];
+      list.push(v);
+      valesByBarber.set(v.barberId, list);
+    }
+    const reviewsByBarber = new Map<string, typeof allReviews>();
+    for (const r of allReviews) {
+      if (!r.barberId) continue;
+      const list = reviewsByBarber.get(r.barberId) ?? [];
+      list.push(r);
+      reviewsByBarber.set(r.barberId, list);
+    }
+    const paymentsByBarber = new Map<string, { standard?: { paidAt: Date; amount: number }; subscription?: { paidAt: Date; amount: number } }>();
+    for (const p of allCommissionPayments) {
+      const entry = paymentsByBarber.get(p.barberId) ?? {};
+      if (p.type === "STANDARD") entry.standard = { paidAt: p.paidAt, amount: p.amount };
+      else if (p.type === "SUBSCRIPTION") entry.subscription = { paidAt: p.paidAt, amount: p.amount };
+      paymentsByBarber.set(p.barberId, entry);
+    }
+
+    const result = barbers.map((b) => {
+      const avulsos = avulsosByBarber.get(b.id) ?? [];
+      const subAppointments = subApptsByBarber.get(b.id) ?? [];
+      const productSales = productSalesByBarber.get(b.id) ?? [];
+      const vales = valesByBarber.get(b.id) ?? [];
+      const reviews = reviewsByBarber.get(b.id) ?? [];
+      const payments = paymentsByBarber.get(b.id);
 
       const totalAvulso = avulsos.reduce((s, a) => s + a.price, 0);
       const comissaoAvulso = avulsos.reduce((s, a) => {
         const materialCost = a.service?.materialCost || 0;
         const netValue = Math.max(0, a.price - materialCost);
         const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
-        
         if (hasCustomCommission) {
           return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
         }
         return s + calcComissao(netValue, b.commissionType, b.commission);
       }, 0);
 
-      // Nova regra: Comissao de Assinatura
-      // Se o plano tiver uma comissão específica, usa ela sobre o valor nominal do serviço (descontando custo).
-      // Se não, usa o Ticket Médio do Pool (rateio igualitário).
-      const totalAssinatura = subAppointments.reduce((s, a) => s + a.price, 0); // Faturamento nominal (apenas para relatório)
-      
       const comissaoAssinatura = subAppointments.reduce((s, a) => {
         const customPlanCommission = a.subscription?.plan?.commissionPercentage;
         if (customPlanCommission != null) {
@@ -124,10 +159,9 @@ export async function GET(req: NextRequest) {
       const totalProdutos = productSales.reduce((s, p) => s + p.total, 0);
       const comissaoProdutos = productSales.reduce((s, p) => {
         const commType = p.product?.commissionType || b.productCommissionType;
-        const commValue = p.product?.commissionValue !== undefined && p.product?.commissionValue !== null 
-          ? p.product.commissionValue 
+        const commValue = p.product?.commissionValue !== undefined && p.product?.commissionValue !== null
+          ? p.product.commissionValue
           : b.productCommission;
-        
         if (commType === "FIXED") {
           return s + (commValue * p.quantity);
         }
@@ -136,16 +170,15 @@ export async function GET(req: NextRequest) {
 
       const totalComissao = comissaoAvulso + comissaoAssinatura + comissaoProdutos;
       const totalVales = vales.reduce((s, v) => s + v.amount, 0);
-      
       const liquidoAPagar = Math.max(0, comissaoAvulso + comissaoProdutos - totalVales);
       const liquidoAssinatura = comissaoAssinatura;
 
       let promoters = 0;
       let detractors = 0;
-      reviews.forEach((r: any) => {
+      for (const r of reviews) {
         if (r.rating >= 9) promoters++;
         else if (r.rating <= 6) detractors++;
-      });
+      }
       const totalReviews = reviews.length;
       const npsScore = totalReviews > 0 ? Math.round(((promoters - detractors) / totalReviews) * 100) : null;
 
@@ -157,35 +190,19 @@ export async function GET(req: NextRequest) {
         commission: b.commission,
         productCommissionType: b.productCommissionType,
         productCommission: b.productCommission,
-        avulso: {
-          atendimentos: avulsos.length,
-          faturado: totalAvulso,
-          comissao: comissaoAvulso,
-        },
-        assinatura: {
-          servicos: subAppointments.length,
-          ticketMedio: ticketMedioSub, // Adicionado para transparência
-          comissao: comissaoAssinatura,
-        },
-        produtos: {
-          vendas: productSales.length,
-          faturado: totalProdutos,
-          comissao: comissaoProdutos,
-        },
+        avulso: { atendimentos: avulsos.length, faturado: totalAvulso, comissao: comissaoAvulso },
+        assinatura: { servicos: subAppointments.length, ticketMedio: ticketMedioSub, comissao: comissaoAssinatura },
+        produtos: { vendas: productSales.length, faturado: totalProdutos, comissao: comissaoProdutos },
         totalComissao,
         totalVales,
         liquidoAPagar,
         liquidoAssinatura,
         vales: vales.map((v) => ({ id: v.id, amount: v.amount, description: v.description, createdAt: v.createdAt })),
-        paid: standardPayment
-          ? { paidAt: standardPayment.paidAt, amount: standardPayment.amount }
-          : null,
-        subPaid: subscriptionPayment
-          ? { paidAt: subscriptionPayment.paidAt, amount: subscriptionPayment.amount }
-          : null,
+        paid: payments?.standard ?? null,
+        subPaid: payments?.subscription ?? null,
         npsScore,
       };
-    }));
+    });
 
     return NextResponse.json({ 
       barbers: result, 

@@ -11,29 +11,31 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month") ?? format(new Date(), "yyyy-MM");
 
-    const expenses = await prisma.expense.findMany({
-      where: { barbershopId, month },
-      orderBy: [{ category: "asc" }, { createdAt: "asc" }],
-    });
+    const prevDate = addMonths(new Date(month + "-01T12:00:00Z"), -1);
+    const prevMonthStr = format(prevDate, "yyyy-MM");
 
-    // KPIs
-    const totalDespesas = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalPagas = expenses.filter(e => e.status === "PAID").reduce((s, e) => s + e.amount, 0);
-    const totalPendentes = expenses.filter(e => e.status === "PENDING").reduce((s, e) => s + e.amount, 0);
-    const totalVencidas = expenses.filter(e => e.status === "OVERDUE").reduce((s, e) => s + e.amount, 0);
+    const [expenses, prevExpenses] = await Promise.all([
+      prisma.expense.findMany({
+        where: { barbershopId, month },
+        orderBy: [{ category: "asc" }, { createdAt: "asc" }],
+      }),
+      prisma.expense.findMany({
+        where: { barbershopId, month: prevMonthStr },
+        select: { amount: true },
+      }),
+    ]);
 
-    // Por categoria
+    // KPIs (1 pass)
+    let totalDespesas = 0, totalPagas = 0, totalPendentes = 0, totalVencidas = 0;
     const byCategory: Record<string, number> = {};
     for (const e of expenses) {
+      totalDespesas += e.amount;
+      if (e.status === "PAID") totalPagas += e.amount;
+      else if (e.status === "PENDING") totalPendentes += e.amount;
+      else if (e.status === "OVERDUE") totalVencidas += e.amount;
       byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
     }
 
-    // Mês passado
-    const prevDate = addMonths(new Date(month + "-01T12:00:00Z"), -1);
-    const prevMonthStr = format(prevDate, "yyyy-MM");
-    const prevExpenses = await prisma.expense.findMany({
-      where: { barbershopId, month: prevMonthStr },
-    });
     const prevTotalDespesas = prevExpenses.reduce((s, e) => s + e.amount, 0);
 
     return NextResponse.json({
@@ -63,9 +65,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "name, amount e month são obrigatórios" }, { status: 400 });
     }
 
-    const created = [];
     const totalMonths = isRecurring ? Math.max(1, replicateMonths || 1) : 1;
 
+    const dataArray = [] as Array<{
+      name: string; description: string | null; amount: number; category: string;
+      type: string; isRecurring: boolean; dueDay: number | null; paymentMethod: string;
+      status: string; month: string; dueDate: Date | null; notes: string | null;
+      barbershopId: string;
+    }>;
     for (let i = 0; i < totalMonths; i++) {
       const targetDate = addMonths(new Date(month + "-01"), i);
       const targetMonth = format(targetDate, "yyyy-MM");
@@ -75,24 +82,30 @@ export async function POST(req: NextRequest) {
       } else if (dueDate && i === 0) {
         due = new Date(dueDate);
       }
-
-      const expense = await prisma.expense.create({
-        data: {
-          name, description, amount: Number(amount),
-          category: category ?? "OUTROS",
-          type: type ?? "FIXED",
-          isRecurring: !!isRecurring,
-          dueDay: dueDay ? Number(dueDay) : null,
-          paymentMethod: paymentMethod ?? "PIX",
-          status: "PENDING",
-          month: targetMonth,
-          dueDate: due,
-          notes,
-          barbershopId,
-        },
+      dataArray.push({
+        name, description: description ?? null, amount: Number(amount),
+        category: category ?? "OUTROS",
+        type: type ?? "FIXED",
+        isRecurring: !!isRecurring,
+        dueDay: dueDay ? Number(dueDay) : null,
+        paymentMethod: paymentMethod ?? "PIX",
+        status: "PENDING",
+        month: targetMonth,
+        dueDate: due,
+        notes: notes ?? null,
+        barbershopId,
       });
-      created.push(expense);
     }
+
+    await prisma.expense.createMany({ data: dataArray });
+    const created = await prisma.expense.findMany({
+      where: {
+        barbershopId, name,
+        month: { in: dataArray.map((d) => d.month) },
+      },
+      orderBy: { createdAt: "desc" },
+      take: dataArray.length,
+    });
 
     return NextResponse.json({ ok: true, created });
   } catch (e: unknown) {

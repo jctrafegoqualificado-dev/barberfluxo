@@ -9,81 +9,84 @@ export async function GET(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     const now = new Date();
 
-    const shop = await prisma.barbershop.findUnique({ where: { id: barbershopId } });
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    // Tudo em paralelo (antes: 4 waves sequenciais com include gigante)
+    const [shop, subscriptions, subAppointmentsByBarber, avulsosDoMes, inadimplentes, novasMes] = await Promise.all([
+      prisma.barbershop.findUnique({
+        where: { id: barbershopId },
+        select: { poeOwnerPct: true, debitFee: true, creditFee: true, reminderMinutes: true, saasPlan: true },
+      }),
+      prisma.subscription.findMany({
+        where: { barbershopId, status: "ACTIVE" },
+        include: { plan: true },
+      }),
+      prisma.appointment.groupBy({
+        by: ["barberId"],
+        where: {
+          barbershopId, status: "DONE", subscriptionId: { not: null },
+          date: { gte: monthStart, lte: monthEnd },
+        },
+        _count: true,
+      }),
+      prisma.appointment.findMany({
+        where: {
+          barbershopId, status: "DONE", subscriptionId: null,
+          date: { gte: monthStart, lte: monthEnd },
+        },
+        select: { price: true, paymentMethod: true },
+      }),
+      prisma.subscription.count({ where: { barbershopId, status: "OVERDUE" } }),
+      prisma.subscription.count({
+        where: { barbershopId, createdAt: { gte: monthStart, lte: monthEnd } },
+      }),
+    ]);
+
     const poeOwnerPct = shop?.poeOwnerPct ?? 50;
     const debitFee = shop?.debitFee ?? 0;
     const creditFee = shop?.creditFee ?? 0;
     const reminderMinutes = shop?.reminderMinutes ?? 60;
     const poeBarberPct = 100 - poeOwnerPct;
 
-    // Assinaturas ativas
-    const subscriptions = await prisma.subscription.findMany({
-      where: { barbershopId, status: "ACTIVE" },
-      include: {
-        plan: true,
-        appointments: {
-          where: {
-            status: "DONE",
-            subscriptionId: { not: null }, // apenas serviços de assinatura
-            date: { gte: startOfMonth(now), lte: endOfMonth(now) },
-          },
-          include: {
-            barber: {
-              include: { user: { select: { name: true } } },
-            },
-            service: true,
-          },
-        },
-      },
-    });
-
     // POE = soma de todos os planos ativos (MRR)
     const poeTotal = subscriptions.reduce((s, sub) => s + sub.plan.price, 0);
-
-    // Fatias do POE
     const poeBarbearia = poeTotal * (poeOwnerPct / 100);
     const poolBarbeiros = poeTotal * (poeBarberPct / 100);
 
-    // Total de serviços realizados via assinatura no mês
-    const allAppointments = subscriptions.flatMap((sub) => sub.appointments);
-    const totalServicos = allAppointments.length;
-
-    // Ticket médio por serviço (pool ÷ total serviços)
+    const totalServicos = subAppointmentsByBarber.reduce((s, r) => s + r._count, 0);
     const ticketPorServico = totalServicos > 0 ? poolBarbeiros / totalServicos : 0;
 
-    // Partilha por barbeiro
+    // Enriquece partilha por barbeiro com nome (1 query extra leve, em vez de join enorme)
+    const barberIds = subAppointmentsByBarber.map((r) => r.barberId);
+    const barbersInfo = barberIds.length > 0
+      ? await prisma.barber.findMany({
+          where: { id: { in: barberIds } },
+          select: { id: true, user: { select: { name: true } } },
+        })
+      : [];
+    const barberNameMap = new Map(barbersInfo.map((b) => [b.id, b.user.name]));
     const barberMap: Record<string, { name: string; servicos: number; recebe: number }> = {};
-    for (const appt of allAppointments) {
-      const id = appt.barber.id;
-      const name = appt.barber.user.name;
-      if (!barberMap[id]) barberMap[id] = { name, servicos: 0, recebe: 0 };
-      barberMap[id].servicos += 1;
-      barberMap[id].recebe += ticketPorServico;
+    for (const row of subAppointmentsByBarber) {
+      barberMap[row.barberId] = {
+        name: barberNameMap.get(row.barberId) || "Profissional",
+        servicos: row._count,
+        recebe: row._count * ticketPorServico,
+      };
     }
 
-    // Planos
+    // Planos + utilização — 1 pass
     const planMap: Record<string, { name: string; price: number; assinantes: number; receita: number }> = {};
+    let totalUsos = 0;
+    let totalDisponivel = 0;
     for (const sub of subscriptions) {
       const pid = sub.plan.id;
       if (!planMap[pid]) planMap[pid] = { name: sub.plan.name, price: sub.plan.price, assinantes: 0, receita: 0 };
       planMap[pid].assinantes += 1;
       planMap[pid].receita += sub.plan.price;
+      totalUsos += sub.usesThisCycle;
+      totalDisponivel += sub.plan.maxUses || 0;
     }
-
-    // Utilização dos planos
-    const totalUsos = subscriptions.reduce((s, sub) => s + sub.usesThisCycle, 0);
-    const totalDisponivel = subscriptions.reduce((s, sub) => s + (sub.plan.maxUses || 0), 0);
-
-    // Serviços avulsos do mês por forma de pagamento
-    const avulsosDoMes = await prisma.appointment.findMany({
-      where: {
-        barbershopId,
-        status: "DONE",
-        subscriptionId: null,
-        date: { gte: startOfMonth(now), lte: endOfMonth(now) },
-      },
-      select: { price: true, paymentMethod: true },
-    });
 
     const avulsoByMethod: Record<string, { count: number; bruto: number; taxa: number; liquido: number }> = {};
     let avulsoBrutoTotal = 0;
@@ -101,14 +104,6 @@ export async function GET(req: NextRequest) {
       avulsoBrutoTotal += ap.price;
       avulsoLiquidoTotal += ap.price - taxa;
     }
-
-    // Inadimplentes e novas assinaturas
-    const [inadimplentes, novasMes] = await Promise.all([
-      prisma.subscription.count({ where: { barbershopId, status: "OVERDUE" } }),
-      prisma.subscription.count({
-        where: { barbershopId, createdAt: { gte: startOfMonth(now), lte: endOfMonth(now) } },
-      }),
-    ]);
 
     return NextResponse.json({
       poeOwnerPct,

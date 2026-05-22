@@ -16,30 +16,56 @@ export async function GET(req: NextRequest) {
     const from = fromParam ? parseISO(fromParam) : startOfMonth(now);
     const to = toParam ? parseISO(toParam) : endOfMonth(now);
 
-    // ==========================================
-    // 1. INDICADORES DE ASSINATURAS (SUBSCRIPTIONS)
-    // ==========================================
-    const subscriptions = await prisma.subscription.findMany({
-      where: { barbershopId },
-      include: {
-        client: { select: { id: true, name: true, email: true, phone: true } },
-        plan: true,
-      },
-    });
+    // Tudo o que nao depende de IDs derivados em paralelo
+    const [subscriptions, newSubsPeriod, billingLogs, appts, shop] = await Promise.all([
+      prisma.subscription.findMany({
+        where: { barbershopId },
+        include: {
+          client: { select: { id: true, name: true, email: true, phone: true } },
+          plan: true,
+        },
+      }),
+      prisma.subscription.count({
+        where: { barbershopId, createdAt: { gte: from, lte: to } },
+      }),
+      prisma.payment.findMany({
+        where: {
+          subscription: { barbershopId },
+          createdAt: { gte: from, lte: to },
+        },
+        include: {
+          subscription: {
+            include: {
+              client: { select: { name: true, email: true } },
+              plan: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: "DONE", date: { gte: from, lte: to } },
+        include: {
+          service: true,
+          barber: { include: { user: { select: { name: true } } } },
+          client: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.barbershop.findUnique({
+        where: { id: barbershopId },
+        select: {
+          poeOwnerPct: true, debitFee: true, creditFee: true,
+          poeDeductFees: true, poeSubscriptionFee: true,
+        },
+      }),
+    ]);
 
     const activeSubs = subscriptions.filter((s) => s.status === "ACTIVE");
     const overdueSubs = subscriptions.filter((s) => s.status === "OVERDUE");
     const cancelledSubs = subscriptions.filter((s) => s.status === "CANCELLED");
 
     const mrr = activeSubs.reduce((acc, s) => acc + s.plan.price, 0);
-
-    // Crescimento (novas assinaturas criadas no período)
-    const newSubsPeriod = await prisma.subscription.count({
-      where: {
-        barbershopId,
-        createdAt: { gte: from, lte: to },
-      },
-    });
 
     // Distribuição de Planos
     const planCounts: Record<string, { name: string; price: number; count: number; total: number }> = {};
@@ -52,26 +78,6 @@ export async function GET(req: NextRequest) {
       planCounts[pid].total += sub.plan.price;
     }
     const planosBreakdown = Object.values(planCounts);
-
-    // Histórico de cobranças recentes (Payment model)
-    const billingLogs = await prisma.payment.findMany({
-      where: {
-        subscription: {
-          barbershopId,
-        },
-        createdAt: { gte: from, lte: to },
-      },
-      include: {
-        subscription: {
-          include: {
-            client: { select: { name: true, email: true } },
-            plan: { select: { name: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
 
     const formattedBilling = billingLogs.map((p) => ({
       id: p.id,
@@ -90,24 +96,7 @@ export async function GET(req: NextRequest) {
       ? Math.round((activeSubs.length / totalActiveAndOverdue) * 100)
       : 100;
 
-    // ==========================================
     // 2. INDICADORES DE ATENDIMENTO & SERVIÇOS
-    // ==========================================
-    const appts = await prisma.appointment.findMany({
-      where: {
-        barbershopId,
-        status: "DONE",
-        date: { gte: from, lte: to },
-      },
-      include: {
-        service: true,
-        barber: {
-          include: { user: { select: { name: true } } },
-        },
-        client: { select: { id: true, name: true } },
-      },
-    });
-
     const totalServices = appts.length;
     const servicesRevenue = appts.reduce((sum, a) => sum + a.price, 0);
 
@@ -209,49 +198,40 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Clientes inativos / Em risco (>45 dias)
-    const allDoneAppts = await prisma.appointment.findMany({
+    // Clientes inativos / Em risco (>45 dias) — usa groupBy com _max em vez de findMany do historico completo
+    const lastVisitByClientRows = await prisma.appointment.groupBy({
+      by: ["clientId"],
       where: { barbershopId, status: "DONE" },
-      select: { clientId: true, date: true },
-      orderBy: { date: "desc" },
+      _max: { date: true },
     });
 
-    const latestVisitByClient: Record<string, Date> = {};
-    for (const a of allDoneAppts) {
-      if (!latestVisitByClient[a.clientId]) {
-        latestVisitByClient[a.clientId] = new Date(a.date);
-      }
-    }
+    const cutoff = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000);
+    const riskClientIds = lastVisitByClientRows
+      .filter((r) => r._max.date && r._max.date < cutoff)
+      .map((r) => ({ id: r.clientId, lastVisit: r._max.date! }));
 
     const riskClients: Array<{ id: string; name: string; email: string; phone: string | null; lastVisit: Date; daysSince: number }> = [];
-
-    const clientsWithVisits = Object.keys(latestVisitByClient);
-    const fullClientsInfo = await prisma.user.findMany({
-      where: { id: { in: clientsWithVisits } },
-      select: { id: true, name: true, email: true, phone: true },
-    });
-
-    for (const c of fullClientsInfo) {
-      const lvisit = latestVisitByClient[c.id];
-      const diff = differenceInDays(now, lvisit);
-      if (diff > 45) {
+    if (riskClientIds.length > 0) {
+      const fullClientsInfo = await prisma.user.findMany({
+        where: { id: { in: riskClientIds.map((r) => r.id) } },
+        select: { id: true, name: true, email: true, phone: true },
+      });
+      const lastVisitMap = new Map(riskClientIds.map((r) => [r.id, r.lastVisit]));
+      for (const c of fullClientsInfo) {
+        const lvisit = lastVisitMap.get(c.id)!;
         riskClients.push({
           id: c.id,
           name: c.name,
           email: c.email,
           phone: c.phone,
           lastVisit: lvisit,
-          daysSince: diff,
+          daysSince: differenceInDays(now, lvisit),
         });
       }
+      riskClients.sort((a, b) => b.daysSince - a.daysSince);
     }
 
-    riskClients.sort((a, b) => b.daysSince - a.daysSince);
-
-    // ==========================================
     // 3. MODELO POE (Subscription Pool)
-    // ==========================================
-    const shop = await prisma.barbershop.findUnique({ where: { id: barbershopId } });
     const poeOwnerPct = shop?.poeOwnerPct ?? 50;
     const poeBarberPct = 100 - poeOwnerPct;
     const debitFee = shop?.debitFee ?? 0;

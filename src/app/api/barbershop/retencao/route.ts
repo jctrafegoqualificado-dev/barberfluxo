@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { startOfMonth, endOfMonth, subMonths, differenceInDays } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths, differenceInDays, startOfDay } from "date-fns";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,14 +12,14 @@ export async function GET(req: NextRequest) {
     const thisMonthEnd = endOfMonth(now);
     const lastMonthStart = startOfMonth(subMonths(now, 1));
     const lastMonthEnd = endOfMonth(subMonths(now, 1));
+    // Janela de 12 meses para calculo de frequencia (antes: historico completo sem limite)
+    const frequencyWindowStart = startOfDay(subMonths(now, 12));
 
-    const barbers = await prisma.barber.findMany({
-      where: { barbershopId, active: true },
-      include: { user: { select: { name: true } } },
-    });
-
-    // Atendimentos do mês passado e deste mês
-    const [lastMonthAppts, thisMonthAppts, allAppts] = await Promise.all([
+    const [barbers, lastMonthAppts, thisMonthAppts, allAppts] = await Promise.all([
+      prisma.barber.findMany({
+        where: { barbershopId, active: true },
+        include: { user: { select: { name: true } } },
+      }),
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", date: { gte: lastMonthStart, lte: lastMonthEnd } },
         select: { barberId: true, clientId: true },
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
         select: { barberId: true, clientId: true },
       }),
       prisma.appointment.findMany({
-        where: { barbershopId, status: "DONE" },
+        where: { barbershopId, status: "DONE", date: { gte: frequencyWindowStart } },
         select: { barberId: true, clientId: true, date: true },
         orderBy: { date: "asc" },
       }),
@@ -95,10 +95,14 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Taxa geral da barbearia
-    const totalLastMonth = new Set(lastMonthAppts.map((a) => a.clientId)).size;
-    const totalRetornaram = Array.from(new Set(lastMonthAppts.map((a) => a.clientId)))
-      .filter((cid) => thisMonthAppts.some((a) => a.clientId === cid)).length;
+    // Taxa geral (Set lookup O(1) em vez de .some() O(N))
+    const lastMonthClientSet = new Set(lastMonthAppts.map((a) => a.clientId));
+    const thisMonthClientSet = new Set(thisMonthAppts.map((a) => a.clientId));
+    const totalLastMonth = lastMonthClientSet.size;
+    let totalRetornaram = 0;
+    for (const cid of lastMonthClientSet) {
+      if (thisMonthClientSet.has(cid)) totalRetornaram++;
+    }
     const taxaGeralRetorno = totalLastMonth > 0 ? Math.round((totalRetornaram / totalLastMonth) * 100) : 0;
 
     return NextResponse.json({ porBarbeiro, taxaGeralRetorno, totalLastMonth, totalRetornaram });
