@@ -194,7 +194,9 @@ model Appointment {
   review   Review?
 
   @@index([barbershopId, date])
+  @@index([barbershopId, status, date])
   @@index([status])
+  @@index([clientId])
 }
 
 model AppointmentService {
@@ -322,6 +324,8 @@ model ProductSale {
   barber       Barber?    @relation(fields: [barberId], references: [id])
   clientId     String?
   client       User?      @relation("ClientProductSales", fields: [clientId], references: [id])
+
+  @@index([barbershopId, createdAt])
 }
 
 model CommissionPayment {
@@ -471,6 +475,8 @@ model Review {
   barber        Barber?     @relation(fields: [barberId], references: [id])
   appointmentId String?     @unique
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([barbershopId, createdAt])
 }
 
 model LoyaltyPoint {
