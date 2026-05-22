@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hashPassword } from "@/lib/auth";
+import { z } from "zod";
+
+const BarberCreateSchema = z.object({
+  name: z.string().min(1, "Nome obrigatório"),
+  email: z.string().email("E-mail inválido"),
+  phone: z.string().optional(),
+  password: z.string().optional(),
+  commission: z.number().min(0).max(100).optional(),
+  nickname: z.string().optional(),
+  dayOff: z.number().int().min(0).max(6).optional().nullable(),
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +24,9 @@ export async function GET(req: NextRequest) {
       include: { user: { select: { id: true, name: true, email: true, phone: true } } },
       orderBy: { user: { name: "asc" } },
     });
-    return NextResponse.json({ barbers });
+    const res = NextResponse.json({ barbers });
+    res.headers.set("Cache-Control", "private, max-age=30");
+    return res;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: msg === "UNAUTHORIZED" ? 401 : 500 });
@@ -75,7 +88,17 @@ export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
-    const { name, email, phone, password, commission, nickname, dayOff } = await req.json();
+    const body = await req.json();
+    const parsed = BarberCreateSchema.safeParse({
+      ...body,
+      commission: body.commission !== undefined ? Number(body.commission) : undefined,
+      dayOff: body.dayOff !== undefined && body.dayOff !== "" ? Number(body.dayOff) : null,
+    });
+    if (!parsed.success) {
+      const msg = parsed.error.errors[0]?.message ?? "Dados inválidos";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+    const { name, email, phone, password, commission, nickname, dayOff } = parsed.data;
 
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -87,10 +110,11 @@ export async function POST(req: NextRequest) {
 
     const barber = await prisma.barber.create({
       data: {
-        userId: user.id, barbershopId,
-        commission: Number(commission) || 50,
+        userId: user.id,
+        barbershopId,
+        commission: commission ?? 50,
         nickname,
-        dayOff: dayOff !== undefined && dayOff !== "" ? Number(dayOff) : null,
+        dayOff: dayOff ?? null,
       },
       include: { user: { select: { id: true, name: true, email: true, phone: true } } },
     });

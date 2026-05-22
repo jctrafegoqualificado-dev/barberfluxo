@@ -32,21 +32,48 @@ export async function GET(req: NextRequest) {
 
     const subscriptions = await prisma.subscription.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        status: true,
+        startDate: true,
+        nextBillingDate: true,
+        billingDay: true,
+        usesThisCycle: true,
+        beneficiaries: true,
+        createdAt: true,
         client: { select: { id: true, name: true, email: true, phone: true } },
         plan: {
-          include: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            billingCycle: true,
+            maxUses: true,
+            beneficiaryRules: true,
+            active: true,
+            commissionPercentage: true,
             planServices: {
-              include: { service: true }
+              select: {
+                id: true,
+                quantity: true,
+                service: { select: { id: true, name: true, price: true, duration: true } },
+              },
             },
-            allowedBarbers: true,
-          }
+            allowedBarbers: { select: { id: true, userId: true } },
+          },
         },
-        payments: { orderBy: { createdAt: "desc" }, take: 1 },
+        payments: {
+          select: { id: true, amount: true, method: true, status: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json({ subscriptions });
+    const res = NextResponse.json({ subscriptions });
+    res.headers.set("Cache-Control", "private, no-cache");
+    return res;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 401 });
