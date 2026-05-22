@@ -113,35 +113,44 @@ export async function GET(req: NextRequest) {
         : 0,
     })).sort((a, b) => b.taxa - a.taxa);
 
-    // Ocupação por dia (para gráfico)
+    // Indexa appointments por data — 1 pass O(N) em vez de O(N*D) filtros
+    const apptsByDate = new Map<string, { count: number; ocupado: number }>();
+    for (const a of appointments) {
+      const dateStr = format(new Date(a.date), "yyyy-MM-dd");
+      let duration = 0;
+      if (a.services && a.services.length > 0) {
+        duration = a.services.reduce((sum, s) => sum + (s.duration ?? s.service?.duration ?? 0), 0);
+      } else {
+        duration = a.service?.duration ?? 0;
+      }
+      const entry = apptsByDate.get(dateStr) ?? { count: 0, ocupado: 0 };
+      entry.count++;
+      entry.ocupado += duration;
+      apptsByDate.set(dateStr, entry);
+    }
+
     const porDia = diasUteis.map((d) => {
       const dateStr = format(d, "yyyy-MM-dd");
       const dayOfWeek = getDay(d);
       const minDisp = (minutesByDay[dayOfWeek] || 0) * barbers.length;
-      const minOcup = appointments
-        .filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dateStr)
-        .reduce((s, a) => {
-          let duration = 0;
-          if (a.services && a.services.length > 0) {
-            duration = a.services.reduce((sum, s) => sum + (s.duration ?? s.service?.duration ?? 0), 0);
-          } else {
-            duration = a.service?.duration ?? 0;
-          }
-          return s + duration;
-        }, 0);
-      const taxa = minDisp > 0 ? Math.min(Math.round((minOcup / minDisp) * 100), 100) : 0;
+      const entry = apptsByDate.get(dateStr) ?? { count: 0, ocupado: 0 };
+      const taxa = minDisp > 0 ? Math.min(Math.round((entry.ocupado / minDisp) * 100), 100) : 0;
       return {
         data: dateStr,
         label: `${["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][dayOfWeek]} ${format(d, "dd/MM")}`,
         taxa,
-        atendimentos: appointments.filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dateStr).length,
+        atendimentos: entry.count,
       };
     });
 
-    // Melhor e pior dia
-    const diasComMovimento = porDia.filter((d) => d.atendimentos > 0);
-    const melhorDia = diasComMovimento.sort((a, b) => b.taxa - a.taxa)[0] || null;
-    const piorDia = diasComMovimento.sort((a, b) => a.taxa - b.taxa)[0] || null;
+    // Melhor e pior dia — single pass O(N) em vez de 2 sorts
+    let melhorDia: typeof porDia[number] | null = null;
+    let piorDia: typeof porDia[number] | null = null;
+    for (const d of porDia) {
+      if (d.atendimentos === 0) continue;
+      if (!melhorDia || d.taxa > melhorDia.taxa) melhorDia = d;
+      if (!piorDia || d.taxa < piorDia.taxa) piorDia = d;
+    }
 
     return NextResponse.json({
       periodo,

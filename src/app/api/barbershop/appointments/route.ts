@@ -212,14 +212,15 @@ export async function POST(req: NextRequest) {
     const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
-    // Encontra ou cria o cliente (Busca por dígitos limpos)
+    // Encontra ou cria o cliente — busca por phone no DB (evita carregar todos os clientes)
     const phoneDigits = clientPhone.replace(/\D/g, "");
-    const clients = await prisma.user.findMany({ where: { role: "CLIENT" } });
-    let client = clients.find(c => c.phone && c.phone.replace(/\D/g, "") === phoneDigits);
+    let client = phoneDigits
+      ? await prisma.user.findFirst({ where: { role: "CLIENT", phone: { contains: phoneDigits } } })
+      : null;
 
     if (!client) {
       const email = `${phoneDigits}@cliente.barberfluxo.com`;
-      const hashed = "123456"; // default dummy password for shadow clients
+      const hashed = "123456";
       client = await prisma.user.create({
         data: { name: clientName, email, phone: clientPhone, password: hashed, role: "CLIENT" },
       });
@@ -345,8 +346,12 @@ export async function POST(req: NextRequest) {
 
     // ── Automação de WhatsApp: Confirmação de Agendamento ──
     const servicesStr = services.map(s => s.name).join(" + ");
-    const welcomeMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${clientName.split(" ")[0]}*, seu horário no *${(await prisma.barbershop.findUnique({ where: { id: barbershopId } }))?.name}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${(await prisma.barber.findUnique({ where: { id: barberId }, include: { user: true } }))?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
-    
+    const [shopInfo, barberInfo] = await Promise.all([
+      prisma.barbershop.findUnique({ where: { id: barbershopId }, select: { name: true } }),
+      prisma.barber.findUnique({ where: { id: barberId }, select: { user: { select: { name: true } } } }),
+    ]);
+    const welcomeMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${clientName.split(" ")[0]}*, seu horário no *${shopInfo?.name}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${barberInfo?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
+
     sendWhatsAppNotification(barbershopId, clientPhone, welcomeMsg).catch(console.error);
 
     return NextResponse.json({ appointment }, { status: 201 });

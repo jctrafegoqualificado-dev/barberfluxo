@@ -42,17 +42,24 @@ export async function GET(req: NextRequest) {
       return type === "FIXED" ? rate : valor * (rate / 100);
     }
 
-    const monthFaturado = monthAppts.reduce((s, a) => s + a.price, 0);
-    const monthComissaoServicos = monthAppts.reduce((s, a) => {
+    // 1 pass: faturamento + comissao servicos + contagem avulso/assinatura
+    let monthFaturado = 0;
+    let monthComissaoServicos = 0;
+    let monthAvulsoCount = 0;
+    let monthAssinaturaCount = 0;
+    for (const a of monthAppts) {
+      monthFaturado += a.price;
       const materialCost = a.service?.materialCost || 0;
       const netValue = Math.max(0, a.price - materialCost);
       const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
-      
       if (hasCustomCommission) {
-        return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
+        monthComissaoServicos += calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
+      } else {
+        monthComissaoServicos += calcComissao(netValue, barber.commissionType, barber.commission);
       }
-      return s + calcComissao(netValue, barber.commissionType, barber.commission);
-    }, 0);
+      if (a.subscriptionId) monthAssinaturaCount++;
+      else monthAvulsoCount++;
+    }
     
     const monthComissaoProdutos = productSalesMonth.reduce((s, p) => {
       const commType = p.product?.commissionType || barber.productCommissionType;
@@ -93,8 +100,8 @@ export async function GET(req: NextRequest) {
         atendimentos: monthAppts.length,
         faturado: monthFaturado,
         comissao: monthComissao,
-        avulso: monthAppts.filter((a) => !a.subscriptionId).length,
-        assinatura: monthAppts.filter((a) => a.subscriptionId).length,
+        avulso: monthAvulsoCount,
+        assinatura: monthAssinaturaCount,
       },
       agenda: todayAppts,
       proximoAgendamento,

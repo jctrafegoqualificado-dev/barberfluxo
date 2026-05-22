@@ -25,29 +25,31 @@ export async function GET(req: NextRequest) {
     const end = endOfMonth(refDate);
     const mesLabel = format(refDate, "MMMM yyyy", { locale: ptBR });
 
-    // --- LÓGICA DE ASSINATURA SÊNIOR (Igual ao Admin) ---
-    const subPayments = await prisma.payment.findMany({
-      where: {
-        barbershopId: barber.barbershopId,
-        subscriptionId: { not: null },
-        status: "PAID",
-        paidAt: { gte: start, lte: end },
-      }
-    });
-    const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
-    const poolBarbeiros = totalSubRevenue * 0.5;
-
-    const allSubAppointmentsCount = await prisma.appointment.count({
-      where: {
-        barbershopId: barber.barbershopId,
-        subscriptionId: { not: null },
-        status: "DONE",
-        date: { gte: start, lte: end },
-      }
-    });
-    const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
-
-    const [avulsos, subAppointments, productSales] = await Promise.all([
+    // Todas as queries em paralelo (antes: 3 awaits sequenciais)
+    const [
+      subPayments,
+      allSubAppointmentsCount,
+      avulsos,
+      subAppointments,
+      productSales,
+    ] = await Promise.all([
+      prisma.payment.findMany({
+        where: {
+          barbershopId: barber.barbershopId,
+          subscriptionId: { not: null },
+          status: "PAID",
+          paidAt: { gte: start, lte: end },
+        },
+        select: { amount: true },
+      }),
+      prisma.appointment.count({
+        where: {
+          barbershopId: barber.barbershopId,
+          subscriptionId: { not: null },
+          status: "DONE",
+          date: { gte: start, lte: end },
+        },
+      }),
       prisma.appointment.findMany({
         where: {
           barberId: barber.id,
@@ -87,6 +89,9 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: "desc" },
       }),
     ]);
+    const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
+    const poolBarbeiros = totalSubRevenue * 0.5;
+    const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
 
     // Avulso
     const avulsoItems = avulsos.map((a) => {

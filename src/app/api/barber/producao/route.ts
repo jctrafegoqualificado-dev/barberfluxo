@@ -75,17 +75,25 @@ export async function GET(req: NextRequest) {
     }
     const servicosRanking = Object.values(serviceMap).sort((a, b) => b.count - a.count);
 
-    // Produção diária (apenas dias com atendimentos)
+    // Indexa por dia — 1 pass O(N) em vez de O(N*D)
+    const doneByDay = new Map<string, { count: number; faturado: number }>();
+    for (const a of done) {
+      const dayStr = format(new Date(a.date), "yyyy-MM-dd");
+      const entry = doneByDay.get(dayStr) ?? { count: 0, faturado: 0 };
+      entry.count++;
+      entry.faturado += a.price;
+      doneByDay.set(dayStr, entry);
+    }
     const days = eachDayOfInterval({ start, end });
     const producaoDiaria = days.map((day) => {
       const dayStr = format(day, "yyyy-MM-dd");
-      const dayAppts = done.filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dayStr);
+      const entry = doneByDay.get(dayStr) ?? { count: 0, faturado: 0 };
       return {
         data: dayStr,
         label: format(day, "dd/MM"),
         diaSemana: format(day, "EEE", { locale: ptBR }),
-        atendimentos: dayAppts.length,
-        faturado: dayAppts.reduce((s, a) => s + a.price, 0),
+        atendimentos: entry.count,
+        faturado: entry.faturado,
       };
     }).filter((d) => d.atendimentos > 0);
 
@@ -114,8 +122,8 @@ export async function GET(req: NextRequest) {
         comissaoServicos,
         comissaoProdutos,
         totalComissao,
-        avulso: done.filter((a) => !a.subscriptionId).length,
-        assinatura: done.filter((a) => a.subscriptionId).length,
+        avulso: done.reduce((s, a) => s + (a.subscriptionId ? 0 : 1), 0),
+        assinatura: done.reduce((s, a) => s + (a.subscriptionId ? 1 : 0), 0),
         produtos: productSales.length,
         faturadoProdutos: productSales.reduce((s, p) => s + p.total, 0),
       },

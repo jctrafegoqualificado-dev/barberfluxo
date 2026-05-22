@@ -34,6 +34,9 @@ model User {
   whatsappContacts WhatsAppContact[]
   reviews          Review[]          @relation("ClientReviews")
   loyaltyPoints    LoyaltyPoint[]    @relation("ClientLoyaltyPoints")
+
+  @@index([phone])
+  @@index([role, phone])
 }
 
 model Barbershop {
@@ -195,8 +198,11 @@ model Appointment {
 
   @@index([barbershopId, date])
   @@index([barbershopId, status, date])
+  @@index([barbershopId, barberId, status, date])
+  @@index([barbershopId, status, subscriptionId, date])
   @@index([status])
   @@index([clientId])
+  @@index([clientId, barbershopId, status])
 }
 
 model AppointmentService {
@@ -258,6 +264,9 @@ model Subscription {
   plan         Plan          @relation(fields: [planId], references: [id])
   payments     Payment[]
   appointments Appointment[]
+
+  @@index([barbershopId, status])
+  @@index([barbershopId, createdAt])
 }
 
 model Payment {
@@ -274,6 +283,9 @@ model Payment {
 
   barbershopId   String?
   barbershop     Barbershop?   @relation(fields: [barbershopId], references: [id])
+
+  @@index([barbershopId, status, paidAt])
+  @@index([subscriptionId])
 }
 
 model OpeningHour {
@@ -342,6 +354,7 @@ model CommissionPayment {
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
 
   @@unique([barberId, month, type])
+  @@index([barbershopId, month])
 }
 
 model CommissionVale {
@@ -355,6 +368,8 @@ model CommissionVale {
   barber       Barber     @relation(fields: [barberId], references: [id])
   barbershopId String
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@index([barbershopId, month])
 }
 
 model Meta {
