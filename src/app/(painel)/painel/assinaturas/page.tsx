@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2, Users, TrendingUp, DollarSign, MessageSquare, Calendar, Edit2, Clock, FileText, RotateCcw, ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
@@ -106,6 +106,11 @@ export default function AssinaturasPage() {
   const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "", billingDay: "" });
   const [usageModal, setUsageModal] = useState<Subscription | null>(null);
 
+  // Autocomplete no modal de novo assinante
+  const [clientSuggestions, setClientSuggestions] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const clientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Extrato do Assinante (Sprint 2)
   const [extratoSub, setExtratoSub] = useState<any | null>(null);
   const [extratoTab, setExtratoTab] = useState<"info" | "consumo" | "pagamentos">("info");
@@ -123,6 +128,25 @@ export default function AssinaturasPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+
+  function handleClientNameChange(v: string) {
+    setField("clientName", v);
+    setShowSuggestions(true);
+    if (clientDebounceRef.current) clearTimeout(clientDebounceRef.current);
+    if (v.length < 2) { setClientSuggestions([]); return; }
+    clientDebounceRef.current = setTimeout(() => {
+      fetch(`/api/barbershop/clients?q=${encodeURIComponent(v)}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => setClientSuggestions(d.clients || []));
+    }, 200);
+  }
+
+  function selectClientSuggestion(c: { id: string; name: string; phone: string | null }) {
+    setField("clientName", c.name);
+    setField("clientPhone", c.phone ?? "");
+    setClientSuggestions([]);
+    setShowSuggestions(false);
+  }
 
   function handleWhatsAppCobrança(s: Subscription) {
     const phone = s.client.phone?.replace(/\D/g, "");
@@ -1092,9 +1116,37 @@ export default function AssinaturasPage() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Novo Assinante">
+      <Modal open={open} onClose={() => { setOpen(false); setClientSuggestions([]); }} title="Novo Assinante">
         <form onSubmit={handleAdd} className="space-y-3">
-          <Input label="Nome do cliente" value={form.clientName} onChange={(e) => setField("clientName", e.target.value)} required />
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Nome do cliente</label>
+            <div className="relative">
+              <input
+                value={form.clientName}
+                onChange={(e) => handleClientNameChange(e.target.value)}
+                onFocus={() => form.clientName.length >= 2 && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Buscar ou digitar nome..."
+                required
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {showSuggestions && clientSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  {clientSuggestions.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onMouseDown={() => selectClientSuggestion(c)}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-50 flex items-center justify-between gap-2 border-b border-zinc-100 last:border-0"
+                    >
+                      <span className="font-medium text-zinc-900">{c.name}</span>
+                      {c.phone && <span className="text-xs text-zinc-400 shrink-0">{c.phone}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <Input label="WhatsApp" type="tel" value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} required />
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Plano</label>

@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency, getInitials, formatDate } from "@/lib/utils";
 import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
+import { SkeletonRow } from "@/components/ui/SkeletonCard";
 
 interface Cliente {
   id: string;
@@ -392,10 +393,9 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center h-64 space-y-3">
-          <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
-          <p className="text-zinc-400 text-xs font-semibold">Carregando lista de clientes...</p>
+      {loading && clientes.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
         </div>
       ) : paginated.length === 0 ? (
         <div className="bg-white rounded-2xl border border-zinc-200 p-16 text-center text-zinc-400 shadow-sm">

@@ -104,6 +104,26 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ appointment: updated });
     }
 
+    // ── Mover agendamento (drag & drop) ──
+    if (body.startTime !== undefined) {
+      const current = await prisma.appointment.findUnique({ where: { id } });
+      if (!current || current.barbershopId !== barbershopId) {
+        return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+      }
+      const newBarberId: string = body.barberId || current.barberId;
+      const [sh, sm] = (body.startTime as string).split(":").map(Number);
+      const [csh, csm] = current.startTime.split(":").map(Number);
+      const [ceh, cem] = current.endTime.split(":").map(Number);
+      const duration = (ceh * 60 + cem) - (csh * 60 + csm);
+      const endMins = sh * 60 + sm + duration;
+      const newEndTime = `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
+      await prisma.appointment.update({
+        where: { id },
+        data: { startTime: body.startTime, endTime: newEndTime, barberId: newBarberId },
+      });
+      return NextResponse.json({ success: true });
+    }
+
     // ── Fluxo original: status / pagamento ──
     const updateData: Record<string, unknown> = {};
     if (status) updateData.status = status;

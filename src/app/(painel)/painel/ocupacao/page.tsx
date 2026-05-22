@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Clock, TrendingUp, Users, Calendar, Star, AlertCircle, RefreshCw, Timer } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { getInitials } from "@/lib/utils";
+import { SkeletonCard } from "@/components/ui/SkeletonCard";
 
 interface BarberRetencao {
   id: string; name: string;
@@ -167,11 +168,19 @@ export default function OcupacaoPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      {loading && !data && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} rows={2} />)}
         </div>
-      ) : data ? (
+      )}
+
+      {!loading && data === null && (
+        <div className="flex items-center justify-center h-64 text-zinc-400">
+          <p className="text-sm">Erro ao carregar dados. Tente novamente.</p>
+        </div>
+      )}
+
+      {data ? (
         <>
           {/* Gauge geral + KPIs */}
           <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-6">

@@ -175,7 +175,7 @@ function PaymentModal({
           ) : (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label className="block text-xs text-zinc-500 mb-1.5">Selecione os serviços realizados:</label>
+                <label className="block text-sm font-medium text-zinc-900 mb-1.5">Selecione os serviços realizados:</label>
                 <div className="space-y-1.5 border border-zinc-100 rounded-xl p-1 max-h-64 overflow-y-auto">
                   {services.map((s) => {
                     const checked = selectedServiceIds.includes(s.id);
@@ -284,7 +284,7 @@ function BloqueioModal({ barbers, date, onConfirm, onClose }: {
         <div className="px-5 py-4 space-y-3">
           {barbers.length > 0 && (
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Profissional</label>
+              <label className="block text-sm font-medium text-zinc-900 mb-1">Profissional</label>
               <select value={barberId} onChange={(e) => setBarberId(e.target.value)}
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 {barbers.map((b) => <option key={b.id} value={b.id}>{b.user.name}</option>)}
@@ -293,18 +293,18 @@ function BloqueioModal({ barbers, date, onConfirm, onClose }: {
           )}
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-xs text-zinc-500 mb-1">Das</label>
+              <label className="block text-sm font-medium text-zinc-900 mb-1">Das</label>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
             <div className="flex-1">
-              <label className="block text-xs text-zinc-500 mb-1">Até</label>
+              <label className="block text-sm font-medium text-zinc-900 mb-1">Até</label>
               <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Motivo (opcional)</label>
+            <label className="block text-sm font-medium text-zinc-900 mb-1">Motivo (opcional)</label>
             <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex: Almoço..."
               className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
@@ -460,7 +460,7 @@ function AgendamentoModal({
         </div>
         <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">Nome do Cliente</label>
+            <label className="block text-sm font-medium text-zinc-900 mb-1">Nome do Cliente</label>
             <div className="relative">
               <input
                 value={clientName}
@@ -492,7 +492,7 @@ function AgendamentoModal({
             </div>
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">WhatsApp (com DDD)</label>
+            <label className="block text-sm font-medium text-zinc-900 mb-1">WhatsApp (com DDD)</label>
             <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Ex: 11999999999"
               className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
@@ -531,7 +531,7 @@ function AgendamentoModal({
           )}
           {barbers.length > 0 && (
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">Profissional</label>
+              <label className="block text-sm font-medium text-zinc-900 mb-1">Profissional</label>
               <select value={barberId} onChange={(e) => setBarberId(e.target.value)}
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 {barbers.map((b) => {
@@ -547,7 +547,7 @@ function AgendamentoModal({
           )}
           {services.length > 0 && (
             <div>
-              <label className="block text-xs text-zinc-500 mb-1.5">Serviços <span className="text-zinc-400">(selecione um ou mais)</span></label>
+              <label className="block text-sm font-medium text-zinc-900 mb-1.5">Serviços <span className="text-zinc-400">(selecione um ou mais)</span></label>
               <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-lg border border-zinc-200 p-2">
                 {services.map((s) => {
                   const checked = selectedServiceIds.includes(s.id);
@@ -589,7 +589,7 @@ function AgendamentoModal({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-500 ml-1">Data</label>
+              <label className="block text-sm font-medium text-zinc-900 ml-1">Data</label>
               <div className="relative">
                 <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
                   className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" />
@@ -597,7 +597,7 @@ function AgendamentoModal({
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-500 ml-1">Horário de Início</label>
+              <label className="block text-sm font-medium text-zinc-900 ml-1">Horário de Início</label>
               <div className="relative">
                 <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
                   className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" />

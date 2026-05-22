@@ -15,6 +15,7 @@ import {
 import { useAuthStore } from "@/store/auth";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { SkeletonKpi } from "@/components/ui/SkeletonCard";
 
 // Custom Sub-components
 import { TodayHero } from "./components/TodayHero";
@@ -160,16 +161,7 @@ export default function DashboardPage() {
     setPeriod(p);
   }
 
-  if (!data && loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!data) return null;
-  if ((data as any).error) {
+  if ((data as any)?.error) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-red-500">
         <p className="font-bold">Erro ao carregar Dashboard:</p>
@@ -204,6 +196,15 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Skeleton global enquanto carrega pela primeira vez */}
+      {loading && !data && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonKpi key={i} />)}
+        </div>
+      )}
+
+      {data && <>
 
       {/* === HERO — RAIO-X DE HOJE === */}
       <TodayHero today={data.today} whatsapp={data.whatsapp} />
@@ -395,6 +396,8 @@ export default function DashboardPage() {
         <Calendar className="w-4 h-4" />
         Novo Agendamento
       </a>
+
+      </>}
     </div>
   );
 }

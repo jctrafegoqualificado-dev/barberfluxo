@@ -11,13 +11,15 @@ export async function GET(req: NextRequest) {
 
     if (q.length < 2) return NextResponse.json({ clients: [] });
 
-    // Busca clientes que já tiveram agendamento nesta barbearia
-    const appointments = await prisma.appointment.findMany({
-      where: { barbershopId },
-      select: { clientId: true },
-      distinct: ["clientId"],
-    });
-    const clientIds = appointments.map((a) => a.clientId);
+    // Busca clientes que já tiveram agendamento ou assinatura nesta barbearia
+    const [appointments, subscriptions] = await Promise.all([
+      prisma.appointment.findMany({ where: { barbershopId }, select: { clientId: true }, distinct: ["clientId"] }),
+      prisma.subscription.findMany({ where: { barbershopId }, select: { clientId: true }, distinct: ["clientId"] }),
+    ]);
+    const clientIds = [...new Set([
+      ...appointments.map((a) => a.clientId),
+      ...subscriptions.map((s) => s.clientId),
+    ])];
 
     const phoneDigits = q.replace(/\D/g, "");
     const clients = await prisma.user.findMany({

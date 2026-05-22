@@ -6,8 +6,10 @@ export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
+    const { searchParams } = new URL(req.url);
+    const includeInactive = searchParams.get("includeInactive") === "true";
     const barbers = await prisma.barber.findMany({
-      where: { barbershopId, active: true },
+      where: { barbershopId, ...(includeInactive ? {} : { active: true }) },
       include: { user: { select: { id: true, name: true, email: true, phone: true } } },
       orderBy: { user: { name: "asc" } },
     });
@@ -33,7 +35,13 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     requireAuth(req, ["OWNER"]);
-    const { barberId, name, phone, nickname, commission, password, dayOff } = await req.json();
+    const { barberId, name, phone, nickname, commission, password, dayOff, active } = await req.json();
+
+    // ── Toggle ativo/inativo ──
+    if (typeof active === "boolean") {
+      await prisma.barber.update({ where: { id: barberId }, data: { active } });
+      return NextResponse.json({ ok: true });
+    }
 
     const barber = await prisma.barber.findUnique({ where: { id: barberId }, select: { userId: true } });
     if (!barber) return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });

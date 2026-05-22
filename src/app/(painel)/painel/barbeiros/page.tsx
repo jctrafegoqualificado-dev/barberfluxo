@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Users, Plus, Percent, Edit2, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
+import { SkeletonCard } from "@/components/ui/SkeletonCard";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { getInitials } from "@/lib/utils";
@@ -23,15 +24,27 @@ export default function BarbeirosPage() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<FormMode>("add");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
   function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function load() {
-    const r = await fetch("/api/barbershop/barbers", { headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch("/api/barbershop/barbers?includeInactive=true", { headers: { Authorization: `Bearer ${token}` } });
     const d = await r.json();
     setBarbers(d.barbers || []);
+    setPageLoading(false);
+  }
+
+  async function handleToggleActive(b: Barber) {
+    const next = !b.active;
+    setBarbers(cur => cur.map(x => x.id === b.id ? { ...x, active: next } : x));
+    await fetch("/api/barbershop/barbers", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ barberId: b.id, active: next }),
+    });
   }
 
   async function handleDelete(b: Barber) {
@@ -100,7 +113,11 @@ export default function BarbeirosPage() {
         </Button>
       </div>
 
-      {barbers.length === 0 ? (
+      {pageLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} rows={3} />)}
+        </div>
+      ) : barbers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-zinc-400 bg-white rounded-xl border border-zinc-100">
           <Users className="w-12 h-12 mb-3" />
           <p className="font-medium">Nenhum profissional cadastrado</p>
@@ -108,16 +125,29 @@ export default function BarbeirosPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {barbers.map((b) => (
-            <div key={b.id} className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
+            <div key={b.id} className={`bg-white rounded-xl border shadow-sm p-5 transition-opacity ${b.active ? "border-zinc-100" : "border-zinc-200 opacity-60"}`}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                  <span className="text-primary font-bold text-sm">{getInitials(b.user.name)}</span>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${b.active ? "bg-primary/20" : "bg-zinc-100"}`}>
+                  <span className={`font-bold text-sm ${b.active ? "text-primary" : "text-zinc-400"}`}>{getInitials(b.user.name)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-zinc-900">{b.user.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-zinc-900">{b.user.name}</p>
+                    {!b.active && (
+                      <span className="text-[10px] bg-zinc-100 text-zinc-500 border border-zinc-200 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">Em Férias</span>
+                    )}
+                  </div>
                   {b.nickname && <p className="text-xs text-zinc-400">{b.nickname}</p>}
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Toggle ativo */}
+                  <button
+                    onClick={() => handleToggleActive(b)}
+                    title={b.active ? "Desativar (colocar em férias)" : "Reativar barbeiro"}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${b.active ? "bg-green-400" : "bg-zinc-300"}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${b.active ? "translate-x-4" : "translate-x-1"}`} />
+                  </button>
                   <button
                     onClick={() => openEdit(b)}
                     className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors"
