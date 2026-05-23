@@ -41,6 +41,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     }
 
     let client = await prisma.user.findUnique({ where: { email: clientEmail } });
+
+    // Bloqueia double-booking: mesmo telefone + mesmo nome + agendamento futuro ativo
+    // Assinantes são isentos pois agendam regularmente
+    if (client && !subscriptionId) {
+      const normalize = (s: string) => s.toLowerCase().trim().replace(/\s+/g, " ");
+      if (normalize(client.name) === normalize(clientName)) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const existingAppt = await prisma.appointment.findFirst({
+          where: {
+            barbershopId: shop.id,
+            clientId: client.id,
+            status: { in: ["CONFIRMED", "PENDING"] },
+            date: { gte: today },
+          },
+          select: { date: true, startTime: true },
+        });
+        if (existingAppt) {
+          const [ano, mes, dia] = existingAppt.date.toISOString().split("T")[0].split("-");
+          return NextResponse.json(
+            { error: `Você já tem um agendamento marcado para ${dia}/${mes}/${ano} às ${existingAppt.startTime}. Cancele-o primeiro para fazer um novo.` },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     if (!client) {
       const hashed = await hashPassword(clientPhone || "client123");
       client = await prisma.user.create({

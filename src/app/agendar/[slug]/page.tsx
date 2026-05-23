@@ -59,6 +59,7 @@ export default function AgendarPage() {
   const [daySlots, setDaySlots] = useState<DaySlots[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [activeSub, setActiveSub] = useState<{ subscriptionId: string; planName: string; allowedBarberIds: string[] } | null>(null);
+  const [bookError, setBookError] = useState<string | null>(null);
 
   // Calendar strip state
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -149,6 +150,7 @@ export default function AgendarPage() {
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setBookError(null);
     const clientName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
     const isAllowed = !activeSub || activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(selected.barber);
     const subscriptionId = activeSub && isAllowed ? activeSub.subscriptionId : undefined;
@@ -165,6 +167,7 @@ export default function AgendarPage() {
     });
     const d = await r.json();
     if (r.ok) { setBooked(d.appointment); setStep("confirmado"); }
+    else { setBookError(d.error || "Não foi possível concluir o agendamento."); }
     setLoading(false);
   }
 
@@ -535,6 +538,18 @@ export default function AgendarPage() {
                   />
                 </div>
               </div>
+
+              {bookError && (
+                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2.5">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <div className="text-sm text-red-400">
+                    <p>{bookError}</p>
+                    <a href={`/agendar/${slug}/cancelar`} className="underline text-red-300 hover:text-red-200 text-xs mt-1 inline-block">
+                      Gerenciar meus agendamentos →
+                    </a>
+                  </div>
+                </div>
+              )}
 
               <Button type="submit" loading={loading} disabled={!isFormValid} className="w-full" size="lg">
                 Confirmar Agendamento
