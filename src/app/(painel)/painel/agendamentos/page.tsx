@@ -64,13 +64,14 @@ function getInitials(name: string) { return name.split(" ").slice(0, 2).map(n =>
 
 /* ─── Modal de pagamento (com edição de serviços) ─── */
 function PaymentModal({
-  appt, services, onConfirm, onUpdateServices, onDelete, onClose
+  appt, services, onConfirm, onUpdateServices, onDelete, onReopen, onClose
 }: {
   appt: Appointment;
   services: any[];
   onConfirm: (id: string, m: string, p: number) => Promise<void>;
   onUpdateServices: (id: string, sids: string[]) => Promise<void>;
   onDelete: (id: string) => void;
+  onReopen: (id: string) => Promise<void>;
   onClose: () => void
 }) {
   const { token } = useAuthStore();
@@ -285,32 +286,68 @@ function PaymentModal({
         <div className="px-5 pb-5 pt-2 flex gap-2 shrink-0 border-t border-zinc-50 mt-auto">
           {mode === "payment" ? (
             <>
-              <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Cancelar</button>
-              <button
-                onClick={async () => {
-                  if (finalPrice > 0 && !sel) return;
-                  setSaving(true);
-                  const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
-                  if (toSell.length > 0) {
-                    await Promise.all(toSell.map(([pid, qty]) =>
-                      fetch(`/api/barbershop/products/${pid}/sell`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ quantity: qty, paymentMethod: finalPrice === 0 ? "SUBSCRIPTION" : sel }),
-                      })
-                    ));
-                  }
-                  await onConfirm(appt.id, finalPrice === 0 ? "SUBSCRIPTION" : sel!, finalPrice);
-                  setSaving(false);
-                  onClose();
-                }}
-                disabled={(finalPrice > 0 && !sel) || saving}
-                className={`flex-[1.5] py-3 rounded-xl text-white text-sm font-bold active:scale-95 transition-all shadow-md ${
-                  finalPrice === 0 ? "bg-green-600 hover:bg-green-700 shadow-green-200" : "bg-primary hover:bg-primary/90 shadow-amber-200"
-                }`}
-              >
-                {saving ? "Salvando..." : finalPrice === 0 ? "Confirmar Uso do Plano" : "Concluir Atendimento"}
-              </button>
+              {appt.status === "DONE" ? (
+                <>
+                  <button
+                    onClick={async () => { setSaving(true); await onReopen(appt.id); setSaving(false); onClose(); }}
+                    disabled={saving}
+                    className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all disabled:opacity-40"
+                  >
+                    {saving ? "..." : "Reabrir"}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setSaving(true);
+                      const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
+                      if (toSell.length > 0) {
+                        await Promise.all(toSell.map(([pid, qty]) =>
+                          fetch(`/api/barbershop/products/${pid}/sell`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ quantity: qty, paymentMethod: sel ?? "CASH" }),
+                          })
+                        ));
+                      }
+                      await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", finalPrice);
+                      setSaving(false);
+                      onClose();
+                    }}
+                    disabled={saving}
+                    className="flex-[1.5] py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-bold active:scale-95 transition-all shadow-md disabled:opacity-40"
+                  >
+                    {saving ? "Salvando..." : "Salvar alterações"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Cancelar</button>
+                  <button
+                    onClick={async () => {
+                      if (finalPrice > 0 && !sel) return;
+                      setSaving(true);
+                      const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
+                      if (toSell.length > 0) {
+                        await Promise.all(toSell.map(([pid, qty]) =>
+                          fetch(`/api/barbershop/products/${pid}/sell`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ quantity: qty, paymentMethod: finalPrice === 0 ? "SUBSCRIPTION" : sel }),
+                          })
+                        ));
+                      }
+                      await onConfirm(appt.id, finalPrice === 0 ? "SUBSCRIPTION" : sel!, finalPrice);
+                      setSaving(false);
+                      onClose();
+                    }}
+                    disabled={(finalPrice > 0 && !sel) || saving}
+                    className={`flex-[1.5] py-3 rounded-xl text-white text-sm font-bold active:scale-95 transition-all shadow-md ${
+                      finalPrice === 0 ? "bg-green-600 hover:bg-green-700 shadow-green-200" : "bg-primary hover:bg-primary/90 shadow-amber-200"
+                    }`}
+                  >
+                    {saving ? "Salvando..." : finalPrice === 0 ? "Confirmar Uso do Plano" : "Concluir Atendimento"}
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <>
@@ -938,6 +975,7 @@ export default function AgendamentosPage() {
             load();
           }}
           onDelete={deleteAppointment}
+          onReopen={async (id) => { await updateStatus(id, "CONFIRMED"); setModalAppt(null); }}
           onClose={() => setModalAppt(null)} />
       )}
       {showBloqueio && (

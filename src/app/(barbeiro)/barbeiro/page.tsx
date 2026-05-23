@@ -716,7 +716,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
             </>
           )}
 
-          {isActive && showServices && (
+          {(isActive || appt.status === "DONE") && showServices && (
             <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4">
               <h3 className="font-semibold text-zinc-900 text-center">Serviços realizados</h3>
               {loadingServices ? (
@@ -844,10 +844,24 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
             </div>
           )}
 
-          {appt.status === "DONE" && (
-            <div className="text-center py-4">
-              <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
-              <p className="font-semibold text-green-700">Atendimento concluído</p>
+          {appt.status === "DONE" && !showServices && (
+            <div className="space-y-3">
+              <div className="text-center py-2">
+                <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
+                <p className="font-semibold text-green-700">Atendimento concluído</p>
+              </div>
+              <button
+                onClick={() => setShowServices(true)}
+                className="w-full flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-semibold hover:bg-amber-100 transition-colors text-left">
+                <Scissors className="w-5 h-5 shrink-0" />
+                <span>Editar serviços</span>
+              </button>
+              <button
+                onClick={() => { onUpdate(appt.id, "CONFIRMED"); }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-500 font-semibold hover:bg-zinc-100 transition-colors text-left">
+                <XCircle className="w-5 h-5 shrink-0" />
+                <span>Reabrir atendimento</span>
+              </button>
             </div>
           )}
           {appt.status === "NO_SHOW" && (
