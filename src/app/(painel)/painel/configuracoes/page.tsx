@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -13,6 +13,15 @@ interface HourRow {
   isOpen: boolean;
   openTime: string;
   closeTime: string;
+}
+
+interface SpecialDayRow {
+  id: string;
+  date: string;
+  isClosed: boolean;
+  openTime: string | null;
+  closeTime: string | null;
+  reason: string | null;
 }
 
 function defaultHours(): HourRow[] {
@@ -59,6 +68,10 @@ export default function ConfiguracoesPage() {
   const [minCancelHours, setMinCancelHours] = useState("0");
   const [savingCancel, setSavingCancel] = useState(false);
   const [cancelSaved, setCancelSaved] = useState(false);
+  const [specialDays, setSpecialDays] = useState<SpecialDayRow[]>([]);
+  const [newDay, setNewDay] = useState({ date: "", isClosed: true, openTime: "09:00", closeTime: "18:00", reason: "" });
+  const [addingDay, setAddingDay] = useState(false);
+  const [deletingDayId, setDeletingDayId] = useState<string | null>(null);
   const slug = user?.barbershopSlug ?? "";
 
   useEffect(() => {
@@ -84,7 +97,40 @@ export default function ConfiguracoesPage() {
         }
         setLoadingHours(false);
       });
+
+    fetch("/api/barbershop/special-days", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => { if (d.days) setSpecialDays(d.days); });
   }, [token]);
+
+  async function addSpecialDay() {
+    if (!newDay.date) return;
+    setAddingDay(true);
+    const res = await fetch("/api/barbershop/special-days", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(newDay),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setSpecialDays((prev) => {
+        const filtered = prev.filter((d) => d.date !== data.day.date);
+        return [...filtered, data.day].sort((a, b) => a.date.localeCompare(b.date));
+      });
+      setNewDay({ date: "", isClosed: true, openTime: "09:00", closeTime: "18:00", reason: "" });
+    }
+    setAddingDay(false);
+  }
+
+  async function deleteSpecialDay(id: string) {
+    setDeletingDayId(id);
+    await fetch(`/api/barbershop/special-days/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setSpecialDays((prev) => prev.filter((d) => d.id !== id));
+    setDeletingDayId(null);
+  }
 
   function updateHour(dayOfWeek: number, field: keyof HourRow, value: string | boolean) {
     setHours((prev) => prev.map((h) => (h.dayOfWeek === dayOfWeek ? { ...h, [field]: value } : h)));
@@ -362,6 +408,120 @@ export default function ConfiguracoesPage() {
         <div className="flex justify-end">
           <Button variant="primary" size="sm" onClick={saveCancel} disabled={savingCancel}>
             {cancelSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingCancel ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Feriados e Horários Especiais */}
+      <Card>
+        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-primary" /> Feriados e Dias Especiais
+        </h2>
+        <p className="text-xs text-zinc-400 mb-4">Marque datas em que a barbearia estará fechada ou com horário diferente</p>
+
+        {/* Lista de dias cadastrados */}
+        {specialDays.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {specialDays.map((d) => {
+              const [ano, mes, dia] = d.date.split("-");
+              return (
+                <div key={d.id} className="flex items-center justify-between gap-3 bg-zinc-50 border border-zinc-100 rounded-lg px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-800">
+                      {dia}/{mes}/{ano}
+                      {d.reason && <span className="ml-2 text-zinc-500 font-normal">— {d.reason}</span>}
+                    </p>
+                    <p className="text-xs text-zinc-400">
+                      {d.isClosed ? "Fechado" : `Horário especial: ${d.openTime} – ${d.closeTime}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => deleteSpecialDay(d.id)}
+                    disabled={deletingDayId === d.id}
+                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Formulário para adicionar */}
+        <div className="space-y-3 border-t border-zinc-100 pt-4">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-xs text-zinc-500 mb-1">Data</label>
+              <input
+                type="date"
+                value={newDay.date}
+                onChange={(e) => setNewDay((v) => ({ ...v, date: e.target.value }))}
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs text-zinc-500 mb-1">Motivo (opcional)</label>
+              <input
+                type="text"
+                value={newDay.reason}
+                onChange={(e) => setNewDay((v) => ({ ...v, reason: e.target.value }))}
+                placeholder="Ex: Natal, Feriado..."
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-zinc-600">Tipo:</span>
+            <button
+              type="button"
+              onClick={() => setNewDay((v) => ({ ...v, isClosed: true }))}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${newDay.isClosed ? "bg-red-100 text-red-700 border border-red-200" : "bg-zinc-100 text-zinc-500 border border-zinc-200"}`}
+            >
+              Fechado
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewDay((v) => ({ ...v, isClosed: false }))}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!newDay.isClosed ? "bg-blue-100 text-blue-700 border border-blue-200" : "bg-zinc-100 text-zinc-500 border border-zinc-200"}`}
+            >
+              Horário especial
+            </button>
+          </div>
+
+          {!newDay.isClosed && (
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-xs text-zinc-500 mb-1">Abre</label>
+                <select
+                  value={newDay.openTime}
+                  onChange={(e) => setNewDay((v) => ({ ...v, openTime: e.target.value }))}
+                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                >
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-zinc-500 mb-1">Fecha</label>
+                <select
+                  value={newDay.closeTime}
+                  onChange={(e) => setNewDay((v) => ({ ...v, closeTime: e.target.value }))}
+                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                >
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={addSpecialDay}
+            disabled={!newDay.date || addingDay}
+          >
+            {addingDay ? "Salvando..." : <><Plus className="w-3.5 h-3.5 mr-1 inline" />Adicionar data</>}
           </Button>
         </div>
       </Card>

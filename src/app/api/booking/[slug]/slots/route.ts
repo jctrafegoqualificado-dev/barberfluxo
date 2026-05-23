@@ -30,9 +30,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       return NextResponse.json({ slots: [] });
     }
 
-    const openingHour = await prisma.openingHour.findFirst({
-      where: { barbershopId: shop.id, dayOfWeek, isOpen: true },
+    // Verifica dia especial (feriado ou horário customizado)
+    const specialDay = await prisma.specialDay.findUnique({
+      where: { barbershopId_date: { barbershopId: shop.id, date } },
     });
+    if (specialDay?.isClosed) return NextResponse.json({ slots: [] });
+
+    let openingHour: { openTime: string; closeTime: string } | null = null;
+    if (specialDay && !specialDay.isClosed && specialDay.openTime && specialDay.closeTime) {
+      openingHour = { openTime: specialDay.openTime, closeTime: specialDay.closeTime };
+    } else {
+      openingHour = await prisma.openingHour.findFirst({
+        where: { barbershopId: shop.id, dayOfWeek, isOpen: true },
+      });
+    }
     if (!openingHour) return NextResponse.json({ slots: [] });
 
     const [openH, openM] = openingHour.openTime.split(":").map(Number);
