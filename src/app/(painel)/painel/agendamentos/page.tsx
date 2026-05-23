@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Calendar, CreditCard, Banknote, Smartphone, X, Lock, Trash2, Plus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3 } from "lucide-react";
+import { Calendar, CreditCard, Banknote, Smartphone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
@@ -63,19 +63,46 @@ function localDateStr(d = new Date()) {
 function getInitials(name: string) { return name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase(); }
 
 /* ─── Modal de pagamento (com edição de serviços) ─── */
-function PaymentModal({ 
-  appt, services, onConfirm, onUpdateServices, onDelete, onClose 
-}: { 
-  appt: Appointment; 
+function PaymentModal({
+  appt, services, onConfirm, onUpdateServices, onDelete, onClose
+}: {
+  appt: Appointment;
   services: any[];
-  onConfirm: (id: string, m: string, p: number) => Promise<void>; 
+  onConfirm: (id: string, m: string, p: number) => Promise<void>;
   onUpdateServices: (id: string, sids: string[]) => Promise<void>;
-  onDelete: (id: string) => void; 
-  onClose: () => void 
+  onDelete: (id: string) => void;
+  onClose: () => void
 }) {
+  const { token } = useAuthStore();
   const [mode, setMode] = useState<"payment" | "edit">("payment");
   const [sel, setSel] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [qtys, setQtys] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!token) return;
+    setLoadingProducts(true);
+    fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setProducts(d.products || []))
+      .finally(() => setLoadingProducts(false));
+  }, [token]);
+
+  function changeQty(id: string, delta: number) {
+    setQtys(q => {
+      const cur = q[id] ?? 0;
+      const next = Math.max(0, cur + delta);
+      if (next === 0) { const { [id]: _removed, ...rest } = q; return rest; }
+      return { ...q, [id]: next };
+    });
+  }
+
+  const productTotal = Object.entries(qtys).reduce(
+    (sum, [id, q]) => sum + (products.find(p => p.id === id)?.price ?? 0) * q, 0
+  );
+  const hasProducts = Object.values(qtys).some(q => q > 0);
 
   if (!appt || !appt.client) return null;
   
@@ -171,6 +198,49 @@ function PaymentModal({
                   </div>
                 </>
               )}
+
+              {/* Produtos vendidos */}
+              {products.length > 0 && (
+                <div className="pt-3 border-t border-zinc-100 mt-3">
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5" /> Produtos vendidos (opcional)
+                  </p>
+                  <div className="space-y-2">
+                    {products.map(p => {
+                      const qty = qtys[p.id] ?? 0;
+                      return (
+                        <div key={p.id} className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-zinc-800 truncate">{p.name}</p>
+                            <p className="text-xs text-zinc-400">
+                              {formatCurrency(p.price)}{p.stock > 0 ? ` · ${p.stock} em estoque` : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button onClick={() => changeQty(p.id, -1)} disabled={qty === 0}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-zinc-200 disabled:opacity-30 hover:bg-zinc-50 transition-colors">
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="w-5 text-center text-sm font-bold text-zinc-800">{qty}</span>
+                            <button onClick={() => changeQty(p.id, 1)}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors">
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {hasProducts && (
+                    <p className="text-xs text-green-600 font-semibold mt-2 flex items-center gap-1">
+                      <Package className="w-3 h-3" /> +{formatCurrency(productTotal)} em produtos
+                    </p>
+                  )}
+                </div>
+              )}
+              {loadingProducts && (
+                <p className="text-xs text-zinc-400 pt-2">Carregando produtos...</p>
+              )}
             </>
           ) : (
             <div className="space-y-3">
@@ -216,15 +286,25 @@ function PaymentModal({
           {mode === "payment" ? (
             <>
               <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Cancelar</button>
-              <button 
-                onClick={async () => { 
-                  if (finalPrice > 0 && !sel) return; 
-                  setSaving(true); 
-                  await onConfirm(appt.id, finalPrice === 0 ? "SUBSCRIPTION" : sel!, finalPrice); 
-                  setSaving(false); 
-                  onClose(); 
+              <button
+                onClick={async () => {
+                  if (finalPrice > 0 && !sel) return;
+                  setSaving(true);
+                  const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
+                  if (toSell.length > 0) {
+                    await Promise.all(toSell.map(([pid, qty]) =>
+                      fetch(`/api/barbershop/products/${pid}/sell`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ quantity: qty, paymentMethod: finalPrice === 0 ? "SUBSCRIPTION" : sel }),
+                      })
+                    ));
+                  }
+                  await onConfirm(appt.id, finalPrice === 0 ? "SUBSCRIPTION" : sel!, finalPrice);
+                  setSaving(false);
+                  onClose();
                 }}
-                disabled={(finalPrice > 0 && !sel) || saving} 
+                disabled={(finalPrice > 0 && !sel) || saving}
                 className={`flex-[1.5] py-3 rounded-xl text-white text-sm font-bold active:scale-95 transition-all shadow-md ${
                   finalPrice === 0 ? "bg-green-600 hover:bg-green-700 shadow-green-200" : "bg-primary hover:bg-primary/90 shadow-amber-200"
                 }`}
