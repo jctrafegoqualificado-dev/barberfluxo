@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 interface Appointment {
   id: string; startTime: string; endTime: string; status: string; price: number;
   client: { name: string; phone: string | null };
-  service: { name: string; duration: number } | null;
+  service: { id: string; name: string; duration: number } | null;
+  services: { service: { id: string; name: string; price: number; duration: number } }[];
   subscription: { plan: { name: string } } | null;
 }
 
@@ -567,19 +568,37 @@ const STATUS_BG: Record<string, string> = {
   CANCELLED: "bg-zinc-300",
 };
 
-function ApptActionModal({ appt, onClose, onUpdate }: {
+function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   appt: Appointment;
   onClose: () => void;
   onUpdate: (id: string, status: string, paymentMethod?: string) => void;
+  onDone: () => void;
 }) {
   const { token } = useAuthStore();
   const [showPayment, setShowPayment] = useState(false);
+  const [showServices, setShowServices] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
+  const [allServices, setAllServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(
+    appt.services?.length > 0
+      ? appt.services.map(s => s.service.id)
+      : appt.service?.id ? [appt.service.id] : []
+  );
   const [qtys, setQtys] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const isActive = appt.status === "CONFIRMED" || appt.status === "PENDING";
+
+  useEffect(() => {
+    if (!token) return;
+    setLoadingServices(true);
+    fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setAllServices((d.services || []).filter((s: any) => s.active)))
+      .finally(() => setLoadingServices(false));
+  }, [token]);
 
   useEffect(() => {
     if (!showPayment || !token) return;
@@ -589,6 +608,18 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
       .then(d => setProducts(d.products || []))
       .finally(() => setLoadingProducts(false));
   }, [showPayment, token]);
+
+  async function saveServices() {
+    if (selectedServiceIds.length === 0) return;
+    setSaving(true);
+    await fetch("/api/barbershop/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: appt.id, serviceIds: selectedServiceIds }),
+    });
+    setSaving(false);
+    setShowServices(false);
+  }
 
   function changeQty(id: string, delta: number) {
     setQtys(q => {
@@ -616,8 +647,19 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
         })
       ));
     }
-    onUpdate(appt.id, "DONE", paymentMethod);
+    await fetch("/api/barbershop/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        id: appt.id,
+        status: "DONE",
+        paymentMethod,
+        ...(selectedServiceIds.length > 0 ? { serviceIds: selectedServiceIds } : {}),
+      }),
+    });
+    onDone();
     onClose();
+    setSaving(false);
   }
 
   return (
@@ -627,7 +669,17 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
           <div>
             <p className="font-bold text-zinc-900 text-lg">{appt.client.name}</p>
-            <p className="text-sm text-zinc-500">{appt.service?.name ?? "Serviço"} · {appt.startTime}–{appt.endTime}</p>
+            <p className="text-sm text-zinc-500">
+              {(() => {
+                if (selectedServiceIds.length > 0 && allServices.length > 0) {
+                  const names = allServices.filter(s => selectedServiceIds.includes(s.id)).map(s => s.name).join(" + ");
+                  if (names) return names;
+                }
+                return appt.services?.length > 0
+                  ? appt.services.map(s => s.service.name).join(" + ")
+                  : appt.service?.name ?? "Serviço";
+              })()} · {appt.startTime}–{appt.endTime}
+            </p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-zinc-100">
             <X className="w-5 h-5 text-zinc-500" />
@@ -635,13 +687,19 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
         </div>
 
         <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
-          {isActive && !showPayment && (
+          {isActive && !showPayment && !showServices && (
             <>
               <button
                 onClick={() => setShowPayment(true)}
                 className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-green-500 border border-green-600 text-white font-bold hover:bg-green-600 active:bg-green-700 transition-colors shadow-lg shadow-green-500/20 text-lg">
                 <CheckCircle className="w-6 h-6 shrink-0" />
                 <span>Marcar como concluído</span>
+              </button>
+              <button
+                onClick={() => setShowServices(true)}
+                className="w-full flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-semibold hover:bg-amber-100 active:bg-amber-200 transition-colors text-left">
+                <Scissors className="w-5 h-5 shrink-0" />
+                <span>Adicionar / editar serviços</span>
               </button>
               <button
                 onClick={() => { onUpdate(appt.id, "NO_SHOW"); onClose(); }}
@@ -656,6 +714,46 @@ function ApptActionModal({ appt, onClose, onUpdate }: {
                 <span>Cancelar agendamento</span>
               </button>
             </>
+          )}
+
+          {isActive && showServices && (
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4">
+              <h3 className="font-semibold text-zinc-900 text-center">Serviços realizados</h3>
+              {loadingServices ? (
+                <p className="text-sm text-zinc-400 text-center py-4">Carregando...</p>
+              ) : (
+                <div className="space-y-1.5 border border-zinc-100 rounded-xl p-1 max-h-56 overflow-y-auto">
+                  {allServices.map(s => {
+                    const checked = selectedServiceIds.includes(s.id);
+                    return (
+                      <label key={s.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${checked ? "bg-amber-50 border border-amber-200" : "hover:bg-zinc-50 border border-transparent"}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => setSelectedServiceIds(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
+                          className="rounded text-amber-500 w-4 h-4"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-800 truncate">{s.name}</p>
+                          <p className="text-xs text-zinc-400">{s.duration}min</p>
+                        </div>
+                        <span className="text-sm font-bold text-zinc-700 shrink-0">R$ {s.price.toFixed(2)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setShowServices(false)} className="flex-1 py-3 border border-zinc-200 text-zinc-600 font-semibold rounded-xl hover:bg-zinc-50 transition-colors">Voltar</button>
+                <button
+                  onClick={saveServices}
+                  disabled={saving || selectedServiceIds.length === 0}
+                  className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 text-white font-bold rounded-xl transition-colors disabled:opacity-60"
+                >
+                  {saving ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
+            </div>
           )}
 
           {showPayment && (
@@ -1009,6 +1107,10 @@ export default function BarbeiroAgendaPage() {
           appt={selectedAppt}
           onClose={() => setSelectedAppt(null)}
           onUpdate={(id, status, paymentMethod) => { updateStatus(id, status, paymentMethod); setSelectedAppt(null); }}
+          onDone={() => {
+            setAgendaAppts(cur => cur.map(a => a.id === selectedAppt.id ? { ...a, status: "DONE" } : a));
+            setSelectedAppt(null);
+          }}
         />
       )}
 
