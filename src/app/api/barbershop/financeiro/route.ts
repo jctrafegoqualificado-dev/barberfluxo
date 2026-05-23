@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
     const debitFee = shop?.debitFee ?? 0;
     const creditFee = shop?.creditFee ?? 0;
     const reminderMinutes = shop?.reminderMinutes ?? 60;
+    const cancelByClientEnabled = shop?.cancelByClientEnabled ?? true;
+    const minCancelHours = shop?.minCancelHours ?? 0;
     const poeBarberPct = 100 - poeOwnerPct;
 
     // Assinaturas ativas
@@ -116,6 +118,8 @@ export async function GET(req: NextRequest) {
       debitFee,
       creditFee,
       reminderMinutes,
+      cancelByClientEnabled,
+      minCancelHours,
       saasPlan: shop?.saasPlan ?? "BASIC",
       avulso: {
         bruto: avulsoBrutoTotal,
@@ -147,7 +151,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { poeOwnerPct, debitFee, creditFee, reminderMinutes } = await req.json();
+    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours } = await req.json();
     if (poeOwnerPct !== undefined && (poeOwnerPct < 0 || poeOwnerPct > 100)) {
       return NextResponse.json({ error: "Percentual inválido" }, { status: 400 });
     }
@@ -158,6 +162,8 @@ export async function PATCH(req: NextRequest) {
         ...(debitFee !== undefined ? { debitFee: Number(debitFee) } : {}),
         ...(creditFee !== undefined ? { creditFee: Number(creditFee) } : {}),
         ...(reminderMinutes !== undefined ? { reminderMinutes: Number(reminderMinutes) } : {}),
+        ...(cancelByClientEnabled !== undefined ? { cancelByClientEnabled: Boolean(cancelByClientEnabled) } : {}),
+        ...(minCancelHours !== undefined ? { minCancelHours: Number(minCancelHours) } : {}),
       },
     });
     return NextResponse.json({ ok: true });

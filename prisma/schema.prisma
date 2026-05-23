@@ -65,6 +65,9 @@ model Barbershop {
   reminderEnabled Boolean @default(false)
   reminderMessage String? // Template: "Olá {{nome}}, seu horário de {{servico}} é amanhã às {{hora}}!"
 
+  cancelByClientEnabled Boolean @default(true)
+  minCancelHours        Int     @default(0)
+
   ownerId String @unique
   owner   User   @relation("ShopOwner", fields: [ownerId], references: [id])
 

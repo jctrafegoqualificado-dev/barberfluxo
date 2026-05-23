@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -55,6 +55,10 @@ export default function ConfiguracoesPage() {
   const [feesSaved, setFeesSaved] = useState(false);
   const [savingReminder, setSavingReminder] = useState(false);
   const [reminderSaved, setReminderSaved] = useState(false);
+  const [cancelByClientEnabled, setCancelByClientEnabled] = useState(true);
+  const [minCancelHours, setMinCancelHours] = useState("0");
+  const [savingCancel, setSavingCancel] = useState(false);
+  const [cancelSaved, setCancelSaved] = useState(false);
   const slug = user?.barbershopSlug ?? "";
 
   useEffect(() => {
@@ -64,6 +68,8 @@ export default function ConfiguracoesPage() {
         if (d.debitFee !== undefined) setDebitFee(String(d.debitFee));
         if (d.creditFee !== undefined) setCreditFee(String(d.creditFee));
         if (d.reminderMinutes !== undefined) setReminderMinutes(String(d.reminderMinutes));
+        if (d.cancelByClientEnabled !== undefined) setCancelByClientEnabled(Boolean(d.cancelByClientEnabled));
+        if (d.minCancelHours !== undefined) setMinCancelHours(String(d.minCancelHours));
       });
 
     fetch("/api/barbershop/horarios", { headers: { Authorization: `Bearer ${token}` } })
@@ -106,6 +112,18 @@ export default function ConfiguracoesPage() {
     setSavingFees(false);
     setFeesSaved(true);
     setTimeout(() => setFeesSaved(false), 2500);
+  }
+
+  async function saveCancel() {
+    setSavingCancel(true);
+    await fetch("/api/barbershop/financeiro", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ cancelByClientEnabled, minCancelHours: Number(minCancelHours) }),
+    });
+    setSavingCancel(false);
+    setCancelSaved(true);
+    setTimeout(() => setCancelSaved(false), 2500);
   }
 
   async function saveReminder() {
@@ -287,6 +305,63 @@ export default function ConfiguracoesPage() {
         <div className="mt-3 flex justify-end">
           <Button variant="primary" size="sm" onClick={saveReminder} disabled={savingReminder}>
             {reminderSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingReminder ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Cancelamento pelo cliente */}
+      <Card>
+        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
+          <XCircle className="w-4 h-4 text-primary" /> Cancelamento pelo Cliente
+        </h2>
+        <p className="text-xs text-zinc-400 mb-4">Controle se os clientes podem cancelar os próprios agendamentos pelo link público</p>
+
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-800">Permitir cancelamento online</p>
+            <p className="text-xs text-zinc-400">
+              {cancelByClientEnabled ? "Clientes podem cancelar pela página de agendamento" : "Apenas a barbearia pode cancelar"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCancelByClientEnabled((v) => !v)}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${cancelByClientEnabled ? "bg-primary" : "bg-zinc-200"}`}
+          >
+            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${cancelByClientEnabled ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+
+        {cancelByClientEnabled && (
+          <div className="mb-4">
+            <label className="block text-xs text-zinc-500 mb-1">Antecedência mínima para cancelar</label>
+            <div className="flex items-center gap-2">
+              <select
+                value={minCancelHours}
+                onChange={(e) => setMinCancelHours(e.target.value)}
+                className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              >
+                <option value="0">Sem restrição (qualquer hora)</option>
+                <option value="1">1 hora antes</option>
+                <option value="2">2 horas antes</option>
+                <option value="4">4 horas antes</option>
+                <option value="8">8 horas antes</option>
+                <option value="12">12 horas antes</option>
+                <option value="24">24 horas antes</option>
+                <option value="48">48 horas antes</option>
+              </select>
+            </div>
+            {Number(minCancelHours) > 0 && (
+              <p className="text-xs text-zinc-400 mt-1.5">
+                Clientes só poderão cancelar com pelo menos {minCancelHours}h de antecedência.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button variant="primary" size="sm" onClick={saveCancel} disabled={savingCancel}>
+            {cancelSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingCancel ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
           </Button>
         </div>
       </Card>
