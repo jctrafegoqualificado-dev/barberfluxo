@@ -577,6 +577,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   const { token } = useAuthStore();
   const [showPayment, setShowPayment] = useState(false);
   const [showServices, setShowServices] = useState(false);
+  const [showProducts, setShowProducts] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
   const [allServices, setAllServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
@@ -601,7 +602,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   }, [token]);
 
   useEffect(() => {
-    if (!showPayment || !token) return;
+    if ((!showPayment && !showProducts) || !token) return;
     setLoadingProducts(true);
     fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
@@ -844,7 +845,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
             </div>
           )}
 
-          {appt.status === "DONE" && !showServices && (
+          {appt.status === "DONE" && !showServices && !showProducts && (
             <div className="space-y-3">
               <div className="text-center py-2">
                 <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
@@ -857,11 +858,85 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
                 <span>Editar serviços</span>
               </button>
               <button
+                onClick={() => setShowProducts(true)}
+                className="w-full flex items-center gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 font-semibold hover:bg-blue-100 transition-colors text-left">
+                <Package className="w-5 h-5 shrink-0" />
+                <span>Adicionar produtos</span>
+              </button>
+              <button
                 onClick={() => { onUpdate(appt.id, "CONFIRMED"); }}
                 className="w-full flex items-center gap-3 p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-500 font-semibold hover:bg-zinc-100 transition-colors text-left">
                 <XCircle className="w-5 h-5 shrink-0" />
                 <span>Reabrir atendimento</span>
               </button>
+            </div>
+          )}
+
+          {appt.status === "DONE" && showProducts && (
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4">
+              <h3 className="font-semibold text-zinc-900 text-center">Adicionar produtos</h3>
+              {loadingProducts ? (
+                <p className="text-sm text-zinc-400 text-center py-4">Carregando...</p>
+              ) : products.length === 0 ? (
+                <div className="flex items-center gap-2 py-3 px-3 bg-zinc-50 rounded-xl border border-zinc-200">
+                  <Package className="w-4 h-4 text-zinc-400 shrink-0" />
+                  <p className="text-xs text-zinc-500">Sem produtos no estoque. O administrador pode cadastrá-los em <span className="font-semibold">Produtos</span>.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {products.map(p => {
+                    const qty = qtys[p.id] ?? 0;
+                    return (
+                      <div key={p.id} className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-800 truncate">{p.name}</p>
+                          <p className="text-xs text-zinc-400">{formatCurrency(p.price)}{p.stock > 0 ? ` · ${p.stock} em estoque` : ""}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => changeQty(p.id, -1)} disabled={qty === 0}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-zinc-200 disabled:opacity-30 hover:bg-zinc-50 transition-colors">
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="w-5 text-center text-sm font-bold text-zinc-800">{qty}</span>
+                          <button onClick={() => changeQty(p.id, 1)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors">
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {hasProducts && (
+                <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                  <Package className="w-3 h-3" /> +{formatCurrency(productTotal)} em produtos
+                </p>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => { setShowProducts(false); setQtys({}); }} className="flex-1 py-3 border border-zinc-200 text-zinc-600 font-semibold rounded-xl hover:bg-zinc-50 transition-colors">Voltar</button>
+                <button
+                  onClick={async () => {
+                    const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
+                    if (toSell.length === 0) return;
+                    setSaving(true);
+                    await Promise.all(toSell.map(([pid, qty]) =>
+                      fetch(`/api/barbershop/products/${pid}/sell`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ quantity: qty, paymentMethod: "CASH" }),
+                      })
+                    ));
+                    setSaving(false);
+                    setQtys({});
+                    setShowProducts(false);
+                  }}
+                  disabled={saving || !hasProducts}
+                  className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 text-white font-bold rounded-xl transition-colors disabled:opacity-60"
+                >
+                  {saving ? "Salvando..." : "Registrar venda"}
+                </button>
+              </div>
             </div>
           )}
           {appt.status === "NO_SHOW" && (
