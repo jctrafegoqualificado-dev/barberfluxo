@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
           name: shopName,
           slug,
           ownerId: user.id,
+          trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
           openingHours: {
             create: [1, 2, 3, 4, 5, 6].map((day) => ({
               dayOfWeek: day,

@@ -8,21 +8,22 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const { user, token } = useAuthStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [branding, setBranding] = useState<{ 
-    primaryColor: string; 
+  const [branding, setBranding] = useState<{
+    primaryColor: string;
     secondaryColor: string;
     logoUrl?: string | null;
     name?: string | null;
   } | null>(null);
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
   function hexToRgb(hex: string) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? 
-      `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
+    return result ?
+      `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` :
       null;
   }
 
-  useEffect(() => { 
+  useEffect(() => {
     setMounted(true);
     if (token) {
       fetch("/api/barbershop/settings", {
@@ -37,6 +38,24 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
             logoUrl: data.logoUrl,
             name: data.name
           });
+        }
+
+        // Trial enforcement (apenas para novos usuários que têm trialEndsAt)
+        const saasPlan: string = data.saasPlan || "BASIC";
+        const isPaid = saasPlan === "PRO" || saasPlan === "ELITE" || saasPlan === "PREMIUM";
+        const trialEndsAt = data.trialEndsAt ? new Date(data.trialEndsAt) : null;
+
+        if (!isPaid && trialEndsAt) {
+          if (trialEndsAt < new Date()) {
+            // Trial expirado → redireciona para assinar (exceto se já estiver lá)
+            if (!window.location.pathname.includes("/painel/assinatura")) {
+              router.push("/painel/assinatura?trial=expired");
+            }
+          } else {
+            // Trial ativo → mostra banner com dias restantes
+            const daysLeft = Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            setTrialDaysLeft(daysLeft);
+          }
         }
       });
     }
@@ -59,7 +78,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
     window.fetch = async (...args) => {
       const response = await originalFetch(...args);
       const url = typeof args[0] === 'string' ? args[0] : (args[0] instanceof URL ? args[0].href : (args[0] as Request)?.url);
-      
+
       if (response.status === 401 && url?.includes('/api/')) {
         useAuthStore.getState().clearAuth();
         document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -84,7 +103,13 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
           --secondary: ${branding?.secondaryColor ? hexToRgb(branding.secondaryColor) : "251, 191, 36"};
         }
       `}} />
-      <div className="flex min-h-screen bg-zinc-50">
+      {trialDaysLeft !== null && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white text-center text-sm font-semibold py-2 px-4">
+          ⚡ Período de teste: {trialDaysLeft} dia{trialDaysLeft !== 1 ? "s" : ""} restante{trialDaysLeft !== 1 ? "s" : ""} —{" "}
+          <a href="/painel/assinatura" className="underline font-bold hover:text-amber-100">Assine agora e continue</a>
+        </div>
+      )}
+      <div className={`flex min-h-screen bg-zinc-50${trialDaysLeft !== null ? " pt-9" : ""}`}>
         <Sidebar branding={branding || undefined} />
         <main className="flex-1 overflow-auto">
           <div className="p-4 pt-16 md:pt-6 md:p-6 max-w-7xl mx-auto">{children}</div>

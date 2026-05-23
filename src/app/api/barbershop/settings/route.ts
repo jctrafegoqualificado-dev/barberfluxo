@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
         secondaryColor: true,
         logoUrl: true,
         favIconUrl: true,
+        saasPlan: true,
+        trialEndsAt: true,
       }
     });
 

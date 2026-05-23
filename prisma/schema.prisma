@@ -53,7 +53,8 @@ model Barbershop {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  saasPlan SaasPlan @default(BASIC)
+  saasPlan    SaasPlan  @default(BASIC)
+  trialEndsAt DateTime?
 
   poeOwnerPct     Float @default(50)
   debitFee        Float @default(0)

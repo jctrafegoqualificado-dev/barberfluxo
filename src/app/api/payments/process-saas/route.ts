@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     
     // Dados vindos do Mercado Pago Brick
-    const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, planType } = body;
+    const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, planType, billingCycle } = body;
 
     if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
       return NextResponse.json({ error: "Mercado Pago não configurado" }, { status: 500 });
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
           first_name: payer?.first_name || dbUser?.name?.split(" ")[0] || "Dono",
           last_name: payer?.last_name || dbUser?.name?.split(" ").slice(1).join(" ") || "Barbearia",
         },
-        external_reference: payload.barbershopId,
+        external_reference: `${payload.barbershopId}|${planType}|${billingCycle || "monthly"}`,
         notification_url: notificationUrl,
       },
     };

@@ -6,7 +6,6 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Mercado Pago envia notificações de vários tipos e formatos
     const type = body.type || body.topic;
     const paymentId = body.data?.id || body.id;
 
@@ -18,23 +17,33 @@ export async function POST(req: NextRequest) {
     const paymentApi = new MPPayment(client);
     const mpPayment = await paymentApi.get({ id: paymentId });
 
-    const barbershopId = mpPayment.external_reference;
+    const externalRef = mpPayment.external_reference || "";
+    if (!externalRef) return NextResponse.json({ ok: true });
+
+    // Suporta dois formatos:
+    // Novo:  "<barbershopId>|<plan>|<billingCycle>"
+    // Legado: "<barbershopId>"
+    const parts = externalRef.split("|");
+    const barbershopId = parts[0];
+    const planFromRef = parts[1] as "PRO" | "ELITE" | undefined;
+
     if (!barbershopId) return NextResponse.json({ ok: true });
 
     if (mpPayment.status === "approved") {
-      // Determina o plano pelo valor pago (Nova LP do CEO)
-      // PRO (Gestão) = R$ 154,90. ELITE (Gestão + Assistente) = R$ 197,90
-      const amount = Number(mpPayment.transaction_amount);
-      let saasPlan: "PRO" | "ELITE" = "ELITE"; // default
-      if (amount <= 170) saasPlan = "PRO"; 
+      // Determina o plano: prefere external_reference, fallback por valor (legado)
+      let saasPlan: "PRO" | "ELITE" = "ELITE";
+      if (planFromRef === "PRO" || planFromRef === "ELITE") {
+        saasPlan = planFromRef;
+      } else {
+        const amount = Number(mpPayment.transaction_amount);
+        if (amount <= 170) saasPlan = "PRO";
+      }
 
-      // 1. Atualiza o plano da barbearia
       await prisma.barbershop.update({
         where: { id: barbershopId },
-        data: { saasPlan: saasPlan },
+        data: { saasPlan },
       });
 
-      // 2. Salva o pagamento automatizado na tabela de Faturamento SaaS
       await prisma.payment.create({
         data: {
           amount: Number(mpPayment.transaction_amount),
@@ -42,11 +51,11 @@ export async function POST(req: NextRequest) {
           status: "PAID",
           paidAt: new Date(),
           externalId: String(paymentId),
-          barbershopId: barbershopId
-        }
+          barbershopId,
+        },
       });
 
-      console.log(`✅ [SaaS Webhook] Pagamento automatizado MercadoPago [${paymentId}] salvo com sucesso. Barbearia: ${barbershopId}`);
+      console.log(`✅ [SaaS Webhook] Pagamento [${paymentId}] aprovado. Plano: ${saasPlan}. Barbearia: ${barbershopId}`);
     }
 
     return NextResponse.json({ ok: true });
