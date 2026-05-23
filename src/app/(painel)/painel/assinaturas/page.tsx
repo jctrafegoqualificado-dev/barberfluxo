@@ -1136,7 +1136,7 @@ export default function AssinaturasPage() {
                     <button
                       key={c.id}
                       type="button"
-                      onMouseDown={() => selectClientSuggestion(c)}
+                      onPointerDown={() => selectClientSuggestion(c)}
                       className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-50 flex items-center justify-between gap-2 border-b border-zinc-100 last:border-0"
                     >
                       <span className="font-medium text-zinc-900">{c.name}</span>

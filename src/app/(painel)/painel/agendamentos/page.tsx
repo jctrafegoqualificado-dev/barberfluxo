@@ -476,7 +476,7 @@ function AgendamentoModal({
                     <button
                       key={c.id}
                       type="button"
-                      onMouseDown={() => {
+                      onPointerDown={() => {
                         setClientName(c.name);
                         setClientPhone(c.phone ?? "");
                         setShowSuggestions(false);
@@ -1244,7 +1244,13 @@ export default function AgendamentosPage() {
                         </button>
                       )}
                       {a.status === "DONE" && (
-                        <p className="text-xs text-green-600 font-medium mt-1">✓ Concluído</p>
+                        <div className="flex flex-col items-end gap-1 mt-1">
+                          <p className="text-xs text-green-600 font-medium">✓ Concluído</p>
+                          <button onClick={() => setModalAppt(a)}
+                            className="text-xs text-zinc-400 hover:text-primary underline underline-offset-2">
+                            Editar
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

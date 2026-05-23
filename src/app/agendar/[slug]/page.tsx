@@ -1,22 +1,22 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
-import { Sparkles, Check, ChevronLeft, Clock, Calendar, AlertCircle, UserCheck } from "lucide-react";
+import { Sparkles, Check, ChevronLeft, ChevronRight, Clock, Calendar, AlertCircle, UserCheck, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
 
 interface Service { id: string; name: string; price: number; duration: number; description: string | null }
 interface Barber { id: string; nickname: string | null; user: { name: string } }
-interface Shop { 
-  id: string; 
-  name: string; 
-  slug: string; 
-  description: string | null; 
+interface Shop {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
   logoUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
-  services: Service[]; 
-  barbers: Barber[] 
+  services: Service[];
+  barbers: Barber[]
 }
 interface DaySlots { date: string; label: string; slots: string[] }
 
@@ -31,8 +31,8 @@ function localDateStr(d: Date) {
 
 function hexToRgb(hex: string) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? 
-    `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
+  return result ?
+    `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` :
     null;
 }
 
@@ -60,6 +60,10 @@ export default function AgendarPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [activeSub, setActiveSub] = useState<{ subscriptionId: string; planName: string; allowedBarberIds: string[] } | null>(null);
 
+  // Calendar strip state
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = week 1 (days 0-6), 1 = week 2 (days 7-13)
+
   useEffect(() => {
     fetch(`/api/booking/${slug}`)
       .then((r) => r.json())
@@ -85,7 +89,6 @@ export default function AgendarPage() {
           setForm((f) => ({ ...f, firstName: d.firstName, lastName: d.lastName }));
           setClientFound(true);
 
-          // Verifica assinatura ativa
           const subRes = await fetch(`/api/booking/${slug}/subscriber?email=${encodeURIComponent(`${digits}@cliente.barberfluxo`)}`);
           const subData = await subRes.json();
           if (subData.subscriptionId) {
@@ -100,19 +103,21 @@ export default function AgendarPage() {
     }, 600);
   }
 
-  // Carrega os próximos 14 dias com horários disponíveis ao entrar no step datetime
+  // Carrega os próximos 14 dias ao entrar no step datetime
   useEffect(() => {
     if (step !== "datetime" || !selected.barber || !selected.service) return;
 
     setLoadingSlots(true);
     setDaySlots([]);
+    setSelectedDate("");
+    setWeekOffset(0);
 
     const today = new Date();
     const dates: string[] = [];
     for (let i = 0; i < 14; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
-      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+      dates.push(localDateStr(d));
     }
 
     Promise.all(
@@ -123,6 +128,13 @@ export default function AgendarPage() {
       )
     ).then((results) => {
       setDaySlots(results);
+      // Auto-seleciona o primeiro dia com horário disponível
+      const firstAvailable = results.find((d) => d.slots.length > 0);
+      if (firstAvailable) {
+        setSelectedDate(firstAvailable.date);
+        const idx = results.indexOf(firstAvailable);
+        if (idx >= 7) setWeekOffset(1);
+      }
       setLoadingSlots(false);
     });
   }, [step, selected.barber, selected.service, slug]);
@@ -161,6 +173,10 @@ export default function AgendarPage() {
   const hasAnySlot = daySlots.some((d) => d.slots.length > 0);
   const isFormValid = form.firstName.trim().length > 0 && form.phone.trim().length >= 8;
 
+  // Semana atual visível no strip (7 dias por vez)
+  const weekDays = daySlots.slice(weekOffset * 7, weekOffset * 7 + 7);
+  const currentDaySlots = daySlots.find((d) => d.date === selectedDate);
+
   if (!shop) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -187,9 +203,9 @@ export default function AgendarPage() {
         <div className="text-center mb-8">
           {shop.logoUrl ? (
             <div className="inline-flex items-center justify-center mb-3">
-              <img 
-                src={shop.logoUrl} 
-                alt={shop.name} 
+              <img
+                src={shop.logoUrl}
+                alt={shop.name}
                 className="w-16 h-16 rounded-2xl object-cover border-2 border-primary/20 shadow-md"
               />
             </div>
@@ -273,7 +289,7 @@ export default function AgendarPage() {
           </div>
         )}
 
-        {/* STEP 3 — Data e Horário (smart) */}
+        {/* STEP 3 — Data e Horário com calendar strip */}
         {step === "datetime" && (
           <div className="space-y-4">
             <button onClick={() => setStep("barber")} className="flex items-center gap-1 text-zinc-400 hover:text-white text-sm">
@@ -281,7 +297,6 @@ export default function AgendarPage() {
             </button>
             <div>
               <h2 className="text-lg font-semibold">Escolha data e horário</h2>
-              <p className="text-xs text-zinc-500 mt-0.5">Próximos 14 dias — clique direto no horário desejado</p>
             </div>
 
             {loadingSlots ? (
@@ -295,32 +310,122 @@ export default function AgendarPage() {
                 <p className="text-zinc-400 text-sm text-center">Nenhum horário disponível<br />nos próximos 14 dias</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {daySlots.map(({ date, label, slots }) => {
-                  if (slots.length === 0) return null;
-                  return (
-                    <div key={date} className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+              <div className="space-y-4">
+                {/* ── Calendar strip ── */}
+                <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-3">
+                  <div className="flex items-center gap-2">
+                    {/* Seta semana anterior */}
+                    <button
+                      onClick={() => {
+                        setWeekOffset(0);
+                        const firstInWeek = daySlots.slice(0, 7).find((d) => d.slots.length > 0);
+                        if (firstInWeek) setSelectedDate(firstInWeek.date);
+                      }}
+                      disabled={weekOffset === 0}
+                      className="p-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 disabled:opacity-20 disabled:cursor-default transition-all shrink-0 active:scale-95"
+                      aria-label="Semana anterior"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Dias da semana */}
+                    <div className="flex gap-1.5 flex-1 overflow-hidden">
+                      {weekDays.map(({ date, slots }) => {
+                        const d = new Date(date + "T12:00:00");
+                        const isSelected = selectedDate === date;
+                        const hasSlots = slots.length > 0;
+                        const isToday = date === localDateStr(new Date());
+                        return (
+                          <button
+                            key={date}
+                            onClick={() => hasSlots && setSelectedDate(date)}
+                            disabled={!hasSlots}
+                            className={`flex-1 flex flex-col items-center py-2.5 px-0.5 rounded-xl text-center transition-all active:scale-95 min-w-0 ${
+                              isSelected
+                                ? "bg-primary text-white shadow-lg shadow-primary/30"
+                                : hasSlots
+                                ? "bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+                                : "bg-zinc-800/40 text-zinc-600 cursor-default"
+                            }`}
+                          >
+                            <span className={`text-[9px] font-semibold uppercase tracking-wider ${isSelected ? "text-white/80" : "text-zinc-500"}`}>
+                              {DIAS_PT[d.getDay()]}
+                            </span>
+                            <span className="text-base font-bold leading-tight mt-0.5">
+                              {d.getDate()}
+                            </span>
+                            <span className={`text-[9px] ${isSelected ? "text-white/70" : "text-zinc-500"}`}>
+                              {MESES_PT[d.getMonth()]}
+                            </span>
+                            {/* Indicador de disponibilidade */}
+                            {hasSlots && !isSelected && (
+                              <div className="w-1 h-1 rounded-full bg-primary mt-1" />
+                            )}
+                            {isToday && !isSelected && (
+                              <div className="w-1 h-1 rounded-full bg-zinc-400 mt-1" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Seta próxima semana */}
+                    <button
+                      onClick={() => {
+                        setWeekOffset(1);
+                        const firstInWeek = daySlots.slice(7, 14).find((d) => d.slots.length > 0);
+                        if (firstInWeek) setSelectedDate(firstInWeek.date);
+                      }}
+                      disabled={weekOffset === 1}
+                      className="p-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 disabled:opacity-20 disabled:cursor-default transition-all shrink-0 active:scale-95"
+                      aria-label="Próxima semana"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Label da semana */}
+                  <p className="text-center text-xs text-zinc-600 mt-2">
+                    {weekOffset === 0 ? "Esta semana" : "Próxima semana"}
+                  </p>
+                </div>
+
+                {/* ── Horários do dia selecionado ── */}
+                {selectedDate && currentDaySlots ? (
+                  currentDaySlots.slots.length > 0 ? (
+                    <div className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                         <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-primary" />
-                          <span className="font-semibold text-sm">{label}</span>
+                          <Calendar className="w-4 h-4 text-primary/80" />
+                          <span className="font-semibold text-sm">{formatDayLabel(selectedDate)}</span>
                         </div>
-                        <span className="text-xs text-zinc-500">{slots.length} horário{slots.length > 1 ? "s" : ""}</span>
+                        <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
+                          {currentDaySlots.slots.length} horário{currentDaySlots.slots.length !== 1 ? "s" : ""}
+                        </span>
                       </div>
                       <div className="grid grid-cols-4 gap-2 p-3">
-                        {slots.map((slot) => (
+                        {currentDaySlots.slots.map((slot) => (
                           <button
                             key={slot}
-                            onClick={() => pickSlot(date, slot)}
-                            className="py-2 rounded-lg text-sm font-semibold bg-zinc-800 hover:bg-primary hover:text-white text-zinc-200 transition-colors"
+                            onClick={() => pickSlot(selectedDate, slot)}
+                            className="py-2.5 rounded-xl text-sm font-semibold bg-zinc-800 hover:bg-primary hover:text-white text-zinc-200 transition-all active:scale-95 border border-zinc-700 hover:border-primary"
                           >
                             {slot}
                           </button>
                         ))}
                       </div>
                     </div>
-                  );
-                })}
+                  ) : (
+                    <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-8 text-center">
+                      <p className="text-zinc-500 text-sm">Sem horários disponíveis neste dia</p>
+                      <p className="text-zinc-600 text-xs mt-1">Selecione outro dia no calendário acima</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-8 text-center">
+                    <p className="text-zinc-500 text-sm">Selecione um dia acima para ver os horários</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -340,7 +445,6 @@ export default function AgendarPage() {
               <p className="text-zinc-400">Valor: <span className="text-primary/80 font-bold">{formatCurrency(selectedService?.price || 0)}</span></p>
             </div>
             <form onSubmit={handleBook} className="space-y-3">
-              {/* Telefone primeiro — dispara lookup */}
               <div>
                 <label className="block text-xs text-zinc-400 mb-1">WhatsApp</label>
                 <div className="relative">
@@ -360,7 +464,6 @@ export default function AgendarPage() {
                 </div>
               </div>
 
-              {/* Feedback de reconhecimento */}
               {clientFound === true && (
                 <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2.5">
                   <UserCheck className="w-4 h-4 text-green-400 shrink-0" />
@@ -411,7 +514,6 @@ export default function AgendarPage() {
                 })()
               )}
 
-              {/* Nome e sobrenome — sempre visíveis para editar */}
               <div className="flex gap-2">
                 <div className="flex-1">
                   <label className="block text-xs text-zinc-400 mb-1">Nome</label>
@@ -454,6 +556,12 @@ export default function AgendarPage() {
               <p className="text-zinc-400">Profissional: <span className="text-white">{selectedBarber?.user.name}</span></p>
               <p className="text-zinc-400">Data: <span className="text-white">{formatDayLabel(selected.date)} às {booked?.startTime}</span></p>
             </div>
+            <p className="text-xs text-zinc-500 mb-5">
+              Precisa cancelar?{" "}
+              <a href={`/agendar/${slug}/cancelar`} className="text-primary/80 underline hover:text-primary">
+                Gerenciar meus agendamentos
+              </a>
+            </p>
             <Button onClick={() => { setStep("service"); setSelected({ service: "", barber: "", date: "", slot: "" }); }} variant="secondary">
               Fazer novo agendamento
             </Button>
@@ -461,6 +569,18 @@ export default function AgendarPage() {
         )}
 
       </div>
+
+      {/* Rodapé: acesso rápido ao cancelamento */}
+      {step !== "confirmado" && (
+        <div className="text-center py-4 border-t border-zinc-800/50">
+          <p className="text-xs text-zinc-600">
+            Já tem um agendamento?{" "}
+            <a href={`/agendar/${slug}/cancelar`} className="text-zinc-500 underline underline-offset-2 hover:text-zinc-300 transition-colors">
+              Ver ou cancelar meus horários
+            </a>
+          </p>
+        </div>
+      )}
     </div>
     </>
   );

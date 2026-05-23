@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     if (!client) {
       const hashed = await hashPassword(clientPhone || "client123");
       client = await prisma.user.create({
-        data: { name: clientName, email: clientEmail, phone: clientPhone, password: hashed, role: "CLIENT" },
+        data: { name: clientName, email: clientEmail, phone: cleanPhone, password: hashed, role: "CLIENT" },
       });
     }
 
