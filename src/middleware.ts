@@ -21,7 +21,8 @@ export function middleware(req: NextRequest) {
   }
 
   // 2. Proteção API v1 externa
-  if (pathname.startsWith("/api/v1/") && pathname !== "/api/v1/openapi") {
+  const isPublicCancelRoute = /^\/api\/v1\/barbershops\/[^/]+\/appointments\/[^/]+\/cancel$/.test(pathname);
+  if (pathname.startsWith("/api/v1/") && pathname !== "/api/v1/openapi" && !isPublicCancelRoute) {
     const expected = process.env.PUBLIC_API_KEY;
     if (!expected) {
       return NextResponse.json({ error: "Servidor sem PUBLIC_API_KEY configurada" }, { status: 500 });
