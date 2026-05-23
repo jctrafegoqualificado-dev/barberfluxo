@@ -310,6 +310,11 @@ function BarberCard({ barber, monthKey, monthOffset, activeTab, onSave, onPay, o
                   <div>
                     <p className="text-[10px] text-zinc-400 font-medium">Líquido a Pagar</p>
                     <p className="text-base font-black text-zinc-800">{formatCurrency(barber.liquidoAPagar)}</p>
+                    {barber.assinatura.comissao > 0 && (
+                      <p className="text-[10px] text-zinc-400 mt-0.5">
+                        Total c/ assinaturas: <span className="font-semibold text-zinc-600">{formatCurrency(barber.totalComissao - barber.totalVales)}</span>
+                      </p>
+                    )}
                   </div>
                   {barber.totalVales > 0 && (
                     <p className="text-[10px] text-red-500 font-bold">− {formatCurrency(barber.totalVales)} Vales</p>

@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
           createdAt: { gte: start, lte: end },
         },
         include: {
-          product: { select: { name: true } },
+          product: { select: { name: true, commissionType: true, commissionValue: true } },
           client: { select: { name: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -137,16 +137,25 @@ export async function GET(req: NextRequest) {
     const totalAssinaturaComissao = assinaturaItems.reduce((s, i) => s + i.comissao, 0);
 
     // Produtos
-    const produtoItems = productSales.map((p) => ({
-      id: p.id,
-      date: p.createdAt,
-      client: p.client?.name ?? "—",
-      product: p.product.name,
-      qty: p.quantity,
-      valor: p.total,
-      comissao: calcComissao(p.total, barber.productCommissionType, barber.productCommission),
-      tipo: "produto" as const,
-    }));
+    const produtoItems = productSales.map((p) => {
+      const commType = p.product?.commissionType || barber.productCommissionType;
+      const commValue = (p.product?.commissionValue !== undefined && p.product?.commissionValue !== null)
+        ? p.product.commissionValue
+        : barber.productCommission;
+      const comissao = commType === "FIXED"
+        ? commValue * p.quantity
+        : calcComissao(p.total, commType, commValue);
+      return {
+        id: p.id,
+        date: p.createdAt,
+        client: p.client?.name ?? "—",
+        product: p.product.name,
+        qty: p.quantity,
+        valor: p.total,
+        comissao,
+        tipo: "produto" as const,
+      };
+    });
     const totalProdutoFaturado = productSales.reduce((s, p) => s + p.total, 0);
     const totalProdutoComissao = produtoItems.reduce((s, i) => s + i.comissao, 0);
 
