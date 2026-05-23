@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/subscription-renewal",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/mark-noshow",
+      "schedule": "0 2 * * *"
     }
   ]
 }

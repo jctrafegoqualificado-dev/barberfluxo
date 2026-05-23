@@ -26,6 +26,7 @@ interface Cliente {
   activePlan: string | null;
   isBlocked: boolean;
   birthday: string | null;
+  noShowCount: number;
 }
 
 function FrequencyBadge({ days }: { days: number | null }) {
@@ -512,6 +513,11 @@ export default function ClientesPage() {
                           {c.thisMonthVisits > 0 && (
                             <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full mt-0.5 border border-amber-100 shrink-0">
                               +{c.thisMonthVisits} este mês
+                            </span>
+                          )}
+                          {c.noShowCount > 0 && (
+                            <span title="Faltas (não compareceu)" className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full mt-0.5 border border-red-100 shrink-0">
+                              {c.noShowCount} falta{c.noShowCount > 1 ? "s" : ""}
                             </span>
                           )}
                         </div>

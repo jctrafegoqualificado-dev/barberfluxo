@@ -31,8 +31,9 @@ export async function GET(req: NextRequest) {
       },
       include: {
         appointments: {
-          where: { barbershopId, status: "DONE" },
-          orderBy: { date: "asc" }
+          where: { barbershopId, status: { in: ["DONE", "NO_SHOW"] } },
+          orderBy: { date: "asc" },
+          select: { date: true, price: true, status: true },
         },
         subscriptions: {
           where: { barbershopId, status: "ACTIVE" },
@@ -50,8 +51,10 @@ export async function GET(req: NextRequest) {
     const moral = totalReviews > 0 ? Math.round(avgRating * 10) / 10 : 5.0; // Padrão 5.0 se sem reviews
 
     const clientes = dbClients.map((u) => {
-      const sortedVisits = u.appointments.map(a => new Date(a.date)).sort((a, b) => a.getTime() - b.getTime());
-      const totalSpent = u.appointments.reduce((sum, a) => sum + a.price, 0);
+      const doneAppts = u.appointments.filter((a) => a.status === "DONE");
+      const sortedVisits = doneAppts.map(a => new Date(a.date)).sort((a, b) => a.getTime() - b.getTime());
+      const totalSpent = doneAppts.reduce((sum, a) => sum + a.price, 0);
+      const noShowCount = u.appointments.filter((a) => a.status === "NO_SHOW").length;
       const firstVisit = sortedVisits.length > 0 ? sortedVisits[0] : null;
       const lastVisit = sortedVisits.length > 0 ? sortedVisits[sortedVisits.length - 1] : null;
       const thisMonthVisits = sortedVisits.filter((d) => d >= monthStart && d <= monthEnd).length;
@@ -86,6 +89,7 @@ export async function GET(req: NextRequest) {
         daysSinceLastVisit,
         avgFrequency,
         isNew,
+        noShowCount,
         activePlan: u.subscriptions[0]?.plan.name ?? null,
       };
     });
