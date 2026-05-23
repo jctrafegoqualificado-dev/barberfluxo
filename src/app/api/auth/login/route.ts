@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
 
     res.cookies.set("token", token, { httpOnly: true, maxAge: 60 * 60 * 24 * 7 });
     return res;
-  } catch {
+  } catch (err) {
+    console.error("[login] erro:", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
