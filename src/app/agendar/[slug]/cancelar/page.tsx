@@ -45,6 +45,7 @@ export default function CancelarPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<{ id: string; msg: string } | null>(null);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -72,18 +73,25 @@ export default function CancelarPage() {
 
   async function handleCancel(id: string) {
     setCancellingId(id);
+    setCancelError(null);
     try {
       const res = await fetch(`/api/v1/barbershops/${slug}/appointments/${id}/cancel`, {
         method: "PATCH",
       });
+      const data = await res.json();
       if (res.ok) {
         setCancelledIds((prev) => new Set([...prev, id]));
         setAppointments((prev) => prev.filter((a) => a.id !== id));
         if (appointments.length === 1) setPageState("cancelled");
+      } else {
+        setCancelError({ id, msg: data.error || "Não foi possível cancelar." });
+        setConfirmId(null);
       }
+    } catch {
+      setCancelError({ id, msg: "Erro de conexão. Tente novamente." });
+      setConfirmId(null);
     } finally {
       setCancellingId(null);
-      setConfirmId(null);
     }
   }
 
@@ -220,6 +228,15 @@ export default function CancelarPage() {
                       <X className="w-3.5 h-3.5" />
                       Cancelar este agendamento
                     </button>
+                  </div>
+                )}
+
+                {cancelError?.id === appt.id && (
+                  <div className="border-t border-red-900/40 bg-red-950/20 px-4 py-2.5">
+                    <p className="text-xs text-red-400 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {cancelError.msg}
+                    </p>
                   </div>
                 )}
               </div>
