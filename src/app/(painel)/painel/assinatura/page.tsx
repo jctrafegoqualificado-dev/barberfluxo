@@ -76,6 +76,12 @@ export default function AssinaturaSaaSPage() {
 
   const handleUpgrade = async (plan: PaidPlan) => {
     if (!window.MercadoPago) return;
+
+    if (!process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
+      alert("Checkout em manutenção. Entre em contato pelo WhatsApp para assinar ou aguarde alguns instantes.");
+      return;
+    }
+
     setSelectedPlan(plan);
     setLoading(true);
 
