@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Calendar, CreditCard, Phone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package } from "lucide-react";
+import Link from "next/link";
+import { Calendar, CreditCard, Phone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package, ExternalLink } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
@@ -24,7 +25,7 @@ interface Bloqueio {
   id: string; startTime: string; endTime: string; reason: string | null;
   barber: { id: string; user: { name: string } };
 }
-interface Barber { id: string; nickname?: string | null; user: { name: string; phone?: string } }
+interface Barber { id: string; nickname?: string | null; photoUrl?: string | null; user: { name: string; phone?: string } }
 
 /* ─── Constantes da grade ─── */
 const ROW_H = 12;        // px por 5 minutos
@@ -1173,13 +1174,26 @@ export default function AgendamentosPage() {
                 return (
                   <div key={b.id} className="border-r border-zinc-100 px-3 py-3 flex items-center gap-2.5"
                     style={{ minWidth: COL_MIN_W, flex: 1 }}>
-                    <div className={`w-9 h-9 rounded-full ${color} flex items-center justify-center shrink-0 font-bold text-sm`}>
-                      {getInitials(b.user.name)}
+                    {/* Avatar: foto real ou iniciais */}
+                    <div className={`w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center font-bold text-sm ${b.photoUrl ? "" : color}`}>
+                      {b.photoUrl ? (
+                        <img src={b.photoUrl} alt={b.user.name} className="w-full h-full object-cover" />
+                      ) : (
+                        getInitials(b.user.name)
+                      )}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-semibold text-sm text-zinc-900 truncate">{b.user.name}</p>
                       {b.user.phone && <p className="text-xs text-zinc-400 truncate">{b.user.phone}</p>}
                     </div>
+                    {/* Atalho para editar o profissional */}
+                    <Link
+                      href="/painel/barbeiros"
+                      title="Editar profissional"
+                      className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-300 hover:text-primary transition-colors shrink-0"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
                 );
               })}

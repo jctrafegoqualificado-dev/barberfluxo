@@ -11,6 +11,9 @@ const BarberCreateSchema = z.object({
   commission: z.number().min(0).max(100).optional(),
   nickname: z.string().optional(),
   dayOff: z.number().int().min(0).max(6).optional().nullable(),
+  cpf: z.string().optional(),
+  birthday: z.string().optional(),
+  photoUrl: z.string().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -21,7 +24,9 @@ export async function GET(req: NextRequest) {
     const includeInactive = searchParams.get("includeInactive") === "true";
     const barbers = await prisma.barber.findMany({
       where: { barbershopId, ...(includeInactive ? {} : { active: true }) },
-      include: { user: { select: { id: true, name: true, email: true, phone: true } } },
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true, birthday: true } },
+      },
       orderBy: { user: { name: "asc" } },
     });
     const res = NextResponse.json({ barbers });
@@ -48,7 +53,10 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     requireAuth(req, ["OWNER"]);
-    const { barberId, name, phone, nickname, commission, password, dayOff, active } = await req.json();
+    const {
+      barberId, name, phone, nickname, commission, password, dayOff, active,
+      photoUrl, cpf, birthday,
+    } = await req.json();
 
     // ── Toggle ativo/inativo ──
     if (typeof active === "boolean") {
@@ -65,6 +73,7 @@ export async function PATCH(req: NextRequest) {
         name,
         phone: phone || null,
         ...(password ? { password: await hashPassword(password) } : {}),
+        ...(birthday !== undefined ? { birthday: birthday ? new Date(birthday) : null } : {}),
       },
     });
 
@@ -74,6 +83,8 @@ export async function PATCH(req: NextRequest) {
         commission: Number(commission),
         nickname: nickname || null,
         dayOff: dayOff !== undefined && dayOff !== "" ? Number(dayOff) : null,
+        ...(photoUrl !== undefined ? { photoUrl: photoUrl || null } : {}),
+        ...(cpf !== undefined ? { cpf: cpf || null } : {}),
       },
     });
 
@@ -98,13 +109,16 @@ export async function POST(req: NextRequest) {
       const msg = parsed.error.errors[0]?.message ?? "Dados inválidos";
       return NextResponse.json({ error: msg }, { status: 400 });
     }
-    const { name, email, phone, password, commission, nickname, dayOff } = parsed.data;
+    const { name, email, phone, password, commission, nickname, dayOff, cpf, birthday, photoUrl } = parsed.data;
 
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       const hashed = await hashPassword(password || "barber123");
       user = await prisma.user.create({
-        data: { name, email, phone, password: hashed, role: "BARBER" },
+        data: {
+          name, email, phone, password: hashed, role: "BARBER",
+          ...(birthday ? { birthday: new Date(birthday) } : {}),
+        },
       });
     }
 
@@ -115,8 +129,12 @@ export async function POST(req: NextRequest) {
         commission: commission ?? 50,
         nickname,
         dayOff: dayOff ?? null,
+        ...(cpf ? { cpf } : {}),
+        ...(photoUrl ? { photoUrl } : {}),
       },
-      include: { user: { select: { id: true, name: true, email: true, phone: true } } },
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true, birthday: true } },
+      },
     });
 
     return NextResponse.json({ barber }, { status: 201 });
