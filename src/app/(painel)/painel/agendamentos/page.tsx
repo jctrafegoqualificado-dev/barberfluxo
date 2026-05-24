@@ -18,7 +18,7 @@ interface Appointment {
   service: { id: string; name: string; duration: number } | null;
   services: AppointmentServiceItem[];
   barber: { id: string; user: { name: string; phone?: string } };
-  subscription: { id: string; status: string; plan: { name: string } } | null;
+  subscription: { id: string; status: string; plan: { name: string; planServices: { serviceId: string }[] } } | null;
   beneficiaryName: string | null;
 }
 interface Bloqueio {
@@ -116,7 +116,7 @@ function PaymentModal({
     appt.services.length > 0 ? appt.services.map(s => s.service.id) : (appt.service?.id ? [appt.service.id] : [])
   );
   const [planServiceIds] = useState<string[]>(() =>
-    appt.services.length > 0 ? appt.services.map(s => s.service.id) : (appt.service?.id ? [appt.service.id] : [])
+    appt.subscription?.plan?.planServices?.map((ps: any) => ps.serviceId) ?? []
   );
   const [tip, setTip] = useState("");
 

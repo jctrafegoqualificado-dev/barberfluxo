@@ -10,7 +10,7 @@ interface Appointment {
   client: { name: string; phone: string | null };
   service: { id: string; name: string; duration: number } | null;
   services: { service: { id: string; name: string; price: number; duration: number } }[];
-  subscription: { id: string; status: string; plan: { name: string } } | null;
+  subscription: { id: string; status: string; plan: { name: string; planServices: { serviceId: string }[] } } | null;
 }
 
 interface Block { id: string; startTime: string; endTime: string; reason: string | null }
@@ -585,9 +585,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   const [tip, setTip] = useState("");
   const [extraPaymentMethod, setExtraPaymentMethod] = useState("CASH");
   const [planServiceIds] = useState<string[]>(() =>
-    appt.services?.length > 0
-      ? appt.services.map(s => s.service.id)
-      : appt.service?.id ? [appt.service.id] : []
+    appt.subscription?.plan?.planServices?.map((ps: any) => ps.serviceId) ?? []
   );
   const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
   const [allServices, setAllServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
