@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const payload = requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
 
     const barbershop = await prisma.barbershop.findUnique({
