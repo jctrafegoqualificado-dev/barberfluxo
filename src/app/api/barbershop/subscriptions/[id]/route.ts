@@ -33,7 +33,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const payload = requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const { id } = await params;
     const { status, planId, nextBillingDate, billingDay } = await req.json();
 

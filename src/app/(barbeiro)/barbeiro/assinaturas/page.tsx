@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { CreditCard, Plus, Search, X, AlertTriangle, Check, Users, Banknote, Smartphone, CheckCircle, LayoutGrid, List, ChevronLeft, ChevronRight } from "lucide-react";
+import { CreditCard, Plus, Search, X, AlertTriangle, Check, Users, Banknote, Smartphone, CheckCircle, LayoutGrid, List, ChevronLeft, ChevronRight, Edit2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -106,6 +106,91 @@ function PaymentModal({ sub, onConfirm, onClose }: {
   );
 }
 
+function EditSubModal({ sub, plans, token, onSave, onClose }: {
+  sub: Subscription; plans: Plan[]; token: string | null;
+  onSave: () => void; onClose: () => void;
+}) {
+  const [form, setForm] = useState({
+    planId: sub.plan.id,
+    billingDay: String(sub.billingDay || ""),
+    nextBillingDate: sub.nextBillingDate.split("T")[0],
+    status: sub.status,
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    const res = await fetch(`/api/barbershop/subscriptions/${sub.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        planId: form.planId,
+        billingDay: form.billingDay ? Number(form.billingDay) : null,
+        nextBillingDate: form.nextBillingDate,
+        status: form.status,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) { alert("Erro ao editar assinante"); return; }
+    onSave(); onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+          <div>
+            <h2 className="font-semibold text-zinc-900">Editar Assinante</h2>
+            <p className="text-xs text-zinc-400">{sub.client.name}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-zinc-100"><X className="w-4 h-4 text-zinc-500" /></button>
+        </div>
+        <div className="px-5 py-4 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide block mb-1.5">Plano</label>
+            <select value={form.planId} onChange={(e) => setForm(f => ({ ...f, planId: e.target.value }))}
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              {plans.map(p => <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}/mês</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide block mb-1.5">Dia de cobrança</label>
+              <input type="number" min="1" max="31" value={form.billingDay}
+                onChange={(e) => setForm(f => ({ ...f, billingDay: e.target.value }))}
+                placeholder="Ex: 23"
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide block mb-1.5">Próx. vencimento</label>
+              <input type="date" value={form.nextBillingDate}
+                onChange={(e) => setForm(f => ({ ...f, nextBillingDate: e.target.value }))}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide block mb-1.5">Status</label>
+            <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))}
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="ACTIVE">Ativo</option>
+              <option value="PAUSED">Pausado</option>
+              <option value="OVERDUE">Vencido</option>
+              <option value="CANCELLED">Cancelado</option>
+            </select>
+          </div>
+        </div>
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50">Cancelar</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-40">
+            {saving ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type ViewMode = "table" | "cards";
 
 export default function BarberAssinaturasPage() {
@@ -125,6 +210,7 @@ export default function BarberAssinaturasPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [payingSub, setPayingSub] = useState<Subscription | null>(null);
+  const [editSub, setEditSub] = useState<Subscription | null>(null);
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
 
@@ -223,6 +309,9 @@ export default function BarberAssinaturasPage() {
           onConfirm={handlePayment}
           onClose={() => setPayingSub(null)}
         />
+      )}
+      {editSub && (
+        <EditSubModal sub={editSub} plans={plans} token={token} onSave={load} onClose={() => setEditSub(null)} />
       )}
 
       {/* Header */}
@@ -396,19 +485,27 @@ export default function BarberAssinaturasPage() {
 
                       {/* Ação */}
                       <td className="px-4 py-3.5 text-right">
-                        {s.status === "ACTIVE" && (
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => setPayingSub(s)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1 ml-auto ${
-                              overdue
-                                ? "bg-red-500 hover:bg-red-600 text-white"
-                                : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
-                            }`}
+                            onClick={() => setEditSub(s)}
+                            className="px-2 py-1.5 rounded-lg text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors flex items-center gap-1"
                           >
-                            <Check className="w-3 h-3" />
-                            {overdue ? "Cobrar e dar baixa" : "Dar baixa"}
+                            <Edit2 className="w-3 h-3" /> Editar
                           </button>
-                        )}
+                          {s.status === "ACTIVE" && (
+                            <button
+                              onClick={() => setPayingSub(s)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1 ${
+                                overdue
+                                  ? "bg-red-500 hover:bg-red-600 text-white"
+                                  : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
+                              }`}
+                            >
+                              <Check className="w-3 h-3" />
+                              {overdue ? "Cobrar e dar baixa" : "Dar baixa"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -522,19 +619,27 @@ export default function BarberAssinaturasPage() {
                     </div>
                   )}
                 </div>
-                {s.status === "ACTIVE" && (
+                <div className="mt-4 flex gap-2">
                   <button
-                    onClick={() => setPayingSub(s)}
-                    className={`mt-4 w-full py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                      overdue
-                        ? "bg-red-500 hover:bg-red-600 text-white"
-                        : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
-                    }`}
+                    onClick={() => setEditSub(s)}
+                    className="flex-none px-3 py-2 rounded-xl text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors flex items-center gap-1"
                   >
-                    <Check className="w-3.5 h-3.5" />
-                    {overdue ? "Cobrar e dar baixa" : "Dar baixa no pagamento"}
+                    <Edit2 className="w-3.5 h-3.5" /> Editar
                   </button>
-                )}
+                  {s.status === "ACTIVE" && (
+                    <button
+                      onClick={() => setPayingSub(s)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${
+                        overdue
+                          ? "bg-red-500 hover:bg-red-600 text-white"
+                          : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      {overdue ? "Cobrar e dar baixa" : "Dar baixa no pagamento"}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
