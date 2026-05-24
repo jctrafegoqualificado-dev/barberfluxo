@@ -559,7 +559,7 @@ a { text-decoration: none; color: inherit; }
       <li><a href="#planos">Planos</a></li>
       <li><a href="#faq">FAQ</a></li>
     </ul>
-    <a href="/login" class="nav-cta">Começar agora</a>
+    <a href="/cadastro" class="nav-cta">Começar agora</a>
     <button class="nav-hamburger" id="hamburger" aria-label="Menu">
       <span></span><span></span><span></span>
     </button>
@@ -570,7 +570,7 @@ a { text-decoration: none; color: inherit; }
     <a href="#agente">Agente IA</a>
     <a href="#planos">Planos</a>
     <a href="#faq">FAQ</a>
-    <a href="/login" class="mobile-cta" style="color: var(--orange);">Começar agora →</a>
+    <a href="/cadastro" class="mobile-cta" style="color: var(--orange);">Começar agora →</a>
   </div>
 </nav>
 
@@ -589,7 +589,7 @@ a { text-decoration: none; color: inherit; }
       </h1>
       <p class="hero-sub fade-up delay-2">A IA DE BARBEARIA centraliza sua gestão, automatiza suas comissões e atende seus clientes 24 horas por dia.</p>
       <div class="hero-actions fade-up delay-3">
-        <a href="/login"  class="btn-orange">Quero modernizar minha barbearia</a>
+        <a href="/cadastro"  class="btn-orange">Quero modernizar minha barbearia</a>
         <a href="#agente" class="btn-outline">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           Ver a IA em ação
@@ -826,7 +826,7 @@ a { text-decoration: none; color: inherit; }
         Seus dados seguros e sempre disponíveis
       </div>
     </div>
-    <a href="/login"  class="btn-orange">Quero testar agora</a>
+    <a href="/cadastro"  class="btn-orange">Quero testar agora</a>
   </div>
   <div class="barber-split-right">
     <img src="Foto - feito de barbeiro para baerbeiro.png" alt="Barbeiro usando o sistema IA de Barbearia">
@@ -975,9 +975,7 @@ a { text-decoration: none; color: inherit; }
           <li>Dashboard de metas e performance</li>
         </ul>
         <a class="btn-outline btn-full plan-cta"
-           href="/login"
-           
-           
+           href="/cadastro?plano=PRO"
            >Assinar plano gestão</a>
       </div>
 
@@ -1013,9 +1011,7 @@ a { text-decoration: none; color: inherit; }
           <li>Lembretes e confirmações automáticas</li>
         </ul>
         <a class="btn-orange btn-full plan-cta"
-           href="/login"
-           
-           
+           href="/cadastro?plano=ELITE"
            >Assinar gestão + assistente</a>
       </div>
 
@@ -1123,7 +1119,7 @@ a { text-decoration: none; color: inherit; }
     <p class="fade-up" style="font-size:13px;color:var(--orange);font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;">Pronto para modernizar?</p>
     <h2 class="fade-up delay-1">Tenha uma gestão completa<br>e eficiente da sua barbearia.</h2>
     <p class="fade-up delay-2">Dê à sua barbearia a tecnologia que ela merece. Comece hoje mesmo e veja a diferença no primeiro mês.</p>
-    <a href="/login"  class="btn-orange fade-up delay-3" style="font-size:17px;padding:20px 48px;">👉 Quero modernizar minha barbearia</a>
+    <a href="/cadastro"  class="btn-orange fade-up delay-3" style="font-size:17px;padding:20px 48px;">👉 Quero modernizar minha barbearia</a>
     <div class="cta-trust fade-up delay-4">
       <span class="cta-trust-item">Sem taxa de adesão</span>
       <span class="cta-trust-item">Cancele quando quiser</span>

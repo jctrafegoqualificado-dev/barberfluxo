@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, use } from "react";
 import { useAuthStore } from "@/store/auth";
-import { ArrowLeft, User, Phone, Mail, BadgeDollarSign, Plus, Crown, Calendar } from "lucide-react";
+import { ArrowLeft, User, Phone, Mail, BadgeDollarSign, Plus, Crown, Calendar, CreditCard, Copy, CheckCircle, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 
@@ -15,6 +15,11 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
+
+  // Estado para link de assinatura MP
+  const [mpCheckoutUrl, setMpCheckoutUrl] = useState<string | null>(null);
+  const [showMpModal, setShowMpModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -72,6 +77,36 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
     }
   }
 
+  async function handleGenerateMpLink() {
+    setActionLoading("mp-link");
+    try {
+      const res = await fetch("/api/platform/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ barbershopId: id }),
+      });
+      const json = await res.json();
+      if (res.ok && json.checkoutUrl) {
+        setMpCheckoutUrl(json.checkoutUrl);
+        setShowMpModal(true);
+      } else {
+        alert(`Erro: ${json.error}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao gerar link de pagamento.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  function handleCopyLink() {
+    if (!mpCheckoutUrl) return;
+    navigator.clipboard.writeText(mpCheckoutUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
   async function handleToggleStatus() {
     const action = data.shop.active ? "BLOQUEAR" : "REATIVAR";
     if (!confirm(`Deseja ${action} esta barbearia? ${data.shop.active ? "Ela perderá acesso ao sistema." : "Ela voltará a ter acesso ao sistema."}`)) return;
@@ -116,17 +151,27 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
           </h1>
           <p className="text-zinc-500 text-sm mt-1">Assinante desde {new Date(shop.createdAt).toLocaleDateString('pt-BR')}</p>
         </div>
-        <button
-          onClick={handleToggleStatus}
-          disabled={actionLoading === "status"}
-          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            shop.active
-              ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
-              : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
-          }`}
-        >
-          {shop.active ? "Cancelar Assinatura" : "Reativar Assinatura"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleGenerateMpLink}
+            disabled={actionLoading === "mp-link"}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50"
+          >
+            <CreditCard className="w-4 h-4" />
+            {actionLoading === "mp-link" ? "Gerando..." : "Gerar Link MP"}
+          </button>
+          <button
+            onClick={handleToggleStatus}
+            disabled={actionLoading === "status"}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              shop.active
+                ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
+                : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+            }`}
+          >
+            {shop.active ? "Cancelar Assinatura" : "Reativar Assinatura"}
+          </button>
+        </div>
       </div>
 
       {/* Info + Plan cards */}
@@ -154,11 +199,24 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
           <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Plano Atual</h3>
           <div className="flex items-center gap-3">
-            <Crown className={`w-10 h-10 ${shop.saasPlan === "PREMIUM" ? "text-indigo-400" : "text-zinc-500"}`} />
+            <Crown className={`w-10 h-10 ${["PREMIUM","ELITE"].includes(shop.saasPlan) ? "text-indigo-400" : "text-zinc-500"}`} />
             <div>
               <p className="text-2xl font-black text-white">{shop.saasPlan}</p>
-              <p className="text-xs text-zinc-500">{shop.saasPlan === "PREMIUM" ? "R$ 197/mês" : "R$ 97/mês"}</p>
+              <p className="text-xs text-zinc-500">
+                {shop.saasPlan === "BASIC" ? "R$ 97/mês" : shop.saasPlan === "PRO" ? "R$ 147/mês" : "R$ 197/mês"}
+              </p>
             </div>
+          </div>
+          {/* Status SaaS */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold w-fit ${
+            shop.saasStatus === "ACTIVE"    ? "bg-emerald-500/10 text-emerald-400" :
+            shop.saasStatus === "TRIAL"     ? "bg-amber-500/10 text-amber-400" :
+            shop.saasStatus === "PAUSED"    ? "bg-blue-500/10 text-blue-400" :
+            shop.saasStatus === "CANCELLED" ? "bg-zinc-700 text-zinc-400" :
+            "bg-red-500/10 text-red-400"
+          }`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            {shop.saasStatus ?? "TRIAL"}
           </div>
           <div className="pt-4 border-t border-zinc-800">
             <label className="block text-xs font-medium text-zinc-500 mb-2">Alterar Plano</label>
@@ -256,6 +314,57 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
           </table>
         </div>
       </div>
+
+      {/* Modal — Link de Assinatura Mercado Pago */}
+      {showMpModal && mpCheckoutUrl && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Link de Assinatura Gerado!</h2>
+                <p className="text-sm text-zinc-400">Envie este link para o dono da barbearia autorizar o débito automático.</p>
+              </div>
+            </div>
+
+            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
+              <p className="text-xs text-zinc-500 mb-2 font-medium">URL do Checkout Mercado Pago:</p>
+              <p className="text-xs text-indigo-300 break-all leading-relaxed">{mpCheckoutUrl}</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleCopyLink}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors text-sm"
+              >
+                {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied ? "Copiado!" : "Copiar Link"}
+              </button>
+              <a
+                href={mpCheckoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium transition-colors text-sm"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Abrir
+              </a>
+              <button
+                onClick={() => setShowMpModal(false)}
+                className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 rounded-xl font-medium transition-colors text-sm"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-500 text-center">
+              💡 O cliente autoriza uma vez e o Mercado Pago cobra automaticamente todo mês.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       {showPaymentModal && (

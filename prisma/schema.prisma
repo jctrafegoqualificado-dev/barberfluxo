@@ -62,6 +62,8 @@ model Barbershop {
 
   saasPlan    SaasPlan  @default(BASIC)
   trialEndsAt DateTime?
+  saasStatus        String   @default("TRIAL")  // TRIAL | ACTIVE | OVERDUE | CANCELLED | PAUSED
+  mpSubscriptionId  String?  // MP preapproval ID (assinatura recorrente)
 
   poeOwnerPct     Float @default(50)
   debitFee        Float @default(0)

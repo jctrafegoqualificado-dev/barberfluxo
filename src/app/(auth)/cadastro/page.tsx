@@ -1,14 +1,21 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
-export default function CadastroPage() {
+const PLAN_LABELS: Record<string, string> = {
+  PRO: "Gestão — R$ 154,90/mês",
+  ELITE: "Gestão + Assistente — R$ 197,90/mês",
+};
+
+function CadastroForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const planParam = searchParams.get("plano");
   const setAuth = useAuthStore((s) => s.setAuth);
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", shopName: "" });
   const [error, setError] = useState("");
@@ -31,7 +38,10 @@ export default function CadastroPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setAuth(data.user, data.token);
-      router.push("/painel");
+      const redirectUrl = planParam
+        ? `/painel/assinatura?plano=${planParam}&novo=true`
+        : "/painel/assinatura?novo=true";
+      router.push(redirectUrl);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao cadastrar");
     } finally {
@@ -47,7 +57,13 @@ export default function CadastroPage() {
             <Sparkles className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">Crie sua conta</h1>
-          <p className="text-zinc-400 text-sm mt-1">Comece a gerir seu estabelecimento</p>
+          {planParam && PLAN_LABELS[planParam] ? (
+            <p className="text-emerald-400 text-sm mt-1 font-semibold">
+              ✅ Plano selecionado: {PLAN_LABELS[planParam]}
+            </p>
+          ) : (
+            <p className="text-zinc-400 text-sm mt-1">7 dias grátis — sem cartão agora</p>
+          )}
         </div>
 
         <form onSubmit={handleRegister} className="bg-zinc-900 rounded-2xl p-6 space-y-4 border border-zinc-800">
@@ -74,5 +90,13 @@ export default function CadastroPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function CadastroPage() {
+  return (
+    <Suspense fallback={null}>
+      <CadastroForm />
+    </Suspense>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Check,
@@ -52,6 +52,10 @@ export default function AssinaturaSaaSPage() {
   const searchParams = useSearchParams();
   const trialExpired = searchParams.get("trial") === "expired";
 
+  const planParam = (searchParams.get("plano") ?? "").toUpperCase() as PaidPlan | "";
+  const isNew = searchParams.get("novo") === "true";
+  const autoTriggeredRef = useRef(false);
+
   const [loading, setLoading] = useState(false);
   const [mpLoaded, setMpLoaded] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<null | "approved" | "pending" | "rejected">(null);
@@ -71,6 +75,22 @@ export default function AssinaturaSaaSPage() {
         setTrialEndsAt(data.trialEndsAt || null);
       });
   }, [token]);
+
+  // Auto-dispara o checkout quando chega via /cadastro?plano=X
+  useEffect(() => {
+    if (
+      mpLoaded &&
+      isNew &&
+      planParam &&
+      planParam in PLAN_CONFIG &&
+      !autoTriggeredRef.current &&
+      currentPlan !== null // aguarda carregar o plano atual
+    ) {
+      autoTriggeredRef.current = true;
+      handleUpgrade(planParam as PaidPlan);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mpLoaded, currentPlan]);
 
   const normalizedPlan = currentPlan === "PREMIUM" ? "ELITE" : currentPlan;
   const isPaidUser = normalizedPlan === "PRO" || normalizedPlan === "ELITE";
