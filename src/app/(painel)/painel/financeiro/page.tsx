@@ -62,6 +62,7 @@ interface ApiResponse {
   kpis: Kpis;
   counts: Counts;
   avulso: AvulsoData;
+  mensalidades: number;
 }
 
 // ─── Expense modal types ──────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   EQUIPAMENTOS: "bg-orange-50 text-orange-600 border-orange-200",
   TAXAS: "bg-red-50 text-red-600 border-red-200",
   ATENDIMENTO: "bg-primary/5 text-primary border-primary/20",
+  ASSINATURA: "bg-emerald-50 text-emerald-600 border-emerald-200",
   OUTROS: "bg-zinc-50 text-zinc-500 border-zinc-200",
 };
 
@@ -92,6 +94,7 @@ const PAYMENT_METHODS = ["PIX", "CASH", "CREDIT", "DEBIT", "BOLETO"];
 const PAYMENT_LABELS: Record<string, string> = {
   PIX: "PIX", CASH: "Dinheiro", CREDIT: "Cartão Crédito",
   DEBIT: "Cartão Débito", BOLETO: "Boleto",
+  SUBSCRIPTION: "Assinatura", CREDIT_CARD: "Cartão Crédito", DEBIT_CARD: "Cartão Débito",
 };
 
 function fmt(v: number) {
@@ -476,7 +479,7 @@ export default function FinanceiroPage() {
           extra={
             <>
               <KpiSub label="Avulso" value={fmt(data?.avulso?.bruto ?? 0)} color="text-green-600" />
-              <KpiSub label="Assinaturas" value={fmt((kpis?.receitas ?? 0) - (data?.avulso?.bruto ?? 0))} color="text-amber-600" />
+              <KpiSub label="Mensalidades" value={fmt(data?.mensalidades ?? 0)} color="text-amber-600" />
             </>
           }
         />

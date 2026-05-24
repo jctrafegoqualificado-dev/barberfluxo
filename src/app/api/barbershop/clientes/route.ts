@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, hashPassword } from "@/lib/auth";
 import { startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 
 export async function GET(req: NextRequest) {
@@ -105,5 +105,55 @@ export async function GET(req: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro";
     return NextResponse.json({ error: msg }, { status: 401 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    const barbershopId = payload.barbershopId!;
+    const { name, phone, email } = await req.json();
+
+    if (!name || !name.trim()) {
+      return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
+    }
+
+    const cleanPhone = phone ? phone.replace(/\D/g, "") : null;
+    const finalEmail = email?.trim() || (cleanPhone ? `${cleanPhone}@cliente.barberfluxo.com` : null);
+
+    if (!finalEmail) {
+      return NextResponse.json({ error: "Informe telefone ou e-mail" }, { status: 400 });
+    }
+
+    // Verifica duplicata
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(cleanPhone ? [{ phone: cleanPhone }] : []),
+          { email: finalEmail },
+        ],
+        role: "CLIENT",
+      },
+    });
+    if (existing) {
+      return NextResponse.json({ error: "Já existe um cliente com esse telefone ou e-mail" }, { status: 409 });
+    }
+
+    const password = await hashPassword(cleanPhone ?? name);
+    const client = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: finalEmail,
+        phone: cleanPhone ?? undefined,
+        password,
+        role: "CLIENT",
+      },
+    });
+
+    return NextResponse.json({ client }, { status: 201 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erro interno";
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }

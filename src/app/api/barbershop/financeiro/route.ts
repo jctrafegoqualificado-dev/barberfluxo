@@ -121,6 +121,7 @@ export async function GET(req: NextRequest) {
       cancelByClientEnabled,
       minCancelHours,
       saasPlan: shop?.saasPlan ?? "BASIC",
+      trialEndsAt: shop?.trialEndsAt ? shop.trialEndsAt.toISOString() : null,
       avulso: {
         bruto: avulsoBrutoTotal,
         liquido: avulsoLiquidoTotal,

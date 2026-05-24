@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Calendar,
   DollarSign,
@@ -11,6 +11,9 @@ import {
   TrendingUp,
   BadgeCheck,
   Banknote,
+  CalendarRange,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "sonner";
@@ -26,7 +29,7 @@ import { NpsFidelitySection } from "./components/NpsFidelitySection";
 import { OccupationBirthdaysSection } from "./components/OccupationBirthdaysSection";
 import { TodayAgenda } from "./components/TodayAgenda";
 
-type Period = "today" | "7d" | "30d" | "month";
+type Period = "today" | "7d" | "30d" | "month" | "custom";
 
 interface KpiData {
   value: number;
@@ -126,17 +129,38 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "month", label: "Este mês" },
 ];
 
+// Helpers
+function toDateInputValue(date: Date) {
+  return date.toISOString().split("T")[0]; // "YYYY-MM-DD"
+}
+function formatDisplayDate(dateStr: string) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 export default function DashboardPage() {
   const { token } = useAuthStore();
   const [data, setData] = useState<DashboardData | null>(null);
   const [period, setPeriod] = useState<Period>("month");
   const [loading, setLoading] = useState(true);
 
+  // Calendar picker state
+  const today = toDateInputValue(new Date());
+  const [customFrom, setCustomFrom] = useState(today);
+  const [customTo, setCustomTo] = useState(today);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
   const loadData = useCallback(
-    async (p: Period) => {
+    async (p: Period, from?: string, to?: string) => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/barbershop/dashboard?period=${p}`, {
+        let url = `/api/barbershop/dashboard?period=${p}`;
+        if (p === "custom" && from && to) {
+          url += `&from=${from}&to=${to}`;
+        }
+        const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const json = await res.json();
@@ -154,12 +178,43 @@ export default function DashboardPage() {
   );
 
   useEffect(() => {
-    loadData(period);
+    if (period !== "custom") loadData(period);
   }, [period, loadData]);
 
+  // Fecha o popover ao clicar fora
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        setShowCalendar(false);
+      }
+    }
+    if (showCalendar) document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [showCalendar]);
+
+  function applyCustomRange() {
+    if (!customFrom || !customTo) return;
+    const from = customFrom <= customTo ? customFrom : customTo;
+    const to = customFrom <= customTo ? customTo : customFrom;
+    setPeriod("custom");
+    setShowCalendar(false);
+    loadData("custom", from, to);
+  }
+
   function changePeriod(p: Period) {
+    if (p === "custom") {
+      setShowCalendar(true);
+      return;
+    }
+    setShowCalendar(false);
     setPeriod(p);
   }
+
+  // Label do período customizado
+  const customLabel =
+    period === "custom" && customFrom && customTo
+      ? `${formatDisplayDate(customFrom)} → ${formatDisplayDate(customTo)}`
+      : "Personalizado";
 
   if ((data as any)?.error) {
     return (
@@ -180,20 +235,124 @@ export default function DashboardPage() {
         </div>
 
         {/* Period Selector */}
-        <div className="flex rounded-xl border border-zinc-200 overflow-hidden bg-white shadow-sm">
-          {PERIODS.map(({ key, label }) => (
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex rounded-xl border border-zinc-200 overflow-hidden bg-white shadow-sm">
+            {PERIODS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => changePeriod(key)}
+                className={`px-4 py-2 text-xs font-bold transition-all ${
+                  period === key
+                    ? "bg-primary text-white"
+                    : "text-zinc-600 hover:bg-zinc-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Botão Personalizado + Popover */}
+          <div className="relative" ref={calendarRef}>
             <button
-              key={key}
-              onClick={() => changePeriod(key)}
-              className={`px-4 py-2 text-xs font-bold transition-all ${
-                period === key
-                  ? "bg-primary text-white"
-                  : "text-zinc-600 hover:bg-zinc-50"
+              onClick={() => setShowCalendar((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${
+                period === "custom"
+                  ? "bg-primary text-white border-primary"
+                  : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
               }`}
             >
-              {label}
+              <CalendarRange className="w-3.5 h-3.5" />
+              <span className="max-w-[160px] truncate">{customLabel}</span>
+              {period === "custom" ? (
+                <X
+                  className="w-3 h-3 ml-0.5 opacity-70 hover:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPeriod("month");
+                    setShowCalendar(false);
+                  }}
+                />
+              ) : (
+                <ChevronDown className="w-3 h-3" />
+              )}
             </button>
-          ))}
+
+            {/* Popover calendário */}
+            {showCalendar && (
+              <div className="absolute right-0 top-full mt-2 z-50 bg-white rounded-2xl border border-zinc-200 shadow-xl p-5 w-72 animate-in fade-in slide-in-from-top-2 duration-150">
+                <p className="text-xs font-bold text-zinc-700 mb-3 flex items-center gap-2">
+                  <CalendarRange className="w-4 h-4 text-primary" />
+                  Período personalizado
+                </p>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+                      Data inicial
+                    </label>
+                    <input
+                      type="date"
+                      value={customFrom}
+                      max={customTo || today}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-zinc-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+                      Data final
+                    </label>
+                    <input
+                      type="date"
+                      value={customTo}
+                      min={customFrom}
+                      max={today}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-zinc-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Atalhos rápidos */}
+                <div className="mt-3 pt-3 border-t border-zinc-100">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase mb-2">Atalhos</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: "Ontem", days: 1 },
+                      { label: "Últ. 7d", days: 7 },
+                      { label: "Últ. 14d", days: 14 },
+                      { label: "Últ. 30d", days: 30 },
+                      { label: "Últ. 60d", days: 60 },
+                      { label: "Últ. 90d", days: 90 },
+                    ].map(({ label, days }) => (
+                      <button
+                        key={label}
+                        onClick={() => {
+                          const t = new Date();
+                          const f = new Date();
+                          f.setDate(f.getDate() - (days - 1));
+                          setCustomFrom(toDateInputValue(f));
+                          setCustomTo(toDateInputValue(t));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-primary/10 hover:text-primary text-zinc-600 text-[10px] font-bold transition-colors"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={applyCustomRange}
+                  disabled={!customFrom || !customTo}
+                  className="mt-4 w-full py-2.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 disabled:opacity-40 transition-all"
+                >
+                  Aplicar período
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -51,6 +51,24 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
+    // ── 2b. Subscription payments confirmed this month (admin deu baixa)
+    const subscriptionPayments = await prisma.payment.findMany({
+      where: {
+        subscription: { barbershopId },
+        status: "PAID",
+        paidAt: { gte: monthStart, lte: monthEnd },
+      },
+      include: {
+        subscription: {
+          include: {
+            client: { select: { name: true } },
+            plan: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { paidAt: "desc" },
+    });
+
     // ── 3. Build unified transaction list
     type Transaction = {
       id: string;
@@ -111,11 +129,33 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Subscription payments (baixa de mensalidade)
+    for (const pay of subscriptionPayments) {
+      const method = pay.method ?? "CASH";
+      const planName = pay.subscription?.plan?.name ?? "Assinatura";
+      const clientName = pay.subscription?.client?.name ?? "Assinante";
+      transactions.push({
+        id: `pay_${pay.id}`,
+        type: "INCOME",
+        description: `Mensalidade — ${planName}`,
+        amount: pay.amount,
+        fee: 0,
+        net: pay.amount,
+        paymentMethod: method,
+        paymentMethodLabel: PAYMENT_LABELS[method] ?? method,
+        status: "PAID",
+        date: (pay.paidAt ?? pay.createdAt).toISOString(),
+        category: "ASSINATURA",
+        clientOrBarber: clientName,
+      });
+    }
+
     // Sort all by date desc
     transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // ── 4. KPIs
-    const totalReceitas = appointments.reduce((s, a) => s + a.price, 0);
+    const totalMensalidades = subscriptionPayments.reduce((s, p) => s + p.amount, 0);
+    const totalReceitas = appointments.reduce((s, a) => s + a.price, 0) + totalMensalidades;
     let taxasDebito = 0;
     let taxasCredito = 0;
     const totalTaxas = appointments.reduce((a, ap) => {
@@ -130,6 +170,7 @@ export async function GET(req: NextRequest) {
     const totalDespesas = expenses.reduce((s, e) => s + e.amount, 0);
     const despesasFixas = expenses.filter(e => e.type === "FIXED").reduce((s, e) => s + e.amount, 0);
     const despesasVariaveis = totalDespesas - despesasFixas;
+    // Saldo: (atendimentos avulsos + mensalidades) - taxas de máquina - despesas
     const saldo = totalReceitas - totalTaxas - totalDespesas;
     const totalPendentes = expenses.filter(e => e.status === "PENDING").reduce((s, e) => s + e.amount, 0);
 
@@ -189,6 +230,7 @@ export async function GET(req: NextRequest) {
         taxaTotal: avulsoBrutoTotal - avulsoLiquidoTotal,
         byMethod: avulsoByMethod,
       },
+      mensalidades: totalMensalidades,
       kpis: {
         receitas: totalReceitas,
         despesas: totalDespesas,

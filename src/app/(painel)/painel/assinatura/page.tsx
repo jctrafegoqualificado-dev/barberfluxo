@@ -56,6 +56,7 @@ export default function AssinaturaSaaSPage() {
   const [mpLoaded, setMpLoaded] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<null | "approved" | "pending" | "rejected">(null);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PaidPlan | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [pixData, setPixData] = useState<{ qr_code: string; qr_code_base64: string } | null>(null);
@@ -65,7 +66,10 @@ export default function AssinaturaSaaSPage() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
-      .then((data) => setCurrentPlan(data.saasPlan || "BASIC"));
+      .then((data) => {
+        setCurrentPlan(data.saasPlan || "BASIC");
+        setTrialEndsAt(data.trialEndsAt || null);
+      });
   }, [token]);
 
   const normalizedPlan = currentPlan === "PREMIUM" ? "ELITE" : currentPlan;
@@ -292,14 +296,36 @@ export default function AssinaturaSaaSPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 items-start">
         {/* ─── PLANO BASIC ─── */}
-        <div className="bg-white rounded-2xl border border-zinc-200 p-7 flex flex-col opacity-70">
-          <div className="mb-6">
+        <div className="bg-white rounded-2xl border border-zinc-200 p-7 flex flex-col opacity-70 relative">
+          {/* Badge trial */}
+          {trialEndsAt ? (
+            (() => {
+              const daysLeft = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+              return daysLeft > 0 ? (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                  <span className="bg-amber-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow">
+                    🕐 Teste expira em {daysLeft} dia{daysLeft !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              ) : null;
+            })()
+          ) : (
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+              <span className="bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow">
+                ✅ 7 dias grátis
+              </span>
+            </div>
+          )}
+          <div className="mb-6 mt-2">
             <h3 className="text-lg font-bold text-zinc-900">Basic</h3>
             <p className="text-sm text-zinc-500">O essencial para começar</p>
           </div>
-          <div className="mb-6">
+          <div className="mb-1">
             <span className="text-zinc-400 font-medium text-lg">Grátis</span>
           </div>
+          <p className="text-xs text-emerald-600 font-semibold mb-5">
+            Teste todas as funcionalidades por 7 dias
+          </p>
           <ul className="space-y-3.5 flex-1 mb-8">
             <Feature item="Agendamento Online" />
             <Feature item="Gestão de Profissionais" />

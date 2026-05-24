@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Search, Users, CalendarDays, DollarSign, RotateCcw, BadgeCheck,
   ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  MessageSquare, Phone, Mail, Sparkles, Filter, ShieldAlert, Star, Cake, Edit3, Trash2, X, Save, Plus, CreditCard
+  MessageSquare, Phone, Mail, Sparkles, Filter, ShieldAlert, Star, Cake, Edit3, Trash2, X, Save, Plus, CreditCard,
+  Upload, UserPlus, Loader2, FileText, CheckCircle2
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency, getInitials, formatDate } from "@/lib/utils";
@@ -94,6 +95,20 @@ export default function ClientesPage() {
   const [addSubPlanId, setAddSubPlanId] = useState("");
   const [addSubBillingDay, setAddSubBillingDay] = useState("");
   const [addSubSaving, setAddSubSaving] = useState(false);
+
+  // Novo cliente manual
+  const [newClientModal, setNewClientModal] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newClientSaving, setNewClientSaving] = useState(false);
+
+  // Importar CSV
+  const [importModal, setImportModal] = useState(false);
+  const [csvRows, setCsvRows] = useState<{ name: string; phone: string; email: string }[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     Promise.all([
@@ -207,6 +222,80 @@ export default function ClientesPage() {
     setConfirmDialog({ id });
   }
 
+  async function handleCreateClient() {
+    if (!newClientName.trim()) return;
+    setNewClientSaving(true);
+    try {
+      const res = await fetch("/api/barbershop/clientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newClientName, phone: newClientPhone, email: newClientEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAlertDialog({ title: "Erro", message: data.error || "Não foi possível criar o cliente.", type: "danger" });
+        return;
+      }
+      setNewClientModal(false);
+      setNewClientName(""); setNewClientPhone(""); setNewClientEmail("");
+      setAlertDialog({ title: "Cliente criado!", message: `${newClientName} foi adicionado com sucesso.`, type: "success" });
+      load();
+    } finally {
+      setNewClientSaving(false);
+    }
+  }
+
+  function parseCsv(text: string) {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    const header = lines[0].toLowerCase().split(/[;,\t]/).map(h => h.trim().replace(/"/g, ""));
+    const nameIdx = header.findIndex(h => h.includes("nome") || h === "name");
+    const phoneIdx = header.findIndex(h => h.includes("fone") || h.includes("celular") || h.includes("whatsapp") || h === "phone" || h === "telefone");
+    const emailIdx = header.findIndex(h => h === "email" || h === "e-mail");
+    if (nameIdx === -1) return [];
+    return lines.slice(1).map(line => {
+      const cols = line.split(/[;,\t]/).map(c => c.trim().replace(/"/g, ""));
+      return {
+        name: cols[nameIdx] ?? "",
+        phone: phoneIdx >= 0 ? (cols[phoneIdx] ?? "") : "",
+        email: emailIdx >= 0 ? (cols[emailIdx] ?? "") : "",
+      };
+    }).filter(r => r.name.length > 0);
+  }
+
+  function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      setCsvRows(parseCsv(text));
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  async function handleImport() {
+    if (csvRows.length === 0) return;
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const res = await fetch("/api/barbershop/clientes/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rows: csvRows }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAlertDialog({ title: "Erro na importação", message: data.error || "Falha ao importar.", type: "danger" });
+        return;
+      }
+      setImportResult(data);
+      load();
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
   const currentMonth = new Date().getMonth();
 
   const filtered = clientes.filter((c) => {
@@ -302,6 +391,22 @@ export default function ClientesPage() {
             Gestão de Clientes
           </h1>
           <p className="text-zinc-500 text-sm mt-0.5">Visão unificada, frequência de retorno e histórico financeiro</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setImportModal(true); setCsvRows([]); setImportResult(null); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 font-bold text-sm shadow-sm transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            Importar CSV
+          </button>
+          <button
+            onClick={() => { setNewClientModal(true); setNewClientName(""); setNewClientPhone(""); setNewClientEmail(""); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-sm transition-all"
+          >
+            <UserPlus className="w-4 h-4" />
+            Novo Cliente
+          </button>
         </div>
       </div>
 
@@ -811,6 +916,167 @@ export default function ClientesPage() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Novo Cliente ─── */}
+      {newClientModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs px-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-150">
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-5 flex items-center justify-between text-white">
+              <div>
+                <h2 className="font-black text-lg">Novo Cliente</h2>
+                <p className="text-xs text-amber-100 mt-0.5">Adicionar cliente manualmente</p>
+              </div>
+              <button onClick={() => setNewClientModal(false)} className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20">
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase">Nome Completo *</label>
+                <input
+                  value={newClientName}
+                  onChange={e => setNewClientName(e.target.value)}
+                  placeholder="Ex: João Silva"
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none bg-zinc-50"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase">Telefone / WhatsApp</label>
+                <input
+                  value={newClientPhone}
+                  onChange={e => setNewClientPhone(e.target.value)}
+                  placeholder="Ex: 11999998888"
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none bg-zinc-50 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase">E-mail (opcional)</label>
+                <input
+                  value={newClientEmail}
+                  onChange={e => setNewClientEmail(e.target.value)}
+                  placeholder="Ex: joao@email.com"
+                  type="email"
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none bg-zinc-50"
+                />
+              </div>
+              <p className="text-[11px] text-zinc-400">Informe ao menos o telefone ou o e-mail para criar o cadastro.</p>
+            </div>
+            <div className="px-6 pb-6 flex gap-2">
+              <button onClick={() => setNewClientModal(false)} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-bold hover:bg-zinc-50">
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateClient}
+                disabled={newClientSaving || !newClientName.trim()}
+                className="flex-[1.8] py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white text-sm font-black hover:shadow-md disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {newClientSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                {newClientSaving ? "Criando..." : "Criar Cliente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Importar CSV ─── */}
+      {importModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs px-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-150">
+            <div className="bg-gradient-to-r from-zinc-800 to-zinc-900 px-6 py-5 flex items-center justify-between text-white">
+              <div>
+                <h2 className="font-black text-lg">Importar Clientes via CSV</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">Migre clientes de outros sistemas</p>
+              </div>
+              <button onClick={() => setImportModal(false)} className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20">
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {!importResult ? (
+                <>
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800 space-y-1">
+                    <p className="font-bold">Formato esperado do CSV:</p>
+                    <p>• Colunas: <code className="bg-amber-100 px-1 rounded">nome</code>, <code className="bg-amber-100 px-1 rounded">telefone</code>, <code className="bg-amber-100 px-1 rounded">email</code> (separadas por vírgula, ponto-vírgula ou tab)</p>
+                    <p>• Primeira linha deve ser o cabeçalho</p>
+                    <p>• Clientes com telefone/e-mail já cadastrado serão ignorados</p>
+                  </div>
+
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.txt"
+                      onChange={handleCsvFile}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-zinc-300 hover:border-amber-400 rounded-2xl py-8 flex flex-col items-center gap-2 text-zinc-500 hover:text-amber-600 transition-colors"
+                    >
+                      <FileText className="w-8 h-8" />
+                      <span className="font-semibold text-sm">Clique para selecionar o arquivo CSV</span>
+                      <span className="text-xs text-zinc-400">ou arraste aqui</span>
+                    </button>
+                  </div>
+
+                  {csvRows.length > 0 && (
+                    <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4">
+                      <p className="text-sm font-bold text-zinc-800 mb-2">
+                        <CheckCircle2 className="inline w-4 h-4 text-emerald-500 mr-1" />
+                        {csvRows.length} cliente{csvRows.length !== 1 ? "s" : ""} encontrado{csvRows.length !== 1 ? "s" : ""}
+                      </p>
+                      <div className="max-h-36 overflow-y-auto space-y-1">
+                        {csvRows.slice(0, 8).map((r, i) => (
+                          <p key={i} className="text-xs text-zinc-600 truncate">
+                            <span className="font-semibold">{r.name}</span>
+                            {r.phone && <span className="text-zinc-400 ml-2">{r.phone}</span>}
+                          </p>
+                        ))}
+                        {csvRows.length > 8 && <p className="text-xs text-zinc-400 italic">… e mais {csvRows.length - 8}</p>}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-3 text-center py-4">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+                  <p className="text-lg font-black text-zinc-900">Importação concluída!</p>
+                  <div className="flex justify-center gap-6 text-sm">
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-emerald-600">{importResult.created}</p>
+                      <p className="text-zinc-500">importados</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-zinc-400">{importResult.skipped}</p>
+                      <p className="text-zinc-500">ignorados</p>
+                    </div>
+                  </div>
+                  {importResult.errors.length > 0 && (
+                    <div className="text-xs text-red-500 bg-red-50 rounded-xl p-3 text-left space-y-0.5">
+                      {importResult.errors.map((err, i) => <p key={i}>{err}</p>)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="px-6 pb-6 flex gap-2">
+              <button onClick={() => setImportModal(false)} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-bold hover:bg-zinc-50">
+                {importResult ? "Fechar" : "Cancelar"}
+              </button>
+              {!importResult && (
+                <button
+                  onClick={handleImport}
+                  disabled={importLoading || csvRows.length === 0}
+                  className="flex-[1.8] py-3 rounded-xl bg-zinc-900 text-white text-sm font-black hover:bg-zinc-800 disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  {importLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {importLoading ? "Importando..." : `Importar ${csvRows.length > 0 ? csvRows.length + " clientes" : ""}`}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
