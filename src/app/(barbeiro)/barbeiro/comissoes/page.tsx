@@ -167,9 +167,9 @@ export default function ComissoesBarberPage() {
             <span className="text-xs">Faturado total</span>
           </div>
           <p className="text-xl font-bold text-zinc-900">
-            {formatCurrency(resumo.avulso.faturado + resumo.assinatura.faturado + resumo.produtos.faturado)}
+            {formatCurrency(resumo.avulso.faturado + resumo.produtos.faturado)}
           </p>
-          <p className="text-xs text-zinc-400 mt-0.5">gerado pela barbearia</p>
+          <p className="text-xs text-zinc-400 mt-0.5">avulsos + produtos (exc. planos)</p>
         </div>
         <div className="bg-white rounded-xl border border-zinc-100 p-4">
           <div className="flex items-center gap-2 mb-1 text-zinc-400">
@@ -184,9 +184,9 @@ export default function ComissoesBarberPage() {
       {/* Mini breakdown por categoria */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Avulsos", icon: <Scissors className="w-4 h-4" />, faturado: resumo.avulso.faturado, comissao: resumo.avulso.comissao, count: resumo.avulso.atendimentos, unit: "atend." },
-          { label: "Assinaturas", icon: <CreditCard className="w-4 h-4" />, faturado: resumo.assinatura.faturado, comissao: resumo.assinatura.comissao, count: resumo.assinatura.atendimentos, unit: "atend." },
-          { label: "Produtos", icon: <Package className="w-4 h-4" />, faturado: resumo.produtos.faturado, comissao: resumo.produtos.comissao, count: resumo.produtos.vendas, unit: "vendas" },
+          { label: "Avulsos", icon: <Scissors className="w-4 h-4" />, comissao: resumo.avulso.comissao, subtitle: `${resumo.avulso.atendimentos} atend. · ${formatCurrency(resumo.avulso.faturado)} fat.` },
+          { label: "Assinaturas", icon: <CreditCard className="w-4 h-4" />, comissao: resumo.assinatura.comissao, subtitle: `${resumo.assinatura.atendimentos} atend. no plano` },
+          { label: "Produtos", icon: <Package className="w-4 h-4" />, comissao: resumo.produtos.comissao, subtitle: `${resumo.produtos.vendas} vendas · ${formatCurrency(resumo.produtos.faturado)} fat.` },
         ].map((c) => (
           <div key={c.label} className="bg-white rounded-xl border border-zinc-100 p-4">
             <div className="flex items-center gap-2 mb-3 text-zinc-500">
@@ -194,7 +194,7 @@ export default function ComissoesBarberPage() {
               <span className="text-xs font-semibold">{c.label}</span>
             </div>
             <p className="text-lg font-bold text-zinc-900">{formatCurrency(c.comissao)}</p>
-            <p className="text-xs text-zinc-400 mt-0.5">{c.count} {c.unit} · {formatCurrency(c.faturado)} fat.</p>
+            <p className="text-xs text-zinc-400 mt-0.5">{c.subtitle}</p>
           </div>
         ))}
       </div>

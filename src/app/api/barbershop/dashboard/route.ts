@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.appointment.findMany({
         where: { barbershopId, date: { gte: periodStart, lte: periodEnd } },
-        select: { price: true, clientId: true, barberId: true, date: true, status: true, service: { select: { duration: true } } },
+        select: { price: true, clientId: true, barberId: true, date: true, status: true, subscriptionId: true, service: { select: { duration: true } } },
         orderBy: { date: "asc" }
       })
     ]);
@@ -92,20 +92,25 @@ export async function GET(req: NextRequest) {
 
     for (const a of periodAllAppointments) {
       if (a.status !== "DONE") continue;
+      const isSub = !!a.subscriptionId;
+
       if (!barberRevenueMap[a.barberId]) barberRevenueMap[a.barberId] = { revenue: 0, count: 0 };
-      barberRevenueMap[a.barberId].revenue += a.price;
       barberRevenueMap[a.barberId].count += 1;
 
       if (!clientSpentMap[a.clientId]) clientSpentMap[a.clientId] = { spent: 0, count: 0 };
-      clientSpentMap[a.clientId].spent += a.price;
       clientSpentMap[a.clientId].count += 1;
 
       periodClientSet.add(a.clientId);
-      periodRevenue += a.price;
 
-      const dateStr = format(a.date, "dd/MM");
-      const prev = dailyRevenueMap.get(dateStr);
-      if (prev !== undefined) dailyRevenueMap.set(dateStr, prev + a.price);
+      // Assinatura: preço nominal do serviço NÃO é receita — a receita real vem do Payment mensal
+      if (!isSub) {
+        barberRevenueMap[a.barberId].revenue += a.price;
+        clientSpentMap[a.clientId].spent += a.price;
+        periodRevenue += a.price;
+        const dateStr = format(a.date, "dd/MM");
+        const prev = dailyRevenueMap.get(dateStr);
+        if (prev !== undefined) dailyRevenueMap.set(dateStr, prev + a.price);
+      }
     }
 
     const doneAppointmentsInPeriod = periodAllAppointments.filter((a) => a.status === "DONE");
@@ -140,9 +145,11 @@ export async function GET(req: NextRequest) {
       clientsBeforePeriod,
       barberUsers,
       clientUsers,
+      periodSubPayments,
+      prevPeriodSubPayments,
     ] = await Promise.all([
       prisma.appointment.aggregate({
-        where: { barbershopId, status: "DONE", date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
+        where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
         _sum: { price: true },
         _count: { _all: true }
       }),
@@ -206,6 +213,15 @@ export async function GET(req: NextRequest) {
             select: { id: true, name: true },
           })
         : Promise.resolve([] as Array<{ id: string; name: string }>),
+      // Receita real de assinaturas (pagamentos recebidos no período)
+      prisma.payment.aggregate({
+        where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: periodStart, lte: periodEnd } },
+        _sum: { amount: true },
+      }),
+      prisma.payment.aggregate({
+        where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: prevPeriodStart, lte: prevPeriodEnd } },
+        _sum: { amount: true },
+      }),
     ]);
 
     // --- PHASE C: in-memory calculations + response ---
@@ -248,10 +264,11 @@ export async function GET(req: NextRequest) {
       : 0;
     const occupationStatus = occupationPct >= 80 ? "SOBRECARGA" : occupationPct >= 50 ? "IDEAL" : "BAIXA";
 
-    // KPIs
-    const prevPeriodRevenue = prevPeriodDoneAggregates._sum.price || 0;
+    // KPIs — receita real = avulsos + pagamentos reais de assinatura (NÃO preço nominal do serviço)
+    const totalPeriodRevenue = periodRevenue + (periodSubPayments._sum.amount || 0);
+    const prevPeriodRevenue = (prevPeriodDoneAggregates._sum.price || 0) + (prevPeriodSubPayments._sum.amount || 0);
     const revenueChange = prevPeriodRevenue > 0
-      ? Math.round(((periodRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100)
+      ? Math.round(((totalPeriodRevenue - prevPeriodRevenue) / prevPeriodRevenue) * 100)
       : null;
 
     const periodAppointments = doneAppointmentsInPeriod.length;
@@ -260,7 +277,7 @@ export async function GET(req: NextRequest) {
       ? Math.round(((periodAppointments - prevPeriodAppointments) / prevPeriodAppointments) * 100)
       : null;
 
-    const ticketMedio = periodAppointments > 0 ? periodRevenue / periodAppointments : 0;
+    const ticketMedio = periodAppointments > 0 ? totalPeriodRevenue / periodAppointments : 0;
     const prevTicketMedio = prevPeriodAppointments > 0 ? prevPeriodRevenue / prevPeriodAppointments : 0;
     const ticketChange = prevTicketMedio > 0
       ? Math.round(((ticketMedio - prevTicketMedio) / prevTicketMedio) * 100)
@@ -281,16 +298,16 @@ export async function GET(req: NextRequest) {
     // Projeção
     const diaAtual = getDate(now);
     const diasNoMes = getDaysInMonth(now);
-    const monthRevenue = period === "month" ? periodRevenue : 0;
+    const monthRevenue = period === "month" ? totalPeriodRevenue : 0;
     const projecaoMes = diaAtual > 0 ? (monthRevenue / diaAtual) * diasNoMes : 0;
 
-    // Hoje
+    // Hoje — assinaturas não geram caixa no dia (pagamento é mensal)
     const todayDone = todayAppointments.filter((a) => a.status === "DONE");
     const todayPending = todayAppointments.filter((a) => a.status === "PENDING" || a.status === "CONFIRMED");
-    const todayRevenue = todayDone.reduce((s, a) => s + a.price, 0);
+    const todayRevenue = todayDone.reduce((s, a) => s + (a.subscription ? 0 : a.price), 0);
     const todayExpectedRevenue = todayAppointments
       .filter((a) => a.status !== "CANCELLED" && a.status !== "NO_SHOW")
-      .reduce((s, a) => s + (a.service?.price || 0), 0);
+      .reduce((s, a) => s + (a.subscription ? 0 : (a.service?.price || 0)), 0);
 
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const nextAppointment = todayAppointments.find((a) => {
@@ -380,7 +397,7 @@ export async function GET(req: NextRequest) {
         lastConnectedAt: whatsappInstance?.lastConnectedAt || null,
       },
       kpis: {
-        revenue: { value: periodRevenue, change: revenueChange, prevValue: prevPeriodRevenue },
+        revenue: { value: totalPeriodRevenue, change: revenueChange, prevValue: prevPeriodRevenue },
         appointments: { value: periodAppointments, change: appointmentsChange, prevValue: prevPeriodAppointments },
         ticketMedio: { value: Math.round(ticketMedio * 100) / 100, change: ticketChange, prevValue: Math.round(prevTicketMedio * 100) / 100 },
         clients: { value: periodUniqueClients, change: clientsChange, prevValue: prevUniqueClients },
