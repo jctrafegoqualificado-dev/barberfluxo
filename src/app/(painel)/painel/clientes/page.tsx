@@ -3,12 +3,14 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Search, Users, CalendarDays, DollarSign, RotateCcw, BadgeCheck,
   ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  MessageSquare, Phone, Mail, Sparkles, Filter, ShieldAlert, Star, Cake, Edit3, Trash2, X, Save
+  MessageSquare, Phone, Mail, Sparkles, Filter, ShieldAlert, Star, Cake, Edit3, Trash2, X, Save, Plus, CreditCard
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency, getInitials, formatDate } from "@/lib/utils";
 import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
 import { SkeletonRow } from "@/components/ui/SkeletonCard";
+
+interface Plan { id: string; name: string; price: number }
 
 interface Cliente {
   id: string;
@@ -87,15 +89,44 @@ export default function ClientesPage() {
   const [confirmDialog, setConfirmDialog] = useState<{ id: string } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string; type?: "info" | "danger" | "success" } | null>(null);
 
+  // Subscription add from Ficha
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [addSubPlanId, setAddSubPlanId] = useState("");
+  const [addSubBillingDay, setAddSubBillingDay] = useState("");
+  const [addSubSaving, setAddSubSaving] = useState(false);
+
   const load = useCallback(() => {
-    fetch("/api/barbershop/clientes", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => {
-        setClientes(d.clientes || []);
-        if (d.moral !== undefined) setMoral(d.moral);
-        setLoading(false);
-      });
+    Promise.all([
+      fetch("/api/barbershop/clientes", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch("/api/barbershop/plans", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ]).then(([clientData, planData]) => {
+      setClientes(clientData.clientes || []);
+      if (clientData.moral !== undefined) setMoral(clientData.moral);
+      setPlans(planData.plans || []);
+      setLoading(false);
+    });
   }, [token]);
+
+  async function handleAddSubscription(cliente: Cliente) {
+    if (!addSubPlanId) { setAlertDialog({ title: "Selecione um plano", message: "Escolha um plano antes de confirmar.", type: "danger" }); return; }
+    setAddSubSaving(true);
+    try {
+      const res = await fetch("/api/barbershop/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ clientName: cliente.name, clientPhone: cliente.phone || "", planId: addSubPlanId, billingDay: addSubBillingDay }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setAlertDialog({ title: "Erro", message: data.error || "Não foi possível criar a assinatura.", type: "danger" }); return; }
+      setEditModal(null);
+      setAddSubPlanId("");
+      setAddSubBillingDay("");
+      setAlertDialog({ title: "Assinatura criada!", message: `${cliente.name} agora é assinante.`, type: "success" });
+      load();
+    } finally {
+      setAddSubSaving(false);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -125,11 +156,9 @@ export default function ClientesPage() {
     setEditName(c.name);
     setEditPhone(c.phone || "");
     setEditIsBlocked(c.isBlocked);
-    if (c.birthday) {
-      setEditBirthday(c.birthday.substring(0, 10)); // YYYY-MM-DD
-    } else {
-      setEditBirthday("");
-    }
+    setEditBirthday(c.birthday ? c.birthday.substring(0, 10) : "");
+    setAddSubPlanId("");
+    setAddSubBillingDay("");
   }
 
   async function handleSaveEdit() {
@@ -707,12 +736,52 @@ export default function ClientesPage() {
                 </div>
               </div>
 
-              {editModal.activePlan && (
+              {editModal.activePlan ? (
                 <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
                   <p className="text-green-700 font-bold text-sm flex items-center gap-2">
-                    <BadgeCheck className="w-5 h-5 fill-green-700/10" /> 
-                    <span>Membro do Plano: {editModal.activePlan}</span>
+                    <BadgeCheck className="w-5 h-5 fill-green-700/10" />
+                    <span>Assinante — {editModal.activePlan}</span>
                   </p>
+                </div>
+              ) : plans.length > 0 && (
+                <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-amber-500" />
+                    <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wide">Adicionar ao Plano</h4>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase">Plano</label>
+                    <select
+                      value={addSubPlanId}
+                      onChange={(e) => setAddSubPlanId(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                    >
+                      <option value="">Selecione um plano...</option>
+                      {plans.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}/mês</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase">Dia de cobrança (opcional)</label>
+                    <input
+                      type="number" min="1" max="31" value={addSubBillingDay}
+                      onChange={(e) => setAddSubBillingDay(e.target.value)}
+                      placeholder="Ex: 10"
+                      className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleAddSubscription(editModal)}
+                    disabled={!addSubPlanId || addSubSaving || !editModal.phone}
+                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {addSubSaving ? "Criando assinatura..." : "Criar Assinatura"}
+                  </button>
+                  {!editModal.phone && (
+                    <p className="text-[10px] text-red-500 font-semibold">WhatsApp obrigatório para criar assinatura. Salve o telefone primeiro.</p>
+                  )}
                 </div>
               )}
             </div>

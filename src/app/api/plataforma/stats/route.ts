@@ -7,8 +7,10 @@ export async function GET(req: NextRequest) {
     requireAuth(req, ["PLATFORM_ADMIN"]);
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const brDateStr = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(now);
+    const [brYear, brMonth] = brDateStr.split("-").map(Number);
+    const startOfMonth = new Date(Date.UTC(brYear, brMonth - 1, 1, 0, 0, 0, 0));
+    const endOfMonth = new Date(Date.UTC(brYear, brMonth, 0, 23, 59, 59, 999));
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 

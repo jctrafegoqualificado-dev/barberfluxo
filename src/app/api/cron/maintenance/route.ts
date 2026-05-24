@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as evolution from "@/lib/evolution/client";
-import { format } from "date-fns";
+import { format, differenceInMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export async function GET(req: Request) {
@@ -22,6 +22,9 @@ export async function GET(req: Request) {
 
   try {
     const now = new Date();
+    const brDateStr = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(now);
+    const [brYear, brMonth, brDay] = brDateStr.split("-").map(Number);
+    const todayBRT = new Date(Date.UTC(brYear, brMonth - 1, brDay, 0, 0, 0, 0));
 
     // ── 1. ASSINATURAS VENCIDAS E GERAÇÃO DE COBRANÇAS ──
     const overdueSubs = await prisma.subscription.findMany({
@@ -47,12 +50,10 @@ export async function GET(req: Request) {
         }
 
         // --- GERAÇÃO DE COBRANÇA PENDENTE ---
-        const { differenceInMonths, startOfDay } = require('date-fns');
-        const billingDate = startOfDay(new Date(sub.nextBillingDate));
-        const today = startOfDay(new Date());
-        
-        if (today >= billingDate) {
-          const monthsOwed = differenceInMonths(today, billingDate) + 1;
+        const billingDate = new Date(new Date(sub.nextBillingDate).toISOString().split("T")[0] + "T00:00:00Z");
+
+        if (todayBRT >= billingDate) {
+          const monthsOwed = differenceInMonths(todayBRT, billingDate) + 1;
           const pendingCount = await prisma.payment.count({
             where: { subscriptionId: sub.id, status: "PENDING" }
           });
@@ -77,7 +78,7 @@ export async function GET(req: Request) {
         // --- NOTIFICAÇÃO VIA WHATSAPP ---
         // Apenas envia a notificação se for o dia exato do vencimento (para não enviar todo dia)
         // Opcionalmente, pode ser configurado um lembrete periódico. Aqui vamos enviar se a diferença for pequena.
-        const diffDays = Math.floor((today.getTime() - billingDate.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor((todayBRT.getTime() - billingDate.getTime()) / (1000 * 60 * 60 * 24));
         
         if (diffDays === 0 || diffDays === 1) { // Só avisa no dia ou no dia seguinte
           const instance = await prisma.whatsAppInstance.findFirst({
@@ -100,11 +101,8 @@ export async function GET(req: Request) {
     }
 
     // ── 2. LEMBRETES DE AGENDAMENTO (AMANHÃ) ──
-    const tomorrowStart = new Date();
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-    tomorrowStart.setHours(0, 0, 0, 0);
-    const tomorrowEnd = new Date(tomorrowStart);
-    tomorrowEnd.setHours(23, 59, 59, 999);
+    const tomorrowStart = new Date(Date.UTC(brYear, brMonth - 1, brDay + 1, 0, 0, 0, 0));
+    const tomorrowEnd = new Date(Date.UTC(brYear, brMonth - 1, brDay + 1, 23, 59, 59, 999));
 
     const appointments = await prisma.appointment.findMany({
       where: {

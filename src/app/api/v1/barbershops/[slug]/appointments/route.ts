@@ -33,12 +33,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
     const phoneDigits = onlyDigits(clientPhone);
     const now = new Date();
+    const brTodayStr = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(now);
+    const todayBRTStart = new Date(brTodayStr + "T00:00:00Z");
 
     const appointments = await prisma.appointment.findMany({
       where: {
         barbershopId: shop.id,
         status: { notIn: ["CANCELLED", "DONE", "NO_SHOW"] },
-        date: { gte: now },
+        date: { gte: todayBRTStart },
         client: { phone: { contains: phoneDigits } },
       },
       include: {

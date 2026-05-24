@@ -37,7 +37,6 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ s
       const dateStr = existing.date.toISOString().split("T")[0];
       const apptDateTime = new Date(`${dateStr}T${existing.startTime}:00-03:00`);
       const diffHours = (apptDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
-      console.log("[cancel-debug]", { minCancelHours: shop.minCancelHours, dateStr, startTime: existing.startTime, apptDateTime: apptDateTime.toISOString(), diffHours, now: new Date().toISOString() });
       if (diffHours < shop.minCancelHours) {
         return NextResponse.json(
           {
@@ -46,8 +45,6 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ s
           { status: 400 }
         );
       }
-    } else {
-      console.log("[cancel-debug] minCancelHours=0, pulando checagem. shop.minCancelHours=", shop.minCancelHours);
     }
 
     const appointment = await prisma.appointment.update({

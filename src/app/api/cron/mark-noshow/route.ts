@@ -17,10 +17,12 @@ export async function GET(req: NextRequest) {
 
     // Corte: agendamentos com startTime <= (agora - 2h) ainda PENDING/CONFIRMED
     const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    const cutoffDate = new Date(cutoff);
-    cutoffDate.setHours(0, 0, 0, 0);
-
-    const cutoffHHMM = `${String(cutoff.getHours()).padStart(2, "0")}:${String(cutoff.getMinutes()).padStart(2, "0")}`;
+    const brCutoffStr = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(cutoff);
+    const [brYear, brMonth, brDay] = brCutoffStr.split("-").map(Number);
+    const cutoffDate = new Date(Date.UTC(brYear, brMonth - 1, brDay, 0, 0, 0, 0));
+    const cutoffHHMM = new Intl.DateTimeFormat("en", {
+      timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(cutoff);
 
     // Busca todos os agendamentos passados ainda ativos
     const candidates = await prisma.appointment.findMany({
@@ -34,8 +36,7 @@ export async function GET(req: NextRequest) {
     // Filtra: apenas os que o startTime já passou do corte
     const toMark = candidates.filter((a) => {
       const apptDateStr = a.date.toISOString().split("T")[0];
-      const cutoffDateStr = cutoff.toISOString().split("T")[0];
-      if (apptDateStr < cutoffDateStr) return true; // dias anteriores: marcar todos
+      if (apptDateStr < brCutoffStr) return true; // dias anteriores: marcar todos
       return a.startTime <= cutoffHHMM; // mesmo dia: só se já passou do corte
     });
 

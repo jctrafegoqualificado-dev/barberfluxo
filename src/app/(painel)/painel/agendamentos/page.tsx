@@ -61,7 +61,7 @@ function toMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 
 function minToTop(t: string) { return ((toMin(t) - START_HOUR * 60) / 5) * ROW_H; }
 function durationHeight(start: string, end: string) { return ((toMin(end) - toMin(start)) / 5) * ROW_H; }
 function localDateStr(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(d);
 }
 function getInitials(name: string) { return name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase(); }
 
@@ -876,8 +876,11 @@ export default function AgendamentosPage() {
   /* Linha do horário atual */
   useEffect(() => {
     function updateNow() {
-      const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-      const mins = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60;
+      const brTime = new Intl.DateTimeFormat("en", {
+        timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false,
+      }).format(new Date());
+      const [bH, bM] = brTime.split(":").map(Number);
+      const mins = bH * 60 + bM - START_HOUR * 60;
       if (mins >= 0 && mins <= TOTAL_MINS) setNowPx((mins / 5) * ROW_H);
       else setNowPx(null);
     }

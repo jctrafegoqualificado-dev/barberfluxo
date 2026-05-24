@@ -54,14 +54,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     // Horário mínimo baseado no fuso do Brasil (UTC-3)
     const barberMode = req.nextUrl.searchParams.get("barber") === "true";
     const now = new Date();
-    const brNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-    const todayBR = `${brNow.getFullYear()}-${String(brNow.getMonth() + 1).padStart(2, "0")}-${String(brNow.getDate()).padStart(2, "0")}`;
+    const todayBR = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(now);
     const isToday = date === todayBR;
+    const brTimeStr = new Intl.DateTimeFormat("en", {
+      timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(now);
+    const [brH, brM] = brTimeStr.split(":").map(Number);
     // Clientes: buffer de 15min | Barbeiro: sem restrição (pode marcar no passado)
-    const nowMinutes = barberMode ? -1 : isToday ? brNow.getHours() * 60 + brNow.getMinutes() + 15 : 0;
+    const nowMinutes = barberMode ? -1 : isToday ? brH * 60 + brM + 15 : 0;
 
-    const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
+    const [dy, dm, dd] = date.split("-").map(Number);
+    const dayStart = new Date(Date.UTC(dy, dm - 1, dd, 0, 0, 0, 0));
+    const dayEnd = new Date(Date.UTC(dy, dm - 1, dd, 23, 59, 59, 999));
 
     // Agendamentos e bloqueios do barbeiro nesse dia
     const [existing, blocks] = await Promise.all([

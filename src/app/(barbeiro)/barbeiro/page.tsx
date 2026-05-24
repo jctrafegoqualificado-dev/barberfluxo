@@ -191,8 +191,11 @@ function VenderProdutoModal({ token, onClose }: { token: string; onClose: () => 
 }
 
 function BloquearAgendaModal({ token, date, onClose, onBlocked }: { token: string; date: string; onClose: () => void; onBlocked: () => void }) {
-  const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(Math.ceil(now.getMinutes() / 15) * 15 % 60).padStart(2, "0")}`;
+  const brTimeNow = new Intl.DateTimeFormat("en", {
+    timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(new Date());
+  const [brH, brM] = brTimeNow.split(":").map(Number);
+  const currentTime = `${String(brH).padStart(2, "0")}:${String(Math.ceil(brM / 15) * 15 % 60).padStart(2, "0")}`;
   const [startTime, setStartTime] = useState(currentTime);
   const [duration, setDuration] = useState(60);
   const [reason, setReason] = useState("");

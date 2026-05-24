@@ -13,10 +13,13 @@ export async function GET(req: NextRequest) {
     if (!barber) return NextResponse.json({ error: "Perfil de barbeiro não encontrado" }, { status: 404 });
 
     const now = new Date();
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+    // Use Brazil timezone so queries stay correct after 21:00 BRT (UTC+0 server)
+    const brDateStr = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(now);
+    const [brYear, brMonth, brDay] = brDateStr.split("-").map(Number);
+    const todayStart = new Date(Date.UTC(brYear, brMonth - 1, brDay, 0, 0, 0, 0));
+    const todayEnd = new Date(Date.UTC(brYear, brMonth - 1, brDay, 23, 59, 59, 999));
+    const monthStart = new Date(Date.UTC(brYear, brMonth - 1, 1, 0, 0, 0, 0));
+    const monthEnd = new Date(Date.UTC(brYear, brMonth - 1, new Date(brYear, brMonth, 0).getDate(), 23, 59, 59, 999));
 
     const [todayAppts, monthAppts, productSalesMonth] = await Promise.all([
       prisma.appointment.findMany({
@@ -75,8 +78,12 @@ export async function GET(req: NextRequest) {
     const todayFaturado = todayDone.reduce((s, a) => s + a.price, 0);
     const noShowToday = todayAppts.filter((a) => a.status === "NO_SHOW").length;
 
-    // Próximo agendamento confirmado
-    const nowTime = now.getHours() * 60 + now.getMinutes();
+    // Próximo agendamento confirmado — usa hora Brazil para comparar com startTime (HH:MM)
+    const brTimeStr = new Intl.DateTimeFormat("en", {
+      timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(now);
+    const [brH, brM] = brTimeStr.split(":").map(Number);
+    const nowTime = brH * 60 + brM;
     const proximoAgendamento = todayAppts.find((a) => {
       if (a.status !== "CONFIRMED") return false;
       const [h, m] = a.startTime.split(":").map(Number);

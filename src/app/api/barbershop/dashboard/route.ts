@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import {
-  startOfDay, endOfDay, startOfMonth, endOfMonth,
-  subDays, getDaysInMonth, getDate, format,
-  differenceInDays
-} from "date-fns";
+import { format, differenceInDays } from "date-fns";
 
 /**
  * Dashboard BI — Multi-Period API
@@ -18,6 +14,14 @@ export async function GET(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     const now = new Date();
 
+    // Brazil timezone — server runs UTC; appointments stored as YYYY-MM-DDT00:00:00Z (local date)
+    const brDateStr = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(now);
+    const [brYear, brMonth, brDay] = brDateStr.split("-").map(Number);
+    const todayStart = new Date(Date.UTC(brYear, brMonth - 1, brDay, 0, 0, 0, 0));
+    const todayEnd = new Date(Date.UTC(brYear, brMonth - 1, brDay, 23, 59, 59, 999));
+    const monthKey = brDateStr.substring(0, 7); // "YYYY-MM"
+    const currentMonth = brMonth;
+
     // --- Parse period filter ---
     const period = req.nextUrl.searchParams.get("period") || "month";
     const customFrom = req.nextUrl.searchParams.get("from");
@@ -28,36 +32,36 @@ export async function GET(req: NextRequest) {
 
     switch (period) {
       case "today":
-        periodStart = startOfDay(now);
-        periodEnd = endOfDay(now);
+        periodStart = todayStart;
+        periodEnd = todayEnd;
         break;
       case "7d":
-        periodStart = startOfDay(subDays(now, 6));
-        periodEnd = endOfDay(now);
+        periodStart = new Date(Date.UTC(brYear, brMonth - 1, brDay - 6, 0, 0, 0, 0));
+        periodEnd = todayEnd;
         break;
       case "30d":
-        periodStart = startOfDay(subDays(now, 29));
-        periodEnd = endOfDay(now);
+        periodStart = new Date(Date.UTC(brYear, brMonth - 1, brDay - 29, 0, 0, 0, 0));
+        periodEnd = todayEnd;
         break;
       case "custom":
-        periodStart = customFrom ? startOfDay(new Date(customFrom)) : startOfMonth(now);
-        periodEnd = customTo ? endOfDay(new Date(customTo)) : endOfDay(now);
+        periodStart = customFrom ? new Date(customFrom + "T00:00:00.000Z") : new Date(Date.UTC(brYear, brMonth - 1, 1, 0, 0, 0, 0));
+        periodEnd = customTo ? new Date(customTo + "T23:59:59.999Z") : todayEnd;
         break;
       case "month":
       default:
-        periodStart = startOfMonth(now);
-        periodEnd = endOfMonth(now);
+        periodStart = new Date(Date.UTC(brYear, brMonth - 1, 1, 0, 0, 0, 0));
+        periodEnd = new Date(Date.UTC(brYear, brMonth - 1, new Date(brYear, brMonth, 0).getDate(), 23, 59, 59, 999));
         break;
     }
 
     const periodDays = differenceInDays(periodEnd, periodStart) + 1;
     const prevPeriodEnd = new Date(periodStart.getTime() - 1);
-    const prevPeriodStart = startOfDay(subDays(periodStart, periodDays));
-
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const monthKey = format(now, "yyyy-MM");
-    const currentMonth = now.getMonth() + 1;
+    const prevPeriodStart = new Date(Date.UTC(
+      new Date(prevPeriodEnd).getUTCFullYear(),
+      new Date(prevPeriodEnd).getUTCMonth(),
+      new Date(prevPeriodEnd).getUTCDate() - periodDays + 1,
+      0, 0, 0, 0,
+    ));
 
     // --- PHASE A: fetch what we need to derive IDs/aggregates from ---
     const [todayAppointments, periodAllAppointments] = await Promise.all([
@@ -295,9 +299,9 @@ export async function GET(req: NextRequest) {
 
     const mrr = activeSubscriptions.reduce((sum, s) => sum + s.plan.price, 0);
 
-    // Projeção
-    const diaAtual = getDate(now);
-    const diasNoMes = getDaysInMonth(now);
+    // Projeção — usa dia/mês Brazil
+    const diaAtual = brDay;
+    const diasNoMes = new Date(brYear, brMonth, 0).getDate();
     const monthRevenue = period === "month" ? totalPeriodRevenue : 0;
     const projecaoMes = diaAtual > 0 ? (monthRevenue / diaAtual) * diasNoMes : 0;
 
@@ -309,7 +313,11 @@ export async function GET(req: NextRequest) {
       .filter((a) => a.status !== "CANCELLED" && a.status !== "NO_SHOW")
       .reduce((s, a) => s + (a.subscription ? 0 : (a.service?.price || 0)), 0);
 
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const brTimeForNow = new Intl.DateTimeFormat("en", {
+      timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(now);
+    const [brNowH, brNowM] = brTimeForNow.split(":").map(Number);
+    const nowMinutes = brNowH * 60 + brNowM;
     const nextAppointment = todayAppointments.find((a) => {
       if (a.status !== "CONFIRMED" && a.status !== "PENDING") return false;
       const [h, m] = a.startTime.split(":").map(Number);
