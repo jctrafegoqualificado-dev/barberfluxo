@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Calendar, CreditCard, Banknote, Smartphone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package } from "lucide-react";
+import { Calendar, CreditCard, Phone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
@@ -46,12 +46,15 @@ const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; d
 };
 
 const PAYMENT_OPTIONS = [
-  { value: "PIX",    label: "PIX",     icon: Smartphone, color: "text-green-600 bg-green-50 border-green-200" },
-  { value: "DEBIT",  label: "Débito",  icon: CreditCard, color: "text-blue-600 bg-blue-50 border-blue-200" },
-  { value: "CREDIT", label: "Crédito", icon: CreditCard, color: "text-purple-600 bg-purple-50 border-purple-200" },
-  { value: "CASH",   label: "Dinheiro",icon: Banknote,   color: "text-primary/90 bg-primary/10 border-amber-200" },
+  { value: "CASH",        label: "Dinheiro" },
+  { value: "PIX",         label: "Pix" },
+  { value: "CREDIT_CARD", label: "Cartão de Crédito" },
+  { value: "DEBIT_CARD",  label: "Cartão de Débito" },
+  { value: "SUBSCRIPTION",label: "Clube (Assinatura)" },
 ];
-const METHOD_LABELS: Record<string, string> = { PIX: "PIX", DEBIT: "Débito", CREDIT: "Crédito", CASH: "Dinheiro" };
+const METHOD_LABELS: Record<string, string> = {
+  PIX: "PIX", DEBIT: "Débito", DEBIT_CARD: "Débito", CREDIT: "Crédito", CREDIT_CARD: "Crédito", CASH: "Dinheiro", SUBSCRIPTION: "Clube (Assinatura)",
+};
 
 /* ─── Helpers ─── */
 function toMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
@@ -139,9 +142,17 @@ function PaymentModal({
         
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 shrink-0">
-          <h2 className="font-semibold text-zinc-900">
-            {mode === "payment" ? "Detalhes / Fechar comanda" : "Editar serviços"}
-          </h2>
+          {mode === "payment" ? (
+            <div>
+              <p className="font-bold text-zinc-900">{appt.client.name}</p>
+              <p className="text-sm text-zinc-500">
+                {appt.services.length > 0 ? appt.services.map(s => s.service.name).join(" + ") : appt.service?.name}
+                {" · "}{appt.barber.user.name}{" · "}{appt.startTime}–{appt.endTime}
+              </p>
+            </div>
+          ) : (
+            <h2 className="font-semibold text-zinc-900">Editar serviços</h2>
+          )}
           <div className="flex items-center gap-1">
             {mode === "payment" && (
               <button onClick={() => onDelete(appt.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors" title="Excluir agendamento">
@@ -188,12 +199,12 @@ function PaymentModal({
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-zinc-500 mb-3 font-medium mt-4">Forma de pagamento:</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {PAYMENT_OPTIONS.map(({ value, label, icon: Icon, color }) => (
+                  <h3 className="font-semibold text-zinc-900 text-center mt-4">Como o cliente pagou?</h3>
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    {PAYMENT_OPTIONS.map(({ value, label }) => (
                       <button key={value} onClick={() => setSel(value)}
-                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all active:scale-95 ${sel === value ? color + " ring-2 ring-offset-1 ring-current" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}>
-                        <Icon className="w-5 h-5" /><span className="text-sm font-semibold">{label}</span>
+                        className={`p-3 rounded-xl border text-sm font-semibold transition-colors active:scale-95 ${sel === value ? "bg-green-500 border-green-500 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"}`}>
+                        {label}
                       </button>
                     ))}
                   </div>
@@ -241,6 +252,12 @@ function PaymentModal({
               )}
               {loadingProducts && (
                 <p className="text-xs text-zinc-400 pt-2">Carregando produtos...</p>
+              )}
+              {appt.client.phone && (
+                <a href={`tel:${appt.client.phone}`}
+                  className="mt-3 w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors text-sm">
+                  <Phone className="w-4 h-4" /> Ligar para {appt.client.name.split(" ")[0]}
+                </a>
               )}
             </>
           ) : (
@@ -320,7 +337,7 @@ function PaymentModal({
                 </>
               ) : (
                 <>
-                  <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Cancelar</button>
+                  <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Voltar</button>
                   <button
                     onClick={async () => {
                       if (finalPrice > 0 && !sel) return;
@@ -340,11 +357,9 @@ function PaymentModal({
                       onClose();
                     }}
                     disabled={(finalPrice > 0 && !sel) || saving}
-                    className={`flex-[1.5] py-3 rounded-xl text-white text-sm font-bold active:scale-95 transition-all shadow-md ${
-                      finalPrice === 0 ? "bg-green-600 hover:bg-green-700 shadow-green-200" : "bg-primary hover:bg-primary/90 shadow-amber-200"
-                    }`}
+                    className="flex-[1.5] py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-bold active:scale-95 transition-all shadow-md disabled:opacity-40"
                   >
-                    {saving ? "Salvando..." : finalPrice === 0 ? "Confirmar Uso do Plano" : "Concluir Atendimento"}
+                    {saving ? "Salvando..." : "Confirmar"}
                   </button>
                 </>
               )}
