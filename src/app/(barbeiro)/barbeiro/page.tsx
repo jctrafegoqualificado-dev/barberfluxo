@@ -374,13 +374,11 @@ function BarberAgendamentoModal({
   const totalDuration = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.duration, 0);
 
   let discount = 0;
-  if (activeSub && beneficiaryName && !activeSub._overdue) {
-    const coveredService = services.find(s =>
-      selectedServiceIds.includes(s.id) &&
-      s.name.toLowerCase().includes("corte") &&
-      !s.name.toLowerCase().includes("+")
-    );
-    if (coveredService) discount = coveredService.price;
+  if (activeSub && beneficiaryName && !activeSub._overdue && activeSub.plan?.planServices?.length > 0) {
+    const planSvcIds = activeSub.plan.planServices.map((ps: any) => ps.serviceId);
+    discount = services
+      .filter(s => selectedServiceIds.includes(s.id) && planSvcIds.includes(s.id))
+      .reduce((sum, s) => sum + s.price, 0);
   }
   const finalPrice = Math.max(0, totalPrice - discount);
 
@@ -581,8 +579,13 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   const [paymentMethod, setPaymentMethod] = useState(
     appt.subscription?.status === "ACTIVE" ? "SUBSCRIPTION" : "CASH"
   );
-  const [extraPrice, setExtraPrice] = useState("");
+  const [tip, setTip] = useState("");
   const [extraPaymentMethod, setExtraPaymentMethod] = useState("CASH");
+  const [planServiceIds] = useState<string[]>(() =>
+    appt.services?.length > 0
+      ? appt.services.map(s => s.service.id)
+      : appt.service?.id ? [appt.service.id] : []
+  );
   const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
   const [allServices, setAllServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
@@ -595,6 +598,12 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   const [saving, setSaving] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const isActive = appt.status === "CONFIRMED" || appt.status === "PENDING";
+  const isActiveSub = appt.subscription?.status === "ACTIVE";
+  const extraServiceIds = isActiveSub ? selectedServiceIds.filter(id => !planServiceIds.includes(id)) : [];
+  const extraServices = allServices.filter(s => extraServiceIds.includes(s.id));
+  const calculatedExtraPrice = extraServices.reduce((sum, s) => sum + s.price, 0);
+  const tipAmount = Number(tip) || 0;
+  const totalExtraToCharge = calculatedExtraPrice + tipAmount;
 
   useEffect(() => {
     if (!token) return;
@@ -648,7 +657,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
         fetch(`/api/barbershop/products/${pid}/sell`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ quantity: qty, paymentMethod }),
+          body: JSON.stringify({ quantity: qty, paymentMethod: isActiveSub ? extraPaymentMethod : paymentMethod }),
         })
       ));
     }
@@ -660,8 +669,8 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
         status: "DONE",
         paymentMethod,
         ...(selectedServiceIds.length > 0 ? { serviceIds: selectedServiceIds } : {}),
-        ...(appt.subscription?.status === "ACTIVE" && Number(extraPrice) > 0
-          ? { extraPrice: Number(extraPrice), extraPaymentMethod }
+        ...(isActiveSub && totalExtraToCharge > 0
+          ? { extraPrice: totalExtraToCharge, extraPaymentMethod }
           : {}),
       }),
     });
@@ -769,30 +778,54 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
               <h3 className="font-semibold text-zinc-900 text-center">Fechar comanda</h3>
 
               {appt.subscription?.status === "ACTIVE" ? (
-                /* ── Assinante ATIVO: plano cobre + campo de extra opcional ── */
                 <div className="space-y-3">
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-                    <p className="text-green-700 font-semibold text-sm">✅ Plano cobre este atendimento</p>
-                    <p className="text-green-600 text-xs mt-0.5">{appt.subscription.plan.name}</p>
+                  {/* Serviços cobertos pelo plano */}
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                    <p className="text-green-700 font-semibold text-sm">✅ Coberto pelo plano · {appt.subscription.plan.name}</p>
+                    {allServices.filter(s => planServiceIds.includes(s.id) && selectedServiceIds.includes(s.id)).map(s => (
+                      <div key={s.id} className="flex justify-between text-xs text-green-600 mt-1">
+                        <span>{s.name}</span>
+                        <span className="line-through opacity-60">{formatCurrency(s.price)}</span>
+                      </div>
+                    ))}
                   </div>
+
+                  {/* Extras automáticos dos serviços adicionados */}
+                  {extraServices.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <p className="text-amber-700 font-semibold text-sm mb-1">Extras a cobrar:</p>
+                      {extraServices.map(s => (
+                        <div key={s.id} className="flex justify-between text-sm mt-1">
+                          <span className="text-zinc-700">{s.name}</span>
+                          <span className="font-bold text-zinc-900">{formatCurrency(s.price)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-sm font-bold mt-2 pt-2 border-t border-amber-200">
+                        <span>Subtotal:</span>
+                        <span className="text-amber-700">{formatCurrency(calculatedExtraPrice)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Gorgeta (único campo manual) */}
                   <div>
-                    <p className="text-sm font-semibold text-zinc-700 mb-1.5">Cobrar extra além do plano? <span className="font-normal text-zinc-400">(opcional)</span></p>
+                    <p className="text-sm font-semibold text-zinc-700 mb-1.5">Gorgeta <span className="font-normal text-zinc-400">(opcional)</span></p>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm font-semibold">R$</span>
                       <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={extraPrice}
-                        onChange={(e) => setExtraPrice(e.target.value)}
+                        type="number" min="0" step="0.01"
+                        value={tip}
+                        onChange={(e) => setTip(e.target.value)}
                         placeholder="0,00"
                         className="w-full pl-9 pr-4 py-3 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
                       />
                     </div>
                   </div>
-                  {Number(extraPrice) > 0 && (
+
+                  {/* Forma de pagamento — só aparece se houver algo a cobrar */}
+                  {totalExtraToCharge > 0 && (
                     <div>
-                      <p className="text-sm font-semibold text-zinc-700 mb-1.5">Como pagou o extra de {formatCurrency(Number(extraPrice))}?</p>
+                      <p className="text-sm font-semibold text-zinc-700 mb-1.5">Como pagou {formatCurrency(totalExtraToCharge)}?</p>
                       <div className="grid grid-cols-2 gap-2">
                         {[
                           { id: "CASH", label: "Dinheiro" },

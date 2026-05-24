@@ -114,6 +114,10 @@ function PaymentModal({
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(
     appt.services.length > 0 ? appt.services.map(s => s.service.id) : (appt.service?.id ? [appt.service.id] : [])
   );
+  const [planServiceIds] = useState<string[]>(() =>
+    appt.services.length > 0 ? appt.services.map(s => s.service.id) : (appt.service?.id ? [appt.service.id] : [])
+  );
+  const [tip, setTip] = useState("");
 
   function toggleService(id: string) {
     setSelectedServiceIds(prev =>
@@ -124,17 +128,12 @@ function PaymentModal({
   const totalPrice = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.price, 0);
   const totalDuration = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.duration, 0);
 
-  // Lógica Rígida na Comanda
-  let discount = 0;
-  if (appt.beneficiaryName || appt.subscription) {
-    const coveredService = services.find(s => 
-      selectedServiceIds.includes(s.id) && 
-      s.name.toLowerCase().includes("corte") && 
-      !s.name.toLowerCase().includes("+")
-    );
-    if (coveredService) discount = coveredService.price;
-  }
-  const finalPrice = Math.max(0, totalPrice - discount);
+  const isActiveSub = appt.subscription?.status === "ACTIVE";
+  const extraServiceIds = isActiveSub ? selectedServiceIds.filter(id => !planServiceIds.includes(id)) : [];
+  const extraServices = services.filter(s => extraServiceIds.includes(s.id));
+  const calculatedExtraPrice = extraServices.reduce((sum, s) => sum + s.price, 0);
+  const tipAmount = Number(tip) || 0;
+  const totalExtraToCharge = calculatedExtraPrice + tipAmount;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -175,11 +174,13 @@ function PaymentModal({
                   {appt.services.length > 0 ? appt.services.map(s => s.service.name).join(" + ") : appt.service?.name} · {appt.barber.user.name}
                 </p>
                 <p className="text-primary/90 font-bold text-lg">
-                  {discount > 0 ? (
+                  {isActiveSub ? (
                     <span className="flex flex-col">
-                      <span className="text-xs text-zinc-400 line-through font-normal">{formatCurrency(totalPrice)}</span>
-                      <span>{formatCurrency(finalPrice)}</span>
-                      <span className="text-[10px] text-green-600 font-medium">Plano aplicado: {services.find(s => s.price === discount)?.name || "Corte"}</span>
+                      {calculatedExtraPrice > 0
+                        ? <><span className="text-xs text-zinc-400 line-through font-normal">{formatCurrency(totalPrice)}</span><span>{formatCurrency(calculatedExtraPrice)}</span></>
+                        : <span className="text-green-600">R$ 0,00</span>
+                      }
+                      <span className="text-[10px] text-green-600 font-medium">{appt.subscription?.plan.name} ✓</span>
                     </span>
                   ) : formatCurrency(totalPrice)}
                 </p>
@@ -192,10 +193,58 @@ function PaymentModal({
                 </button>
               </div>
               
-              {finalPrice === 0 ? (
-                <div className="bg-green-50 border border-green-100 rounded-xl p-4 mt-4 text-center">
-                  <p className="text-green-700 font-medium text-sm mb-1">Atendimento 100% coberto pelo plano</p>
-                  <p className="text-green-600 text-xs">Nenhum pagamento físico é necessário.</p>
+              {isActiveSub ? (
+                <div className="space-y-3 mt-3">
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                    <p className="text-green-700 font-semibold text-sm">✅ Coberto pelo plano · {appt.subscription?.plan.name}</p>
+                    {services.filter(s => planServiceIds.includes(s.id) && selectedServiceIds.includes(s.id)).map(s => (
+                      <div key={s.id} className="flex justify-between text-xs text-green-600 mt-1">
+                        <span>{s.name}</span>
+                        <span className="line-through opacity-60">{formatCurrency(s.price)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {extraServices.length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <p className="text-amber-700 font-semibold text-sm mb-1">Extras a cobrar:</p>
+                      {extraServices.map(s => (
+                        <div key={s.id} className="flex justify-between text-sm mt-1">
+                          <span className="text-zinc-700">{s.name}</span>
+                          <span className="font-bold text-zinc-900">{formatCurrency(s.price)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-sm font-bold mt-2 pt-2 border-t border-amber-200">
+                        <span>Subtotal:</span>
+                        <span className="text-amber-700">{formatCurrency(calculatedExtraPrice)}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-700 mb-1.5">Gorgeta <span className="font-normal text-zinc-400">(opcional)</span></p>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">R$</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={tip}
+                        onChange={(e) => setTip(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                      />
+                    </div>
+                  </div>
+                  {totalExtraToCharge > 0 && (
+                    <>
+                      <h3 className="font-semibold text-zinc-900 text-center">Como pagou {formatCurrency(totalExtraToCharge)}?</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {PAYMENT_OPTIONS.filter(o => o.value !== "SUBSCRIPTION").map(({ value, label }) => (
+                          <button key={value} onClick={() => setSel(value)}
+                            className={`p-3 rounded-xl border text-sm font-semibold transition-colors active:scale-95 ${sel === value ? "bg-green-500 border-green-500 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
@@ -207,10 +256,7 @@ function PaymentModal({
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-2 mt-3">
-                    {PAYMENT_OPTIONS.filter(({ value }) => {
-                      if (value !== "SUBSCRIPTION") return true;
-                      return appt.subscription?.status === "ACTIVE";
-                    }).map(({ value, label }) => (
+                    {PAYMENT_OPTIONS.filter(({ value }) => value !== "SUBSCRIPTION").map(({ value, label }) => (
                       <button key={value} onClick={() => setSel(value)}
                         className={`p-3 rounded-xl border text-sm font-semibold transition-colors active:scale-95 ${sel === value ? "bg-green-500 border-green-500 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"}`}>
                         {label}
@@ -334,7 +380,11 @@ function PaymentModal({
                           })
                         ));
                       }
-                      await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", finalPrice);
+                      if (isActiveSub) {
+                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? (sel ?? "CASH") : undefined);
+                      } else {
+                        await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", totalPrice);
+                      }
                       setSaving(false);
                       onClose();
                     }}
@@ -349,9 +399,8 @@ function PaymentModal({
                   <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Voltar</button>
                   <button
                     onClick={async () => {
-                      const isActiveSub = appt.subscription?.status === "ACTIVE";
-                      if (finalPrice > 0 && !sel && !isActiveSub) return;
-                      if (isActiveSub && finalPrice > 0 && !sel) return;
+                      if (!isActiveSub && !sel) return;
+                      if (isActiveSub && totalExtraToCharge > 0 && !sel) return;
                       setSaving(true);
                       const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
                       if (toSell.length > 0) {
@@ -359,18 +408,19 @@ function PaymentModal({
                           fetch(`/api/barbershop/products/${pid}/sell`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ quantity: qty, paymentMethod: isActiveSub ? (sel ?? "CASH") : (finalPrice === 0 ? "SUBSCRIPTION" : sel) }),
+                            body: JSON.stringify({ quantity: qty, paymentMethod: isActiveSub ? (sel ?? "CASH") : sel }),
                           })
                         ));
                       }
-                      const baseMethod = isActiveSub ? "SUBSCRIPTION" : (finalPrice === 0 ? "SUBSCRIPTION" : sel!);
-                      const extraP = isActiveSub && finalPrice > 0 ? finalPrice : undefined;
-                      const extraM = isActiveSub && finalPrice > 0 ? sel! : undefined;
-                      await onConfirm(appt.id, baseMethod, finalPrice, extraP, extraM);
+                      if (isActiveSub) {
+                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? sel! : undefined);
+                      } else {
+                        await onConfirm(appt.id, sel!, totalPrice);
+                      }
                       setSaving(false);
                       onClose();
                     }}
-                    disabled={((finalPrice > 0 && !sel) || saving)}
+                    disabled={((!isActiveSub && !sel) || (isActiveSub && totalExtraToCharge > 0 && !sel) || saving)}
                     className="flex-[1.5] py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-bold active:scale-95 transition-all shadow-md disabled:opacity-40"
                   >
                     {saving ? "Salvando..." : "Confirmar"}
@@ -582,18 +632,12 @@ function AgendamentoModal({
   const totalPrice = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.price, 0);
   const totalDuration = services.filter(s => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.duration, 0);
   
-  // Lógica Rígida: O plano só cobre o serviço de "Corte". 
-  // Se o serviço selecionado for o "Corte", ele fica grátis. Todo o restante é cobrado cheio.
   let discount = 0;
-  if (activeSub && beneficiaryName) {
-    const coveredService = services.find(s => 
-      selectedServiceIds.includes(s.id) && 
-      s.name.toLowerCase().includes("corte") && 
-      !s.name.toLowerCase().includes("+") // Evita combos, foca no serviço puro
-    );
-    if (coveredService) {
-      discount = coveredService.price;
-    }
+  if (activeSub && beneficiaryName && !(activeSub as any)._overdue && activeSub.plan?.planServices?.length > 0) {
+    const planSvcIds = activeSub.plan.planServices.map((ps: any) => ps.serviceId);
+    discount = services
+      .filter(s => selectedServiceIds.includes(s.id) && planSvcIds.includes(s.id))
+      .reduce((sum, s) => sum + s.price, 0);
   }
   const finalPrice = Math.max(0, totalPrice - discount);
 
@@ -1265,19 +1309,7 @@ export default function AgendamentosPage() {
                             <p className={`text-[10px] truncate opacity-80 flex-1 ${s.text}`}>
                               {a.services.length > 0 ? a.services.map(x => x.service.name).join(" + ") : a.service?.name}
                             </p>
-                            {(() => {
-                              // Cálculo de desconto na grade
-                              let dnt = 0;
-                              const total = a.price;
-                              if (a.beneficiaryName || a.subscription) {
-                                const covered = a.services.find(xs => 
-                                  xs.service.name.toLowerCase().includes("corte") && 
-                                  !xs.service.name.toLowerCase().includes("+")
-                                );
-                                if (covered) dnt = covered.service.price;
-                              }
-                              return <p className={`text-xs font-black shrink-0 ${s.text}`}>{formatCurrency(Math.max(0, total - dnt))}</p>;
-                            })()}
+                            <p className={`text-xs font-black shrink-0 ${s.text}`}>{formatCurrency(a.price)}</p>
                           </div>
                           {a.beneficiaryName && (
                             <div className={`mt-0.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider ${s.text} opacity-70`}>
