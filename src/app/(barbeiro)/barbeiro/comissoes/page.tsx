@@ -132,20 +132,36 @@ export default function ComissoesBarberPage() {
         <RateBadge type={barber.productCommissionType} rate={barber.productCommission} />
       </div>
 
-      {/* Cards de resumo */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="col-span-2 bg-primary rounded-xl p-5 text-white">
+      {/* Cards de resumo — separados por tipo de pagamento */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Avulsos & Produtos */}
+        <div className="bg-primary rounded-xl p-5 text-white">
           <div className="flex items-center gap-2 mb-1">
-            <DollarSign className="w-5 h-5 opacity-80" />
-            <span className="text-sm font-medium opacity-90">Total a receber</span>
+            <Scissors className="w-4 h-4 opacity-80" />
+            <span className="text-sm font-medium opacity-90">Avulsos & Produtos</span>
           </div>
-          <p className="text-3xl font-black">{formatCurrency(resumo.totalComissao)}</p>
+          <p className="text-3xl font-black">{formatCurrency(resumo.avulso.comissao + resumo.produtos.comissao)}</p>
           <p className="text-xs opacity-70 mt-1">
-            {resumo.avulso.atendimentos + resumo.assinatura.atendimentos} atend. + {resumo.produtos.vendas} vendas
+            {resumo.avulso.atendimentos} atend. avulsos · {resumo.produtos.vendas} vendas
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-zinc-100 p-5">
+        {/* Assinaturas */}
+        <div className="bg-amber-600 rounded-xl p-5 text-white">
+          <div className="flex items-center gap-2 mb-1">
+            <CreditCard className="w-4 h-4 opacity-80" />
+            <span className="text-sm font-medium opacity-90">Club de Assinaturas</span>
+          </div>
+          <p className="text-3xl font-black">{formatCurrency(resumo.assinatura.comissao)}</p>
+          <p className="text-xs opacity-70 mt-1">
+            {resumo.assinatura.atendimentos} atend. · pago no fechamento do ciclo
+          </p>
+        </div>
+      </div>
+
+      {/* Linha de resumo geral */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-zinc-100 p-4">
           <div className="flex items-center gap-2 mb-1 text-zinc-400">
             <TrendingUp className="w-4 h-4" />
             <span className="text-xs">Faturado total</span>
@@ -155,13 +171,13 @@ export default function ComissoesBarberPage() {
           </p>
           <p className="text-xs text-zinc-400 mt-0.5">gerado pela barbearia</p>
         </div>
-
-        <div className="bg-white rounded-xl border border-zinc-100 p-5">
-          <p className="text-xs text-zinc-400 mb-1">Atendimentos</p>
-          <p className="text-2xl font-bold text-zinc-900">
-            {resumo.avulso.atendimentos + resumo.assinatura.atendimentos}
-          </p>
-          <p className="text-xs text-zinc-400 mt-0.5">{resumo.produtos.vendas} produtos vendidos</p>
+        <div className="bg-white rounded-xl border border-zinc-100 p-4">
+          <div className="flex items-center gap-2 mb-1 text-zinc-400">
+            <DollarSign className="w-4 h-4" />
+            <span className="text-xs">Total comissão</span>
+          </div>
+          <p className="text-xl font-bold text-zinc-900">{formatCurrency(resumo.totalComissao)}</p>
+          <p className="text-xs text-zinc-400 mt-0.5">{resumo.avulso.atendimentos + resumo.assinatura.atendimentos} atend. + {resumo.produtos.vendas} vendas</p>
         </div>
       </div>
 
