@@ -3,13 +3,20 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/store/auth";
 import {
   Building2, Phone, Mail, Instagram, FileText, MapPin,
-  Lock, Save, Camera, Loader2, CheckCircle2, AlertCircle,
-  Eye, EyeOff, KeyRound, Search, User, X,
+  Save, Camera, Loader2, CheckCircle2, AlertCircle,
+  Search, User, X, Palette, Image as ImageIcon,
 } from "lucide-react";
 
 /* ─── tipos ─────────────────────────────────────────────── */
-interface ProfileData {
+interface FormData {
+  // identidade visual
   name: string;
+  description: string;
+  logoUrl: string;
+  primaryColor: string;
+  secondaryColor: string;
+  favIconUrl: string;
+  // dados comerciais
   phone: string;
   contactEmail: string;
   instagram: string;
@@ -24,19 +31,18 @@ interface ProfileData {
   neighborhood: string;
   city: string;
   state: string;
-  // logo
-  logoUrl: string;
 }
 
-const EMPTY: ProfileData = {
-  name: "", phone: "", contactEmail: "", instagram: "", cnpj: "",
+const EMPTY: FormData = {
+  name: "", description: "", logoUrl: "",
+  primaryColor: "#f59e0b", secondaryColor: "#fbbf24", favIconUrl: "",
+  phone: "", contactEmail: "", instagram: "", cnpj: "",
   ownerName: "", ownerEmail: "",
   zipCode: "", address: "", streetNumber: "", streetComplement: "",
   neighborhood: "", city: "", state: "",
-  logoUrl: "",
 };
 
-/* ─── máscara CNPJ ──────────────────────────────────────── */
+/* ─── máscaras ───────────────────────────────────────────── */
 function maskCnpj(v: string) {
   const n = v.replace(/\D/g, "").slice(0, 14);
   return n
@@ -46,13 +52,11 @@ function maskCnpj(v: string) {
     .replace(/(\d{4})(\d)/, "$1-$2");
 }
 
-/* ─── máscara CEP ───────────────────────────────────────── */
 function maskCep(v: string) {
   const n = v.replace(/\D/g, "").slice(0, 8);
   return n.length > 5 ? `${n.slice(0, 5)}-${n.slice(5)}` : n;
 }
 
-/* ─── máscara Telefone ─────────────────────────────────── */
 function maskPhone(v: string) {
   const n = v.replace(/\D/g, "").slice(0, 11);
   if (n.length <= 10) return n.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3").replace(/-$/, "");
@@ -88,57 +92,45 @@ export default function MeuNegocioPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-
-  const [form, setForm] = useState<ProfileData>(EMPTY);
+  const [form, setForm] = useState<FormData>(EMPTY);
   const [cepLoading, setCepLoading] = useState(false);
-
-  // upload foto
   const fileRef = useRef<HTMLInputElement>(null);
   const [imgLoading, setImgLoading] = useState(false);
 
-  // modal de senha
-  const [pwdModal, setPwdModal] = useState(false);
-  const [currentPwd, setCurrentPwd] = useState("");
-  const [newPwd, setNewPwd] = useState("");
-  const [confirmPwd, setConfirmPwd] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [pwdSaving, setPwdSaving] = useState(false);
-  const [pwdStatus, setPwdStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-
-  /* ── carrega ── */
+  /* ── carrega as duas APIs em paralelo ── */
   useEffect(() => {
     if (!token) return;
-    fetch("/api/barbershop/profile", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.error) {
-          setForm({
-            name: d.name ?? "",
-            phone: d.phone ?? "",
-            contactEmail: d.contactEmail ?? "",
-            instagram: d.instagram ?? "",
-            cnpj: d.cnpj ?? "",
-            ownerName: d.ownerName ?? "",
-            ownerEmail: d.ownerEmail ?? "",
-            zipCode: d.zipCode ?? "",
-            address: d.address ?? "",
-            streetNumber: d.streetNumber ?? "",
-            streetComplement: d.streetComplement ?? "",
-            neighborhood: d.neighborhood ?? "",
-            city: d.city ?? "",
-            state: d.state ?? "",
-            logoUrl: d.logoUrl ?? "",
-          });
-        }
+    Promise.all([
+      fetch("/api/barbershop/profile", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      fetch("/api/barbershop/settings", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ])
+      .then(([profile, settings]) => {
+        setForm({
+          name:            profile.name         ?? settings.name       ?? "",
+          description:     settings.description  ?? "",
+          logoUrl:         profile.logoUrl       ?? settings.logoUrl    ?? "",
+          primaryColor:    settings.primaryColor  ?? "#f59e0b",
+          secondaryColor:  settings.secondaryColor ?? "#fbbf24",
+          favIconUrl:      settings.favIconUrl    ?? "",
+          phone:           profile.phone          ?? "",
+          contactEmail:    profile.contactEmail   ?? "",
+          instagram:       profile.instagram      ?? "",
+          cnpj:            profile.cnpj           ?? "",
+          ownerName:       profile.ownerName      ?? "",
+          ownerEmail:      profile.ownerEmail     ?? "",
+          zipCode:         profile.zipCode        ?? "",
+          address:         profile.address        ?? "",
+          streetNumber:    profile.streetNumber   ?? "",
+          streetComplement:profile.streetComplement ?? "",
+          neighborhood:    profile.neighborhood   ?? "",
+          city:            profile.city           ?? "",
+          state:           profile.state          ?? "",
+        });
       })
       .finally(() => setLoading(false));
   }, [token]);
 
-  const set = (k: keyof ProfileData, v: string) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   /* ── busca CEP ── */
   const fetchCep = useCallback(async (raw: string) => {
@@ -149,12 +141,12 @@ export default function MeuNegocioPage() {
       const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await res.json();
       if (!data.erro) {
-        setForm((f) => ({
+        setForm(f => ({
           ...f,
-          address: data.logradouro ?? f.address,
-          neighborhood: data.bairro ?? f.neighborhood,
-          city: data.localidade ?? f.city,
-          state: data.uf ?? f.state,
+          address:      data.logradouro ?? f.address,
+          neighborhood: data.bairro     ?? f.neighborhood,
+          city:         data.localidade ?? f.city,
+          state:        data.uf         ?? f.state,
         }));
       }
     } finally {
@@ -162,7 +154,7 @@ export default function MeuNegocioPage() {
     }
   }, []);
 
-  /* ── upload foto ── */
+  /* ── upload logo ── */
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -173,7 +165,7 @@ export default function MeuNegocioPage() {
     setImgLoading(true);
     try {
       const b64 = await resizeImageToBase64(file, 400);
-      setForm((f) => ({ ...f, logoUrl: b64 }));
+      setForm(f => ({ ...f, logoUrl: b64 }));
     } catch {
       setStatus({ type: "error", msg: "Erro ao processar imagem." });
     } finally {
@@ -182,24 +174,58 @@ export default function MeuNegocioPage() {
     }
   }
 
-  /* ── salvar perfil ── */
+  /* ── salvar tudo ── */
   async function handleSave() {
     setSaving(true);
     setStatus(null);
     try {
-      const res = await fetch("/api/barbershop/profile", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? "Erro ao salvar");
+      const [profileRes, settingsRes] = await Promise.all([
+        fetch("/api/barbershop/profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            name:             form.name,
+            phone:            form.phone,
+            contactEmail:     form.contactEmail,
+            instagram:        form.instagram,
+            cnpj:             form.cnpj,
+            ownerName:        form.ownerName,
+            ownerEmail:       form.ownerEmail,
+            zipCode:          form.zipCode,
+            address:          form.address,
+            streetNumber:     form.streetNumber,
+            streetComplement: form.streetComplement,
+            neighborhood:     form.neighborhood,
+            city:             form.city,
+            state:            form.state,
+            logoUrl:          form.logoUrl,
+          }),
+        }),
+        fetch("/api/barbershop/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            name:           form.name,
+            description:    form.description,
+            primaryColor:   form.primaryColor,
+            secondaryColor: form.secondaryColor,
+            logoUrl:        form.logoUrl,
+            favIconUrl:     form.favIconUrl,
+          }),
+        }),
+      ]);
+
+      if (!profileRes.ok) {
+        const d = await profileRes.json();
+        throw new Error(d.error ?? "Erro ao salvar perfil");
       }
-      setStatus({ type: "success", msg: "Perfil salvo com sucesso!" });
+      if (!settingsRes.ok) {
+        const d = await settingsRes.json();
+        throw new Error(d.error ?? "Erro ao salvar configurações");
+      }
+
+      setStatus({ type: "success", msg: "Salvo com sucesso! Aplicando novas cores…" });
+      setTimeout(() => window.location.reload(), 1500);
     } catch (e) {
       setStatus({ type: "error", msg: e instanceof Error ? e.message : "Erro ao salvar" });
     } finally {
@@ -207,48 +233,12 @@ export default function MeuNegocioPage() {
     }
   }
 
-  /* ── alterar senha ── */
-  async function handlePasswordChange() {
-    if (newPwd !== confirmPwd) {
-      setPwdStatus({ type: "error", msg: "As senhas não coincidem." });
-      return;
-    }
-    if (newPwd.length < 6) {
-      setPwdStatus({ type: "error", msg: "A nova senha deve ter pelo menos 6 caracteres." });
-      return;
-    }
-    setPwdSaving(true);
-    setPwdStatus(null);
-    try {
-      const res = await fetch("/api/barbershop/profile/password", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "Erro");
-      setPwdStatus({ type: "success", msg: "Senha alterada com sucesso!" });
-      setTimeout(() => {
-        setPwdModal(false);
-        setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
-        setPwdStatus(null);
-      }, 1500);
-    } catch (e) {
-      setPwdStatus({ type: "error", msg: e instanceof Error ? e.message : "Erro ao alterar senha" });
-    } finally {
-      setPwdSaving(false);
-    }
-  }
-
-  /* ─── loading ── */
+  /* ── loading ── */
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-zinc-500 animate-pulse">Carregando perfil…</p>
+        <p className="text-zinc-500 animate-pulse">Carregando…</p>
       </div>
     );
   }
@@ -286,37 +276,25 @@ export default function MeuNegocioPage() {
   /* ═══════════════════════════════ RENDER ════════════════ */
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto">
+
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Meu Negócio</h1>
-          <p className="text-zinc-500 text-sm mt-1">
-            Informações do seu estabelecimento, endereço e acesso.
-          </p>
-        </div>
-        <button
-          onClick={() => setPwdModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-        >
-          <KeyRound className="w-4 h-4" />
-          Alterar Senha
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Meu Negócio</h1>
+        <p className="text-zinc-500 text-sm mt-1">
+          Identidade visual, dados comerciais e endereço do estabelecimento.
+        </p>
       </div>
 
       {/* ── Status global ── */}
       {status && (
-        <div
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium animate-in zoom-in-95 duration-200 ${
-            status.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-              : "bg-red-50 border-red-200 text-red-700"
-          }`}
-        >
-          {status.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 shrink-0" />
-          )}
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium animate-in zoom-in-95 duration-200 ${
+          status.type === "success"
+            ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+            : "bg-red-50 border-red-200 text-red-700"
+        }`}>
+          {status.type === "success"
+            ? <CheckCircle2 className="w-4 h-4 shrink-0" />
+            : <AlertCircle className="w-4 h-4 shrink-0" />}
           {status.msg}
           <button onClick={() => setStatus(null)} className="ml-auto">
             <X className="w-4 h-4" />
@@ -324,24 +302,35 @@ export default function MeuNegocioPage() {
         </div>
       )}
 
-      {/* ── Foto + nome ── */}
-      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6">
-        <div className="flex items-center gap-6 flex-wrap">
-          {/* avatar */}
+      {/* ══ CARD 1: Identidade Visual ══ */}
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 space-y-6">
+        <h2 className="font-bold text-zinc-900 border-b border-zinc-100 pb-3 flex items-center gap-2">
+          <Palette className="w-4 h-4 text-primary" />
+          Identidade Visual
+        </h2>
+
+        {/* Logo + Nome + Slogan */}
+        <div className="flex items-start gap-6 flex-wrap">
+          {/* Logo */}
           <div className="relative shrink-0">
-            <div className="w-24 h-24 rounded-full overflow-hidden bg-zinc-100 border-2 border-zinc-200 flex items-center justify-center">
+            <div className="w-24 h-24 rounded-2xl overflow-hidden bg-zinc-100 border-2 border-zinc-200 flex items-center justify-center">
               {imgLoading ? (
                 <Loader2 className="w-7 h-7 text-zinc-400 animate-spin" />
               ) : form.logoUrl ? (
                 <img src={form.logoUrl} alt="Logo" className="w-full h-full object-cover" />
               ) : (
-                <Building2 className="w-10 h-10 text-zinc-300" />
+                <div
+                  className="w-full h-full flex items-center justify-center text-white font-black text-3xl"
+                  style={{ backgroundColor: form.primaryColor }}
+                >
+                  {form.name ? form.name.charAt(0).toUpperCase() : "B"}
+                </div>
               )}
             </div>
             <button
               onClick={() => fileRef.current?.click()}
-              className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-md hover:brightness-110 transition-all"
-              title="Trocar foto"
+              className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-md hover:brightness-110 transition-all"
+              title="Trocar logo"
             >
               <Camera className="w-4 h-4 text-white" />
             </button>
@@ -354,40 +343,213 @@ export default function MeuNegocioPage() {
             />
           </div>
 
-          <div className="flex-1 min-w-0 space-y-1">
-            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider">
-              Foto do estabelecimento
+          {/* Nome + Slogan */}
+          <div className="flex-1 min-w-[200px] space-y-4">
+            <div className="space-y-1.5">
+              <label className={labelCls}>Nome do estabelecimento</label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  placeholder="Ex: Barbearia do João"
+                  className={`${inputCls} pl-10`}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelCls}>Slogan / Frase de impacto</label>
+              <div className="relative">
+                <Palette className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => set("description", e.target.value)}
+                  placeholder="Ex: A melhor barbearia da cidade!"
+                  className={`${inputCls} pl-10`}
+                />
+              </div>
+              <p className="text-xs text-zinc-400">Aparece na página de agendamento online dos seus clientes.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Remover logo */}
+        <div className="flex items-center gap-4 -mt-2">
+          <p className="text-xs text-zinc-400">
+            JPG, PNG ou WebP • máx. 5 MB • redimensionada automaticamente para 400×400 px
+          </p>
+          {form.logoUrl && (
+            <button
+              onClick={() => setForm(f => ({ ...f, logoUrl: "" }))}
+              className="text-xs text-red-500 hover:text-red-600 font-medium shrink-0"
+            >
+              Remover logo
+            </button>
+          )}
+        </div>
+
+        {/* Cores */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className={labelCls}>Cor principal</label>
+            <div className="flex gap-3">
+              <input
+                type="color"
+                value={form.primaryColor}
+                onChange={(e) => set("primaryColor", e.target.value)}
+                className="w-12 h-12 rounded-xl border border-zinc-200 cursor-pointer p-1 bg-white shrink-0"
+              />
+              <input
+                type="text"
+                value={form.primaryColor.toUpperCase()}
+                onChange={(e) => set("primaryColor", e.target.value)}
+                className="flex-1 px-4 rounded-xl border border-zinc-200 text-sm font-mono focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className={labelCls}>Cor secundária</label>
+            <div className="flex gap-3">
+              <input
+                type="color"
+                value={form.secondaryColor}
+                onChange={(e) => set("secondaryColor", e.target.value)}
+                className="w-12 h-12 rounded-xl border border-zinc-200 cursor-pointer p-1 bg-white shrink-0"
+              />
+              <input
+                type="text"
+                value={form.secondaryColor.toUpperCase()}
+                onChange={(e) => set("secondaryColor", e.target.value)}
+                className="flex-1 px-4 rounded-xl border border-zinc-200 text-sm font-mono focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Favicon */}
+        <div className="space-y-1.5">
+          <label className={labelCls}>
+            URL do Favicon{" "}
+            <span className="text-zinc-400 font-normal">(opcional)</span>
+          </label>
+          <div className="relative">
+            <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+            <input
+              type="text"
+              value={form.favIconUrl}
+              onChange={(e) => set("favIconUrl", e.target.value)}
+              placeholder="https://suabarbearia.com/favicon.ico"
+              className={`${inputCls} pl-10`}
+            />
+          </div>
+          <p className="text-xs text-zinc-400">
+            Ícone exibido na aba do navegador. Formato .ico ou .png recomendado.
+          </p>
+        </div>
+
+        {/* ── Live Preview ── */}
+        <div className="rounded-2xl overflow-hidden border border-zinc-700/40">
+          {/* Barra título estilo "janela" */}
+          <div className="bg-zinc-800 px-4 py-2.5 flex items-center gap-3">
+            <div className="flex gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-red-500/60" />
+              <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
+              <span className="w-3 h-3 rounded-full bg-green-500/60" />
+            </div>
+            <p className="text-xs font-bold text-zinc-400 tracking-widest uppercase flex-1 text-center pr-8">
+              Live Preview
             </p>
-            <p className="text-xs text-zinc-400">
-              JPG, PNG ou WebP • máx. 5 MB • redimensionada automaticamente para 400×400 px
-            </p>
-            {form.logoUrl && (
-              <button
-                onClick={() => setForm((f) => ({ ...f, logoUrl: "" }))}
-                className="text-xs text-red-500 hover:text-red-600 font-medium"
+          </div>
+
+          {/* Conteúdo do preview */}
+          <div className="bg-zinc-900 px-6 py-8 space-y-6">
+            {/* Logo + Nome + Slogan */}
+            <div className="flex flex-col items-center gap-3">
+              <div
+                className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center shadow-lg"
+                style={{ backgroundColor: form.primaryColor }}
               >
-                Remover foto
+                {form.logoUrl ? (
+                  <img src={form.logoUrl} alt="Logo preview" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white font-black text-2xl select-none">
+                    {form.name ? form.name.charAt(0).toUpperCase() : "B"}
+                  </span>
+                )}
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-white text-lg leading-tight">
+                  {form.name || "Nome da Barbearia"}
+                </p>
+                {form.description && (
+                  <p className="text-zinc-400 text-sm mt-1 max-w-[240px] line-clamp-2">
+                    {form.description}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-zinc-800" />
+
+            {/* Botões de amostra */}
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              <button
+                className="px-5 py-2.5 rounded-full font-bold text-sm text-white shadow-md transition-none cursor-default"
+                style={{ backgroundColor: form.primaryColor }}
+                tabIndex={-1}
+              >
+                Botão Principal
               </button>
-            )}
+              <span
+                className="flex items-center gap-1.5 font-semibold text-sm cursor-default"
+                style={{ color: form.secondaryColor }}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Destaque Ativo
+              </span>
+            </div>
+
+            {/* Mini item de sidebar */}
+            <div className="max-w-[260px] mx-auto bg-zinc-800 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden shrink-0"
+                style={{ backgroundColor: form.primaryColor }}
+              >
+                {form.logoUrl ? (
+                  <img src={form.logoUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white font-black text-sm select-none">
+                    {form.name ? form.name.charAt(0).toUpperCase() : "B"}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="h-2 rounded-full bg-zinc-600 w-3/4" />
+                <div className="h-1.5 rounded-full bg-zinc-700 w-1/2" />
+              </div>
+              <div
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: form.secondaryColor }}
+              />
+            </div>
+
+            <p className="text-center text-xs text-zinc-600">
+              As alterações afetarão o dashboard, app de agendamento e e-mails.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* ── Informações básicas ── */}
+      {/* ══ CARD 2: Dados Comerciais ══ */}
       <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 space-y-5">
         <h2 className="font-bold text-zinc-900 border-b border-zinc-100 pb-3 flex items-center gap-2">
           <Building2 className="w-4 h-4 text-primary" />
-          Informações do Estabelecimento
+          Dados Comerciais
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field
-            label="Nome do estabelecimento"
-            icon={Building2}
-            value={form.name}
-            onChange={(v) => set("name", v)}
-            placeholder="Ex: Barbearia do João"
-          />
           <Field
             label="Nome do proprietário"
             icon={User}
@@ -449,7 +611,7 @@ export default function MeuNegocioPage() {
         </div>
       </div>
 
-      {/* ── Endereço ── */}
+      {/* ══ CARD 3: Endereço ══ */}
       <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6 space-y-5">
         <h2 className="font-bold text-zinc-900 border-b border-zinc-100 pb-3 flex items-center gap-2">
           <MapPin className="w-4 h-4 text-primary" />
@@ -556,7 +718,7 @@ export default function MeuNegocioPage() {
                 "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
                 "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
                 "RS","RO","RR","SC","SP","SE","TO",
-              ].map((uf) => (
+              ].map(uf => (
                 <option key={uf} value={uf}>{uf}</option>
               ))}
             </select>
@@ -574,157 +736,10 @@ export default function MeuNegocioPage() {
           {saving ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
           ) : (
-            <><Save className="w-4 h-4" /> Salvar Perfil</>
+            <><Save className="w-4 h-4" /> Salvar Meu Negócio</>
           )}
         </button>
       </div>
-
-      {/* ══════════════ MODAL ALTERAR SENHA ══════════════ */}
-      {pwdModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 animate-in zoom-in-95 duration-200">
-            {/* header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Lock className="w-4 h-4 text-primary" />
-                </div>
-                <h3 className="font-bold text-zinc-900">Alterar Senha</h3>
-              </div>
-              <button
-                onClick={() => { setPwdModal(false); setPwdStatus(null); }}
-                className="p-2 rounded-lg hover:bg-zinc-100 transition-colors"
-              >
-                <X className="w-4 h-4 text-zinc-500" />
-              </button>
-            </div>
-
-            {/* status */}
-            {pwdStatus && (
-              <div
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium ${
-                  pwdStatus.type === "success"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
-                {pwdStatus.type === "success" ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                )}
-                {pwdStatus.msg}
-              </div>
-            )}
-
-            {/* campos */}
-            <div className="space-y-4">
-              {/* senha atual */}
-              <div className="space-y-1.5">
-                <label className={labelCls}>Senha atual</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  <input
-                    type={showCurrent ? "text" : "password"}
-                    value={currentPwd}
-                    onChange={(e) => setCurrentPwd(e.target.value)}
-                    placeholder="••••••••"
-                    className={`${inputCls} pl-10 pr-10`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrent((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                  >
-                    {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* nova senha */}
-              <div className="space-y-1.5">
-                <label className={labelCls}>Nova senha</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  <input
-                    type={showNew ? "text" : "password"}
-                    value={newPwd}
-                    onChange={(e) => setNewPwd(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
-                    className={`${inputCls} pl-10 pr-10`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNew((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                  >
-                    {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {/* força da senha */}
-                {newPwd.length > 0 && (
-                  <div className="flex gap-1 mt-1">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div
-                        key={i}
-                        className={`h-1 flex-1 rounded-full transition-colors ${
-                          newPwd.length >= i * 3
-                            ? i <= 2 ? "bg-amber-400" : "bg-emerald-500"
-                            : "bg-zinc-200"
-                        }`}
-                      />
-                    ))}
-                    <span className="text-xs text-zinc-400 ml-1">
-                      {newPwd.length < 6 ? "Fraca" : newPwd.length < 9 ? "Média" : "Forte"}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* confirmar */}
-              <div className="space-y-1.5">
-                <label className={labelCls}>Confirmar nova senha</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  <input
-                    type="password"
-                    value={confirmPwd}
-                    onChange={(e) => setConfirmPwd(e.target.value)}
-                    placeholder="Repita a nova senha"
-                    className={`${inputCls} pl-10 ${
-                      confirmPwd && confirmPwd !== newPwd ? "border-red-300 focus:ring-red-200" : ""
-                    }`}
-                  />
-                </div>
-                {confirmPwd && confirmPwd !== newPwd && (
-                  <p className="text-xs text-red-500">As senhas não coincidem.</p>
-                )}
-              </div>
-            </div>
-
-            {/* actions */}
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={() => { setPwdModal(false); setPwdStatus(null); }}
-                className="flex-1 py-3 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handlePasswordChange}
-                disabled={pwdSaving || !currentPwd || !newPwd || !confirmPwd}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {pwdSaving ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
-                ) : (
-                  <><Lock className="w-4 h-4" /> Alterar Senha</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2 } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -53,6 +53,48 @@ function calcDuration(open: string, close: string): string {
 export default function ConfiguracoesPage() {
   const { token, user } = useAuthStore();
   const [hours, setHours] = useState<HourRow[]>(defaultHours());
+
+  // ── modal de senha ──
+  const [pwdModal, setPwdModal] = useState(false);
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdStatus, setPwdStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  async function handlePasswordChange() {
+    if (newPwd !== confirmPwd) {
+      setPwdStatus({ type: "error", msg: "As senhas não coincidem." });
+      return;
+    }
+    if (newPwd.length < 6) {
+      setPwdStatus({ type: "error", msg: "A nova senha deve ter pelo menos 6 caracteres." });
+      return;
+    }
+    setPwdSaving(true);
+    setPwdStatus(null);
+    try {
+      const res = await fetch("/api/barbershop/profile/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Erro");
+      setPwdStatus({ type: "success", msg: "Senha alterada com sucesso!" });
+      setTimeout(() => {
+        setPwdModal(false);
+        setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+        setPwdStatus(null);
+      }, 1500);
+    } catch (e) {
+      setPwdStatus({ type: "error", msg: e instanceof Error ? e.message : "Erro ao alterar senha" });
+    } finally {
+      setPwdSaving(false);
+    }
+  }
   const [loadingHours, setLoadingHours] = useState(true);
   const [savingHours, setSavingHours] = useState(false);
   const [hoursSaved, setHoursSaved] = useState(false);
@@ -526,15 +568,176 @@ export default function ConfiguracoesPage() {
         </div>
       </Card>
 
-      {/* Conta */}
+      {/* Minha Conta */}
       <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-2">Minha Conta</h2>
-        <p className="text-sm text-zinc-500">Logado como: <span className="font-medium text-zinc-900">{user?.email}</span></p>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-900 mb-1">Minha Conta</h2>
+            <p className="text-sm text-zinc-500">
+              Logado como:{" "}
+              <span className="font-medium text-zinc-900">{user?.email}</span>
+            </p>
+          </div>
+          <button
+            onClick={() => setPwdModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          >
+            <KeyRound className="w-4 h-4" />
+            Alterar Senha
+          </button>
+        </div>
       </Card>
 
       <p className="text-xs text-zinc-400">
         Os horários de funcionamento definem os slots disponíveis para agendamento dos clientes e o cálculo da taxa de ocupação.
       </p>
+
+      {/* ══════════════ MODAL ALTERAR SENHA ══════════════ */}
+      {pwdModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            {/* header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Lock className="w-4 h-4 text-primary" />
+                </div>
+                <h3 className="font-bold text-zinc-900">Alterar Senha</h3>
+              </div>
+              <button
+                onClick={() => { setPwdModal(false); setPwdStatus(null); }}
+                className="p-2 rounded-lg hover:bg-zinc-100 transition-colors"
+              >
+                <span className="sr-only">Fechar</span>
+                <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* status */}
+            {pwdStatus && (
+              <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium ${
+                pwdStatus.type === "success"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-red-50 text-red-700"
+              }`}>
+                {pwdStatus.type === "success"
+                  ? <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  : <AlertCircle className="w-4 h-4 shrink-0" />}
+                {pwdStatus.msg}
+              </div>
+            )}
+
+            {/* campos */}
+            <div className="space-y-4">
+              {/* senha atual */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-700">Senha atual</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                  <input
+                    type={showCurrent ? "text" : "password"}
+                    value={currentPwd}
+                    onChange={(e) => setCurrentPwd(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-3 pl-10 pr-10 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrent(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                  >
+                    {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* nova senha */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-700">Nova senha</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                  <input
+                    type={showNew ? "text" : "password"}
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full px-4 py-3 pl-10 pr-10 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                  >
+                    {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {newPwd.length > 0 && (
+                  <div className="flex gap-1 mt-1">
+                    {[1, 2, 3, 4].map(i => (
+                      <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full transition-colors ${
+                          newPwd.length >= i * 3
+                            ? i <= 2 ? "bg-amber-400" : "bg-emerald-500"
+                            : "bg-zinc-200"
+                        }`}
+                      />
+                    ))}
+                    <span className="text-xs text-zinc-400 ml-1">
+                      {newPwd.length < 6 ? "Fraca" : newPwd.length < 9 ? "Média" : "Forte"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* confirmar */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-700">Confirmar nova senha</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+                  <input
+                    type="password"
+                    value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)}
+                    placeholder="Repita a nova senha"
+                    className={`w-full px-4 py-3 pl-10 rounded-xl border text-sm focus:ring-2 outline-none ${
+                      confirmPwd && confirmPwd !== newPwd
+                        ? "border-red-300 focus:ring-red-200"
+                        : "border-zinc-200 focus:ring-primary/20"
+                    }`}
+                  />
+                </div>
+                {confirmPwd && confirmPwd !== newPwd && (
+                  <p className="text-xs text-red-500">As senhas não coincidem.</p>
+                )}
+              </div>
+            </div>
+
+            {/* actions */}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => { setPwdModal(false); setPwdStatus(null); }}
+                className="flex-1 py-3 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePasswordChange}
+                disabled={pwdSaving || !currentPwd || !newPwd || !confirmPwd}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pwdSaving ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
+                ) : (
+                  <><Lock className="w-4 h-4" /> Alterar Senha</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
