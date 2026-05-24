@@ -17,7 +17,7 @@ interface Appointment {
   service: { id: string; name: string; duration: number } | null;
   services: AppointmentServiceItem[];
   barber: { id: string; user: { name: string; phone?: string } };
-  subscription: { plan: { name: string } } | null;
+  subscription: { id: string; status: string; plan: { name: string } } | null;
   beneficiaryName: string | null;
 }
 interface Bloqueio {
@@ -200,8 +200,17 @@ function PaymentModal({
               ) : (
                 <>
                   <h3 className="font-semibold text-zinc-900 text-center mt-4">Como o cliente pagou?</h3>
+                  {appt.subscription?.status === "OVERDUE" && (
+                    <div className="mt-3 bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
+                      <p className="text-orange-700 font-semibold text-sm">⚠️ Assinatura em atraso</p>
+                      <p className="text-orange-600 text-xs mt-0.5">Regularize o pagamento antes de usar o plano.</p>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2 mt-3">
-                    {PAYMENT_OPTIONS.map(({ value, label }) => (
+                    {PAYMENT_OPTIONS.filter(({ value }) => {
+                      if (value !== "SUBSCRIPTION") return true;
+                      return appt.subscription?.status === "ACTIVE";
+                    }).map(({ value, label }) => (
                       <button key={value} onClick={() => setSel(value)}
                         className={`p-3 rounded-xl border text-sm font-semibold transition-colors active:scale-95 ${sel === value ? "bg-green-500 border-green-500 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"}`}>
                         {label}

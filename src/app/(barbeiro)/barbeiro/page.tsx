@@ -10,7 +10,7 @@ interface Appointment {
   client: { name: string; phone: string | null };
   service: { id: string; name: string; duration: number } | null;
   services: { service: { id: string; name: string; price: number; duration: number } }[];
-  subscription: { plan: { name: string } } | null;
+  subscription: { id: string; status: string; plan: { name: string } } | null;
 }
 
 interface Block { id: string; startTime: string; endTime: string; reason: string | null }
@@ -760,13 +760,19 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
           {showPayment && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
               <h3 className="font-semibold text-zinc-900 text-center">Como o cliente pagou?</h3>
+              {appt.subscription?.status === "OVERDUE" && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
+                  <p className="text-orange-700 font-semibold text-sm">⚠️ Assinatura em atraso</p>
+                  <p className="text-orange-600 text-xs mt-0.5">Regularize o pagamento antes de usar o plano.</p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: "CASH", label: "Dinheiro" },
                   { id: "PIX", label: "Pix" },
                   { id: "CREDIT_CARD", label: "Cartão de Crédito" },
                   { id: "DEBIT_CARD", label: "Cartão de Débito" },
-                  { id: "SUBSCRIPTION", label: "Clube (Assinatura)" },
+                  ...(appt.subscription?.status === "ACTIVE" ? [{ id: "SUBSCRIPTION", label: "Clube (Assinatura)" }] : []),
                 ].map((p) => (
                   <button
                     key={p.id}

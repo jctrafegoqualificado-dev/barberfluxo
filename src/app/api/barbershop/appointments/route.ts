@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
         barber: { include: { user: { select: { name: true } } } },
         service: true,
         services: { include: { service: { select: { id: true, name: true, price: true, duration: true } } } },
-        subscription: { include: { plan: { select: { name: true } } } },
+        subscription: { select: { id: true, status: true, plan: { select: { name: true } } } },
       },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
