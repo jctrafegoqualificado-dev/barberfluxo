@@ -176,9 +176,11 @@ model Appointment {
   startTime     String
   endTime       String
   status        String   @default("PENDING")
-  paymentMethod String?  @default("CASH")
-  notes         String?
-  price         Float
+  paymentMethod      String?  @default("CASH")
+  extraPrice         Float    @default(0)
+  extraPaymentMethod String?
+  notes              String?
+  price              Float
   reminderSent  Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

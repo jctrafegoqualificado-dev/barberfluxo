@@ -578,7 +578,11 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   const [showPayment, setShowPayment] = useState(false);
   const [showServices, setShowServices] = useState(false);
   const [showProducts, setShowProducts] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [paymentMethod, setPaymentMethod] = useState(
+    appt.subscription?.status === "ACTIVE" ? "SUBSCRIPTION" : "CASH"
+  );
+  const [extraPrice, setExtraPrice] = useState("");
+  const [extraPaymentMethod, setExtraPaymentMethod] = useState("CASH");
   const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
   const [allServices, setAllServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
@@ -656,6 +660,9 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
         status: "DONE",
         paymentMethod,
         ...(selectedServiceIds.length > 0 ? { serviceIds: selectedServiceIds } : {}),
+        ...(appt.subscription?.status === "ACTIVE" && Number(extraPrice) > 0
+          ? { extraPrice: Number(extraPrice), extraPaymentMethod }
+          : {}),
       }),
     });
     onDone();
@@ -759,30 +766,74 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
 
           {showPayment && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-              <h3 className="font-semibold text-zinc-900 text-center">Como o cliente pagou?</h3>
-              {appt.subscription?.status === "OVERDUE" && (
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
-                  <p className="text-orange-700 font-semibold text-sm">⚠️ Assinatura em atraso</p>
-                  <p className="text-orange-600 text-xs mt-0.5">Regularize o pagamento antes de usar o plano.</p>
+              <h3 className="font-semibold text-zinc-900 text-center">Fechar comanda</h3>
+
+              {appt.subscription?.status === "ACTIVE" ? (
+                /* ── Assinante ATIVO: plano cobre + campo de extra opcional ── */
+                <div className="space-y-3">
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                    <p className="text-green-700 font-semibold text-sm">✅ Plano cobre este atendimento</p>
+                    <p className="text-green-600 text-xs mt-0.5">{appt.subscription.plan.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-700 mb-1.5">Cobrar extra além do plano? <span className="font-normal text-zinc-400">(opcional)</span></p>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm font-semibold">R$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={extraPrice}
+                        onChange={(e) => setExtraPrice(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                      />
+                    </div>
+                  </div>
+                  {Number(extraPrice) > 0 && (
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-700 mb-1.5">Como pagou o extra de {formatCurrency(Number(extraPrice))}?</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: "CASH", label: "Dinheiro" },
+                          { id: "PIX", label: "Pix" },
+                          { id: "CREDIT_CARD", label: "Cartão de Crédito" },
+                          { id: "DEBIT_CARD", label: "Cartão de Débito" },
+                        ].map((p) => (
+                          <button key={p.id} onClick={() => setExtraPaymentMethod(p.id)}
+                            className={`p-3 rounded-xl border text-sm font-semibold transition-colors ${extraPaymentMethod === p.id ? "bg-green-500 border-green-500 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"}`}>
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              ) : (
+                /* ── Não-assinante ou OVERDUE: fluxo normal de pagamento ── */
+                <>
+                  {appt.subscription?.status === "OVERDUE" && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
+                      <p className="text-orange-700 font-semibold text-sm">⚠️ Assinatura em atraso</p>
+                      <p className="text-orange-600 text-xs mt-0.5">Regularize o pagamento antes de usar o plano.</p>
+                    </div>
+                  )}
+                  <p className="text-sm font-semibold text-zinc-700 text-center">Como o cliente pagou?</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: "CASH", label: "Dinheiro" },
+                      { id: "PIX", label: "Pix" },
+                      { id: "CREDIT_CARD", label: "Cartão de Crédito" },
+                      { id: "DEBIT_CARD", label: "Cartão de Débito" },
+                    ].map((p) => (
+                      <button key={p.id} onClick={() => setPaymentMethod(p.id)}
+                        className={`p-3 rounded-xl border text-sm font-semibold transition-colors ${paymentMethod === p.id ? "bg-green-500 border-green-500 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"}`}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: "CASH", label: "Dinheiro" },
-                  { id: "PIX", label: "Pix" },
-                  { id: "CREDIT_CARD", label: "Cartão de Crédito" },
-                  { id: "DEBIT_CARD", label: "Cartão de Débito" },
-                  ...(appt.subscription?.status === "ACTIVE" ? [{ id: "SUBSCRIPTION", label: "Clube (Assinatura)" }] : []),
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPaymentMethod(p.id)}
-                    className={`p-3 rounded-xl border text-sm font-semibold transition-colors ${paymentMethod === p.id ? "bg-green-500 border-green-500 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"}`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
 
               {/* Produtos vendidos */}
               <div className="pt-3 border-t border-zinc-100">

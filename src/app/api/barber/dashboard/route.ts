@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.appointment.findMany({
         where: { barberId: barber.id, date: { gte: monthStart, lte: monthEnd }, status: "DONE" },
-        select: { price: true, subscriptionId: true, service: { select: { materialCost: true, commission: true } } },
+        select: { price: true, extraPrice: true, subscriptionId: true, service: { select: { materialCost: true, commission: true } } },
       }),
       prisma.productSale.findMany({
         where: { barberId: barber.id, createdAt: { gte: monthStart, lte: monthEnd } },
@@ -47,11 +47,14 @@ export async function GET(req: NextRequest) {
       const materialCost = a.service?.materialCost || 0;
       const netValue = Math.max(0, a.price - materialCost);
       const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
-      
-      if (hasCustomCommission) {
-        return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
-      }
-      return s + calcComissao(netValue, barber.commissionType, barber.commission);
+      const baseComm = hasCustomCommission
+        ? calcComissao(netValue, "PERCENTAGE", a.service!.commission!)
+        : calcComissao(netValue, barber.commissionType, barber.commission);
+      // Comissão padrão do barbeiro sobre extras cobrados além do plano
+      const extraComm = (a.extraPrice ?? 0) > 0
+        ? calcComissao(a.extraPrice ?? 0, barber.commissionType, barber.commission)
+        : 0;
+      return s + baseComm + extraComm;
     }, 0);
     
     const monthComissaoProdutos = productSalesMonth.reduce((s, p) => {

@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
     const body = await req.json();
-    const { id, status, paymentMethod, serviceIds } = body;
+    const { id, status, paymentMethod, serviceIds, extraPrice, extraPaymentMethod } = body;
 
     // ── Edição de serviços da comanda ──
     if (Array.isArray(serviceIds) && serviceIds.length > 0) {
@@ -128,7 +128,9 @@ export async function PATCH(req: NextRequest) {
     const updateData: Record<string, unknown> = {};
     if (status) updateData.status = status;
     if (paymentMethod) updateData.paymentMethod = paymentMethod;
-    if (body.price !== undefined) updateData.price = body.price; // Salva preço final do frontend
+    if (body.price !== undefined) updateData.price = body.price;
+    if (extraPrice !== undefined) updateData.extraPrice = Number(extraPrice);
+    if (extraPaymentMethod) updateData.extraPaymentMethod = extraPaymentMethod;
 
     // Busca o estado ANTERIOR do agendamento antes de atualizar
     const previousState = await prisma.appointment.findUnique({ where: { id }, select: { status: true } });

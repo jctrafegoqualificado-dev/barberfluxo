@@ -71,7 +71,7 @@ function PaymentModal({
 }: {
   appt: Appointment;
   services: any[];
-  onConfirm: (id: string, m: string, p: number) => Promise<void>;
+  onConfirm: (id: string, m: string, p: number, extraPrice?: number, extraPaymentMethod?: string) => Promise<void>;
   onUpdateServices: (id: string, sids: string[]) => Promise<void>;
   onDelete: (id: string) => void;
   onReopen: (id: string) => Promise<void>;
@@ -349,7 +349,9 @@ function PaymentModal({
                   <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 active:scale-95 transition-all">Voltar</button>
                   <button
                     onClick={async () => {
-                      if (finalPrice > 0 && !sel) return;
+                      const isActiveSub = appt.subscription?.status === "ACTIVE";
+                      if (finalPrice > 0 && !sel && !isActiveSub) return;
+                      if (isActiveSub && finalPrice > 0 && !sel) return;
                       setSaving(true);
                       const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
                       if (toSell.length > 0) {
@@ -357,15 +359,18 @@ function PaymentModal({
                           fetch(`/api/barbershop/products/${pid}/sell`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ quantity: qty, paymentMethod: finalPrice === 0 ? "SUBSCRIPTION" : sel }),
+                            body: JSON.stringify({ quantity: qty, paymentMethod: isActiveSub ? (sel ?? "CASH") : (finalPrice === 0 ? "SUBSCRIPTION" : sel) }),
                           })
                         ));
                       }
-                      await onConfirm(appt.id, finalPrice === 0 ? "SUBSCRIPTION" : sel!, finalPrice);
+                      const baseMethod = isActiveSub ? "SUBSCRIPTION" : (finalPrice === 0 ? "SUBSCRIPTION" : sel!);
+                      const extraP = isActiveSub && finalPrice > 0 ? finalPrice : undefined;
+                      const extraM = isActiveSub && finalPrice > 0 ? sel! : undefined;
+                      await onConfirm(appt.id, baseMethod, finalPrice, extraP, extraM);
                       setSaving(false);
                       onClose();
                     }}
-                    disabled={(finalPrice > 0 && !sel) || saving}
+                    disabled={((finalPrice > 0 && !sel) || saving)}
                     className="flex-[1.5] py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-bold active:scale-95 transition-all shadow-md disabled:opacity-40"
                   >
                     {saving ? "Salvando..." : "Confirmar"}
@@ -852,7 +857,7 @@ export default function AgendamentosPage() {
   }
 
   /* Ações */
-  async function updateStatus(id: string, status: string, paymentMethod?: string, price?: number) {
+  async function updateStatus(id: string, status: string, paymentMethod?: string, price?: number, extraPrice?: number, extraPaymentMethod?: string) {
     // Optimistic update: muda o card imediatamente sem esperar a API
     const prev = appointments;
     setAppointments(cur =>
@@ -870,6 +875,8 @@ export default function AgendamentosPage() {
         status,
         ...(paymentMethod ? { paymentMethod } : {}),
         ...(price !== undefined ? { price } : {}),
+        ...(extraPrice !== undefined ? { extraPrice } : {}),
+        ...(extraPaymentMethod ? { extraPaymentMethod } : {}),
       }),
     });
 
@@ -987,7 +994,7 @@ export default function AgendamentosPage() {
       {/* Modais */}
       {modalAppt && (
         <PaymentModal appt={modalAppt} services={services}
-          onConfirm={async (id, m, p) => { await updateStatus(id, "DONE", m, p); }}
+          onConfirm={async (id, m, p, extraPrice, extraPaymentMethod) => { await updateStatus(id, "DONE", m, p, extraPrice, extraPaymentMethod); }}
           onUpdateServices={async (id, sids) => {
             const res = await fetch("/api/barbershop/appointments", {
               method: "PATCH",
