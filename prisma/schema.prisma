@@ -45,6 +45,13 @@ model Barbershop {
   city        String?
   state       String?
   description String?
+  instagram        String?
+  cnpj             String?
+  zipCode          String?
+  neighborhood     String?
+  streetNumber     String?
+  streetComplement String?
+  contactEmail     String?
   logoUrl     String?
   primaryColor String? @default("#f59e0b")
   secondaryColor String? @default("#fbbf24")

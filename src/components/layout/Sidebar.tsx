@@ -7,7 +7,7 @@ import NotificationBell from "@/components/layout/NotificationBell";
 import CashWidget from "@/components/financeiro/CashWidget";
 import {
   LayoutDashboard, Calendar, Users, Scissors, CreditCard,
-  Package, Settings, LogOut, ChevronRight, ChevronDown, ChevronLeft, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, Bell, Banknote, BarChart3, Wallet
+  Package, Settings, LogOut, ChevronRight, ChevronDown, ChevronLeft, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, Bell, Banknote, BarChart3, Wallet, Building2
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -34,6 +34,7 @@ const ownerFinanceNav = [
 ];
 
 const ownerBottomNav = [
+  { href: "/painel/meu-negocio", label: "Meu Negócio", icon: Building2 },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
   { href: "/painel/configuracoes/marca", label: "Identidade Visual", icon: Palette },
   { href: "/painel/configuracoes/lembretes", label: "Lembretes", icon: Bell },
