@@ -55,10 +55,38 @@ export async function POST(req: NextRequest) {
 
     // Se o pagamento for aprovado instantaneamente (Cartão ou PIX já pago)
     if (result.status === "approved") {
-      await prisma.barbershop.update({
-        where: { id: payload.barbershopId! },
-        data: { saasPlan: planType }, // Ex: PREMIUM
-      });
+      // Mapeia método de pagamento do MP para o padrão interno
+      const methodMap: Record<string, string> = {
+        credit_card: "CREDIT_CARD",
+        debit_card: "DEBIT_CARD",
+        pix: "PIX",
+        bolbradesco: "BOLETO",
+        pec: "BOLETO",
+        account_money: "ACCOUNT_MONEY",
+      };
+      const method = methodMap[payment_method_id] ?? payment_method_id?.toUpperCase() ?? "CREDIT_CARD";
+
+      await Promise.all([
+        // 1. Atualiza plano e status da barbearia
+        prisma.barbershop.update({
+          where: { id: payload.barbershopId! },
+          data: {
+            saasPlan: planType,
+            saasStatus: "ACTIVE",
+          },
+        }),
+        // 2. Registra o pagamento SaaS no banco (visível no admin)
+        prisma.payment.create({
+          data: {
+            amount: Number(transaction_amount),
+            method,
+            status: "PAID",
+            externalId: String(result.id),
+            paidAt: new Date(),
+            barbershopId: payload.barbershopId!,
+          },
+        }),
+      ]);
     }
 
     return NextResponse.json({ 
