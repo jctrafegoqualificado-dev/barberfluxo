@@ -5,6 +5,9 @@ import { addMonths } from "date-fns";
 import { sendSubscriptionConfirmation } from "@/lib/email";
 import { subscriptionCreateRatelimit } from "@/lib/ratelimit";
 import { logAudit, getClientIp } from "@/lib/audit";
+import { decrypt } from "@/lib/encrypt";
+import { createMpPreapproval } from "@/lib/mercadopago";
+import { sendWhatsAppNotification } from "@/lib/notifications";
 
 function clampDay(day: number, year: number, month: number): number {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -111,6 +114,13 @@ export async function POST(req: NextRequest) {
       select: { name: true },
     });
 
+    // Verifica se a barbearia tem gateway de pagamento configurado (MP multi-tenant)
+    const gatewayConfig = await (prisma as any).paymentGatewayConfig.findUnique({
+      where:  { barbershopId: payload.barbershopId! },
+      select: { accessToken: true, active: true },
+    });
+    const hasGateway = Boolean(gatewayConfig?.active);
+
     const cleanPhone = clientPhone.replace(/\D/g, "") || "sem-telefone";
 
     // Busca direta por telefone — evita full table scan
@@ -153,9 +163,14 @@ export async function POST(req: NextRequest) {
           nextBillingDate: nextBilling,
           billingDay: billingDayNum,
           beneficiaries,
-          payments: {
-            create: { amount: plan.price, method: "PIX", status: "PENDING" },
-          },
+          // Modo MANUAL: cria cobrança pendente imediatamente (dono dá baixa depois)
+          // Modo GATEWAY: sem cobrança pendente — o MP cria via webhook quando confirmar
+          ...(!hasGateway && {
+            payments: {
+              create: { amount: plan.price, method: "PIX", status: "PENDING" },
+            },
+          }),
+          // authorizationStatus padrão "MANUAL" no schema — gateway sobrescreve abaixo
         },
         include: {
           client: { select: { id: true, name: true, email: true, phone: true } },
@@ -185,6 +200,84 @@ export async function POST(req: NextRequest) {
       },
       ip: getClientIp(req),
     });
+
+    // ── Integração MP: cria preapproval e envia link de autorização ──────────
+    // Feito APÓS commit da transação — se falhar, a assinatura já existe (MANUAL)
+    // e o dono pode reenviar o link manualmente via /send-authorization
+    if (hasGateway && gatewayConfig) {
+      try {
+        const decryptedToken = decrypt(gatewayConfig.accessToken);
+        const baseUrl = process.env.NEXTAUTH_URL ?? "https://iadebarbearia.com.br";
+        const backUrl = `${baseUrl}/assinatura-confirmada?id=${subscription.id}`;
+
+        const { preapprovalId, initPoint } = await createMpPreapproval(
+          {
+            subscriptionId:    subscription.id,
+            reason:            `${plan.name} — ${barbershop?.name ?? "Barbearia"}`,
+            payerEmail:        client.email,
+            transactionAmount: plan.price,
+            billingCycle:      plan.billingCycle,
+            startDate:         nextBilling,
+            backUrl,
+          },
+          decryptedToken,
+        );
+
+        // Salva preapprovalId + link + status no banco
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            mpPreapprovalId:    preapprovalId,
+            authorizationLink:   initPoint,
+            authorizationStatus: "PENDING_AUTH",
+            authorizationSentAt: new Date(),
+          },
+        });
+
+        // Envia link via WhatsApp — fire-and-forget
+        if (client.phone) {
+          void sendWhatsAppNotification(
+            payload.barbershopId!,
+            client.phone,
+            `🎉 *Bem-vindo ao plano ${plan.name}!*\n\n` +
+            `Olá, ${client.name}! Sua assinatura na *${barbershop?.name ?? "barbearia"}* foi criada.\n\n` +
+            `Para ativar o débito automático via Mercado Pago, clique no link abaixo:\n\n` +
+            `👉 ${initPoint}\n\n` +
+            `_Após autorizar, as cobranças serão feitas automaticamente a cada ciclo. ✅_`,
+          );
+        }
+
+        // Retorna a subscription já com os dados do MP
+        const updatedSub = { ...subscription, mpPreapprovalId: preapprovalId, authorizationLink: initPoint, authorizationStatus: "PENDING_AUTH" };
+        void logAudit({
+          barbershopId: payload.barbershopId!,
+          userId:    payload.id,
+          userEmail: payload.email,
+          userRole:  payload.role,
+          action:    "UPDATE",
+          entity:    "Subscription",
+          entityId:  subscription.id,
+          diff: { after: { mpPreapprovalId: preapprovalId, authorizationStatus: "PENDING_AUTH" } },
+          ip: getClientIp(req),
+        });
+
+        // E-mail também
+        sendSubscriptionConfirmation({
+          to: client.email,
+          clientName: client.name,
+          shopName: barbershop?.name ?? "Barbearia",
+          planName: plan.name,
+          price: plan.price,
+          nextBilling,
+        }).catch(() => {});
+
+        return NextResponse.json({ subscription: updatedSub }, { status: 201 });
+      } catch (mpErr) {
+        // Falha na integração MP → não cancela a assinatura; dono resolve manualmente
+        console.error("[subscriptions] Falha ao criar preapproval MP:", mpErr);
+        // Continua para retornar a subscription criada (sem link MP)
+      }
+    }
 
     // E-mail é fire-and-forget — falha não reverte a assinatura criada
     sendSubscriptionConfirmation({
