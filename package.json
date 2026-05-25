@@ -16,6 +16,8 @@
     "@hookform/resolvers": "^3.10.0",
     "@prisma/client": "^6.6.0",
     "@sentry/nextjs": "^10.53.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
