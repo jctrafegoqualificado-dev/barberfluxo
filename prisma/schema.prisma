@@ -78,6 +78,9 @@ model Barbershop {
   cancelByClientEnabled Boolean @default(true)
   minCancelHours        Int     @default(0)
 
+  autoNoShowEnabled Boolean @default(true)
+  autoNoShowHours   Int     @default(24)
+
   ownerId String @unique
   owner   User   @relation("ShopOwner", fields: [ownerId], references: [id])
 

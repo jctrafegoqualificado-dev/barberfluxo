@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
     const reminderMinutes = shop?.reminderMinutes ?? 60;
     const cancelByClientEnabled = shop?.cancelByClientEnabled ?? true;
     const minCancelHours = shop?.minCancelHours ?? 0;
+    const autoNoShowEnabled = shop?.autoNoShowEnabled ?? true;
+    const autoNoShowHours = shop?.autoNoShowHours ?? 24;
     const poeBarberPct = 100 - poeOwnerPct;
 
     // Assinaturas ativas
@@ -120,6 +122,8 @@ export async function GET(req: NextRequest) {
       reminderMinutes,
       cancelByClientEnabled,
       minCancelHours,
+      autoNoShowEnabled,
+      autoNoShowHours,
       saasPlan: shop?.saasPlan ?? "BASIC",
       trialEndsAt: shop?.trialEndsAt ? shop.trialEndsAt.toISOString() : null,
       avulso: {
@@ -152,7 +156,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours } = await req.json();
+    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours, autoNoShowEnabled, autoNoShowHours } = await req.json();
     if (poeOwnerPct !== undefined && (poeOwnerPct < 0 || poeOwnerPct > 100)) {
       return NextResponse.json({ error: "Percentual inválido" }, { status: 400 });
     }
@@ -165,6 +169,8 @@ export async function PATCH(req: NextRequest) {
         ...(reminderMinutes !== undefined ? { reminderMinutes: Number(reminderMinutes) } : {}),
         ...(cancelByClientEnabled !== undefined ? { cancelByClientEnabled: Boolean(cancelByClientEnabled) } : {}),
         ...(minCancelHours !== undefined ? { minCancelHours: Number(minCancelHours) } : {}),
+        ...(autoNoShowEnabled !== undefined ? { autoNoShowEnabled: Boolean(autoNoShowEnabled) } : {}),
+        ...(autoNoShowHours !== undefined ? { autoNoShowHours: Number(autoNoShowHours) } : {}),
       },
     });
     return NextResponse.json({ ok: true });

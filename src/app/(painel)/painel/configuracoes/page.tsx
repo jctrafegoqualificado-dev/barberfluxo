@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -110,6 +110,10 @@ export default function ConfiguracoesPage() {
   const [minCancelHours, setMinCancelHours] = useState("0");
   const [savingCancel, setSavingCancel] = useState(false);
   const [cancelSaved, setCancelSaved] = useState(false);
+  const [autoNoShowEnabled, setAutoNoShowEnabled] = useState(true);
+  const [autoNoShowHours, setAutoNoShowHours] = useState("24");
+  const [savingNoShow, setSavingNoShow] = useState(false);
+  const [noShowSaved, setNoShowSaved] = useState(false);
   const [specialDays, setSpecialDays] = useState<SpecialDayRow[]>([]);
   const [newDay, setNewDay] = useState({ date: "", isClosed: true, openTime: "09:00", closeTime: "18:00", reason: "" });
   const [addingDay, setAddingDay] = useState(false);
@@ -125,6 +129,8 @@ export default function ConfiguracoesPage() {
         if (d.reminderMinutes !== undefined) setReminderMinutes(String(d.reminderMinutes));
         if (d.cancelByClientEnabled !== undefined) setCancelByClientEnabled(Boolean(d.cancelByClientEnabled));
         if (d.minCancelHours !== undefined) setMinCancelHours(String(d.minCancelHours));
+        if (d.autoNoShowEnabled !== undefined) setAutoNoShowEnabled(Boolean(d.autoNoShowEnabled));
+        if (d.autoNoShowHours !== undefined) setAutoNoShowHours(String(d.autoNoShowHours));
       });
 
     fetch("/api/barbershop/horarios", { headers: { Authorization: `Bearer ${token}` } })
@@ -224,6 +230,18 @@ export default function ConfiguracoesPage() {
     setSavingReminder(false);
     setReminderSaved(true);
     setTimeout(() => setReminderSaved(false), 2500);
+  }
+
+  async function saveNoShow() {
+    setSavingNoShow(true);
+    await fetch("/api/barbershop/financeiro", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ autoNoShowEnabled, autoNoShowHours: Number(autoNoShowHours) }),
+    });
+    setSavingNoShow(false);
+    setNoShowSaved(true);
+    setTimeout(() => setNoShowSaved(false), 2500);
   }
 
   function copyLink() {
@@ -450,6 +468,62 @@ export default function ConfiguracoesPage() {
         <div className="flex justify-end">
           <Button variant="primary" size="sm" onClick={saveCancel} disabled={savingCancel}>
             {cancelSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingCancel ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Marcação Automática de Ausência */}
+      <Card>
+        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
+          <UserX className="w-4 h-4 text-primary" /> Marcação Automática de Ausência
+        </h2>
+        <p className="text-xs text-zinc-400 mb-4">
+          Agendamentos não fechados são marcados como <span className="font-medium text-zinc-600">NO_SHOW</span> automaticamente após o tempo configurado.
+          O barbeiro tem até esse prazo para fechar o atendimento manualmente.
+        </p>
+
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-800">Ativar marcação automática</p>
+            <p className="text-xs text-zinc-400">
+              {autoNoShowEnabled
+                ? `Agendamentos não fechados viram NO_SHOW após ${autoNoShowHours}h`
+                : "Desativado — barbeiros fecham manualmente"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAutoNoShowEnabled((v) => !v)}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${autoNoShowEnabled ? "bg-primary" : "bg-zinc-200"}`}
+          >
+            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${autoNoShowEnabled ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+
+        {autoNoShowEnabled && (
+          <div className="mb-4">
+            <label className="block text-xs text-zinc-500 mb-1">Janela de tempo para o barbeiro fechar</label>
+            <select
+              value={autoNoShowHours}
+              onChange={(e) => setAutoNoShowHours(e.target.value)}
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            >
+              <option value="4">4 horas</option>
+              <option value="8">8 horas</option>
+              <option value="12">12 horas</option>
+              <option value="24">24 horas (recomendado)</option>
+              <option value="48">48 horas</option>
+              <option value="72">72 horas</option>
+            </select>
+            <p className="text-xs text-zinc-400 mt-1.5">
+              Agendamentos de mais de {autoNoShowHours}h atrás ainda CONFIRMED/PENDING serão marcados como NO_SHOW no próximo ciclo.
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button variant="primary" size="sm" onClick={saveNoShow} disabled={savingNoShow}>
+            {noShowSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingNoShow ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
           </Button>
         </div>
       </Card>
