@@ -24,11 +24,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
     }
 
-    // Se mudou o telefone, verifica duplicidade
+    // Se mudou o telefone, verifica duplicidade (CVE-14)
+    // Query direta no banco (sem full scan) — restrita a clientes DESTA barbearia
     if (phone) {
       const phoneDigits = phone.replace(/\D/g, "");
-      const allClients = await prisma.user.findMany({ where: { role: "CLIENT", id: { not: id } } });
-      const duplicate = allClients.find(c => c.phone?.replace(/\D/g, "") === phoneDigits);
+      const duplicate = await prisma.user.findFirst({
+        where: {
+          phone: phoneDigits,
+          id: { not: id },
+          role: "CLIENT",
+          OR: [
+            { appointments: { some: { barbershopId: payload.barbershopId! } } },
+            { subscriptions: { some: { barbershopId: payload.barbershopId! } } },
+          ],
+        },
+        select: { id: true, name: true },
+      });
       if (duplicate) {
         return NextResponse.json({
           error: `Este telefone já pertence ao cliente "${duplicate.name}". Não é possível duplicar.`,
