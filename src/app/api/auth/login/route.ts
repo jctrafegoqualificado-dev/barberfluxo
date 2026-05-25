@@ -8,22 +8,27 @@ export async function POST(req: NextRequest) {
     const { email, password } = await req.json();
 
     // Rate limiting: máximo 5 tentativas por email a cada 15 minutos (CVE-15)
-    const { success, limit, remaining, reset } = await loginRatelimit.limit(
-      email?.toLowerCase?.() ?? "unknown"
-    );
-    if (!success) {
-      const retryAfterSec = Math.ceil((reset - Date.now()) / 1000);
-      return NextResponse.json(
-        { error: "Muitas tentativas de login. Tente novamente em alguns minutos." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(retryAfterSec),
-            "X-RateLimit-Limit": String(limit),
-            "X-RateLimit-Remaining": String(remaining),
-          },
-        }
+    // Fail-open: se o Redis estiver indisponível, o login continua funcionando
+    try {
+      const { success, limit, remaining, reset } = await loginRatelimit.limit(
+        email?.toLowerCase?.() ?? "unknown"
       );
+      if (!success) {
+        const retryAfterSec = Math.ceil((reset - Date.now()) / 1000);
+        return NextResponse.json(
+          { error: "Muitas tentativas de login. Tente novamente em alguns minutos." },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": String(retryAfterSec),
+              "X-RateLimit-Limit": String(limit),
+              "X-RateLimit-Remaining": String(remaining),
+            },
+          }
+        );
+      }
+    } catch (rlErr) {
+      console.warn("[login] rate-limit indisponível, permitindo requisição:", rlErr);
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
