@@ -3,9 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { sendAppointmentConfirmation } from "@/lib/email";
 import { sendWhatsApp } from "@/lib/zapi";
+import { bookingRatelimit, getIp } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
+    // Rate limiting — 8 agendamentos por IP a cada 10 minutos
+    const ip = getIp(req);
+    const { success } = await bookingRatelimit.limit(ip);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." },
+        { status: 429 },
+      );
+    }
+
     const { slug } = await params;
     const { clientName, clientPhone, barberId, serviceId, date, startTime, subscriptionId } =
       await req.json();

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, hashPassword } from "@/lib/auth";
 import { addMonths } from "date-fns";
 import { sendSubscriptionConfirmation } from "@/lib/email";
+import { subscriptionCreateRatelimit } from "@/lib/ratelimit";
 
 function clampDay(day: number, year: number, month: number): number {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -83,6 +84,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
+
+    // Rate limiting — 30 criações por barbearia a cada 15 minutos
+    const key = `barbershop:${payload.barbershopId ?? "unknown"}`;
+    const { success } = await subscriptionCreateRatelimit.limit(key);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Muitas requisições. Aguarde alguns minutos." },
+        { status: 429 },
+      );
+    }
+
     const { clientName, clientPhone, planId, billingDay } = await req.json();
     const billingDayNum = billingDay ? Number(billingDay) : null;
 

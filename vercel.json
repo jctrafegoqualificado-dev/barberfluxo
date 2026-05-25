@@ -1,20 +1,29 @@
 {
   "crons": [
     {
+      "path": "/api/cron/mark-overdue",
+      "schedule": "0 11 * * *",
+      "comment": "08:00 BRT — marca assinaturas vencidas como OVERDUE e gera cobrança"
+    },
+    {
       "path": "/api/cron/maintenance",
-      "schedule": "0 11 * * *"
+      "schedule": "30 11 * * *",
+      "comment": "08:30 BRT — notificações de vencimento + lembretes (roda APÓS mark-overdue)"
     },
     {
       "path": "/api/cron/reminders",
-      "schedule": "0 8 * * *"
+      "schedule": "0 8 * * *",
+      "comment": "05:00 BRT — lembretes de agendamento do dia seguinte"
     },
     {
       "path": "/api/cron/subscription-renewal",
-      "schedule": "0 12 * * *"
+      "schedule": "0 12 * * *",
+      "comment": "09:00 BRT — aviso de renovação para assinantes com billingDay = amanhã"
     },
     {
       "path": "/api/cron/mark-noshow",
-      "schedule": "0 2 * * *"
+      "schedule": "0 2 * * *",
+      "comment": "23:00 BRT — marca agendamentos passados sem fechamento como NO_SHOW"
     }
   ]
 }
