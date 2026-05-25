@@ -900,6 +900,25 @@ export default function ClientesPage() {
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+              <button
+                onClick={async () => {
+                  const res = await fetch(`/api/barbershop/clientes/${editModal.id}/lgpd`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
+                  if (!res.ok) return;
+                  const blob = new Blob([await res.text()], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `lgpd_${editModal.name.replace(/\s+/g, "_")}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                title="Exportar dados (LGPD)"
+                className="p-3 rounded-xl border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:border-zinc-300 transition-all shadow-sm"
+              >
+                <FileText className="w-5 h-5" />
+              </button>
               <button 
                 onClick={() => setEditModal(null)}
                 className="flex-1 py-3 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-bold hover:bg-zinc-50 hover:border-zinc-350 shadow-sm transition-all"
