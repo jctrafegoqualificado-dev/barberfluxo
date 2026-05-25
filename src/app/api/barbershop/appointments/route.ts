@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
     const body = await req.json();
-    const { id, status, paymentMethod, serviceIds, extraPrice, extraPaymentMethod } = body;
+    const { id, status, paymentMethod, serviceIds, extraPrice, extraPaymentMethod, discountPercent } = body;
 
     // ── Edição de serviços da comanda ──
     if (Array.isArray(serviceIds) && serviceIds.length > 0) {
@@ -131,13 +131,31 @@ export async function PATCH(req: NextRequest) {
     if (status) updateData.status = status;
     if (paymentMethod) updateData.paymentMethod = paymentMethod;
     if (body.price !== undefined) updateData.price = body.price;
-    if (extraPrice !== undefined) updateData.extraPrice = Number(extraPrice);
     if (extraPaymentMethod) updateData.extraPaymentMethod = extraPaymentMethod;
 
+    // Aplica desconto se informado:
+    // - Para assinante: o front já envia extraPrice descontado; aqui só salvamos discountPercent
+    // - Para não-assinante: aplicamos o desconto sobre o price atual do appointment
+    if (discountPercent !== undefined && discountPercent > 0) {
+      updateData.discountPercent = Math.min(100, Math.max(0, Number(discountPercent)));
+    }
+    if (extraPrice !== undefined) {
+      updateData.extraPrice = Number(extraPrice); // já vem descontado do front
+    }
+
     // Busca o estado ANTERIOR e valida posse do tenant em uma única query
-    const previousState = await prisma.appointment.findUnique({ where: { id }, select: { status: true, barbershopId: true } });
+    const previousState = await prisma.appointment.findUnique({
+      where: { id },
+      select: { status: true, barbershopId: true, price: true, subscriptionId: true },
+    });
     if (!previousState || previousState.barbershopId !== barbershopId) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    }
+
+    // Aplica desconto ao price para clientes não-assinantes (extraPrice já vem descontado do front para assinantes)
+    if (discountPercent !== undefined && discountPercent > 0 && !previousState.subscriptionId && body.price === undefined) {
+      const discountedPrice = previousState.price * (1 - Number(discountPercent) / 100);
+      updateData.price = Math.round(discountedPrice * 100) / 100;
     }
 
     const appointment = await prisma.appointment.update({

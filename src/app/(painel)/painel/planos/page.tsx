@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 interface Service { id: string; name: string; price: number }
 interface Barber { id: string; nickname: string | null; user: { name: string } }
 interface Plan {
-  id: string; name: string; description: string | null; price: number; billingCycle: string; maxUses: number | null; active: boolean; commissionPercentage?: number | null;
+  id: string; name: string; description: string | null; price: number; billingCycle: string; maxUses: number | null; active: boolean; commissionPercentage?: number | null; extraDiscount?: number;
   planServices: { service: Service; quantity: number | null }[];
   allowedBarbers?: Barber[];
   beneficiaryRules?: any;
@@ -18,7 +18,7 @@ interface Plan {
 }
 
 const CYCLES: Record<string, string> = { MONTHLY: "Mensal", QUARTERLY: "Trimestral", YEARLY: "Anual" };
-const EMPTY_FORM = { name: "", description: "", price: "", commissionPercentage: "", billingCycle: "MONTHLY", maxUses: "", serviceQuantities: [] as {serviceId: string, quantity: string, unlimited: boolean}[], beneficiaryRules: [] as {name: string, maxUses: string}[], allowedBarberIds: [] as string[] };
+const EMPTY_FORM = { name: "", description: "", price: "", commissionPercentage: "", extraDiscount: "0", billingCycle: "MONTHLY", maxUses: "", serviceQuantities: [] as {serviceId: string, quantity: string, unlimited: boolean}[], beneficiaryRules: [] as {name: string, maxUses: string}[], allowedBarberIds: [] as string[] };
 
 export default function PlanosPage() {
   const { token } = useAuthStore();
@@ -80,6 +80,7 @@ export default function PlanosPage() {
       description: p.description ?? "",
       price: String(p.price),
       commissionPercentage: p.commissionPercentage != null ? String(p.commissionPercentage) : "",
+      extraDiscount: p.extraDiscount != null ? String(p.extraDiscount) : "0",
       billingCycle: p.billingCycle,
       maxUses: p.maxUses != null ? String(p.maxUses) : "",
       serviceQuantities: p.planServices.map((ps) => ({
@@ -101,6 +102,7 @@ export default function PlanosPage() {
     const payload = {
       ...form,
       commissionPercentage: form.commissionPercentage === "" ? null : Number(form.commissionPercentage),
+      extraDiscount: form.extraDiscount === "" ? 0 : Math.min(100, Math.max(0, Number(form.extraDiscount))),
       serviceQuantities: form.serviceQuantities.map(sq => ({
         serviceId: sq.serviceId,
         quantity: sq.unlimited ? null : (sq.quantity ? Number(sq.quantity) : null),
@@ -189,6 +191,11 @@ export default function PlanosPage() {
                     {p.commissionPercentage}% de comissão
                   </span>
                 )}
+                {p.extraDiscount != null && p.extraDiscount > 0 && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                    {p.extraDiscount}% off extras
+                  </span>
+                )}
               </div>
               {p.planServices.length > 0 && (
                 <ul className="mt-4 space-y-1">
@@ -233,6 +240,28 @@ export default function PlanosPage() {
           <p className="text-[11px] text-zinc-500 leading-tight">
             <strong>Dica:</strong> Se vazio, o barbeiro recebe o <strong className="text-zinc-700">Ticket Médio (Rateio)</strong> da barbearia. Se preenchido (ex: 20%), ele recebe esse % sobre o valor de tabela do serviço e <strong>sai do Rateio</strong>.
           </p>
+
+          <div className="border border-amber-100 bg-amber-50/50 rounded-xl p-3">
+            <label className="block text-sm font-semibold text-zinc-700 mb-1">Desconto automático em extras (%)</label>
+            <p className="text-[11px] text-zinc-500 mb-2 leading-tight">
+              Quando o assinante deste plano realizar um serviço <strong>não coberto</strong>, o sistema pré-preenche este desconto na comanda automaticamente. O barbeiro pode reduzir ou zerar — nunca ultrapassar o teto configurado nas Configurações.
+              <br /><strong>0 = sem desconto automático</strong>.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" min="0" max="100" step="1"
+                value={form.extraDiscount}
+                onChange={(e) => setField("extraDiscount", e.target.value)}
+                className="w-20 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-center font-semibold"
+              />
+              <span className="text-zinc-400 text-sm">%</span>
+              {Number(form.extraDiscount) > 0 && (
+                <span className="text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded-full font-medium">
+                  Assinante ganha {form.extraDiscount}% off nos extras
+                </span>
+              )}
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Ciclo de cobrança</label>
             <select value={form.billingCycle} onChange={(e) => setField("billingCycle", e.target.value)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">

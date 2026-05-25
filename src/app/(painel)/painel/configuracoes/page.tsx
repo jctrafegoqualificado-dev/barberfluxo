@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -114,6 +114,12 @@ export default function ConfiguracoesPage() {
   const [autoNoShowHours, setAutoNoShowHours] = useState("24");
   const [savingNoShow, setSavingNoShow] = useState(false);
   const [noShowSaved, setNoShowSaved] = useState(false);
+  const [discountServicesEnabled, setDiscountServicesEnabled] = useState(false);
+  const [discountServicesMax, setDiscountServicesMax] = useState("20");
+  const [discountProductsEnabled, setDiscountProductsEnabled] = useState(false);
+  const [discountProductsMax, setDiscountProductsMax] = useState("20");
+  const [savingDiscount, setSavingDiscount] = useState(false);
+  const [discountSaved, setDiscountSaved] = useState(false);
   const [specialDays, setSpecialDays] = useState<SpecialDayRow[]>([]);
   const [newDay, setNewDay] = useState({ date: "", isClosed: true, openTime: "09:00", closeTime: "18:00", reason: "" });
   const [addingDay, setAddingDay] = useState(false);
@@ -131,6 +137,10 @@ export default function ConfiguracoesPage() {
         if (d.minCancelHours !== undefined) setMinCancelHours(String(d.minCancelHours));
         if (d.autoNoShowEnabled !== undefined) setAutoNoShowEnabled(Boolean(d.autoNoShowEnabled));
         if (d.autoNoShowHours !== undefined) setAutoNoShowHours(String(d.autoNoShowHours));
+        if (d.discountServicesEnabled !== undefined) setDiscountServicesEnabled(Boolean(d.discountServicesEnabled));
+        if (d.discountServicesMax !== undefined) setDiscountServicesMax(String(d.discountServicesMax));
+        if (d.discountProductsEnabled !== undefined) setDiscountProductsEnabled(Boolean(d.discountProductsEnabled));
+        if (d.discountProductsMax !== undefined) setDiscountProductsMax(String(d.discountProductsMax));
       });
 
     fetch("/api/barbershop/horarios", { headers: { Authorization: `Bearer ${token}` } })
@@ -242,6 +252,23 @@ export default function ConfiguracoesPage() {
     setSavingNoShow(false);
     setNoShowSaved(true);
     setTimeout(() => setNoShowSaved(false), 2500);
+  }
+
+  async function saveDiscount() {
+    setSavingDiscount(true);
+    await fetch("/api/barbershop/financeiro", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        discountServicesEnabled,
+        discountServicesMax: Number(discountServicesMax),
+        discountProductsEnabled,
+        discountProductsMax: Number(discountProductsMax),
+      }),
+    });
+    setSavingDiscount(false);
+    setDiscountSaved(true);
+    setTimeout(() => setDiscountSaved(false), 2500);
   }
 
   function copyLink() {
@@ -524,6 +551,98 @@ export default function ConfiguracoesPage() {
         <div className="flex justify-end">
           <Button variant="primary" size="sm" onClick={saveNoShow} disabled={savingNoShow}>
             {noShowSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingNoShow ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Sistema de Descontos na Comanda */}
+      <Card>
+        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
+          <Tag className="w-4 h-4 text-primary" /> Descontos na Comanda
+        </h2>
+        <p className="text-xs text-zinc-400 mb-4">
+          Permite que o barbeiro aplique desconto no momento de fechar o atendimento.
+          Defina o teto máximo — o barbeiro decide o quanto usar, até esse limite.
+        </p>
+
+        {/* Desconto em Serviços */}
+        <div className="border border-zinc-100 rounded-xl p-4 mb-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-800">Desconto em Serviços</p>
+              <p className="text-xs text-zinc-400">
+                {discountServicesEnabled
+                  ? `Barbeiro pode dar até ${discountServicesMax}% de desconto em serviços`
+                  : "Desativado — sem desconto em serviços"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDiscountServicesEnabled((v) => !v)}
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${discountServicesEnabled ? "bg-primary" : "bg-zinc-200"}`}
+            >
+              <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${discountServicesEnabled ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+          </div>
+
+          {discountServicesEnabled && (
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Desconto máximo permitido (%)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min="1" max="100" step="1"
+                  value={discountServicesMax}
+                  onChange={(e) => setDiscountServicesMax(e.target.value)}
+                  className="w-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-center font-semibold"
+                />
+                <span className="text-zinc-400 text-sm">%</span>
+                <p className="text-xs text-zinc-400 ml-1">
+                  O barbeiro pode aplicar entre 0% e {discountServicesMax}%
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Desconto em Produtos */}
+        <div className="border border-zinc-100 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-800">Desconto em Produtos</p>
+              <p className="text-xs text-zinc-400">
+                {discountProductsEnabled
+                  ? `Barbeiro pode dar até ${discountProductsMax}% de desconto em produtos`
+                  : "Desativado — sem desconto em produtos"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDiscountProductsEnabled((v) => !v)}
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${discountProductsEnabled ? "bg-primary" : "bg-zinc-200"}`}
+            >
+              <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${discountProductsEnabled ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+          </div>
+
+          {discountProductsEnabled && (
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Desconto máximo permitido em produtos (%)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min="1" max="100" step="1"
+                  value={discountProductsMax}
+                  onChange={(e) => setDiscountProductsMax(e.target.value)}
+                  className="w-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-center font-semibold"
+                />
+                <span className="text-zinc-400 text-sm">%</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button variant="primary" size="sm" onClick={saveDiscount} disabled={savingDiscount}>
+            {discountSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingDiscount ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar descontos</>}
           </Button>
         </div>
       </Card>

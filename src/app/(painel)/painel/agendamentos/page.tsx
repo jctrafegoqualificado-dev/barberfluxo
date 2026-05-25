@@ -72,7 +72,7 @@ function PaymentModal({
 }: {
   appt: Appointment;
   services: any[];
-  onConfirm: (id: string, m: string, p: number, extraPrice?: number, extraPaymentMethod?: string) => Promise<void>;
+  onConfirm: (id: string, m: string, p: number, extraPrice?: number, extraPaymentMethod?: string, discountPercent?: number) => Promise<void>;
   onUpdateServices: (id: string, sids: string[]) => Promise<void>;
   onDelete: (id: string) => void;
   onReopen: (id: string) => Promise<void>;
@@ -119,6 +119,19 @@ function PaymentModal({
     appt.subscription?.plan?.planServices?.map((ps: any) => ps.serviceId) ?? []
   );
   const [tip, setTip] = useState("");
+  const [discountPercent, setDiscountPercent] = useState<number>(
+    (appt.subscription?.status === "ACTIVE" && (appt.subscription?.plan as any)?.extraDiscount > 0)
+      ? (appt.subscription?.plan as any).extraDiscount
+      : 0
+  );
+  const [discountSettings, setDiscountSettings] = useState<{ servicesEnabled: boolean; servicesMax: number }>({ servicesEnabled: false, servicesMax: 20 });
+
+  useEffect(() => {
+    if (!token) return;
+    fetch("/api/barbershop/financeiro", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setDiscountSettings({ servicesEnabled: Boolean(d.discountServicesEnabled), servicesMax: Number(d.discountServicesMax ?? 20) }));
+  }, [token]);
 
   function toggleService(id: string) {
     setSelectedServiceIds(prev =>
@@ -134,7 +147,9 @@ function PaymentModal({
   const extraServices = services.filter(s => extraServiceIds.includes(s.id));
   const calculatedExtraPrice = extraServices.reduce((sum, s) => sum + s.price, 0);
   const tipAmount = Number(tip) || 0;
-  const totalExtraToCharge = calculatedExtraPrice + tipAmount;
+  const discountedExtraPrice = calculatedExtraPrice * (1 - discountPercent / 100);
+  const totalExtraToCharge = discountedExtraPrice + tipAmount;
+  const discountedTotalPrice = totalPrice * (1 - discountPercent / 100);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -206,17 +221,40 @@ function PaymentModal({
                     ))}
                   </div>
                   {extraServices.length > 0 && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                      <p className="text-amber-700 font-semibold text-sm mb-1">Extras a cobrar:</p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                      <p className="text-amber-700 font-semibold text-sm">Extras a cobrar:</p>
                       {extraServices.map(s => (
-                        <div key={s.id} className="flex justify-between text-sm mt-1">
+                        <div key={s.id} className="flex justify-between text-sm">
                           <span className="text-zinc-700">{s.name}</span>
                           <span className="font-bold text-zinc-900">{formatCurrency(s.price)}</span>
                         </div>
                       ))}
-                      <div className="flex justify-between text-sm font-bold mt-2 pt-2 border-t border-amber-200">
+                      {discountSettings.servicesEnabled && (
+                        <div className="pt-2 border-t border-amber-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-amber-700 font-semibold shrink-0">Desconto:</span>
+                            <input
+                              type="number" min="0" max={discountSettings.servicesMax} step="1"
+                              value={discountPercent}
+                              onChange={e => setDiscountPercent(Math.min(discountSettings.servicesMax, Math.max(0, Number(e.target.value))))}
+                              className="w-14 rounded-lg border border-amber-300 px-2 py-1 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+                            />
+                            <span className="text-xs text-amber-600">% (máx. {discountSettings.servicesMax}%)</span>
+                          </div>
+                          {discountPercent > 0 && (
+                            <div className="flex justify-between text-xs mt-1">
+                              <span className="text-zinc-500">Desconto:</span>
+                              <span className="text-red-500 font-semibold">−{formatCurrency(calculatedExtraPrice - discountedExtraPrice)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold border-t border-amber-200 pt-1">
                         <span>Subtotal:</span>
-                        <span className="text-amber-700">{formatCurrency(calculatedExtraPrice)}</span>
+                        <div className="flex items-center gap-2">
+                          {discountPercent > 0 && <span className="text-zinc-400 line-through text-xs font-normal">{formatCurrency(calculatedExtraPrice)}</span>}
+                          <span className="text-amber-700">{formatCurrency(discountedExtraPrice)}</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -249,13 +287,40 @@ function PaymentModal({
                 </div>
               ) : (
                 <>
-                  <h3 className="font-semibold text-zinc-900 text-center mt-4">Como o cliente pagou?</h3>
                   {appt.subscription?.status === "OVERDUE" && (
                     <div className="mt-3 bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
                       <p className="text-orange-700 font-semibold text-sm">⚠️ Assinatura em atraso</p>
                       <p className="text-orange-600 text-xs mt-0.5">Regularize o pagamento antes de usar o plano.</p>
                     </div>
                   )}
+                  {discountSettings.servicesEnabled && (
+                    <div className="mt-3 bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-zinc-600">Total:</span>
+                        <span className="font-bold text-zinc-900">{formatCurrency(totalPrice)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 border-t border-zinc-200 pt-2">
+                        <span className="text-xs text-zinc-600 font-semibold shrink-0">Desconto:</span>
+                        <input
+                          type="number" min="0" max={discountSettings.servicesMax} step="1"
+                          value={discountPercent}
+                          onChange={e => setDiscountPercent(Math.min(discountSettings.servicesMax, Math.max(0, Number(e.target.value))))}
+                          className="w-14 rounded-lg border border-zinc-300 px-2 py-1 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                        />
+                        <span className="text-xs text-zinc-500">% (máx. {discountSettings.servicesMax}%)</span>
+                      </div>
+                      {discountPercent > 0 && (
+                        <div className="flex justify-between text-sm font-bold border-t border-zinc-200 pt-1">
+                          <span className="text-zinc-700">Cliente paga:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-zinc-400 line-through text-xs font-normal">{formatCurrency(totalPrice)}</span>
+                            <span className="text-green-600">{formatCurrency(discountedTotalPrice)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <h3 className="font-semibold text-zinc-900 text-center mt-4">Como o cliente pagou?</h3>
                   <div className="grid grid-cols-2 gap-2 mt-3">
                     {PAYMENT_OPTIONS.filter(({ value }) => value !== "SUBSCRIPTION").map(({ value, label }) => (
                       <button key={value} onClick={() => setSel(value)}
@@ -382,9 +447,9 @@ function PaymentModal({
                         ));
                       }
                       if (isActiveSub) {
-                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? (sel ?? "CASH") : undefined);
+                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? (sel ?? "CASH") : undefined, discountPercent > 0 ? discountPercent : undefined);
                       } else {
-                        await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", totalPrice);
+                        await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", totalPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined);
                       }
                       setSaving(false);
                       onClose();
@@ -414,9 +479,9 @@ function PaymentModal({
                         ));
                       }
                       if (isActiveSub) {
-                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? sel! : undefined);
+                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? sel! : undefined, discountPercent > 0 ? discountPercent : undefined);
                       } else {
-                        await onConfirm(appt.id, sel!, totalPrice);
+                        await onConfirm(appt.id, sel!, totalPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined);
                       }
                       setSaving(false);
                       onClose();
@@ -905,7 +970,7 @@ export default function AgendamentosPage() {
   }
 
   /* Ações */
-  async function updateStatus(id: string, status: string, paymentMethod?: string, price?: number, extraPrice?: number, extraPaymentMethod?: string) {
+  async function updateStatus(id: string, status: string, paymentMethod?: string, price?: number, extraPrice?: number, extraPaymentMethod?: string, discountPercent?: number) {
     // Optimistic update: muda o card imediatamente sem esperar a API
     const prev = appointments;
     setAppointments(cur =>
@@ -925,12 +990,15 @@ export default function AgendamentosPage() {
         ...(price !== undefined ? { price } : {}),
         ...(extraPrice !== undefined ? { extraPrice } : {}),
         ...(extraPaymentMethod ? { extraPaymentMethod } : {}),
+        ...(discountPercent !== undefined && discountPercent > 0 ? { discountPercent } : {}),
       }),
     });
 
     if (!res.ok) {
       // Reverte para o estado anterior se a API falhar
       setAppointments(prev);
+      const err = await res.json().catch(() => ({}));
+      alert(err?.error ?? "Erro ao atualizar agendamento. Verifique sua conexão e tente novamente.");
       load();
     }
   }
@@ -1042,13 +1110,18 @@ export default function AgendamentosPage() {
       {/* Modais */}
       {modalAppt && (
         <PaymentModal appt={modalAppt} services={services}
-          onConfirm={async (id, m, p, extraPrice, extraPaymentMethod) => { await updateStatus(id, "DONE", m, p, extraPrice, extraPaymentMethod); }}
+          onConfirm={async (id, m, p, extraPrice, extraPaymentMethod, discountPercent) => { await updateStatus(id, "DONE", m, p, extraPrice, extraPaymentMethod, discountPercent); }}
           onUpdateServices={async (id, sids) => {
             const res = await fetch("/api/barbershop/appointments", {
               method: "PATCH",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify({ id, serviceIds: sids }),
             });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              alert(err?.error ?? "Erro ao salvar serviços. Tente novamente.");
+              return;
+            }
             const data = await res.json();
             if (data.appointment) setModalAppt(data.appointment);
             load();

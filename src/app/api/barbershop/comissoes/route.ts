@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
             date: { gte: start, lte: end },
           },
           include: { service: true, client: { select: { name: true } } },
+          // discountPercent já incluso via select implícito do findMany
         }),
         prisma.appointment.findMany({
           where: {
@@ -94,10 +95,16 @@ export async function GET(req: NextRequest) {
         }),
       ]);
 
-      const totalAvulso = avulsos.reduce((s, a) => s + a.price, 0);
+      const totalAvulso = avulsos.reduce((s, a) => s + a.price, 0); // price já é o valor descontado (o desconto foi aplicado no DONE)
+      const totalDescontos = avulsos.reduce((s, a) => {
+        if (!a.discountPercent || a.discountPercent === 0) return s;
+        // O desconto já foi aplicado ao price; recalcula o valor original para exibição
+        const original = a.price / (1 - a.discountPercent / 100);
+        return s + (original - a.price);
+      }, 0);
       const comissaoAvulso = avulsos.reduce((s, a) => {
         const materialCost = a.service?.materialCost || 0;
-        const netValue = Math.max(0, a.price - materialCost);
+        const netValue = Math.max(0, a.price - materialCost); // comissão sobre preço já descontado (compartilha o desconto proporcionalmente)
         const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
         
         if (hasCustomCommission) {
@@ -161,6 +168,7 @@ export async function GET(req: NextRequest) {
           atendimentos: avulsos.length,
           faturado: totalAvulso,
           comissao: comissaoAvulso,
+          totalDescontos: Math.round(totalDescontos * 100) / 100,
         },
         assinatura: {
           servicos: subAppointments.length,

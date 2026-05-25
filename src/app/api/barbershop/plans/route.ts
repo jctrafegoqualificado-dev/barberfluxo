@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { name, description, price, billingCycle, maxUses, serviceIds, serviceQuantities, beneficiaryRules, commissionPercentage, allowedBarberIds } = await req.json();
+    const { name, description, price, billingCycle, maxUses, serviceIds, serviceQuantities, beneficiaryRules, commissionPercentage, extraDiscount, allowedBarberIds } = await req.json();
 
     // serviceQuantities = [{ serviceId, quantity }] (new format)
     // serviceIds = ["id1", "id2"] (legacy fallback)
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
         description,
         price: Number(String(price).replace(",", ".")),
         commissionPercentage: commissionPercentage != null ? Number(commissionPercentage) : null,
+        extraDiscount: extraDiscount != null ? Math.min(100, Math.max(0, Number(extraDiscount))) : 0,
         billingCycle,
         maxUses: maxUses ? Number(maxUses) : null,
         beneficiaryRules: beneficiaryRules || null,

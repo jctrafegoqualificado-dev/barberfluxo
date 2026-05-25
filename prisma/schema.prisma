@@ -81,6 +81,12 @@ model Barbershop {
   autoNoShowEnabled Boolean @default(true)
   autoNoShowHours   Int     @default(24)
 
+  // Sistema de descontos na comanda
+  discountServicesEnabled Boolean @default(false)
+  discountServicesMax     Float   @default(20)   // teto máximo % que o barbeiro pode conceder em serviços
+  discountProductsEnabled Boolean @default(false)
+  discountProductsMax     Float   @default(20)   // teto máximo % que o barbeiro pode conceder em produtos
+
   ownerId String @unique
   owner   User   @relation("ShopOwner", fields: [ownerId], references: [id])
 
@@ -193,6 +199,7 @@ model Appointment {
   paymentMethod      String?  @default("CASH")
   extraPrice         Float    @default(0)
   extraPaymentMethod String?
+  discountPercent    Float    @default(0) // % de desconto aplicado na comanda (sobre price para avulsos, sobre extraPrice para assinantes)
   notes              String?
   price              Float
   reminderSent  Boolean  @default(false)
@@ -248,6 +255,7 @@ model Plan {
   planServices  PlanService[]
   subscriptions Subscription[]
   commissionPercentage Float? // Comissão especial (%) para os serviços realizados dentro deste plano
+  extraDiscount        Float  @default(0) // % de desconto automático nos serviços extras para assinantes deste plano (0 = sem desconto)
   allowedBarbers Barber[] @relation("PlanAllowedBarbers")
 }
 

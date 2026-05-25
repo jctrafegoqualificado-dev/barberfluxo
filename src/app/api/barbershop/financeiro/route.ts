@@ -18,6 +18,10 @@ export async function GET(req: NextRequest) {
     const minCancelHours = shop?.minCancelHours ?? 0;
     const autoNoShowEnabled = shop?.autoNoShowEnabled ?? true;
     const autoNoShowHours = shop?.autoNoShowHours ?? 24;
+    const discountServicesEnabled = shop?.discountServicesEnabled ?? false;
+    const discountServicesMax = shop?.discountServicesMax ?? 20;
+    const discountProductsEnabled = shop?.discountProductsEnabled ?? false;
+    const discountProductsMax = shop?.discountProductsMax ?? 20;
     const poeBarberPct = 100 - poeOwnerPct;
 
     // Assinaturas ativas
@@ -124,6 +128,10 @@ export async function GET(req: NextRequest) {
       minCancelHours,
       autoNoShowEnabled,
       autoNoShowHours,
+      discountServicesEnabled,
+      discountServicesMax,
+      discountProductsEnabled,
+      discountProductsMax,
       saasPlan: shop?.saasPlan ?? "BASIC",
       trialEndsAt: shop?.trialEndsAt ? shop.trialEndsAt.toISOString() : null,
       avulso: {
@@ -156,7 +164,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours, autoNoShowEnabled, autoNoShowHours } = await req.json();
+    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours, autoNoShowEnabled, autoNoShowHours, discountServicesEnabled, discountServicesMax, discountProductsEnabled, discountProductsMax } = await req.json();
     if (poeOwnerPct !== undefined && (poeOwnerPct < 0 || poeOwnerPct > 100)) {
       return NextResponse.json({ error: "Percentual inválido" }, { status: 400 });
     }
@@ -171,6 +179,10 @@ export async function PATCH(req: NextRequest) {
         ...(minCancelHours !== undefined ? { minCancelHours: Number(minCancelHours) } : {}),
         ...(autoNoShowEnabled !== undefined ? { autoNoShowEnabled: Boolean(autoNoShowEnabled) } : {}),
         ...(autoNoShowHours !== undefined ? { autoNoShowHours: Number(autoNoShowHours) } : {}),
+        ...(discountServicesEnabled !== undefined ? { discountServicesEnabled: Boolean(discountServicesEnabled) } : {}),
+        ...(discountServicesMax !== undefined ? { discountServicesMax: Math.min(100, Math.max(0, Number(discountServicesMax))) } : {}),
+        ...(discountProductsEnabled !== undefined ? { discountProductsEnabled: Boolean(discountProductsEnabled) } : {}),
+        ...(discountProductsMax !== undefined ? { discountProductsMax: Math.min(100, Math.max(0, Number(discountProductsMax))) } : {}),
       },
     });
     return NextResponse.json({ ok: true });

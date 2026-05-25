@@ -10,7 +10,7 @@ interface Appointment {
   client: { name: string; phone: string | null };
   service: { id: string; name: string; duration: number } | null;
   services: { service: { id: string; name: string; price: number; duration: number } }[];
-  subscription: { id: string; status: string; plan: { name: string; planServices: { serviceId: string }[] } } | null;
+  subscription: { id: string; status: string; plan: { name: string; extraDiscount: number; planServices: { serviceId: string }[] } } | null;
 }
 
 interface Block { id: string; startTime: string; endTime: string; reason: string | null }
@@ -569,11 +569,12 @@ const STATUS_BG: Record<string, string> = {
   CANCELLED: "bg-zinc-300",
 };
 
-function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
+function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved }: {
   appt: Appointment;
   onClose: () => void;
   onUpdate: (id: string, status: string, paymentMethod?: string) => void;
   onDone: () => void;
+  onSaved: () => void;
 }) {
   const { token } = useAuthStore();
   const [showPayment, setShowPayment] = useState(false);
@@ -598,13 +599,22 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   const [qtys, setQtys] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountSettings, setDiscountSettings] = useState<{ servicesEnabled: boolean; servicesMax: number; productsEnabled: boolean; productsMax: number }>({
+    servicesEnabled: false, servicesMax: 20, productsEnabled: false, productsMax: 20,
+  });
   const isActive = appt.status === "CONFIRMED" || appt.status === "PENDING";
   const isActiveSub = appt.subscription?.status === "ACTIVE";
   const extraServiceIds = isActiveSub ? selectedServiceIds.filter(id => !planServiceIds.includes(id)) : [];
   const extraServices = allServices.filter(s => extraServiceIds.includes(s.id));
   const calculatedExtraPrice = extraServices.reduce((sum, s) => sum + s.price, 0);
   const tipAmount = Number(tip) || 0;
-  const totalExtraToCharge = calculatedExtraPrice + tipAmount;
+  // Preço com desconto aplicado (para extras de assinante ou preço total de avulso)
+  const discountedExtraPrice = calculatedExtraPrice * (1 - discountPercent / 100);
+  const totalExtraToCharge = discountedExtraPrice + tipAmount;
+  // Preço avulso descontado (usado para exibição no modal de não-assinante)
+  const baseAppointmentPrice = appt.price;
+  const discountedAppointmentPrice = baseAppointmentPrice * (1 - discountPercent / 100);
 
   useEffect(() => {
     if (!token) return;
@@ -613,6 +623,22 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
       .then(r => r.json())
       .then(d => setAllServices((d.services || []).filter((s: any) => s.active)))
       .finally(() => setLoadingServices(false));
+    // Carrega configurações de desconto e inicializa % se plano tiver extraDiscount
+    fetch("/api/barbershop/financeiro", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        setDiscountSettings({
+          servicesEnabled: Boolean(d.discountServicesEnabled),
+          servicesMax: Number(d.discountServicesMax ?? 20),
+          productsEnabled: Boolean(d.discountProductsEnabled),
+          productsMax: Number(d.discountProductsMax ?? 20),
+        });
+        // Pré-preenche desconto automático do plano (só para extras de assinante)
+        const planDiscount = appt.subscription?.plan?.extraDiscount ?? 0;
+        if (isActiveSub && planDiscount > 0) {
+          setDiscountPercent(planDiscount);
+        }
+      });
   }, [token]);
 
   useEffect(() => {
@@ -627,13 +653,19 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
   async function saveServices() {
     if (selectedServiceIds.length === 0) return;
     setSaving(true);
-    await fetch("/api/barbershop/appointments", {
+    const r = await fetch("/api/barbershop/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id: appt.id, serviceIds: selectedServiceIds }),
     });
     setSaving(false);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      alert(err?.error ?? "Erro ao salvar serviços. Tente novamente.");
+      return;
+    }
     setShowServices(false);
+    onSaved(); // fecha modal e recarrega agenda com os serviços atualizados
   }
 
   function changeQty(id: string, delta: number) {
@@ -662,6 +694,24 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
         })
       ));
     }
+
+    // Se os serviços foram alterados, salva primeiro em chamada separada.
+    // Enviar serviceIds junto com status DONE faz o backend retornar cedo
+    // e pular o contador de uso do plano e a notificação WhatsApp.
+    const originalIds = (appt.services?.length > 0
+      ? appt.services.map((s: any) => s.service.id)
+      : appt.service?.id ? [appt.service.id] : []
+    ).slice().sort().join(",");
+    const selectedIds = [...selectedServiceIds].sort().join(",");
+    if (originalIds !== selectedIds && selectedServiceIds.length > 0) {
+      await fetch("/api/barbershop/appointments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: appt.id, serviceIds: selectedServiceIds }),
+      });
+    }
+
+    // Marca como DONE sem serviceIds — garante que contador do plano e WhatsApp disparem
     await fetch("/api/barbershop/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -669,7 +719,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
         id: appt.id,
         status: "DONE",
         paymentMethod,
-        ...(selectedServiceIds.length > 0 ? { serviceIds: selectedServiceIds } : {}),
+        ...(discountPercent > 0 ? { discountPercent } : {}),
         ...(isActiveSub && totalExtraToCharge > 0
           ? { extraPrice: totalExtraToCharge, extraPaymentMethod }
           : {}),
@@ -793,17 +843,43 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
 
                   {/* Extras automáticos dos serviços adicionados */}
                   {extraServices.length > 0 && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                      <p className="text-amber-700 font-semibold text-sm mb-1">Extras a cobrar:</p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                      <p className="text-amber-700 font-semibold text-sm">Extras a cobrar:</p>
                       {extraServices.map(s => (
-                        <div key={s.id} className="flex justify-between text-sm mt-1">
+                        <div key={s.id} className="flex justify-between text-sm">
                           <span className="text-zinc-700">{s.name}</span>
                           <span className="font-bold text-zinc-900">{formatCurrency(s.price)}</span>
                         </div>
                       ))}
-                      <div className="flex justify-between text-sm font-bold mt-2 pt-2 border-t border-amber-200">
+                      {/* Campo de desconto nos extras (se habilitado nas configurações) */}
+                      {discountSettings.servicesEnabled && (
+                        <div className="pt-2 border-t border-amber-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-amber-700 font-semibold shrink-0">Desconto:</span>
+                            <div className="flex items-center gap-1 flex-1">
+                              <input
+                                type="number" min="0" max={discountSettings.servicesMax} step="1"
+                                value={discountPercent}
+                                onChange={e => setDiscountPercent(Math.min(discountSettings.servicesMax, Math.max(0, Number(e.target.value))))}
+                                className="w-14 rounded-lg border border-amber-300 px-2 py-1 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+                              />
+                              <span className="text-xs text-amber-700">% (máx. {discountSettings.servicesMax}%)</span>
+                            </div>
+                          </div>
+                          {discountPercent > 0 && (
+                            <div className="flex justify-between text-xs mt-1">
+                              <span className="text-zinc-500">Desconto:</span>
+                              <span className="text-red-500 font-semibold">−{formatCurrency(calculatedExtraPrice - discountedExtraPrice)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold pt-1 border-t border-amber-200">
                         <span>Subtotal:</span>
-                        <span className="text-amber-700">{formatCurrency(calculatedExtraPrice)}</span>
+                        <div className="flex items-center gap-2">
+                          {discountPercent > 0 && <span className="text-zinc-400 line-through text-xs font-normal">{formatCurrency(calculatedExtraPrice)}</span>}
+                          <span className="text-amber-700">{formatCurrency(discountedExtraPrice)}</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -852,6 +928,42 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone }: {
                       <p className="text-orange-600 text-xs mt-0.5">Regularize o pagamento antes de usar o plano.</p>
                     </div>
                   )}
+                  {/* Resumo de valor + desconto (se habilitado) */}
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-600">Total dos serviços:</span>
+                      <span className="font-bold text-zinc-900">{formatCurrency(baseAppointmentPrice)}</span>
+                    </div>
+                    {discountSettings.servicesEnabled && (
+                      <div className="flex items-center gap-2 pt-1 border-t border-zinc-200">
+                        <span className="text-xs text-zinc-600 font-semibold shrink-0">Desconto:</span>
+                        <div className="flex items-center gap-1 flex-1">
+                          <input
+                            type="number" min="0" max={discountSettings.servicesMax} step="1"
+                            value={discountPercent}
+                            onChange={e => setDiscountPercent(Math.min(discountSettings.servicesMax, Math.max(0, Number(e.target.value))))}
+                            className="w-14 rounded-lg border border-zinc-300 px-2 py-1 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                          />
+                          <span className="text-xs text-zinc-500">% (máx. {discountSettings.servicesMax}%)</span>
+                        </div>
+                      </div>
+                    )}
+                    {discountPercent > 0 && (
+                      <>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-500">Desconto aplicado:</span>
+                          <span className="text-red-500 font-semibold">−{formatCurrency(baseAppointmentPrice - discountedAppointmentPrice)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm font-bold border-t border-zinc-200 pt-1">
+                          <span className="text-zinc-700">Cliente paga:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-zinc-400 line-through text-xs font-normal">{formatCurrency(baseAppointmentPrice)}</span>
+                            <span className="text-green-600">{formatCurrency(discountedAppointmentPrice)}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   <p className="text-sm font-semibold text-zinc-700 text-center">Como o cliente pagou?</p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
@@ -1186,9 +1298,12 @@ export default function BarbeiroAgendaPage() {
     if (!r.ok) {
       setAgendaAppts(prev);
       loadAgenda(agendaDate);
+      const err = await r.json().catch(() => ({}));
+      alert(err?.error ?? "Erro ao atualizar agendamento. Verifique sua conexão e tente novamente.");
       return;
     }
     load();
+    loadAgenda(agendaDate);
   }
 
   function prevDay() {
@@ -1290,7 +1405,9 @@ export default function BarbeiroAgendaPage() {
           onDone={() => {
             setAgendaAppts(cur => cur.map(a => a.id === selectedAppt.id ? { ...a, status: "DONE" } : a));
             setSelectedAppt(null);
+            loadAgenda(agendaDate);
           }}
+          onSaved={() => { setSelectedAppt(null); loadAgenda(agendaDate); }}
         />
       )}
 
@@ -1505,7 +1622,7 @@ export default function BarbeiroAgendaPage() {
               {/* Agendamentos */}
               {agendaAppts.map((a) => {
                 const top = timeToTop(a.startTime);
-                const height = Math.max((a.service?.duration ?? 30) * PX_PER_MIN, 28);
+                const height = Math.max((timeToMin(a.endTime) - timeToMin(a.startTime)) * PX_PER_MIN, 28);
                 const bg = STATUS_BG[a.status] ?? "bg-primary";
                 const isActive = a.status === "CONFIRMED" || a.status === "PENDING";
                 return (
