@@ -569,12 +569,13 @@ const STATUS_BG: Record<string, string> = {
   CANCELLED: "bg-zinc-300",
 };
 
-function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved }: {
+function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }: {
   appt: Appointment;
   onClose: () => void;
   onUpdate: (id: string, status: string, paymentMethod?: string) => void;
   onDone: () => void;
   onSaved: () => void;
+  onDelete?: (id: string) => void;
 }) {
   const { token } = useAuthStore();
   const [showPayment, setShowPayment] = useState(false);
@@ -1143,15 +1144,47 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved }: {
             </div>
           )}
           {appt.status === "NO_SHOW" && (
-            <div className="text-center py-4">
-              <UserX className="w-10 h-10 text-red-400 mx-auto mb-2" />
-              <p className="font-semibold text-red-600">Cliente não compareceu</p>
+            <div className="space-y-3">
+              <div className="text-center py-2">
+                <UserX className="w-10 h-10 text-red-400 mx-auto mb-2" />
+                <p className="font-semibold text-red-600">Cliente não compareceu</p>
+              </div>
+              <button
+                onClick={() => { onUpdate(appt.id, "CONFIRMED"); onClose(); }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-600 font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors text-left">
+                <XCircle className="w-5 h-5 shrink-0" />
+                <span>Reabrir atendimento</span>
+              </button>
+              {onDelete && (
+                <button
+                  onClick={() => { if (window.confirm("Excluir este agendamento permanentemente?")) { onDelete(appt.id); onClose(); } }}
+                  className="w-full flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 font-semibold hover:bg-red-100 active:bg-red-200 transition-colors text-left">
+                  <UserX className="w-5 h-5 shrink-0" />
+                  <span>Excluir agendamento</span>
+                </button>
+              )}
             </div>
           )}
           {appt.status === "CANCELLED" && (
-            <div className="text-center py-4">
-              <XCircle className="w-10 h-10 text-zinc-400 mx-auto mb-2" />
-              <p className="font-semibold text-zinc-500">Agendamento cancelado</p>
+            <div className="space-y-3">
+              <div className="text-center py-2">
+                <XCircle className="w-10 h-10 text-zinc-400 mx-auto mb-2" />
+                <p className="font-semibold text-zinc-500">Agendamento cancelado</p>
+              </div>
+              <button
+                onClick={() => { onUpdate(appt.id, "CONFIRMED"); onClose(); }}
+                className="w-full flex items-center gap-3 p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-600 font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors text-left">
+                <XCircle className="w-5 h-5 shrink-0" />
+                <span>Reabrir atendimento</span>
+              </button>
+              {onDelete && (
+                <button
+                  onClick={() => { if (window.confirm("Excluir este agendamento permanentemente?")) { onDelete(appt.id); onClose(); } }}
+                  className="w-full flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 font-semibold hover:bg-red-100 active:bg-red-200 transition-colors text-left">
+                  <XCircle className="w-5 h-5 shrink-0" />
+                  <span>Excluir agendamento</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -1306,6 +1339,21 @@ export default function BarbeiroAgendaPage() {
     loadAgenda(agendaDate);
   }
 
+  async function deleteAppointment(id: string) {
+    setAgendaAppts(cur => cur.filter(a => a.id !== id));
+    const r = await fetch(`/api/barbershop/appointments?id=${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) {
+      loadAgenda(agendaDate);
+      const err = await r.json().catch(() => ({}));
+      alert(err?.error ?? "Erro ao excluir agendamento.");
+      return;
+    }
+    loadAgenda(agendaDate);
+  }
+
   function prevDay() {
     const d = new Date(agendaDate + "T12:00:00");
     d.setDate(d.getDate() - 1);
@@ -1408,6 +1456,7 @@ export default function BarbeiroAgendaPage() {
             loadAgenda(agendaDate);
           }}
           onSaved={() => { setSelectedAppt(null); loadAgenda(agendaDate); }}
+          onDelete={(id) => { deleteAppointment(id); setSelectedAppt(null); }}
         />
       )}
 
