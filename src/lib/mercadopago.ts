@@ -125,6 +125,39 @@ export async function cancelMpPreapproval(preapprovalId: string, accessToken?: s
   await api.update({ id: preapprovalId, body: { status: "cancelled" } });
 }
 
+// ─── Get Preapproval ─────────────────────────────────────────────────────────
+
+export interface MpPreapproval {
+  id: string;
+  /** "pending" | "authorized" | "paused" | "cancelled" */
+  status: string;
+  payer_email: string;
+  external_reference?: string;
+  auto_recurring?: {
+    frequency: number;
+    frequency_type: string;
+    transaction_amount: number;
+    currency_id: string;
+  };
+}
+
+/**
+ * Busca um Preapproval existente pelo ID.
+ * Usado no webhook para confirmar o status atual após notificação do MP.
+ *
+ * @param id           ID do preapproval no MP
+ * @param accessToken  Token da barbearia (opcional — omita para usar token da plataforma)
+ */
+export async function getMpPreapproval(id: string, accessToken?: string): Promise<MpPreapproval> {
+  const client = getMpClient(accessToken);
+  const api = new PreApproval(client);
+  const result = await api.get({ id });
+  if (!result?.id) {
+    throw new Error(`MP não retornou dados para preapproval ${id}`);
+  }
+  return result as unknown as MpPreapproval;
+}
+
 // ─── Get Authorized Payment ───────────────────────────────────────────────────
 
 export interface MpAuthorizedPayment {
