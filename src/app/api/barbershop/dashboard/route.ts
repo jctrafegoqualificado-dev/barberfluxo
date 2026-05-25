@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { format, differenceInDays } from "date-fns";
+import { getCached, setCached, dashboardCacheKey } from "@/lib/cache";
 
 /**
  * Dashboard BI — Multi-Period API
@@ -62,6 +63,20 @@ export async function GET(req: NextRequest) {
       new Date(prevPeriodEnd).getUTCDate() - periodDays + 1,
       0, 0, 0, 0,
     ));
+
+    // ── Redis cache ───────────────────────────────────────────────────────────
+    // today  → TTL 60s  (dados do dia mudam com frequência)
+    // demais → TTL 300s (BI histórico, 5 min é aceitável)
+    const cacheKey = dashboardCacheKey(barbershopId, period, brDateStr, customFrom, customTo);
+    const cacheTtl = period === "today" ? 60 : 300;
+
+    const cachedResult = await getCached<Record<string, unknown>>(cacheKey);
+    if (cachedResult) {
+      const cachedRes = NextResponse.json(cachedResult);
+      cachedRes.headers.set("X-Cache", "HIT");
+      return cachedRes;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // --- PHASE A: fetch what we need to derive IDs/aggregates from ---
     const [todayAppointments, periodAllAppointments] = await Promise.all([
@@ -377,7 +392,7 @@ export async function GET(req: NextRequest) {
     const prevNps = calculateNpsMetrics(prevPeriodReviews);
     const npsChange = (nps.score !== null && prevNps.score !== null) ? nps.score - prevNps.score : null;
 
-    return NextResponse.json({
+    const responseData = {
       period,
       periodLabel: `${format(periodStart, "dd/MM")} - ${format(periodEnd, "dd/MM")}`,
       nps: {
@@ -431,7 +446,14 @@ export async function GET(req: NextRequest) {
         usedMinutes: totalUsedMinutes,
         availableMinutes: totalAvailableMinutes,
       },
-    });
+    };
+
+    // Grava no cache (fire-and-forget — falha não afeta a resposta)
+    void setCached(cacheKey, responseData, cacheTtl);
+
+    const res = NextResponse.json(responseData);
+    res.headers.set("X-Cache", "MISS");
+    return res;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: msg === "UNAUTHORIZED" ? 401 : 500 });
