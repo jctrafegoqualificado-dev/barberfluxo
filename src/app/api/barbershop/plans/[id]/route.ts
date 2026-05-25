@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -63,6 +64,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     });
 
+    // ── Audit: atualização de plano ──
+    void logAudit({
+      barbershopId,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "UPDATE",
+      entity:    "Plan",
+      entityId:  id,
+      diff: { after: { name, price, billingCycle, maxUses, active } },
+      ip: getClientIp(req),
+    });
+
     return NextResponse.json({ plan });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
@@ -85,6 +99,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (result.count === 0) {
       return NextResponse.json({ error: "Recurso não encontrado" }, { status: 404 });
     }
+
+    // ── Audit: desativação de plano ──
+    void logAudit({
+      barbershopId,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "DEACTIVATE",
+      entity:    "Plan",
+      entityId:  id,
+      ip: getClientIp(req),
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {

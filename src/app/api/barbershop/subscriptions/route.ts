@@ -4,6 +4,7 @@ import { requireAuth, hashPassword } from "@/lib/auth";
 import { addMonths } from "date-fns";
 import { sendSubscriptionConfirmation } from "@/lib/email";
 import { subscriptionCreateRatelimit } from "@/lib/ratelimit";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 function clampDay(day: number, year: number, month: number): number {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -161,6 +162,28 @@ export async function POST(req: NextRequest) {
           plan: true,
         },
       });
+    });
+
+    // ── Audit: criação de assinatura ──
+    void logAudit({
+      barbershopId: payload.barbershopId!,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "CREATE",
+      entity:    "Subscription",
+      entityId:  subscription.id,
+      diff: {
+        after: {
+          clientId:   client.id,
+          clientName: client.name,
+          planId,
+          planName:   plan.name,
+          price:      plan.price,
+          billingDay: billingDayNum,
+        },
+      },
+      ip: getClientIp(req),
     });
 
     // E-mail é fire-and-forget — falha não reverte a assinatura criada

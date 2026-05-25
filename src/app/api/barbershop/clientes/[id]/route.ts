@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 // PUT — Editar cliente (nome, telefone)
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -58,6 +59,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const updated = await prisma.user.update({ where: { id }, data });
+
+    // ── Audit: bloqueio / desbloqueio de cliente ──
+    if (typeof isBlocked === "boolean") {
+      void logAudit({
+        barbershopId: payload.barbershopId!,
+        userId:    payload.id,
+        userEmail: payload.email,
+        userRole:  payload.role,
+        action:    isBlocked ? "BLOCK" : "UNBLOCK",
+        entity:    "Client",
+        entityId:  id,
+        diff: { after: { isBlocked } },
+        ip: getClientIp(req),
+      });
+    }
 
     return NextResponse.json({ client: updated });
   } catch (e: unknown) {
@@ -128,6 +144,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
           },
         });
       }
+    });
+
+    // ── Audit: exclusão (anonimização) de cliente ──
+    void logAudit({
+      barbershopId,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "DELETE",
+      entity:    "Client",
+      entityId:  id,
+      ip: getClientIp(req),
     });
 
     return NextResponse.json({ success: true });

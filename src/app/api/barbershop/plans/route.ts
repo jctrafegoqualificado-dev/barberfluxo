@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,6 +58,19 @@ export async function POST(req: NextRequest) {
           : {}),
       },
       include: { planServices: { include: { service: true } }, allowedBarbers: true },
+    });
+
+    // ── Audit: criação de plano ──
+    void logAudit({
+      barbershopId: payload.barbershopId!,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "CREATE",
+      entity:    "Plan",
+      entityId:  plan.id,
+      diff: { after: { name, price: plan.price, billingCycle } },
+      ip: getClientIp(req),
     });
 
     return NextResponse.json({ plan }, { status: 201 });

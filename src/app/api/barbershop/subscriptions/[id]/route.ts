@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { cancelMpPreapproval } from "@/lib/mercadopago";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 // ─── Helper: cancela preapproval no MP (fire-and-forget) ─────────────────────
 
@@ -53,6 +54,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       });
     });
 
+    // ── Audit: exclusão de assinatura ──
+    void logAudit({
+      barbershopId: payload.barbershopId!,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "DELETE",
+      entity:    "Subscription",
+      entityId:  id,
+      ip: getClientIp(req),
+    });
+
     return NextResponse.json({ success: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro ao excluir assinatura";
@@ -87,6 +100,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const subscription = await prisma.subscription.update({
       where: { id, barbershopId: payload.barbershopId! },
       data: data as any,
+    });
+
+    // ── Audit: cancelamento ou atualização de assinatura ──
+    void logAudit({
+      barbershopId: payload.barbershopId!,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    status === "CANCELLED" ? "CANCEL" : "UPDATE",
+      entity:    "Subscription",
+      entityId:  id,
+      diff: { after: data },
+      ip: getClientIp(req),
     });
 
     return NextResponse.json({ subscription });

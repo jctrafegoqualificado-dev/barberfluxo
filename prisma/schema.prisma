@@ -114,6 +114,7 @@ model Barbershop {
   expenses         Expense[]
   cashFlowSessions CashFlowSession[]
   apiKeys          ApiKey[]
+  auditLogs        AuditLog[]
 }
 
 model WhatsAppInstance {
@@ -549,6 +550,32 @@ model ApiKey {
 
   @@index([barbershopId])
   @@index([keyHash])
+}
+
+// ===================== AUDITORIA (H-2) ========================
+
+/**
+ * AuditLog — Registro imutável de ações sensíveis realizadas por OWNER/BARBER.
+ * Nunca é atualizado; apenas criado (append-only).
+ * Ações rastreadas: agendamentos, assinaturas, planos, barbeiros, clientes.
+ */
+model AuditLog {
+  id           String     @id @default(cuid())
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  userId       String?    // null para ações via API key
+  userEmail    String?
+  userRole     String?
+  action       String     // CREATE | UPDATE | DELETE | CANCEL | STATUS_CHANGE | BLOCK | UNBLOCK | DEACTIVATE | ACTIVATE
+  entity       String     // Appointment | Subscription | Plan | Barber | Client
+  entityId     String
+  diff         Json?      // { before: {...}, after: {...} } — campos relevantes antes/depois
+  ip           String?
+  createdAt    DateTime   @default(now())
+
+  @@index([barbershopId, createdAt])
+  @@index([entity, entityId])
+  @@index([userId])
 }
 
 // ===================== MÓDULO FINANCEIRO =====================

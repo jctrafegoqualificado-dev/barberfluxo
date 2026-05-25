@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { sendWhatsAppNotification } from "@/lib/notifications";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -229,6 +230,24 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    // ── Audit: mudança de status ──
+    if (status && previousState.status !== status) {
+      void logAudit({
+        barbershopId,
+        userId:    payload.id,
+        userEmail: payload.email,
+        userRole:  payload.role,
+        action:    "STATUS_CHANGE",
+        entity:    "Appointment",
+        entityId:  id,
+        diff: {
+          before: { status: previousState.status },
+          after:  { status, paymentMethod: paymentMethod ?? undefined },
+        },
+        ip: getClientIp(req),
+      });
+    }
+
     // ── Automação de WhatsApp: Confirmação de Status + NPS Link ──
     if ((status === "DONE" || status === "CANCELLED") && appointment.client.phone) {
       const host = req.headers.get("host") || "barberfluxo.com";
@@ -408,6 +427,19 @@ export async function POST(req: NextRequest) {
       return appt;
     });
 
+    // ── Audit: criação de agendamento ──
+    void logAudit({
+      barbershopId,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "CREATE",
+      entity:    "Appointment",
+      entityId:  appointment.id,
+      diff: { after: { clientName, barberId, serviceIds: ids, date, startTime, price: totalPrice } },
+      ip: getClientIp(req),
+    });
+
     // ── Automação de WhatsApp: Confirmação de Agendamento ──
     const servicesStr = services.map(s => s.name).join(" + ");
     const welcomeMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${clientName.split(" ")[0]}*, seu horário no *${(await prisma.barbershop.findUnique({ where: { id: barbershopId } }))?.name}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${(await prisma.barber.findUnique({ where: { id: barberId }, include: { user: true } }))?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
@@ -469,6 +501,26 @@ export async function DELETE(req: NextRequest) {
 
     await prisma.appointment.delete({
       where: { id },
+    });
+
+    // ── Audit: exclusão de agendamento ──
+    void logAudit({
+      barbershopId: payload.barbershopId!,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "DELETE",
+      entity:    "Appointment",
+      entityId:  id,
+      diff: {
+        before: {
+          clientId:  appt.clientId,
+          date:      appt.date,
+          startTime: appt.startTime,
+          status:    appt.status,
+        },
+      },
+      ip: getClientIp(req),
     });
 
     return NextResponse.json({ success: true });

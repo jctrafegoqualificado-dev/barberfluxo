@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hashPassword } from "@/lib/auth";
 import { z } from "zod";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 const BarberCreateSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
@@ -50,6 +51,19 @@ export async function DELETE(req: NextRequest) {
     if (result.count === 0) {
       return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
     }
+
+    // ── Audit: desativação de barbeiro ──
+    void logAudit({
+      barbershopId: payload.barbershopId!,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "DEACTIVATE",
+      entity:    "Barber",
+      entityId:  barberId,
+      ip: getClientIp(req),
+    });
+
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
@@ -74,6 +88,18 @@ export async function PATCH(req: NextRequest) {
       if (result.count === 0) {
         return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
       }
+      // ── Audit: ativação / desativação por toggle ──
+      void logAudit({
+        barbershopId: payload.barbershopId!,
+        userId:    payload.id,
+        userEmail: payload.email,
+        userRole:  payload.role,
+        action:    active ? "ACTIVATE" : "DEACTIVATE",
+        entity:    "Barber",
+        entityId:  barberId,
+        diff: { after: { active } },
+        ip: getClientIp(req),
+      });
       return NextResponse.json({ ok: true });
     }
 
@@ -152,6 +178,19 @@ export async function POST(req: NextRequest) {
       include: {
         user: { select: { id: true, name: true, email: true, phone: true, birthday: true } },
       },
+    });
+
+    // ── Audit: cadastro de barbeiro ──
+    void logAudit({
+      barbershopId,
+      userId:    payload.id,
+      userEmail: payload.email,
+      userRole:  payload.role,
+      action:    "CREATE",
+      entity:    "Barber",
+      entityId:  barber.id,
+      diff: { after: { name, email, commission: commission ?? 50 } },
+      ip: getClientIp(req),
     });
 
     return NextResponse.json({ barber }, { status: 201 });
