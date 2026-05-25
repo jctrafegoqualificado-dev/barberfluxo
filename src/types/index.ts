@@ -8,6 +8,7 @@ export interface AuthUser {
   barbershopId?: string;
   barbershopSlug?: string;
   isBarber?: boolean;
+  isPlatformAdmin?: boolean;
 }
 
 export interface ApiResponse<T = unknown> {

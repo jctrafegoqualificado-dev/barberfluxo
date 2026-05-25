@@ -27,7 +27,20 @@ export function verifyToken(token: string) {
     email: string;
     role: string;
     barbershopId?: string;
+    isPlatformAdmin?: boolean;
   };
+}
+
+// Permite acesso ao /plataforma tanto para PLATFORM_ADMIN (role) quanto para
+// qualquer usuário com isPlatformAdmin: true (ex: OWNER que também é gestor)
+export function requirePlatformAdmin(req: NextRequest) {
+  const token = getTokenFromRequest(req);
+  if (!token) throw new Error("UNAUTHORIZED");
+  const payload = verifyToken(token);
+  if (payload.role !== "PLATFORM_ADMIN" && !payload.isPlatformAdmin) {
+    throw new Error("FORBIDDEN");
+  }
+  return payload;
 }
 
 export function getTokenFromRequest(req: NextRequest) {

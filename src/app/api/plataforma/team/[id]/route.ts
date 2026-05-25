@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/auth";
 
 // DELETE /api/plataforma/team/[id] — remove acesso ao /plataforma
 export async function DELETE(
@@ -8,7 +8,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const payload = requireAuth(req, ["PLATFORM_ADMIN"]);
+    const payload = requirePlatformAdmin(req);
     const { id } = await params;
 
     // Não pode remover a si mesmo
@@ -21,21 +21,25 @@ export async function DELETE(
 
     const target = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, isPlatformAdmin: true },
     });
 
     if (!target) {
       return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
     }
 
-    if (target.role !== "PLATFORM_ADMIN") {
-      return NextResponse.json({ error: "Usuário não é administrador." }, { status: 400 });
+    if (target.role !== "PLATFORM_ADMIN" && !target.isPlatformAdmin) {
+      return NextResponse.json({ error: "Usuário não tem acesso à plataforma." }, { status: 400 });
     }
 
-    // Reverte para OWNER (role padrão de quem gerencia estabelecimento)
+    // Se tem role PLATFORM_ADMIN → reverte para OWNER
+    // Se tem isPlatformAdmin: true → apenas remove a flag (mantém o role original)
     await prisma.user.update({
       where: { id },
-      data: { role: "OWNER" },
+      data: {
+        isPlatformAdmin: false,
+        ...(target.role === "PLATFORM_ADMIN" ? { role: "OWNER" } : {}),
+      },
     });
 
     return NextResponse.json({

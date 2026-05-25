@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requirePlatformAdmin } from "@/lib/auth";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth(req, ["PLATFORM_ADMIN"]);
+    requirePlatformAdmin(req);
     const { id } = await params;
     const { active, saasPlan } = await req.json();
 

@@ -15,7 +15,7 @@ export default function MasterLayout({ children }: { children: ReactNode }) {
     return null;
   }
 
-  if (user.role !== "PLATFORM_ADMIN") {
+  if (user.role !== "PLATFORM_ADMIN" && !user.isPlatformAdmin) {
     router.push("/painel");
     return null;
   }

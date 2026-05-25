@@ -22,7 +22,7 @@ export default function PlataformaDashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Equipe
-  const [team, setTeam] = useState<{ id: string; name: string; email: string; createdAt: string }[]>([]);
+  const [team, setTeam] = useState<{ id: string; name: string; email: string; role: string; isPlatformAdmin: boolean; createdAt: string }[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [teamError, setTeamError] = useState("");
@@ -598,9 +598,15 @@ export default function PlataformaDashboard() {
                       <span className="text-xs text-zinc-600">
                         desde {new Date(admin.createdAt).toLocaleDateString("pt-BR")}
                       </span>
-                      <span className="text-xs font-bold bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">
-                        Admin
-                      </span>
+                      {admin.role === "PLATFORM_ADMIN" ? (
+                        <span className="text-xs font-bold bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">
+                          Super Admin
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full">
+                          Admin + Dono
+                        </span>
+                      )}
                       <button
                         onClick={() => removeAdmin(admin.id, admin.name || admin.email)}
                         disabled={actionLoading === `team-${admin.id}`}

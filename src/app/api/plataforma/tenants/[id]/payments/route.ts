@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requirePlatformAdmin } from "@/lib/auth";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth(req, ["PLATFORM_ADMIN"]);
+    requirePlatformAdmin(req);
     const { id: shopId } = await params;
     const body = await req.json();
     const { amount, method, status = "PAID" } = body;

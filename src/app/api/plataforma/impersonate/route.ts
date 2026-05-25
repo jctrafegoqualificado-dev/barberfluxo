@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, signToken } from "@/lib/auth";
+import { requirePlatformAdmin, signToken } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = requireAuth(req, ["PLATFORM_ADMIN"]);
+    const payload = requirePlatformAdmin(req);
     const { barbershopId } = await req.json();
 
     if (!barbershopId) {

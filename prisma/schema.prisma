@@ -20,7 +20,8 @@ model User {
   email     String   @unique
   phone     String?
   password  String
-  role      String   @default("CLIENT") // PLATFORM_ADMIN | OWNER | BARBER | CLIENT
+  role              String   @default("CLIENT") // PLATFORM_ADMIN | OWNER | BARBER | CLIENT
+  isPlatformAdmin   Boolean  @default(false)    // permite acesso ao /plataforma sem mudar o role
   isBlocked Boolean  @default(false)
   birthday  DateTime?
   createdAt DateTime @default(now())

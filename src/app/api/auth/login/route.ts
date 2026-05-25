@@ -38,10 +38,10 @@ export async function POST(req: NextRequest) {
       isBarber = true;
     }
 
-    const token = signToken({ id: user.id, email: user.email, role: user.role, barbershopId });
+    const token = signToken({ id: user.id, email: user.email, role: user.role, barbershopId, isPlatformAdmin: user.isPlatformAdmin });
 
     const res = NextResponse.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, barbershopId, barbershopSlug, isBarber },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, barbershopId, barbershopSlug, isBarber, isPlatformAdmin: user.isPlatformAdmin },
       token,
     });
 

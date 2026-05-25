@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requirePlatformAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    requireAuth(req, ["PLATFORM_ADMIN"]);
+    requirePlatformAdmin(req);
 
     const shops = await prisma.barbershop.findMany({
       orderBy: { createdAt: "desc" },
