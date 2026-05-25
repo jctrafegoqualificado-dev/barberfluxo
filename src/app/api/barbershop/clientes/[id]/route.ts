@@ -59,33 +59,64 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
+    const barbershopId = payload.barbershopId!;
     const { id } = await params;
+
+    // Valida que o cliente pertence a esta barbearia — evita deleção cross-tenant (CVE-12)
+    const clientBelongsHere = await prisma.user.findFirst({
+      where: {
+        id,
+        role: "CLIENT",
+        OR: [
+          { appointments: { some: { barbershopId } } },
+          { subscriptions: { some: { barbershopId } } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!clientBelongsHere) {
+      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+    }
 
     // Transação para limpar vínculos e anonimizar
     await prisma.$transaction(async (tx) => {
-      // 1. Cancela agendamentos ativos
+      // 1. Cancela apenas agendamentos ativos DESTA barbearia (CVE-12)
       await tx.appointment.updateMany({
-        where: { clientId: id, status: { in: ["CONFIRMED", "PENDING"] } },
+        where: { clientId: id, barbershopId, status: { in: ["CONFIRMED", "PENDING"] } },
         data: { status: "CANCELLED", notes: "[Cancelado via exclusão de cliente]" },
       });
 
-      // 2. Cancela assinaturas ativas
+      // 2. Cancela apenas assinaturas ativas DESTA barbearia (CVE-12)
       await tx.subscription.updateMany({
-        where: { clientId: id, status: "ACTIVE" },
+        where: { clientId: id, barbershopId, status: "ACTIVE" },
         data: { status: "CANCELLED" },
       });
 
-      // 3. Anonimiza o cliente (Muda role e nome para não aparecer mais em buscas/listas)
-      const user = await tx.user.findUnique({ where: { id } });
-      await tx.user.update({
-        where: { id },
-        data: { 
-          name: `[Excluído] ${user?.name || ""}`,
-          phone: `deleted_${Date.now()}_${user?.phone || ""}`,
-          email: `deleted_${Date.now()}_${user?.email || ""}`,
-          role: "DELETED_CLIENT" // Mudamos o role para não aparecer na query de clientes
+      // 3. Anonimização global apenas se não houver vínculo em outras barbearias (CVE-12)
+      // Cliente pode ser usuário de múltiplas barbearias — só apaga PII se for exclusivo desta
+      const hasOtherRelationships = await tx.user.findFirst({
+        where: {
+          id,
+          OR: [
+            { appointments: { some: { barbershopId: { not: barbershopId } } } },
+            { subscriptions: { some: { barbershopId: { not: barbershopId } } } },
+          ],
         },
+        select: { id: true },
       });
+
+      if (!hasOtherRelationships) {
+        const user = await tx.user.findUnique({ where: { id } });
+        await tx.user.update({
+          where: { id },
+          data: {
+            name: `[Excluído] ${user?.name || ""}`,
+            phone: `deleted_${Date.now()}_${user?.phone || ""}`,
+            email: `deleted_${Date.now()}_${user?.email || ""}`,
+            role: "DELETED_CLIENT", // Não aparece mais na query de clientes
+          },
+        });
+      }
     });
 
     return NextResponse.json({ success: true });
