@@ -6,14 +6,23 @@
  * automaticamente a cada ciclo (mensal, trimestral, anual).
  *
  * Docs: https://www.mercadopago.com.br/developers/pt/docs/subscriptions
+ *
+ * Multi-tenant: todas as funções aceitam `accessToken` opcional.
+ * - Se fornecido → usa o token DA barbearia (gateway configurado pela barbearia)
+ * - Se omitido  → usa MERCADOPAGO_ACCESS_TOKEN do .env (token da plataforma)
+ * Isso garante compatibilidade total com o código existente (cobrança de SaaS).
  */
 
 import MercadoPago, { PreApproval } from "mercadopago";
 
 // ─── Client factory ───────────────────────────────────────────────────────────
 
-function getMpClient(): MercadoPago {
-  const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
+/**
+ * Cria um cliente MP.
+ * @param accessToken Token da barbearia (opcional). Sem ele, usa o token da plataforma (.env).
+ */
+function getMpClient(accessToken?: string): MercadoPago {
+  const token = accessToken ?? process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!token) throw new Error("MERCADOPAGO_ACCESS_TOKEN não configurado");
   return new MercadoPago({ accessToken: token });
 }
@@ -63,11 +72,15 @@ export interface CreatePreapprovalResult {
  * Cria um Preapproval no Mercado Pago.
  * O cliente recebe `initPoint` e autoriza o débito recorrente.
  * O MP cobra automaticamente a cada ciclo e notifica via webhook.
+ *
+ * @param input  Dados da assinatura
+ * @param accessToken  Token da barbearia (opcional — omita para usar token da plataforma)
  */
 export async function createMpPreapproval(
   input: CreatePreapprovalInput,
+  accessToken?: string,
 ): Promise<CreatePreapprovalResult> {
-  const client = getMpClient();
+  const client = getMpClient(accessToken);
   const api = new PreApproval(client);
   const { frequency, frequency_type } = cycleToFrequency(input.billingCycle);
 
@@ -102,9 +115,12 @@ export async function createMpPreapproval(
  * Cancela um Preapproval no MP (status → "cancelled").
  * Deve ser chamado ao cancelar ou excluir uma Subscription.
  * Fire-and-forget: erros são logados mas não interrompem o fluxo principal.
+ *
+ * @param preapprovalId  ID do preapproval no MP
+ * @param accessToken    Token da barbearia (opcional — omita para usar token da plataforma)
  */
-export async function cancelMpPreapproval(preapprovalId: string): Promise<void> {
-  const client = getMpClient();
+export async function cancelMpPreapproval(preapprovalId: string, accessToken?: string): Promise<void> {
+  const client = getMpClient(accessToken);
   const api = new PreApproval(client);
   await api.update({ id: preapprovalId, body: { status: "cancelled" } });
 }
@@ -128,9 +144,12 @@ export interface MpAuthorizedPayment {
  * por isso usamos fetch diretamente.
  *
  * Docs: GET /authorized_payments/{id}
+ *
+ * @param id           ID do authorized_payment no MP
+ * @param accessToken  Token da barbearia (opcional — omita para usar token da plataforma)
  */
-export async function getMpAuthorizedPayment(id: string): Promise<MpAuthorizedPayment> {
-  const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
+export async function getMpAuthorizedPayment(id: string, accessToken?: string): Promise<MpAuthorizedPayment> {
+  const token = accessToken ?? process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!token) throw new Error("MERCADOPAGO_ACCESS_TOKEN não configurado");
 
   const res = await fetch(`https://api.mercadopago.com/authorized_payments/${id}`, {

@@ -115,6 +115,7 @@ model Barbershop {
   cashFlowSessions CashFlowSession[]
   apiKeys          ApiKey[]
   auditLogs        AuditLog[]
+  paymentGateway   PaymentGatewayConfig?
 }
 
 model WhatsAppInstance {
@@ -278,6 +279,16 @@ model Subscription {
   usesThisCycle   Int      @default(0)
   beneficiaries   Json?    // Controle de uso por beneficiário. Ex: [{ name: "João (Pai)", uses: 0, maxUses: 4 }, { name: "Pedrinho (Filho)", uses: 0, maxUses: 2 }]
   mpPreapprovalId String?  // MP Preapproval ID — débito recorrente autorizado pelo cliente
+
+  // ── Gateway de pagamento por barbearia (Sprint MP) ──────────────────────────
+  // MANUAL           = sem gateway configurado; dono dá baixa manualmente
+  // PENDING_AUTH     = preapproval criado; aguardando cliente clicar no link
+  // AUTHORIZED       = cliente autorizou; MP cobra automaticamente
+  // FAILED           = falha na autorização ou cobrança recorrente
+  authorizationStatus String    @default("MANUAL")
+  authorizationLink   String?   // init_point enviado ao cliente
+  authorizationSentAt DateTime? // última vez que o link foi enviado
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -300,11 +311,17 @@ model Payment {
   paidAt     DateTime?
   createdAt  DateTime  @default(now())
 
+  // ── Gateway de pagamento (Sprint MP) ────────────────────────────────────────
+  mpPaymentId  String?   // ID do authorized_payment no MP (para idempotência no webhook)
+  gatewayType  String?   // "mercadopago" | null (manual)
+
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
 
   barbershopId   String?
   barbershop     Barbershop?   @relation(fields: [barbershopId], references: [id])
+
+  @@index([mpPaymentId]) // busca rápida por ID do MP no webhook
 }
 
 model OpeningHour {
@@ -550,6 +567,36 @@ model ApiKey {
 
   @@index([barbershopId])
   @@index([keyHash])
+}
+
+// ===================== GATEWAY DE PAGAMENTO POR BARBEARIA =====================
+
+/**
+ * PaymentGatewayConfig — Credenciais do gateway de pagamento de cada barbearia.
+ *
+ * Cada barbearia pode conectar sua própria conta (ex: Mercado Pago) para
+ * cobrar clientes diretamente. A plataforma não intermedia nem recebe nada.
+ *
+ * accessToken é SEMPRE armazenado criptografado (AES-256-GCM via encrypt.ts).
+ * NUNCA retornar accessToken em respostas de API.
+ *
+ * gateway extensível: hoje "mercadopago", futuramente "pagseguro", "stripe", etc.
+ */
+model PaymentGatewayConfig {
+  id           String     @id @default(cuid())
+  barbershopId String     @unique
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  gateway      String     @default("mercadopago") // extensível no futuro
+  accessToken  String     // 🔒 AES-256-GCM encrypted — NUNCA expor em API
+  publicKey    String?    // chave pública MP (segura de exibir no frontend)
+  mpUserId     String?    // ID do usuário MP (retornado ao validar o token)
+
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([barbershopId])
 }
 
 // ===================== AUDITORIA (H-2) ========================
