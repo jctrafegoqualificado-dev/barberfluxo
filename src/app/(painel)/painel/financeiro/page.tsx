@@ -452,7 +452,19 @@ export default function FinanceiroPage() {
           <div className="h-6 w-px bg-zinc-200 mx-1 hidden sm:block" />
 
           <button
-            onClick={() => window.open(`/api/barbershop/financeiro/export?month=${currentMonth}&token=${token}`)}
+            onClick={async () => {
+              const res = await fetch(`/api/barbershop/financeiro/export?month=${currentMonth}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (!res.ok) return;
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `fechamento_${currentMonth}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
             className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-bold text-sm transition-colors"
           >
             <Download className="w-4 h-4" /> CSV

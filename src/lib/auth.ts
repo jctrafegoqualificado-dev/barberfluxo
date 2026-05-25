@@ -48,8 +48,6 @@ export function getTokenFromRequest(req: NextRequest) {
   if (auth?.startsWith("Bearer ")) return auth.slice(7);
   const cookieToken = req.cookies.get("token")?.value;
   if (cookieToken) return cookieToken;
-  const urlToken = req.nextUrl.searchParams.get("token");
-  if (urlToken) return urlToken;
   return null;
 }
 
