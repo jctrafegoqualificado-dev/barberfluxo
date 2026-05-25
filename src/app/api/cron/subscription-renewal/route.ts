@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/evolution/client";
 
-const CRON_SECRET = process.env.CRON_SECRET || "";
-
 export async function GET(req: NextRequest) {
   try {
+    // CVE-5: CRON_SECRET ausente bloqueia o endpoint (nunca silencia a proteção)
+    const CRON_SECRET = process.env.CRON_SECRET;
+    if (!CRON_SECRET) {
+      console.error("[subscription-renewal] CRON_SECRET não configurado — endpoint bloqueado");
+      return NextResponse.json({ error: "Misconfigured" }, { status: 500 });
+    }
     const authHeader = req.headers.get("authorization");
     const querySecret = req.nextUrl.searchParams.get("secret");
     const providedSecret = authHeader?.replace("Bearer ", "") || querySecret;
-
-    if (CRON_SECRET && providedSecret !== CRON_SECRET) {
+    if (providedSecret !== CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

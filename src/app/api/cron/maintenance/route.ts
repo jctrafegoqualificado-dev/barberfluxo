@@ -5,10 +5,18 @@ import { format, differenceInMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export async function GET(req: Request) {
-  // 1. Verificação de Segurança
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response('Unauthorized', { status: 401 });
+  // 1. Verificação de Segurança — CVE-5: CRON_SECRET ausente bloqueia endpoint
+  const CRON_SECRET = process.env.CRON_SECRET;
+  if (!CRON_SECRET) {
+    console.error("[maintenance] CRON_SECRET não configurado — endpoint bloqueado");
+    return new Response("Misconfigured", { status: 500 });
+  }
+  const authHeader = req.headers.get("authorization");
+  const url = new URL(req.url);
+  const querySecret = url.searchParams.get("secret");
+  const providedSecret = authHeader?.replace("Bearer ", "") || querySecret;
+  if (providedSecret !== CRON_SECRET) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   console.log(`🕒 [Cron Job] Iniciando manutenção automática: ${new Date().toISOString()}`);
