@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { Activity, Users, Settings, LogOut, Code2 } from "lucide-react";
+import { useTokenRefresh } from "@/hooks/useTokenRefresh";
 
 export default function MasterLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, clearAuth } = useAuthStore();
+  useTokenRefresh();
 
   if (!user) {
     router.push("/login");

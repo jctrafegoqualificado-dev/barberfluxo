@@ -3,11 +3,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import Sidebar from "@/components/layout/Sidebar";
+import { useTokenRefresh } from "@/hooks/useTokenRefresh";
 
 export default function BarbeiroLayout({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuthStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  useTokenRefresh();
   const [branding, setBranding] = useState<{
     primaryColor: string;
     secondaryColor: string;
