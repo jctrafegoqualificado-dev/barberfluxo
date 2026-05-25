@@ -63,7 +63,9 @@ export async function PATCH(req: NextRequest) {
       const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
       const current = await prisma.appointment.findUnique({ where: { id } });
-      if (!current) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+      if (!current || current.barbershopId !== barbershopId) {
+        return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+      }
 
       const [h, m] = current.startTime.split(":").map(Number);
       const endMin = h * 60 + m + totalDuration;
@@ -132,8 +134,11 @@ export async function PATCH(req: NextRequest) {
     if (extraPrice !== undefined) updateData.extraPrice = Number(extraPrice);
     if (extraPaymentMethod) updateData.extraPaymentMethod = extraPaymentMethod;
 
-    // Busca o estado ANTERIOR do agendamento antes de atualizar
-    const previousState = await prisma.appointment.findUnique({ where: { id }, select: { status: true } });
+    // Busca o estado ANTERIOR e valida posse do tenant em uma única query
+    const previousState = await prisma.appointment.findUnique({ where: { id }, select: { status: true, barbershopId: true } });
+    if (!previousState || previousState.barbershopId !== barbershopId) {
+      return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    }
 
     const appointment = await prisma.appointment.update({
       where: { id },
@@ -411,7 +416,9 @@ export async function DELETE(req: NextRequest) {
       include: { subscription: true }
     });
 
-    if (!appt) return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    if (!appt || appt.barbershopId !== payload.barbershopId!) {
+      return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    }
 
     // Se o agendamento estava CONCLUÍDO e usava plano, devolve o uso ao excluir
     if (appt.status === "DONE" && appt.subscriptionId && appt.beneficiaryName) {

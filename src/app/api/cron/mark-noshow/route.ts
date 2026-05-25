@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const CRON_SECRET = process.env.CRON_SECRET || "";
-
 // Roda diariamente às 23h e marca como NO_SHOW agendamentos que passaram
 // há mais de 2h e continuam CONFIRMED ou PENDING (cliente não compareceu).
 export async function GET(req: NextRequest) {
   try {
+    // CVE-5: CRON_SECRET ausente bloqueia o endpoint (nunca silencia a proteção)
+    const CRON_SECRET = process.env.CRON_SECRET;
+    if (!CRON_SECRET) {
+      console.error("[mark-noshow] CRON_SECRET não configurado — endpoint bloqueado");
+      return NextResponse.json({ error: "Misconfigured" }, { status: 500 });
+    }
     const authHeader = req.headers.get("authorization");
     const querySecret = req.nextUrl.searchParams.get("secret");
     const providedSecret = authHeader?.replace("Bearer ", "") || querySecret;
-
-    if (CRON_SECRET && providedSecret !== CRON_SECRET) {
+    if (providedSecret !== CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

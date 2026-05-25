@@ -203,12 +203,21 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER"]);
     const {
       barberId,
       commissionType, commission,
       productCommissionType, productCommission,
     } = await req.json();
+
+    // Valida que o barbeiro pertence a esta barbearia antes de alterar taxas (CVE-8)
+    const existing = await prisma.barber.findFirst({
+      where: { id: barberId, barbershopId: payload.barbershopId! },
+      select: { id: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+    }
 
     const barber = await prisma.barber.update({
       where: { id: barberId },

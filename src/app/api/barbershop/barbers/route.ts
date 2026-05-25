@@ -40,9 +40,16 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER"]);
     const { barberId } = await req.json();
-    await prisma.barber.update({ where: { id: barberId }, data: { active: false } });
+    // Valida que o barbeiro pertence a esta barbearia antes de desativar (CVE-6)
+    const result = await prisma.barber.updateMany({
+      where: { id: barberId, barbershopId: payload.barbershopId! },
+      data: { active: false },
+    });
+    if (result.count === 0) {
+      return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+    }
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
@@ -52,19 +59,29 @@ export async function DELETE(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER"]);
     const {
       barberId, name, phone, nickname, commission, password, dayOff, active,
       photoUrl, cpf, birthday,
     } = await req.json();
 
-    // ── Toggle ativo/inativo ──
+    // ── Toggle ativo/inativo — valida posse antes (CVE-6) ──
     if (typeof active === "boolean") {
-      await prisma.barber.update({ where: { id: barberId }, data: { active } });
+      const result = await prisma.barber.updateMany({
+        where: { id: barberId, barbershopId: payload.barbershopId! },
+        data: { active },
+      });
+      if (result.count === 0) {
+        return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+      }
       return NextResponse.json({ ok: true });
     }
 
-    const barber = await prisma.barber.findUnique({ where: { id: barberId }, select: { userId: true } });
+    // Valida que o barbeiro pertence a esta barbearia (CVE-6)
+    const barber = await prisma.barber.findFirst({
+      where: { id: barberId, barbershopId: payload.barbershopId! },
+      select: { userId: true },
+    });
     if (!barber) return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
 
     await prisma.user.update({

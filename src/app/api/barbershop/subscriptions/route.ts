@@ -89,7 +89,8 @@ export async function POST(req: NextRequest) {
     if (!planId) return NextResponse.json({ error: "Selecione um plano" }, { status: 400 });
     if (!clientPhone) return NextResponse.json({ error: "WhatsApp obrigatório" }, { status: 400 });
 
-    const plan = await prisma.plan.findUnique({ where: { id: planId } });
+    // Valida que o plano pertence a esta barbearia (CVE-10)
+    const plan = await prisma.plan.findFirst({ where: { id: planId, barbershopId: payload.barbershopId! } });
     if (!plan) return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 });
 
     const barbershop = await prisma.barbershop.findUnique({

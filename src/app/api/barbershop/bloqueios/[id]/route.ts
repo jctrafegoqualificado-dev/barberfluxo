@@ -4,8 +4,18 @@ import { requireAuth } from "@/lib/auth";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth(req, ["OWNER", "BARBER"]);
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const { id } = await params;
+
+    // ScheduleBlock não tem barbershopId direto — navega via barber (CVE-4)
+    const block = await prisma.scheduleBlock.findUnique({
+      where: { id },
+      include: { barber: { select: { barbershopId: true } } },
+    });
+    if (!block || block.barber.barbershopId !== payload.barbershopId!) {
+      return NextResponse.json({ error: "Bloqueio não encontrado" }, { status: 404 });
+    }
+
     await prisma.scheduleBlock.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {

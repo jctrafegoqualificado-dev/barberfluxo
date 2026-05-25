@@ -9,9 +9,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const { name, phone, isBlocked, birthday } = await req.json();
 
-    // Valida que o cliente existe e pertence à barbearia (via agendamentos ou assinaturas)
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user || user.role !== "CLIENT") {
+    // Valida que o cliente existe E pertence a esta barbearia (via agendamentos ou assinaturas) — CVE-7
+    const user = await prisma.user.findFirst({
+      where: {
+        id,
+        role: "CLIENT",
+        OR: [
+          { appointments: { some: { barbershopId: payload.barbershopId! } } },
+          { subscriptions:  { some: { barbershopId: payload.barbershopId! } } },
+        ],
+      },
+    });
+    if (!user) {
       return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
     }
 

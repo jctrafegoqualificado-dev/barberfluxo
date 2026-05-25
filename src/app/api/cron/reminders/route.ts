@@ -10,16 +10,14 @@ Lembramos que você tem um horário de *{{servico}}* marcado para *{{data}}* às
 
 Podemos confirmar sua presença? Responda com *SIM* para confirmar ou *NÃO* para cancelar.`;
 
-const CRON_SECRET = process.env.CRON_SECRET || "";
-
 /**
  * Reminder Cron Job — Multi-Tenant
- * 
+ *
  * Chamado a cada 15 minutos (Vercel Cron ou chamada externa).
  * Varre TODOS os estabelecimentos que ativaram lembretes e envia
  * WhatsApp personalizado via Evolution API para clientes com
  * agendamentos próximos.
- * 
+ *
  * Fluxo:
  * 1. Busca todos os tenants com reminderEnabled = true e WhatsApp conectado
  * 2. Para cada tenant, busca agendamentos PENDING/CONFIRMED onde:
@@ -30,12 +28,16 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
  */
 export async function GET(req: NextRequest) {
   try {
-    // Segurança: só permite chamadas com o secret correto
+    // CVE-5: CRON_SECRET ausente bloqueia o endpoint (nunca silencia a proteção)
+    const CRON_SECRET = process.env.CRON_SECRET;
+    if (!CRON_SECRET) {
+      console.error("[reminders] CRON_SECRET não configurado — endpoint bloqueado");
+      return NextResponse.json({ error: "Misconfigured" }, { status: 500 });
+    }
     const authHeader = req.headers.get("authorization");
     const querySecret = req.nextUrl.searchParams.get("secret");
     const providedSecret = authHeader?.replace("Bearer ", "") || querySecret;
-
-    if (CRON_SECRET && providedSecret !== CRON_SECRET) {
+    if (providedSecret !== CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
