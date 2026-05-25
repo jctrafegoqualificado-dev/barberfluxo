@@ -6,10 +6,10 @@ import { formatCurrency } from "@/lib/utils";
 import {
   TrendingUp, Users, ShoppingBag, Activity, Store, ArrowUpRight,
   Crown, ShieldCheck, ShieldAlert, Search, Download, BadgeDollarSign,
-  BarChart3, UserPlus, UserMinus, Percent
+  BarChart3, UserPlus, UserMinus, Percent, Shield, Trash2, Mail
 } from "lucide-react";
 
-type TabType = "analytics" | "assinantes" | "pagamentos";
+type TabType = "analytics" | "assinantes" | "pagamentos" | "equipe";
 
 export default function PlataformaDashboard() {
   const { token } = useAuthStore();
@@ -20,6 +20,14 @@ export default function PlataformaDashboard() {
   const [filterPlan, setFilterPlan] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Equipe
+  const [team, setTeam] = useState<{ id: string; name: string; email: string; createdAt: string }[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [teamError, setTeamError] = useState("");
+  const [teamSuccess, setTeamSuccess] = useState("");
+  const [addingAdmin, setAddingAdmin] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -37,6 +45,67 @@ export default function PlataformaDashboard() {
     }
     if (token) load();
   }, [token]);
+
+  async function loadTeam() {
+    setTeamLoading(true);
+    try {
+      const res = await fetch("/api/plataforma/team", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setTeam(data.admins || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTeamLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "equipe" && token) loadTeam();
+  }, [activeTab, token]);
+
+  async function addAdmin(e: React.FormEvent) {
+    e.preventDefault();
+    setTeamError("");
+    setTeamSuccess("");
+    setAddingAdmin(true);
+    try {
+      const res = await fetch("/api/plataforma/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: newAdminEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setTeamSuccess(data.message);
+      setNewAdminEmail("");
+      await loadTeam();
+    } catch (e: any) {
+      setTeamError(e.message);
+    } finally {
+      setAddingAdmin(false);
+    }
+  }
+
+  async function removeAdmin(id: string, name: string) {
+    if (!confirm(`Remover acesso de "${name}" ao /plataforma?`)) return;
+    setActionLoading(`team-${id}`);
+    try {
+      const res = await fetch(`/api/plataforma/team/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setTeamSuccess(data.message);
+      await loadTeam();
+    } catch (e: any) {
+      setTeamError(e.message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   async function changePlan(id: string, newPlan: string) {
     if (!confirm(`Alterar plano para ${newPlan}?`)) return;
@@ -142,7 +211,8 @@ export default function PlataformaDashboard() {
           {([
             { id: "analytics", label: "Analytics" },
             { id: "assinantes", label: "Assinantes" },
-            { id: "pagamentos", label: "Pagamentos" }
+            { id: "pagamentos", label: "Pagamentos" },
+            { id: "equipe", label: "Equipe" },
           ] as { id: TabType; label: string }[]).map(tab => (
             <button
               key={tab.id}
@@ -434,6 +504,116 @@ export default function PlataformaDashboard() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ===== EQUIPE TAB ===== */}
+      {activeTab === "equipe" && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-white">Equipe de Administradores</h2>
+            <p className="text-sm text-zinc-500">Gerencie quem tem acesso ao painel da plataforma</p>
+          </div>
+
+          {/* Formulário para adicionar */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+            <h3 className="text-sm font-semibold text-zinc-300 mb-4 flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-indigo-400" />
+              Dar acesso a novo administrador
+            </h3>
+            <form onSubmit={addAdmin} className="flex gap-3 items-end">
+              <div className="flex-1">
+                <label className="block text-xs text-zinc-500 mb-1.5">E-mail da conta</label>
+                <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5">
+                  <Mail className="w-4 h-4 text-zinc-500 shrink-0" />
+                  <input
+                    type="email"
+                    value={newAdminEmail}
+                    onChange={e => { setNewAdminEmail(e.target.value); setTeamError(""); setTeamSuccess(""); }}
+                    placeholder="email@exemplo.com"
+                    className="bg-transparent text-white text-sm placeholder-zinc-500 outline-none flex-1"
+                    required
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={addingAdmin}
+                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {addingAdmin ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <UserPlus className="w-4 h-4" />
+                )}
+                Dar Acesso
+              </button>
+            </form>
+
+            {teamError && (
+              <div className="mt-3 flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+                {teamError}
+              </div>
+            )}
+            {teamSuccess && (
+              <div className="mt-3 flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-sm text-emerald-400">
+                ✅ {teamSuccess}
+              </div>
+            )}
+
+            <p className="text-xs text-zinc-600 mt-3">
+              O usuário precisa ter uma conta criada em{" "}
+              <span className="text-zinc-400 font-mono">/cadastro</span> antes de receber acesso.
+            </p>
+          </div>
+
+          {/* Lista de admins */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-zinc-800 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm font-semibold text-zinc-300">Administradores ativos ({team.length})</span>
+            </div>
+
+            {teamLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : team.length === 0 ? (
+              <div className="py-12 text-center text-zinc-500 text-sm">Nenhum administrador encontrado.</div>
+            ) : (
+              <ul className="divide-y divide-zinc-800">
+                {team.map(admin => (
+                  <li key={admin.id} className="flex items-center justify-between px-6 py-4 hover:bg-zinc-800/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-sm">
+                        {admin.name?.charAt(0)?.toUpperCase() || "?"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{admin.name || "—"}</p>
+                        <p className="text-xs text-zinc-500">{admin.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-zinc-600">
+                        desde {new Date(admin.createdAt).toLocaleDateString("pt-BR")}
+                      </span>
+                      <span className="text-xs font-bold bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">
+                        Admin
+                      </span>
+                      <button
+                        onClick={() => removeAdmin(admin.id, admin.name || admin.email)}
+                        disabled={actionLoading === `team-${admin.id}`}
+                        title="Remover acesso"
+                        className="p-1.5 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}
