@@ -268,6 +268,7 @@ model Subscription {
   billingDay      Int?     // 1-31: dia fixo de vencimento; null = sem fixação
   usesThisCycle   Int      @default(0)
   beneficiaries   Json?    // Controle de uso por beneficiário. Ex: [{ name: "João (Pai)", uses: 0, maxUses: 4 }, { name: "Pedrinho (Filho)", uses: 0, maxUses: 2 }]
+  mpPreapprovalId String?  // MP Preapproval ID — débito recorrente autorizado pelo cliente
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

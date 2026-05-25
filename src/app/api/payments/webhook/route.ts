@@ -1,8 +1,28 @@
+/**
+ * /api/payments/webhook
+ *
+ * Recebe notificações do Mercado Pago e processa dois tipos de evento:
+ *
+ *  1. type="payment"
+ *     Pagamento avulso (Preference/checkout único).
+ *     external_reference = subscriptionId no banco.
+ *
+ *  2. type="subscription_authorized_payment"
+ *     Cobrança automática de um Preapproval (débito recorrente).
+ *     data.id = authorized_payment_id → preapproval_id → mpPreapprovalId no banco.
+ *
+ * Segurança: toda requisição é validada por HMAC-SHA256 antes de processar.
+ * O endpoint sempre retorna HTTP 200 (mesmo em erro) para evitar loop de retentativas do MP.
+ *
+ * Docs: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import MercadoPago, { Payment } from "mercadopago";
 import { createHmac, timingSafeEqual } from "crypto";
 import { addMonths, addQuarters, addYears } from "date-fns";
+import { getMpAuthorizedPayment } from "@/lib/mercadopago";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,11 +63,11 @@ function advanceBillingDate(
  * Valida a assinatura HMAC-SHA256 enviada pelo Mercado Pago.
  *
  * Formato do header x-signature: "ts=<epoch>,v1=<hex>"
- * String assinada:               "id:<paymentId>;request-id:<xRequestId>;ts:<ts>"
+ * String assinada:               "id:<dataId>;request-id:<xRequestId>;ts:<ts>"
  *
  * Docs: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
  */
-function validateMpSignature(req: NextRequest, paymentId: string): boolean {
+function validateMpSignature(req: NextRequest, dataId: string): boolean {
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
 
   if (!secret) {
@@ -83,7 +103,7 @@ function validateMpSignature(req: NextRequest, paymentId: string): boolean {
   }
 
   // Computa HMAC esperado
-  const manifest = `id:${paymentId};request-id:${requestId};ts:${ts}`;
+  const manifest = `id:${dataId};request-id:${requestId};ts:${ts}`;
   const expected = createHmac("sha256", secret).update(manifest).digest("hex");
 
   // Comparação em tempo constante (previne timing attacks)
@@ -97,83 +117,159 @@ function validateMpSignature(req: NextRequest, paymentId: string): boolean {
   }
 }
 
-// ─── Handler ──────────────────────────────────────────────────────────────────
+// ─── Helpers de persistência ─────────────────────────────────────────────────
+
+/**
+ * Marca pagamentos pendentes como PAGO e avança o ciclo da assinatura.
+ * Usado tanto por pagamentos avulsos (Preference) quanto por débito automático (Preapproval).
+ */
+async function markPaidAndAdvance(
+  subscriptionId: string,
+  paymentMethodId: string,
+  externalId: string,
+) {
+  const sub = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+    include: { plan: { select: { billingCycle: true } } },
+  });
+
+  if (!sub) {
+    console.warn(`[webhook] Subscription ${subscriptionId} não encontrada`);
+    return;
+  }
+
+  await prisma.payment.updateMany({
+    where: { subscriptionId, status: "PENDING" },
+    data: {
+      status:     "PAID",
+      method:     paymentMethodId.includes("pix") ? "PIX" : "CREDIT_CARD",
+      externalId: externalId,
+      paidAt:     new Date(),
+    },
+  });
+
+  const nextBillingDate = advanceBillingDate(
+    new Date(sub.nextBillingDate),
+    (sub as { billingDay?: number | null }).billingDay ?? null,
+    sub.plan.billingCycle,
+  );
+
+  await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: { status: "ACTIVE", nextBillingDate, usesThisCycle: 0 },
+  });
+
+  console.log(
+    `[webhook] Pagamento aprovado — sub=${subscriptionId} próxima cobrança=${nextBillingDate.toISOString()}`,
+  );
+}
+
+// ─── Handler principal ────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const { type, data } = body as { type: string; data?: { id: string } };
 
-    // MP envia notificações de vários tipos — só processa pagamentos
-    if (body.type !== "payment") {
+    const dataId = data?.id ? String(data.id) : null;
+
+    // Ignora tipos que não processamos
+    if (type !== "payment" && type !== "subscription_authorized_payment") {
       return NextResponse.json({ ok: true });
     }
 
-    const paymentId = body.data?.id;
-    if (!paymentId || !process.env.MERCADOPAGO_ACCESS_TOKEN) {
+    if (!dataId || !process.env.MERCADOPAGO_ACCESS_TOKEN) {
       return NextResponse.json({ ok: true });
     }
 
-    // ── Validação de assinatura HMAC ──────────────────────────────────────────
-    if (!validateMpSignature(req, String(paymentId))) {
+    // ── Validação de assinatura HMAC (mesma lógica para ambos os tipos) ───────
+    if (!validateMpSignature(req, dataId)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
-    // ── Busca detalhes do pagamento na API do MP ──────────────────────────────
-    const client = new MercadoPago({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
-    const paymentApi = new Payment(client);
-    const mpPayment = await paymentApi.get({ id: paymentId });
+    // ── Tipo 1: Pagamento avulso (Preference) ─────────────────────────────────
+    if (type === "payment") {
+      const client = new MercadoPago({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
+      const paymentApi = new Payment(client);
+      const mpPayment = await paymentApi.get({ id: dataId });
 
-    const subscriptionId = mpPayment.external_reference;
-    if (!subscriptionId) return NextResponse.json({ ok: true });
+      const subscriptionId = mpPayment.external_reference;
+      if (!subscriptionId) return NextResponse.json({ ok: true });
 
-    const status = mpPayment.status; // approved | pending | rejected | cancelled
+      const status = mpPayment.status; // approved | pending | rejected | cancelled
 
-    if (status === "approved") {
-      // Busca assinatura + plano para avançar ciclo corretamente
-      const sub = await prisma.subscription.findUnique({
-        where: { id: subscriptionId },
-        include: { plan: { select: { billingCycle: true } } },
-      });
-
-      // Marca o pagamento pendente como PAGO
-      await prisma.payment.updateMany({
-        where: { subscriptionId, status: "PENDING" },
-        data: {
-          status: "PAID",
-          method: mpPayment.payment_method_id?.includes("pix") ? "PIX" : "CREDIT_CARD",
-          externalId: String(paymentId),
-          paidAt: new Date(),
-        },
-      });
-
-      if (sub) {
-        // Avança nextBillingDate para o próximo ciclo + reseta contagem de usos
-        const nextBillingDate = advanceBillingDate(
-          new Date(sub.nextBillingDate),
-          (sub as { billingDay?: number | null }).billingDay ?? null,
-          sub.plan.billingCycle,
+      if (status === "approved") {
+        await markPaidAndAdvance(
+          subscriptionId,
+          mpPayment.payment_method_id ?? "",
+          dataId,
         );
-
+      } else if (status === "rejected" || status === "cancelled") {
         await prisma.subscription.update({
           where: { id: subscriptionId },
-          data: {
-            status: "ACTIVE",
-            nextBillingDate,
-            usesThisCycle: 0,
-          },
+          data: { status: "OVERDUE" },
         });
-
-        console.log(
-          `[webhook] Pagamento aprovado — sub=${subscriptionId} próxima cobrança=${nextBillingDate.toISOString()}`,
-        );
+        console.log(`[webhook] Pagamento ${status} — sub=${subscriptionId} → OVERDUE`);
       }
-    } else if (status === "rejected" || status === "cancelled") {
-      await prisma.subscription.update({
-        where: { id: subscriptionId },
-        data: { status: "OVERDUE" },
+
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── Tipo 2: Débito automático (Preapproval) ───────────────────────────────
+    if (type === "subscription_authorized_payment") {
+      const authPayment = await getMpAuthorizedPayment(dataId);
+
+      // Localiza a Subscription pelo mpPreapprovalId
+      const sub = await prisma.subscription.findFirst({
+        where: { mpPreapprovalId: authPayment.preapproval_id } as any,
+        select: { id: true },
       });
 
-      console.log(`[webhook] Pagamento ${status} — sub=${subscriptionId} → OVERDUE`);
+      if (!sub) {
+        console.warn(
+          `[webhook] Preapproval ${authPayment.preapproval_id} não encontrado em nenhuma Subscription`,
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      if (authPayment.status === "processed") {
+        // Cria registro do pagamento recorrente se não houver PENDING
+        const pendingExists = await prisma.payment.findFirst({
+          where: { subscriptionId: sub.id, status: "PENDING" },
+        });
+
+        if (!pendingExists) {
+          await prisma.payment.create({
+            data: {
+              subscriptionId: sub.id,
+              amount: authPayment.transaction_amount,
+              method: "CREDIT_CARD", // preapproval só aceita cartão/conta MP
+              status: "PENDING",
+            },
+          });
+        }
+
+        await markPaidAndAdvance(
+          sub.id,
+          authPayment.payment_method_id ?? "credit_card",
+          dataId,
+        );
+      } else if (authPayment.status === "cancelled") {
+        await prisma.subscription.update({
+          where: { id: sub.id },
+          data: { status: "OVERDUE" },
+        });
+        console.log(
+          `[webhook] Débito automático cancelado — sub=${sub.id} preapproval=${authPayment.preapproval_id} → OVERDUE`,
+        );
+      } else {
+        // "recycling" = MP vai tentar novamente — não altera status
+        console.log(
+          `[webhook] Débito automático em reciclagem — sub=${sub.id} status=${authPayment.status}`,
+        );
+      }
+
+      return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ ok: true });
