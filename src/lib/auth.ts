@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
 import { validateApiKey } from "./api-keys/middleware";
+import { prisma } from "./prisma";
 
 const _JWT_SECRET = process.env.JWT_SECRET;
 if (!_JWT_SECRET) {
@@ -33,13 +34,26 @@ export function verifyToken(token: string) {
 
 // Permite acesso ao /plataforma tanto para PLATFORM_ADMIN (role) quanto para
 // qualquer usuário com isPlatformAdmin: true (ex: OWNER que também é gestor)
-export function requirePlatformAdmin(req: NextRequest) {
+// Revalida isPlatformAdmin no banco a cada requisição — revogação tem efeito imediato (CVE-16)
+export async function requirePlatformAdmin(req: NextRequest) {
   const token = getTokenFromRequest(req);
   if (!token) throw new Error("UNAUTHORIZED");
   const payload = verifyToken(token);
+
+  // Primeira barreira: verifica o JWT (rápido, sem DB)
   if (payload.role !== "PLATFORM_ADMIN" && !payload.isPlatformAdmin) {
     throw new Error("FORBIDDEN");
   }
+
+  // Segunda barreira: confirma no banco que o acesso não foi revogado
+  const user = await prisma.user.findUnique({
+    where: { id: payload.id },
+    select: { isPlatformAdmin: true, role: true },
+  });
+  if (!user || (user.role !== "PLATFORM_ADMIN" && !user.isPlatformAdmin)) {
+    throw new Error("FORBIDDEN");
+  }
+
   return payload;
 }
 

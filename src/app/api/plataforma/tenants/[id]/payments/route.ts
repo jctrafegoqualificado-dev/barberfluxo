@@ -4,7 +4,7 @@ import { requirePlatformAdmin } from "@/lib/auth";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requirePlatformAdmin(req);
+    await requirePlatformAdmin(req);
     const { id: shopId } = await params;
     const body = await req.json();
     const { amount, method, status = "PAID", notes, activatePlan } = body;

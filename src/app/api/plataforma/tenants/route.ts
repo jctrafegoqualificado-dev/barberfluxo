@@ -4,7 +4,7 @@ import { requireAuth, requirePlatformAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    requirePlatformAdmin(req);
+    await requirePlatformAdmin(req);
 
     const shops = await prisma.barbershop.findMany({
       orderBy: { createdAt: "desc" },

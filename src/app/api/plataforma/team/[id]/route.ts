@@ -8,7 +8,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const payload = requirePlatformAdmin(req);
+    const payload = await requirePlatformAdmin(req);
     const { id } = await params;
 
     // Não pode remover a si mesmo

@@ -4,7 +4,7 @@ import { requireAuth, requirePlatformAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requirePlatformAdmin(req);
+    await requirePlatformAdmin(req);
     const { id: shopId } = await params;
 
     const shop = await prisma.barbershop.findUnique({

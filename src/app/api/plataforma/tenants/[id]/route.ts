@@ -4,7 +4,7 @@ import { requirePlatformAdmin } from "@/lib/auth";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requirePlatformAdmin(req);
+    await requirePlatformAdmin(req);
     const { id } = await params;
     const { active, saasPlan, saasStatus } = await req.json();
 

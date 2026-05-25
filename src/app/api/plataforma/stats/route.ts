@@ -4,7 +4,7 @@ import { requireAuth, requirePlatformAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    requirePlatformAdmin(req);
+    await requirePlatformAdmin(req);
 
     const now = new Date();
     const brDateStr = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(now);

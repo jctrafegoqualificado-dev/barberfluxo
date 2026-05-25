@@ -4,7 +4,7 @@ import { requirePlatformAdmin, signToken } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = requirePlatformAdmin(req);
+    const payload = await requirePlatformAdmin(req);
     const { barbershopId } = await req.json();
 
     if (!barbershopId) {

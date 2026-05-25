@@ -5,7 +5,7 @@ import { requirePlatformAdmin } from "@/lib/auth";
 // GET /api/plataforma/team — lista todos com acesso ao /plataforma
 export async function GET(req: NextRequest) {
   try {
-    requirePlatformAdmin(req);
+    await requirePlatformAdmin(req);
 
     const admins = await prisma.user.findMany({
       where: {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 // POST /api/plataforma/team — dá acesso ao /plataforma por e-mail (sem mudar o role)
 export async function POST(req: NextRequest) {
   try {
-    const payload = requirePlatformAdmin(req);
+    const payload = await requirePlatformAdmin(req);
     const { email } = await req.json();
 
     if (!email) {
