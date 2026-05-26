@@ -90,10 +90,12 @@ export async function createMpPreapproval(
   const { frequency, frequency_type } = cycleToFrequency(input.billingCycle);
 
   const result = await api.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     body: {
       reason: input.reason,
       payer_email: input.payerEmail,
       back_url: input.backUrl,
+      // notification_url existe na API REST mas o SDK não o declara nos tipos
       notification_url: input.notificationUrl,
       external_reference: input.subscriptionId,
       auto_recurring: {
@@ -103,7 +105,7 @@ export async function createMpPreapproval(
         currency_id: "BRL",
         start_date: input.startDate.toISOString(),
       },
-    },
+    } as any,
   });
 
   if (!result.id || !result.init_point) {
