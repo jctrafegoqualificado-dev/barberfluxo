@@ -237,9 +237,9 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Envia link via WhatsApp — fire-and-forget
+        // Envia link via WhatsApp — aguarda para não ser cortado pelo serverless
         if (client.phone) {
-          void sendWhatsAppNotification(
+          await sendWhatsAppNotification(
             payload.barbershopId!,
             client.phone,
             `🎉 *Bem-vindo ao plano ${plan.name}!*\n\n` +
@@ -247,7 +247,10 @@ export async function POST(req: NextRequest) {
             `Para ativar o débito automático via Mercado Pago, clique no link abaixo:\n\n` +
             `👉 ${initPoint}\n\n` +
             `_Após autorizar, as cobranças serão feitas automaticamente a cada ciclo. ✅_`,
-          );
+          ).catch((err) => {
+            // Falha no WhatsApp não cancela a assinatura já criada
+            console.error("[subscriptions] Falha ao enviar WhatsApp:", err);
+          });
         }
 
         // Retorna a subscription já com os dados do MP
