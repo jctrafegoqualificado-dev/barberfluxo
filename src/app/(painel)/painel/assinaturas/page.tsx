@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2, Users, TrendingUp, DollarSign, MessageSquare, Calendar, Edit2, Clock, FileText, RotateCcw, ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2, Users, TrendingUp, DollarSign, MessageSquare, Calendar, Edit2, Clock, FileText, RotateCcw, ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Filter, Link, RefreshCw, Send } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -14,6 +14,10 @@ interface Subscription {
   plan: { id: string; name: string; price: number; maxUses: number | null };
   payments: { status: string; amount: number; method: string; paidAt: string | null }[];
   beneficiaries?: any;
+  mpPreapprovalId?: string | null;
+  authorizationStatus?: string | null;
+  authorizationLink?: string | null;
+  authorizationSentAt?: string | null;
 }
 interface Plan { id: string; name: string; price: number }
 
@@ -246,6 +250,60 @@ export default function AssinaturasPage() {
     const message = `Olá, ${s.client.name}! Tudo bem? Passando para lembrar que a mensalidade do seu plano *${s.plan.name}* venceu em ${new Date(s.nextBillingDate).toLocaleDateString("pt-BR")}. Se preferir realizar o pagamento via PIX, a nossa chave é a cadastrada na barbearia. Assim que realizar o pagamento, me avise para darmos baixa aqui! Obrigado! 💈`;
     const encodedText = encodeURIComponent(message);
     window.open(`https://wa.me/${phone.startsWith("55") ? phone : "55" + phone}?text=${encodedText}`, "_blank");
+  }
+
+  // ── Débito automático (preapproval MP) ──────────────────────────────────────
+
+  async function handleCancelPreapproval(sub: Subscription) {
+    if (!confirm(`Cancelar o débito automático de ${sub.client.name}?\n\nO Mercado Pago parará de cobrar automaticamente. O cliente precisará autorizar novamente.`)) return;
+    setExtratoLoading(true);
+    try {
+      const res = await fetch(`/api/payments/preapproval?subscriptionId=${sub.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Erro ao cancelar débito automático"); return; }
+      alert("Débito automático cancelado. Você pode criar um novo link agora.");
+      load();
+      // Atualiza o extrato se estiver aberto
+      if (extratoSub?.id === sub.id) await loadExtrato({ ...sub, mpPreapprovalId: null, authorizationStatus: "MANUAL" });
+    } finally {
+      setExtratoLoading(false);
+    }
+  }
+
+  async function handleCreatePreapproval(sub: Subscription) {
+    setExtratoLoading(true);
+    try {
+      const res = await fetch("/api/payments/preapproval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subscriptionId: sub.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Erro ao gerar link de autorização"); return; }
+      alert(`Link gerado com sucesso!\n\nCompartilhe com ${sub.client.name}:\n${data.checkoutUrl}`);
+      load();
+      if (extratoSub?.id === sub.id) await loadExtrato(sub);
+    } finally {
+      setExtratoLoading(false);
+    }
+  }
+
+  async function handleSendAuthorizationLink(sub: Subscription) {
+    setExtratoLoading(true);
+    try {
+      const res = await fetch(`/api/barbershop/subscriptions/${sub.id}/send-authorization`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Erro ao reenviar link"); return; }
+      alert(data.message || "Link reenviado via WhatsApp!");
+    } finally {
+      setExtratoLoading(false);
+    }
   }
 
   async function handleUpdateBillingDate(id: string) {
@@ -1002,6 +1060,93 @@ export default function AssinaturasPage() {
                       </div>
                     </div>
                   )}
+                  {/* Seção Débito Automático (MP Preapproval) */}
+                  {(() => {
+                    const authStatus = extratoSub.authorizationStatus;
+                    const authLink   = extratoSub.authorizationLink;
+                    const hasPreapproval = Boolean(extratoSub.mpPreapprovalId);
+
+                    const statusInfo: Record<string, { label: string; color: string }> = {
+                      AUTHORIZED:    { label: "✅ Ativo — MP cobra automaticamente",       color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+                      PENDING_AUTH:  { label: "⏳ Aguardando autorização do cliente",       color: "text-amber-700 bg-amber-50 border-amber-200" },
+                      PAUSED:        { label: "⏸ Pausado",                                  color: "text-zinc-600 bg-zinc-100 border-zinc-200" },
+                      CANCELLED:     { label: "❌ Cancelado",                               color: "text-red-700 bg-red-50 border-red-200" },
+                      MANUAL:        { label: "✏️ Cobrança manual (sem débito automático)", color: "text-zinc-600 bg-zinc-100 border-zinc-200" },
+                    };
+                    const info = statusInfo[authStatus ?? "MANUAL"] ?? statusInfo["MANUAL"];
+
+                    return (
+                      <div className="border border-zinc-100 rounded-xl p-4">
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-3">Débito Automático (Mercado Pago)</p>
+                        <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border inline-block mb-3 ${info.color}`}>
+                          {info.label}
+                        </span>
+
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {/* Sem preapproval → criar */}
+                          {!hasPreapproval && (
+                            <button
+                              onClick={() => handleCreatePreapproval(extratoSub)}
+                              disabled={extratoLoading}
+                              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                            >
+                              <Link className="w-3.5 h-3.5" /> Gerar link de autorização
+                            </button>
+                          )}
+
+                          {/* Tem preapproval pendente → reenviar + cancelar */}
+                          {hasPreapproval && authStatus === "PENDING_AUTH" && (
+                            <>
+                              {authLink && (
+                                <button
+                                  onClick={() => { navigator.clipboard.writeText(authLink); alert("Link copiado!"); }}
+                                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-zinc-200 text-zinc-700 font-semibold hover:bg-zinc-50 transition-colors"
+                                >
+                                  <Link className="w-3.5 h-3.5" /> Copiar link
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleSendAuthorizationLink(extratoSub)}
+                                disabled={extratoLoading}
+                                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-500 text-white font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                              >
+                                <Send className="w-3.5 h-3.5" /> Reenviar WhatsApp
+                              </button>
+                              <button
+                                onClick={() => handleCancelPreapproval(extratoSub)}
+                                disabled={extratoLoading}
+                                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-red-200 text-red-600 font-semibold hover:bg-red-50 transition-colors disabled:opacity-50"
+                              >
+                                <X className="w-3.5 h-3.5" /> Cancelar e recriar
+                              </button>
+                            </>
+                          )}
+
+                          {/* Autorizado → só cancelar */}
+                          {hasPreapproval && authStatus === "AUTHORIZED" && (
+                            <button
+                              onClick={() => handleCancelPreapproval(extratoSub)}
+                              disabled={extratoLoading}
+                              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-red-200 text-red-600 font-semibold hover:bg-red-50 transition-colors disabled:opacity-50"
+                            >
+                              <X className="w-3.5 h-3.5" /> Cancelar débito automático
+                            </button>
+                          )}
+
+                          {/* Cancelado/Pausado → recriar */}
+                          {hasPreapproval && (authStatus === "CANCELLED" || authStatus === "PAUSED") && (
+                            <button
+                              onClick={() => handleCreatePreapproval(extratoSub)}
+                              disabled={extratoLoading}
+                              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" /> Recriar débito automático
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : extratoTab === "consumo" ? (
                 /* === ABA CONSUMO === */

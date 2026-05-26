@@ -46,6 +46,10 @@ export async function GET(req: NextRequest) {
         usesThisCycle: true,
         beneficiaries: true,
         createdAt: true,
+        mpPreapprovalId:    true,
+        authorizationStatus: true,
+        authorizationLink:   true,
+        authorizationSentAt: true,
         client: { select: { id: true, name: true, email: true, phone: true } },
         plan: {
           select: {
@@ -235,11 +239,15 @@ export async function POST(req: NextRequest) {
         // MP chama este endpoint a cada cobrança automática — mantém o banco atualizado
         const notificationUrl = `${baseUrl}/api/payments/webhook`;
 
+        // Só envia payer_email se for um e-mail real — sintéticos (@cliente.) bloqueiam o checkout
+        const isFakeEmail = (email: string) => /@cliente\./i.test(email);
+        const payerEmail = isFakeEmail(client.email) ? undefined : client.email;
+
         const { preapprovalId, initPoint } = await createMpPreapproval(
           {
             subscriptionId:    subscription.id,
             reason:            `${plan.name} — ${barbershop?.name ?? "Barbearia"}`,
-            payerEmail:        client.email,
+            payerEmail,
             transactionAmount: plan.price,
             billingCycle:      plan.billingCycle,
             startDate:         nextBilling,
