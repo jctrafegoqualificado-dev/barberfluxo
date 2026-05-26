@@ -273,17 +273,40 @@ export default function AssinaturasPage() {
     }
   }
 
-  async function handleCreatePreapproval(sub: Subscription) {
+  async function handleCreatePreapproval(sub: Subscription, emailOverride?: string) {
+    // O Mercado Pago exige payer_email. Se o cliente só tem e-mail sintético (@cliente.*),
+    // pedimos o e-mail real antes de chamar a API.
+    const isFakeEmail = (email: string) => /@cliente\./i.test(email);
+    let clientEmail = emailOverride ?? (isFakeEmail(sub.client.email) ? undefined : sub.client.email);
+
+    if (!clientEmail) {
+      const input = window.prompt(
+        `📧 E-mail do cliente obrigatório\n\n` +
+        `${sub.client.name} não tem e-mail cadastrado.\n` +
+        `Informe o e-mail dele para ativar o débito automático no Mercado Pago:`
+      );
+      if (!input?.trim()) return; // usuário cancelou
+      clientEmail = input.trim();
+    }
+
     setExtratoLoading(true);
     try {
       const res = await fetch("/api/payments/preapproval", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ subscriptionId: sub.id }),
+        body: JSON.stringify({ subscriptionId: sub.id, clientEmail }),
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "Erro ao gerar link de autorização"); return; }
-      alert(`Link gerado com sucesso!\n\nCompartilhe com ${sub.client.name}:\n${data.checkoutUrl}`);
+      if (!res.ok) {
+        // Se a API pedir e-mail novamente (raro), repete o fluxo com prompt
+        if (data.error === "EMAIL_REQUIRED") {
+          alert("E-mail inválido. Tente novamente.");
+          return handleCreatePreapproval(sub);
+        }
+        alert(data.error || data.message || "Erro ao gerar link de autorização");
+        return;
+      }
+      alert(`✅ Link gerado!\n\nCompartilhe com ${sub.client.name}:\n${data.checkoutUrl}`);
       load();
       if (extratoSub?.id === sub.id) await loadExtrato(sub);
     } finally {

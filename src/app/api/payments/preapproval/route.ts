@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
-    const { subscriptionId } = await req.json();
+    const { subscriptionId, clientEmail: clientEmailInput } = await req.json();
 
     if (!subscriptionId) {
       return NextResponse.json({ error: "subscriptionId obrigatório" }, { status: 400 });
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const sub = await prisma.subscription.findUnique({
       where: { id: subscriptionId, barbershopId },
       include: {
-        client:    { select: { email: true, name: true } },
+        client:    { select: { id: true, email: true, name: true } },
         plan:      { select: { name: true, price: true, billingCycle: true } },
         barbershop:{ select: { name: true } },
       },
@@ -77,17 +77,34 @@ export async function POST(req: NextRequest) {
     const barbershopToken = decrypt(gatewayConfig.accessToken);
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
-    // E-mails sintéticos gerados pelo sistema (ex: 41999@cliente.barber...) não são
-    // endereços reais. Enviá-los como payer_email faz o MP bloquear o checkout porque
-    // o cliente não consegue digitar um e-mail que ele não conhece.
+    // ── Resolve o e-mail do pagador ───────────────────────────────────────────
+    // MP exige payer_email para criar preapproval. E-mails sintéticos (@cliente.*)
+    // são apenas identificadores internos — o cliente não os conhece e o checkout falha.
+    // Se o dono informou um e-mail real via clientEmailInput, usa ele e atualiza o cadastro.
     const isFakeEmail = (email: string) =>
       /@cliente\./i.test(email) || email.endsWith("@cliente.barberfluxo") || email.endsWith("@cliente.barberapp");
 
-    const payerEmail = isFakeEmail(sub.client.email) ? undefined : sub.client.email;
+    let payerEmail: string | undefined = isFakeEmail(sub.client.email) ? undefined : sub.client.email;
+
+    if (!payerEmail && clientEmailInput?.trim()) {
+      // Dono informou o e-mail real do cliente → salva no cadastro e usa no MP
+      const trimmed = clientEmailInput.trim();
+      await prisma.user.update({ where: { id: sub.client.id }, data: { email: trimmed } });
+      payerEmail = trimmed;
+      console.log(`[preapproval] E-mail do cliente atualizado para ${trimmed} (era sintético)`);
+    }
+
+    if (!payerEmail) {
+      // MP exige o e-mail — sem ele o preapproval não pode ser criado
+      return NextResponse.json(
+        { error: "EMAIL_REQUIRED", message: "Informe o e-mail do cliente para ativar o débito automático no Mercado Pago." },
+        { status: 400 },
+      );
+    }
 
     const startDate = new Date(sub.nextBillingDate);
 
-    console.log(`[preapproval] Criando preapproval: sub=${subscriptionId} startDate=${startDate.toISOString()} amount=${sub.plan.price} cycle=${sub.plan.billingCycle} payerEmail=${payerEmail ?? "omitido"}`);
+    console.log(`[preapproval] Criando preapproval: sub=${subscriptionId} startDate=${startDate.toISOString()} amount=${sub.plan.price} cycle=${sub.plan.billingCycle} payerEmail=${payerEmail}`);
 
     const { preapprovalId, initPoint } = await createMpPreapproval({
       subscriptionId,
