@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ExternalLink, Unlink, Wifi } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -126,6 +126,15 @@ export default function ConfiguracoesPage() {
   const [deletingDayId, setDeletingDayId] = useState<string | null>(null);
   const slug = user?.barbershopSlug ?? "";
 
+  // ── Mercado Pago ──
+  const [mpConfig, setMpConfig] = useState<{ connected: boolean; config?: { mpUserId: string; active: boolean; updatedAt: string } } | null>(null);
+  const [mpToken, setMpToken] = useState("");
+  const [showMpToken, setShowMpToken] = useState(false);
+  const [savingMp, setSavingMp] = useState(false);
+  const [mpStatus, setMpStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [disconnectingMp, setDisconnectingMp] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+
   useEffect(() => {
     fetch("/api/barbershop/financeiro", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
@@ -159,6 +168,11 @@ export default function ConfiguracoesPage() {
     fetch("/api/barbershop/special-days", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => { if (d.days) setSpecialDays(d.days); });
+
+    fetch("/api/barbershop/payment-config", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => setMpConfig(d))
+      .catch(() => setMpConfig({ connected: false }));
   }, [token]);
 
   async function addSpecialDay() {
@@ -269,6 +283,47 @@ export default function ConfiguracoesPage() {
     setSavingDiscount(false);
     setDiscountSaved(true);
     setTimeout(() => setDiscountSaved(false), 2500);
+  }
+
+  async function connectMp() {
+    if (!mpToken.trim()) return;
+    setSavingMp(true);
+    setMpStatus(null);
+    try {
+      const res = await fetch("/api/barbershop/payment-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ gateway: "mercadopago", accessToken: mpToken.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Erro ao conectar");
+      setMpConfig({ connected: true, config: d.config });
+      setMpToken("");
+      setMpStatus({ type: "success", msg: d.message });
+    } catch (e) {
+      setMpStatus({ type: "error", msg: e instanceof Error ? e.message : "Erro ao conectar" });
+    } finally {
+      setSavingMp(false);
+    }
+  }
+
+  async function disconnectMp() {
+    setDisconnectingMp(true);
+    try {
+      const res = await fetch("/api/barbershop/payment-config", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await res.json();
+      setMpConfig({ connected: false });
+      setConfirmDisconnect(false);
+      if (d.warning) setMpStatus({ type: "error", msg: d.warning });
+      else setMpStatus({ type: "success", msg: "Mercado Pago desconectado." });
+    } catch {
+      setMpStatus({ type: "error", msg: "Erro ao desconectar. Tente novamente." });
+    } finally {
+      setDisconnectingMp(false);
+    }
   }
 
   function copyLink() {
@@ -412,6 +467,129 @@ export default function ConfiguracoesPage() {
             {feesSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingFees ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar taxas</>}
           </Button>
         </div>
+      </Card>
+
+      {/* ── Mercado Pago ── */}
+      <Card>
+        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
+          <Wifi className="w-4 h-4 text-primary" /> Pagamentos Online — Mercado Pago
+        </h2>
+        <p className="text-xs text-zinc-400 mb-4">
+          Conecte sua conta para cobrar clientes por Pix, cartão de crédito e débito automático em assinaturas.
+          O dinheiro vai direto para a sua conta — a plataforma não cobra nenhuma %.
+        </p>
+
+        {/* Feedback */}
+        {mpStatus && (
+          <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl text-sm mb-4 ${
+            mpStatus.type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+          }`}>
+            {mpStatus.type === "success"
+              ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              : <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+            <span>{mpStatus.msg}</span>
+          </div>
+        )}
+
+        {mpConfig === null ? (
+          /* carregando */
+          <div className="flex items-center gap-2 text-sm text-zinc-400 py-3">
+            <Loader2 className="w-4 h-4 animate-spin" /> Verificando conexão...
+          </div>
+        ) : mpConfig.connected ? (
+          /* ── CONECTADO ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+              <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-emerald-800">Conectado ao Mercado Pago</p>
+                <p className="text-xs text-emerald-600">
+                  ID da conta: <span className="font-mono">{mpConfig.config?.mpUserId}</span>
+                </p>
+              </div>
+            </div>
+
+            {!confirmDisconnect ? (
+              <button
+                onClick={() => { setConfirmDisconnect(true); setMpStatus(null); }}
+                className="flex items-center gap-2 text-xs text-zinc-400 hover:text-red-500 transition-colors"
+              >
+                <Unlink className="w-3.5 h-3.5" /> Desconectar Mercado Pago
+              </button>
+            ) : (
+              <div className="border border-red-100 bg-red-50 rounded-xl p-4 space-y-3">
+                <p className="text-sm text-red-700 font-medium">Tem certeza que quer desconectar?</p>
+                <p className="text-xs text-red-500">
+                  Assinaturas com débito automático ativo deixarão de ser processadas automaticamente.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDisconnect(false)}
+                    className="flex-1 py-2 rounded-lg border border-zinc-200 text-sm text-zinc-600 hover:bg-zinc-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={disconnectMp}
+                    disabled={disconnectingMp}
+                    className="flex-1 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-60"
+                  >
+                    {disconnectingMp ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Sim, desconectar"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ── NÃO CONECTADO ── */
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1 font-medium">
+                Access Token de Produção
+              </label>
+              <div className="relative">
+                <input
+                  type={showMpToken ? "text" : "password"}
+                  value={mpToken}
+                  onChange={(e) => { setMpToken(e.target.value); setMpStatus(null); }}
+                  placeholder="APP_USR-..."
+                  className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMpToken((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                >
+                  {showMpToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <a
+                href="https://www.mercadopago.com.br/developers/panel/app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1.5"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Onde acho meu Access Token? (Portal MP)
+              </a>
+            </div>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={connectMp}
+              disabled={savingMp || !mpToken.trim()}
+            >
+              {savingMp ? (
+                <><Loader2 className="w-3.5 h-3.5 mr-1.5 inline animate-spin" />Validando...</>
+              ) : (
+                <><Check className="w-3.5 h-3.5 mr-1.5 inline" />Conectar Mercado Pago</>
+              )}
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Lembrete WhatsApp */}
