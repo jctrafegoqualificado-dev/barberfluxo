@@ -20,13 +20,30 @@ const redis = redisConfigured
   : null;
 
 // ── Tipo unificado ───────────────────────────────────────────────────────────
+// Inclui todos os campos retornados pelo Upstash (limit, remaining, reset)
+// para que os consumers possam usá-los sem cast adicional.
+interface LimitResult {
+  success: boolean;
+  limit: number;
+  remaining: number;
+  /** Timestamp (ms) em que a janela é resetada */
+  reset: number;
+  pending: Promise<unknown>;
+}
+
 interface Limiter {
-  limit(key: string): Promise<{ success: boolean }>;
+  limit(key: string): Promise<LimitResult>;
 }
 
 // Stub: sempre permite (usado em dev sem Redis)
 const noopLimiter: Limiter = {
-  limit: async () => ({ success: true }),
+  limit: async () => ({
+    success: true,
+    limit: 0,
+    remaining: 0,
+    reset: Date.now(),
+    pending: Promise.resolve(),
+  }),
 };
 
 // ── Limitadores ──────────────────────────────────────────────────────────────
