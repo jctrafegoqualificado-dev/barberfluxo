@@ -36,6 +36,7 @@ const ownerFinanceNav = [
 const ownerBottomNav = [
   { href: "/painel/meu-negocio", label: "Meu Negócio", icon: Building2 },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
+  { href: "/painel/configuracoes/pagamentos", label: "Pagamentos", icon: CreditCard },
   { href: "/painel/configuracoes/lembretes", label: "Lembretes", icon: Bell },
   { href: "/painel/assinatura", label: "Minha Assinatura", icon: Crown },
 ];
