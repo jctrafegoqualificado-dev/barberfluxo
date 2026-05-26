@@ -14,6 +14,7 @@ type MpConfig = {
   config?: {
     id: string;
     mpUserId: string;
+    mpEmail?: string | null;
     active: boolean;
     updatedAt: string;
   };
@@ -216,9 +217,15 @@ export default function PagamentosPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-zinc-400">Conta conectada</p>
-                  <p className="text-sm font-semibold text-zinc-800 truncate font-mono">
-                    ID: {mpConfig.config?.mpUserId}
-                  </p>
+                  {mpConfig.config?.mpEmail ? (
+                    <p className="text-sm font-semibold text-zinc-800 truncate">
+                      {mpConfig.config.mpEmail}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-semibold text-zinc-800 truncate font-mono">
+                      ID: {mpConfig.config?.mpUserId}
+                    </p>
+                  )}
                 </div>
                 {mpConfig.config?.updatedAt && (
                   <p className="text-xs text-zinc-400 shrink-0">

@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
         gateway:   true,
         publicKey: true,
         mpUserId:  true,
+        mpEmail:   true,
         active:    true,
         createdAt: true,
         updatedAt: true,

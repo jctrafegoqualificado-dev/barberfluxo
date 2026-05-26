@@ -598,6 +598,7 @@ model PaymentGatewayConfig {
   accessToken  String     // 🔒 AES-256-GCM encrypted — NUNCA expor em API
   publicKey    String?    // chave pública MP (segura de exibir no frontend)
   mpUserId     String?    // ID do usuário MP (retornado ao validar o token)
+  mpEmail      String?    // e-mail da conta MP conectada (exibido na UI, não sensível)
 
   active       Boolean    @default(true)
   createdAt    DateTime   @default(now())
