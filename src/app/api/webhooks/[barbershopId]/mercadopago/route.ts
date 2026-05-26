@@ -2,7 +2,7 @@
  * /api/webhooks/[barbershopId]/mercadopago
  *
  * Webhook público chamado pelo Mercado Pago para notificar eventos
- * de assinaturas recorrentes (Preapprovals) de cada barbearia.
+ * de assinaturas recorrentes (Preapprovals) e pagamentos avulsos de cada barbearia.
  *
  * URL configurada no painel MP de cada barbearia:
  *   https://<dominio>/api/webhooks/<barbershopId>/mercadopago
@@ -19,9 +19,12 @@
  *
  * Eventos tratados:
  *  - subscription_preapproval          → cliente autorizou (ou cancelou) o débito
- *  - subscription_authorized_payment   → MP cobrou com sucesso (ou falhou)
+ *  - subscription_authorized_payment   → MP cobrou com sucesso (ou falhou) na recorrência
+ *  - payment                           → pagamento avulso de agendamento confirmado
  *
- * Docs MP: https://www.mercadopago.com.br/developers/pt/docs/subscriptions/webhook
+ * Docs MP:
+ *   Subscriptions: https://www.mercadopago.com.br/developers/pt/docs/subscriptions/webhook
+ *   Payments:      https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/webhook
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -30,6 +33,7 @@ import { decrypt } from "@/lib/encrypt";
 import {
   getMpPreapproval,
   getMpAuthorizedPayment,
+  getMpPayment,
 } from "@/lib/mercadopago";
 import { sendWhatsAppNotification } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
@@ -319,6 +323,116 @@ async function handleAuthorizedPayment(
   // "recycling" → MP ainda vai tentar novamente; aguarda, não faz nada agora
 }
 
+// ─── Handler: payment (avulso — pagamento único de agendamento) ───────────────
+// Chamado quando o cliente paga via link gerado em /api/barbershop/payments/link
+
+async function handlePayment(
+  barbershopId: string,
+  paymentId:    string,
+  token:        string,
+): Promise<void> {
+  // 1. Idempotência — evita processar o mesmo payment duas vezes
+  const alreadyDone = await prisma.appointment.findFirst({
+    where:  { barbershopId, mpPaymentId: paymentId } as any,
+    select: { id: true },
+  });
+  if (alreadyDone) {
+    console.log(`[MP-Webhook] payment ${paymentId} (avulso) já processado — skip`);
+    return;
+  }
+
+  // 2. Fetch payment do MP
+  const mpPayment = await getMpPayment(paymentId, token);
+
+  // Só processa pagamentos aprovados
+  if (mpPayment.status !== "approved") {
+    console.log(`[MP-Webhook] payment ${paymentId} status=${mpPayment.status} — ignorado`);
+    return;
+  }
+
+  // 3. external_reference deve ter formato "appointment:{id}"
+  const ref = mpPayment.external_reference ?? "";
+  if (!ref.startsWith("appointment:")) {
+    console.log(`[MP-Webhook] payment ${paymentId} external_reference="${ref}" não é avulso — ignorado`);
+    return;
+  }
+  const appointmentId = ref.replace("appointment:", "");
+
+  // 4. Busca agendamento (segurança multi-tenant)
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: appointmentId, barbershopId },
+    include: {
+      client:    { select: { id: true, name: true, phone: true } },
+      barbershop: { select: { name: true, ownerId: true } },
+      service:   { select: { name: true } },
+    },
+  });
+
+  if (!appointment) {
+    console.warn(
+      `[MP-Webhook] payment ${paymentId}: appointment ${appointmentId} não encontrado ` +
+      `(barbershopId=${barbershopId})`,
+    );
+    return;
+  }
+
+  // 5. Atualiza agendamento como pago
+  const method = mapPaymentMethod(mpPayment.payment_method_id);
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data:  {
+      mpPaymentId:   paymentId,
+      paymentMethod: method,
+    } as any,
+  });
+
+  // 6. Notifica dono da barbearia via WhatsApp (busca telefone do dono)
+  const owner = await prisma.user.findUnique({
+    where:  { id: appointment.barbershop.ownerId },
+    select: { phone: true },
+  });
+
+  const shopName    = appointment.barbershop?.name ?? "Barbearia";
+  const serviceName = appointment.service?.name    ?? "Atendimento";
+
+  if (owner?.phone) {
+    void sendWhatsAppNotification(
+      barbershopId,
+      owner.phone,
+      `💰 *Pagamento recebido!*\n\n` +
+      `*${appointment.client.name}* pagou o agendamento de *${serviceName}* via Mercado Pago.\n\n` +
+      `💳 Método: ${method}\n` +
+      `💵 Valor: R$ ${mpPayment.transaction_amount.toFixed(2)}`,
+    );
+  }
+
+  // Confirma para o cliente também
+  if (appointment.client.phone) {
+    void sendWhatsAppNotification(
+      barbershopId,
+      appointment.client.phone,
+      `✅ *Pagamento confirmado!*\n\n` +
+      `Olá, ${appointment.client.name}! Seu pagamento de *${serviceName}* na *${shopName}* foi confirmado.\n\n` +
+      `Até logo! 😊`,
+    );
+  }
+
+  void logAudit({
+    barbershopId,
+    action:   "UPDATE",
+    entity:   "Appointment",
+    entityId: appointmentId,
+    diff: {
+      after: {
+        mpPaymentId:   paymentId,
+        paymentMethod: method,
+        amount:        mpPayment.transaction_amount,
+        source:        "mp-webhook-payment",
+      },
+    },
+  });
+}
+
 // ─── POST — entry point do webhook ───────────────────────────────────────────
 
 export async function POST(
@@ -366,8 +480,12 @@ export async function POST(
         await handleAuthorizedPayment(barbershopId, resourceId, token);
         break;
 
+      case "payment":
+        await handlePayment(barbershopId, resourceId, token);
+        break;
+
       default:
-        // Outros eventos (payment, point_integration_wh, test, etc.) → ignorar
+        // Outros eventos (point_integration_wh, test, etc.) → ignorar
         console.log(`[MP-Webhook] Evento não tratado: type=${type} — ignorado`);
     }
   } catch (err) {

@@ -223,10 +223,17 @@ model Appointment {
   services AppointmentService[]
   review   Review?
 
+  // ── Link de pagamento MP avulso (Sprint MP) ─────────────────────────────────
+  // Permite cobrar o cliente pelo WhatsApp antes de chegar na barbearia
+  mpPaymentLink     String?   // init_point do MP para enviar ao cliente
+  mpPreferenceId    String?   // ID da Preference no MP (para rastrear)
+  mpPaymentId       String?   // ID do Payment confirmado no MP (idempotência)
+
   @@index([barbershopId, date])
   @@index([barbershopId, status, date])
   @@index([status])
   @@index([clientId])
+  @@index([mpPaymentId]) // busca rápida no webhook de pagamento avulso
 }
 
 model AppointmentService {

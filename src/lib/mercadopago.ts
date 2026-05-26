@@ -13,7 +13,7 @@
  * Isso garante compatibilidade total com o código existente (cobrança de SaaS).
  */
 
-import MercadoPago, { PreApproval } from "mercadopago";
+import MercadoPago, { PreApproval, Preference, Payment } from "mercadopago";
 
 // ─── Client factory ───────────────────────────────────────────────────────────
 
@@ -125,6 +125,30 @@ export async function cancelMpPreapproval(preapprovalId: string, accessToken?: s
   await api.update({ id: preapprovalId, body: { status: "cancelled" } });
 }
 
+// ─── Pause / Resume Preapproval ───────────────────────────────────────────────
+
+/**
+ * Pausa um Preapproval no MP (status → "paused").
+ * MP não fará cobranças automáticas até que seja retomado.
+ * Usado quando o dono dá baixa manual em uma assinatura com MP autorizado
+ * (evita dupla cobrança no balcão + débito automático).
+ */
+export async function pauseMpPreapproval(preapprovalId: string, accessToken?: string): Promise<void> {
+  const client = getMpClient(accessToken);
+  const api = new PreApproval(client);
+  await api.update({ id: preapprovalId, body: { status: "paused" } });
+}
+
+/**
+ * Retoma um Preapproval pausado (status → "authorized").
+ * MP volta a cobrar automaticamente a partir da próxima data de cobrança.
+ */
+export async function resumeMpPreapproval(preapprovalId: string, accessToken?: string): Promise<void> {
+  const client = getMpClient(accessToken);
+  const api = new PreApproval(client);
+  await api.update({ id: preapprovalId, body: { status: "authorized" } });
+}
+
 // ─── Get Preapproval ─────────────────────────────────────────────────────────
 
 export interface MpPreapproval {
@@ -197,4 +221,102 @@ export async function getMpAuthorizedPayment(id: string, accessToken?: string): 
   }
 
   return res.json() as Promise<MpAuthorizedPayment>;
+}
+
+// ─── Create Payment Preference (avulso / one-time) ────────────────────────────
+
+export interface CreatePreferenceInput {
+  /** Identificador interno (ex: appointmentId) — vem de volta no webhook */
+  externalReference: string;
+  /** Título do item exibido no checkout MP */
+  title: string;
+  /** Valor único a ser cobrado */
+  unitPrice: number;
+  /** E-mail do pagador (opcional — MP pede em alguns fluxos) */
+  payerEmail?: string;
+  /** URL de retorno após pagamento aprovado */
+  successUrl: string;
+  /** URL chamada pelo MP para notificar eventos */
+  notificationUrl: string;
+}
+
+export interface CreatePreferenceResult {
+  preferenceId: string;
+  /** Link do checkout para enviar ao cliente */
+  initPoint: string;
+}
+
+/**
+ * Cria uma Preference no MP para cobrança avulsa (ex: pagamento de um agendamento).
+ * Diferente do Preapproval, esta cobra uma única vez.
+ *
+ * @param input        Dados da cobrança
+ * @param accessToken  Token da barbearia (opcional — omita para usar token da plataforma)
+ */
+export async function createMpPreference(
+  input: CreatePreferenceInput,
+  accessToken?: string,
+): Promise<CreatePreferenceResult> {
+  const client = getMpClient(accessToken);
+  const api = new Preference(client);
+
+  const result = await api.create({
+    body: {
+      items: [
+        {
+          id:         input.externalReference,
+          title:      input.title,
+          quantity:   1,
+          unit_price: input.unitPrice,
+          currency_id: "BRL",
+        },
+      ],
+      external_reference: input.externalReference,
+      payer: input.payerEmail ? { email: input.payerEmail } : undefined,
+      back_urls: {
+        success: input.successUrl,
+        failure: input.successUrl,
+        pending: input.successUrl,
+      },
+      auto_return:      "approved",
+      notification_url: input.notificationUrl,
+    },
+  });
+
+  if (!result.id || !result.init_point) {
+    throw new Error(
+      `MP não retornou id/init_point ao criar preference para ref=${input.externalReference}`,
+    );
+  }
+
+  return { preferenceId: result.id, initPoint: result.init_point };
+}
+
+// ─── Get Payment (avulso — pagamento único) ───────────────────────────────────
+
+export interface MpPayment {
+  id: number | string;
+  /** "approved" | "pending" | "rejected" | "cancelled" | "refunded" */
+  status: string;
+  status_detail?: string;
+  transaction_amount: number;
+  currency_id: string;
+  payment_method_id?: string;
+  /** Vem do external_reference que enviamos ao criar a preference */
+  external_reference?: string;
+  payer?: { email?: string };
+}
+
+/**
+ * Busca um Payment (pagamento único) pelo ID.
+ * Usado pelo webhook quando MP notifica `type=payment` (avulso, não-recorrente).
+ */
+export async function getMpPayment(id: string, accessToken?: string): Promise<MpPayment> {
+  const client = getMpClient(accessToken);
+  const api = new Payment(client);
+  const result = await api.get({ id });
+  if (!result?.id) {
+    throw new Error(`MP não retornou dados para payment ${id}`);
+  }
+  return result as unknown as MpPayment;
 }

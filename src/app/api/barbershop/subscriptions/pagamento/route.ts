@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { addMonths } from "date-fns";
+import { decrypt } from "@/lib/encrypt";
+import { pauseMpPreapproval } from "@/lib/mercadopago";
 
 function clampDay(day: number, year: number, month: number): number {
   return Math.min(day, new Date(year, month + 1, 0).getDate());
@@ -25,11 +27,39 @@ export async function POST(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     const { subscriptionId, method } = await req.json();
 
-    const sub = await prisma.subscription.findFirst({ 
+    const sub = await prisma.subscription.findFirst({
       where: { id: subscriptionId, barbershopId },
-      include: { plan: true }
+      include: { plan: true },
     });
     if (!sub) return NextResponse.json({ error: "Recurso não encontrado" }, { status: 404 });
+
+    // ── Proteção contra dupla cobrança (Sprint MP) ──────────────────────────
+    // Se a assinatura tem débito automático MP ativo, pausar antes de confirmar
+    // pagamento manual — evita que o MP também cobre esse mesmo ciclo.
+    const authStatus     = (sub as any).authorizationStatus as string;
+    const mpPreapprovalId = (sub as any).mpPreapprovalId   as string | null;
+
+    if (authStatus === "AUTHORIZED" && mpPreapprovalId) {
+      try {
+        const gatewayConfig = await (prisma as any).paymentGatewayConfig.findUnique({
+          where:  { barbershopId },
+          select: { accessToken: true, active: true },
+        });
+        if (gatewayConfig?.active) {
+          const token = decrypt(gatewayConfig.accessToken);
+          await pauseMpPreapproval(mpPreapprovalId, token);
+          // Marca como PAUSED — dono decide depois se quer retomar o débito automático
+          await prisma.subscription.update({
+            where: { id: subscriptionId },
+            data:  { authorizationStatus: "PAUSED" } as any,
+          });
+        }
+      } catch (mpErr) {
+        // Falha no MP não impede o registro manual — apenas loga
+        console.error("[pagamento] Falha ao pausar preapproval MP:", mpErr);
+      }
+    }
+    // ───────────────────────────────────────────────────────────────────────
 
     // Busca cobrança pendente mais antiga
     const pendingPayment = await prisma.payment.findFirst({
