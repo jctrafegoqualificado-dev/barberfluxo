@@ -87,11 +87,21 @@ export async function POST(req: NextRequest) {
     let payerEmail: string | undefined = isFakeEmail(sub.client.email) ? undefined : sub.client.email;
 
     if (!payerEmail && clientEmailInput?.trim()) {
-      // Dono informou o e-mail real do cliente → salva no cadastro e usa no MP
+      // Dono informou o e-mail real do cliente → tenta salvar no cadastro e usa no MP
       const trimmed = clientEmailInput.trim();
-      await prisma.user.update({ where: { id: sub.client.id }, data: { email: trimmed } });
+      try {
+        await prisma.user.update({ where: { id: sub.client.id }, data: { email: trimmed } });
+        console.log(`[preapproval] E-mail do cliente atualizado para ${trimmed} (era sintético)`);
+      } catch (updateErr: any) {
+        if (updateErr?.code === "P2002") {
+          // E-mail já existe em outro cadastro (ex: cliente tem 2 registros)
+          // Usa o e-mail somente para o MP — não salva no banco
+          console.warn(`[preapproval] Conflito de e-mail: ${trimmed} já existe em outro cadastro. Usando só para MP.`);
+        } else {
+          throw updateErr; // qualquer outro erro, propaga
+        }
+      }
       payerEmail = trimmed;
-      console.log(`[preapproval] E-mail do cliente atualizado para ${trimmed} (era sintético)`);
     }
 
     if (!payerEmail) {
