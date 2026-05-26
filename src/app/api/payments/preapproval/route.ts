@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Busca token MP da barbearia (obrigatório) ─────────────────────────────
-    const gatewayConfig = await (prisma as any).paymentGatewayConfig.findUnique({
+    // findFirst em vez de findUnique: `active` não faz parte da chave única de barbershopId
+    const gatewayConfig = await (prisma as any).paymentGatewayConfig.findFirst({
       where:  { barbershopId, active: true },
       select: { accessToken: true },
     });
@@ -84,32 +85,45 @@ export async function POST(req: NextRequest) {
 
     const payerEmail = isFakeEmail(sub.client.email) ? undefined : sub.client.email;
 
+    const startDate = new Date(sub.nextBillingDate);
+
+    console.log(`[preapproval] Criando preapproval: sub=${subscriptionId} startDate=${startDate.toISOString()} amount=${sub.plan.price} cycle=${sub.plan.billingCycle} payerEmail=${payerEmail ?? "omitido"}`);
+
     const { preapprovalId, initPoint } = await createMpPreapproval({
       subscriptionId,
       reason:            `${sub.plan.name} — ${sub.barbershop.name}`,
       payerEmail,  // undefined → MP deixa o cliente entrar com o próprio e-mail
       transactionAmount: sub.plan.price,
       billingCycle:      sub.plan.billingCycle,
-      startDate:         new Date(sub.nextBillingDate),
-      backUrl:           `${baseUrl}/painel/assinaturas?preapproval=success`,
-      // barbershopId no webhook para identificar qual token usar ao processar
-      notificationUrl:   `${baseUrl}/api/payments/webhook?barbershopId=${barbershopId}`,
+      startDate,
+      backUrl:           `${baseUrl}/assinatura-confirmada?id=${subscriptionId}`,
+      notificationUrl:   `${baseUrl}/api/payments/webhook`,
     }, barbershopToken);
 
-    // Persiste o ID para rastreamento futuro
+    // Persiste ID + link + status no banco (igual ao fluxo de criação automática)
     await prisma.subscription.update({
       where: { id: subscriptionId },
-      data: { mpPreapprovalId: preapprovalId } as any,
+      data: {
+        mpPreapprovalId:     preapprovalId,
+        authorizationLink:   initPoint,
+        authorizationStatus: "PENDING_AUTH",
+        authorizationSentAt: new Date(),
+      } as any,
     });
 
-    console.log(
-      `[preapproval] Criado: sub=${subscriptionId} preapproval=${preapprovalId}`,
-    );
+    console.log(`[preapproval] Criado: sub=${subscriptionId} preapproval=${preapprovalId}`);
 
     return NextResponse.json({ preapprovalId, checkoutUrl: initPoint }, { status: 201 });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Erro ao criar cobrança recorrente";
-    console.error("[preapproval] POST:", msg);
+    // O SDK do MP pode lançar objetos não-Error — extraímos a mensagem manualmente
+    let msg = "Erro ao criar cobrança recorrente";
+    if (e instanceof Error) {
+      msg = e.message;
+    } else if (typeof e === "object" && e !== null) {
+      const err = e as Record<string, unknown>;
+      msg = String(err.message ?? err.error ?? err.cause ?? JSON.stringify(e));
+    }
+    console.error("[preapproval] POST error:", e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -139,7 +153,8 @@ export async function DELETE(req: NextRequest) {
 
     if (mpId) {
       // Busca token da barbearia para cancelar no contexto correto
-      const gatewayConfig = await (prisma as any).paymentGatewayConfig.findUnique({
+      // findFirst em vez de findUnique: `active` não é parte da chave única
+      const gatewayConfig = await (prisma as any).paymentGatewayConfig.findFirst({
         where:  { barbershopId: payload.barbershopId!, active: true },
         select: { accessToken: true },
       });
@@ -148,19 +163,30 @@ export async function DELETE(req: NextRequest) {
         : undefined;
 
       await cancelMpPreapproval(mpId, barbershopToken);
-
-      await prisma.subscription.update({
-        where: { id: subscriptionId },
-        data: { mpPreapprovalId: null } as any,
-      });
-
-      console.log(`[preapproval] Cancelado: sub=${subscriptionId} preapproval=${mpId}`);
     }
+
+    // Limpa mpPreapprovalId + link + status independentemente de ter ID no MP
+    await prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: {
+        mpPreapprovalId:     null,
+        authorizationLink:   null,
+        authorizationStatus: "MANUAL",
+        authorizationSentAt: null,
+      } as any,
+    });
+
+    console.log(`[preapproval] Cancelado e campos limpos: sub=${subscriptionId} preapproval=${mpId ?? "sem-id"}`);
 
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Erro ao cancelar cobrança recorrente";
-    console.error("[preapproval] DELETE:", msg);
+    let msg = "Erro ao cancelar cobrança recorrente";
+    if (e instanceof Error) {
+      msg = e.message;
+    } else if (typeof e === "object" && e !== null) {
+      msg = String((e as any).message ?? (e as any).error ?? JSON.stringify(e));
+    }
+    console.error("[preapproval] DELETE error:", e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
