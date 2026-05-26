@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CheckCircle2, Eye, EyeOff, ExternalLink, Unlink,
-  Loader2, AlertCircle, CreditCard, Repeat, Shield, Wifi,
+  Loader2, AlertCircle, CreditCard, Repeat, Shield, Wifi, ChevronDown,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Card } from "@/components/ui/Card";
@@ -44,15 +45,39 @@ const OTHER_GATEWAYS = [
 
 export default function PagamentosPage() {
   const { token } = useAuthStore();
+  const searchParams = useSearchParams();
 
-  const [mpConfig, setMpConfig] = useState<MpConfig | null>(null);
-  const [mpToken, setMpToken] = useState("");
-  const [showMpToken, setShowMpToken] = useState(false);
-  const [savingMp, setSavingMp] = useState(false);
-  const [mpStatus, setMpStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [mpConfig, setMpConfig]             = useState<MpConfig | null>(null);
+  const [mpToken, setMpToken]               = useState("");
+  const [showMpToken, setShowMpToken]       = useState(false);
+  const [savingMp, setSavingMp]             = useState(false);
+  const [mpStatus, setMpStatus]             = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [disconnectingMp, setDisconnectingMp] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
+  const [showManual, setShowManual]         = useState(false);
+
+  // ── Lê resultado do OAuth redirect (?mp_oauth=success|error) ─────────────
+  useEffect(() => {
+    const result = searchParams.get("mp_oauth");
+    const reason = searchParams.get("reason");
+    if (result === "success") {
+      setMpStatus({ type: "success", msg: "Mercado Pago conectado com sucesso via OAuth! 🎉" });
+    } else if (result === "error") {
+      const messages: Record<string, string> = {
+        unauthorized:          "Sessão expirada. Faça login novamente.",
+        invalid_state:         "Link de autorização expirado. Tente novamente.",
+        token_exchange_failed: "Falha ao obter credenciais do Mercado Pago. Tente novamente.",
+        missing_params:        "Resposta inválida do Mercado Pago.",
+        db_error:              "Erro ao salvar conexão. Tente novamente.",
+        not_configured:        "OAuth não configurado na plataforma. Contate o suporte.",
+        access_denied:         "Autorização negada. Você cancelou a conexão.",
+      };
+      setMpStatus({
+        type: "error",
+        msg: messages[reason ?? ""] ?? `Erro ao conectar com Mercado Pago (${reason ?? "desconhecido"}).`,
+      });
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetch("/api/barbershop/payment-config", {
@@ -63,7 +88,14 @@ export default function PagamentosPage() {
       .catch(() => setMpConfig({ connected: false }));
   }, [token]);
 
-  async function connectMp() {
+  // ── Conexão via OAuth (redirect para MP) ─────────────────────────────────
+  function connectMpOAuth() {
+    // Redireciona para o initiate — o cookie de sessão é enviado automaticamente
+    window.location.href = "/api/payments/mp-oauth/initiate";
+  }
+
+  // ── Conexão manual (copia/cola token) ────────────────────────────────────
+  async function connectMpManual() {
     if (!mpToken.trim()) return;
     setSavingMp(true);
     setMpStatus(null);
@@ -121,7 +153,6 @@ export default function PagamentosPage() {
         {/* Card header */}
         <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* MP logo mark */}
             <div className="w-10 h-10 rounded-xl bg-[#009ee3] flex items-center justify-center shrink-0">
               <span className="text-white font-extrabold text-sm tracking-tight select-none">MP</span>
             </div>
@@ -257,17 +288,33 @@ export default function PagamentosPage() {
           {mpConfig !== null && !mpConfig.connected && (
             <div className="space-y-5">
 
-              {/* Amber alert */}
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
-                <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-800">Sua conta ainda não está conectada</p>
-                  <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                    Conecte sua conta do Mercado Pago para começar a receber via Pix e cartão,
-                    e para ativar o débito automático nas assinaturas.
-                  </p>
+              {/* Status feedback (OAuth redirect result) */}
+              {mpStatus && (
+                <div
+                  className={`flex items-start gap-2 p-3 rounded-lg text-sm border ${
+                    mpStatus.type === "success"
+                      ? "bg-green-50 text-green-700 border-green-200"
+                      : "bg-red-50 text-red-700 border-red-200"
+                  }`}
+                >
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{mpStatus.msg}</span>
                 </div>
-              </div>
+              )}
+
+              {/* Amber alert */}
+              {!mpStatus && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                  <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">Sua conta ainda não está conectada</p>
+                    <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                      Conecte sua conta do Mercado Pago para começar a receber via Pix e cartão,
+                      e para ativar o débito automático nas assinaturas.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Features preview — disabled state */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -282,106 +329,86 @@ export default function PagamentosPage() {
                 ))}
               </div>
 
-              {/* Step guide (collapsible) */}
-              <div>
-                <button
-                  onClick={() => setShowGuide((v) => !v)}
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors mb-2"
-                >
-                  <span className="text-primary font-semibold">{showGuide ? "▼" : "▶"}</span>
-                  Como obter meu Access Token?
-                </button>
-
-                {showGuide && (
-                  <ol className="space-y-2 pl-4 border-l-2 border-[#009ee3]/30 mb-3">
-                    {[
-                      <>Acesse <a href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noopener noreferrer" className="text-[#009ee3] hover:underline font-medium">mercadopago.com.br/developers</a></>,
-                      <>Crie um novo aplicativo (ou selecione um existente)</>,
-                      <>Vá em <span className="font-medium text-zinc-700">Credenciais de Produção</span></>,
-                      <>Copie o <span className="font-mono font-semibold text-zinc-700">Access Token</span> (começa com <span className="font-mono text-[#009ee3]">APP_USR-</span>)</>,
-                      <>Cole no campo abaixo e clique em Conectar</>,
-                    ].map((step, i) => (
-                      <li key={i} className="text-xs text-zinc-500 leading-relaxed pl-2">
-                        <span className="font-semibold text-zinc-600 mr-1">{i + 1}.</span>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-
-              {/* Token input */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-zinc-700">
-                  Access Token de Produção
-                </label>
-                <div className="relative">
-                  <input
-                    type={showMpToken ? "text" : "password"}
-                    value={mpToken}
-                    onChange={(e) => { setMpToken(e.target.value); setMpStatus(null); }}
-                    onKeyDown={(e) => e.key === "Enter" && connectMp()}
-                    placeholder="APP_USR-..."
-                    autoComplete="off"
-                    className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm pr-11 focus:outline-none focus:ring-2 focus:ring-[#009ee3]/40 focus:border-[#009ee3] font-mono bg-zinc-50 transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowMpToken((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
-                  >
-                    {showMpToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <a
-                  href="https://www.mercadopago.com.br/developers/panel/app"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-[#009ee3] hover:underline"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Abrir portal de desenvolvedores do Mercado Pago
-                </a>
-              </div>
-
-              {/* Status feedback */}
-              {mpStatus && (
-                <div
-                  className={`flex items-start gap-2 p-3 rounded-lg text-sm border ${
-                    mpStatus.type === "success"
-                      ? "bg-green-50 text-green-700 border-green-200"
-                      : "bg-red-50 text-red-700 border-red-200"
-                  }`}
-                >
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                  <span>{mpStatus.msg}</span>
-                </div>
-              )}
-
-              {/* Connect button */}
+              {/* ── Botão OAuth (fluxo principal) ── */}
               <button
-                onClick={connectMp}
-                disabled={savingMp || !mpToken.trim()}
-                className="w-full flex items-center justify-center gap-2.5 py-3 rounded-xl bg-[#009ee3] text-white font-semibold text-sm hover:bg-[#0088cc] active:scale-[.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                onClick={connectMpOAuth}
+                className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl bg-[#009ee3] text-white font-semibold text-sm hover:bg-[#0088cc] active:scale-[.99] transition-all shadow-sm"
               >
-                {savingMp ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Validando token...
-                  </>
-                ) : (
-                  <>
-                    <div className="w-5 h-5 rounded bg-white/20 flex items-center justify-center">
-                      <span className="text-[9px] font-extrabold leading-none">MP</span>
-                    </div>
-                    Conectar Mercado Pago
-                  </>
-                )}
+                <div className="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center shrink-0">
+                  <span className="text-[10px] font-extrabold leading-none">MP</span>
+                </div>
+                Conectar com Mercado Pago
               </button>
 
-              <p className="text-center text-xs text-zinc-400">
-                Token salvo com criptografia. Nunca compartilhamos seu acesso.
+              <p className="text-center text-xs text-zinc-400 -mt-2">
+                Você será redirecionado para o Mercado Pago para autorizar a conexão
               </p>
+
+              {/* ── Conexão manual (avançado / tokens de teste) ── */}
+              <div>
+                <button
+                  onClick={() => setShowManual((v) => !v)}
+                  className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showManual ? "rotate-180" : ""}`} />
+                  Tenho um Access Token (avançado)
+                </button>
+
+                {showManual && (
+                  <div className="mt-3 space-y-3 p-4 rounded-xl border border-zinc-200 bg-zinc-50">
+                    <p className="text-xs text-zinc-500 leading-relaxed">
+                      Use esta opção para tokens de <span className="font-semibold text-zinc-700">teste</span> (sandbox)
+                      ou se preferir inserir o token manualmente.
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-zinc-700">
+                        Access Token
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showMpToken ? "text" : "password"}
+                          value={mpToken}
+                          onChange={(e) => { setMpToken(e.target.value); setMpStatus(null); }}
+                          onKeyDown={(e) => e.key === "Enter" && connectMpManual()}
+                          placeholder="APP_USR-... ou TEST-..."
+                          autoComplete="off"
+                          className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-[#009ee3]/40 focus:border-[#009ee3] font-mono bg-white transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowMpToken((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+                        >
+                          {showMpToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <a
+                        href="https://www.mercadopago.com.br/developers/panel/app"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-[#009ee3] hover:underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Abrir portal de desenvolvedores
+                      </a>
+                    </div>
+
+                    <button
+                      onClick={connectMpManual}
+                      disabled={savingMp || !mpToken.trim()}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-zinc-700 text-white font-medium text-sm hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {savingMp ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Validando token...</>
+                      ) : (
+                        "Conectar com token"
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 
