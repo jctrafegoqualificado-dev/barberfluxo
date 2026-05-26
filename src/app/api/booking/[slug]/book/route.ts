@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       await req.json();
     // Gera email interno a partir do telefone para identificar cliente sem exigir email
     const cleanPhone = (clientPhone ?? "").replace(/\D/g, "") || "sem-telefone";
-    const clientEmail = `${cleanPhone}@cliente.barberfluxo`;
+    const clientEmail = `${cleanPhone}@cliente.iadebarbearia.com`;
 
     const shop = await prisma.barbershop.findUnique({ where: { slug } });
     if (!shop) return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 });
@@ -51,7 +51,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       }
     }
 
-    let client = await prisma.user.findUnique({ where: { email: clientEmail } });
+    // Busca por telefone primeiro; depois pelos e-mails sintéticos (múltiplos domínios históricos)
+    let client = await prisma.user.findFirst({ where: { phone: cleanPhone, role: "CLIENT" } })
+      ?? await prisma.user.findUnique({ where: { email: clientEmail } })
+      ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberfluxo` } })
+      ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberfluxo.com` } })
+      ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberapp` } });
 
     // Bloqueia double-booking: mesmo telefone + mesmo nome + agendamento futuro ativo
     // Assinantes são isentos pois agendam regularmente

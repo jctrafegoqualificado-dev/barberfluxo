@@ -90,7 +90,7 @@ export default function AgendarPage() {
           setForm((f) => ({ ...f, firstName: d.firstName, lastName: d.lastName }));
           setClientFound(true);
 
-          const subRes = await fetch(`/api/booking/${slug}/subscriber?email=${encodeURIComponent(`${digits}@cliente.barberfluxo`)}`);
+          const subRes = await fetch(`/api/booking/${slug}/subscriber?phone=${encodeURIComponent(digits)}`);
           const subData = await subRes.json();
           if (subData.subscriptionId) {
             setActiveSub(subData);

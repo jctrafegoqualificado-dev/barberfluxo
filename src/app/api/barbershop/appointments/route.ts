@@ -299,9 +299,10 @@ export async function POST(req: NextRequest) {
 
     // Encontra ou cria o cliente — busca direta, sem full table scan
     const phoneDigits = clientPhone.replace(/\D/g, "");
-    const clientEmail = `${phoneDigits}@cliente.barberfluxo.com`;
+    const clientEmail = `${phoneDigits}@cliente.iadebarbearia.com`;
     let client = await prisma.user.findFirst({ where: { phone: phoneDigits, role: "CLIENT" } })
-      ?? await prisma.user.findUnique({ where: { email: clientEmail } });
+      ?? await prisma.user.findUnique({ where: { email: clientEmail } })
+      ?? await prisma.user.findFirst({ where: { email: `${phoneDigits}@cliente.barberfluxo.com` } });
 
     if (!client) {
       client = await prisma.user.create({

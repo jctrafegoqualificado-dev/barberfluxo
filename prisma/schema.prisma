@@ -78,6 +78,11 @@ model Barbershop {
   cancelByClientEnabled Boolean @default(true)
   minCancelHours        Int     @default(0)
 
+  // ── Assistente IA (N8N / Evolution) ─────────────────────────────────────────
+  aiAssistantName     String?  @db.VarChar(50)  // Ex: "Barba Bot"
+  aiPersonality       String?  @db.Text         // Texto livre → vai direto para o system prompt do LLM
+  aiGreetingDirective String?  @db.Text         // Diretriz de como cumprimentar na primeira mensagem
+
   autoNoShowEnabled Boolean @default(true)
   autoNoShowHours   Int     @default(24)
 

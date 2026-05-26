@@ -50,8 +50,13 @@ export interface CreatePreapprovalInput {
   subscriptionId: string;
   /** Texto exibido ao cliente na tela de autorização. Ex: "Plano Premium — Barbearia X" */
   reason: string;
-  /** E-mail do cliente (obrigatório pelo MP) */
-  payerEmail: string;
+  /**
+   * E-mail do cliente (opcional).
+   * Se informado, o MP valida que o pagador usa exatamente este e-mail.
+   * Omita quando o cliente não tiver e-mail real cadastrado — o MP
+   * pedirá o e-mail ao pagador durante o checkout sem restrição.
+   */
+  payerEmail?: string;
   /** Valor a cobrar por ciclo (plan.price) */
   transactionAmount: number;
   /** "MONTHLY" | "QUARTERLY" | "YEARLY" — mapeado para frequency do MP */
@@ -93,7 +98,9 @@ export async function createMpPreapproval(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     body: {
       reason: input.reason,
-      payer_email: input.payerEmail,
+      // Só envia payer_email se for um e-mail real — e-mails sintéticos
+      // (telefone@cliente.xxx) impedem o cliente de concluir o checkout
+      ...(input.payerEmail ? { payer_email: input.payerEmail } : {}),
       back_url: input.backUrl,
       // notification_url existe na API REST mas o SDK não o declara nos tipos
       notification_url: input.notificationUrl,

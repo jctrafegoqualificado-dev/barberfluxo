@@ -120,7 +120,7 @@ export default function Sidebar({ branding }: {
         {(!isDesktop || !collapsed) && (
           <>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold truncate">{branding?.name || "BarberFluxo"}</p>
+              <p className="text-sm font-bold truncate">{branding?.name || "IaDeBarbearia"}</p>
               <p className="text-xs text-zinc-400 truncate">{user?.name}</p>
             </div>
             <div className="flex items-center gap-1">

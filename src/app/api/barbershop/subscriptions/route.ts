@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { clientName, clientPhone, planId, billingDay } = await req.json();
+    const { clientName, clientPhone, planId, billingDay, clientEmail: clientEmailInput } = await req.json();
     const billingDayNum = billingDay ? Number(billingDay) : null;
 
     if (!planId) return NextResponse.json({ error: "Selecione um plano" }, { status: 400 });
@@ -123,21 +123,44 @@ export async function POST(req: NextRequest) {
 
     const cleanPhone = clientPhone.replace(/\D/g, "") || "sem-telefone";
 
+    // E-mail real informado pelo dono da barbearia tem prioridade.
+    // Fallback sintético (telefone@cliente.iadebarbearia.com) é apenas
+    // identificador interno — nunca deve ser enviado a gateways de pagamento.
+    const syntheticEmail = `${cleanPhone}@cliente.iadebarbearia.com`;
+    const finalClientEmail = clientEmailInput?.trim() || syntheticEmail;
+
     // Busca direta por telefone — evita full table scan
-    const clientEmail = `${cleanPhone}@cliente.barberfluxo.com`;
     let client = await prisma.user.findFirst({
       where: { phone: cleanPhone, role: "CLIENT" },
     });
 
     if (!client) {
-      client = await prisma.user.findUnique({ where: { email: clientEmail } });
+      // Tenta os e-mails sintéticos de versões anteriores do sistema
+      client = await prisma.user.findFirst({
+        where: {
+          role: "CLIENT",
+          OR: [
+            { email: finalClientEmail },
+            { email: `${cleanPhone}@cliente.barberfluxo.com` },
+            { email: `${cleanPhone}@cliente.barberfluxo` },
+            { email: `${cleanPhone}@cliente.barberapp` },
+          ],
+        },
+      });
     }
 
     if (!client) {
       const hashed = await hashPassword(clientPhone);
       client = await prisma.user.create({
-        data: { name: clientName, email: clientEmail, phone: cleanPhone, password: hashed, role: "CLIENT" },
+        data: { name: clientName, email: finalClientEmail, phone: cleanPhone, password: hashed, role: "CLIENT" },
       });
+    } else if (clientEmailInput?.trim() && client.email !== clientEmailInput.trim()) {
+      // Atualiza o e-mail se o dono digitou um e-mail real e o cliente ainda tem o sintético
+      const isSynthetic = /@cliente\./i.test(client.email);
+      if (isSynthetic) {
+        await prisma.user.update({ where: { id: client.id }, data: { email: clientEmailInput.trim() } });
+        client = { ...client, email: clientEmailInput.trim() };
+      }
     }
 
     const existing = await prisma.subscription.findFirst({

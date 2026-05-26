@@ -21,13 +21,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
     const cleanPhone = phone.replace(/\D/g, "");
 
-    // Busca por phone limpo OU pelo email gerado (padrão do sistema de agendamento online)
+    // Busca por phone limpo OU pelos domínios sintéticos históricos do sistema
     const clients = await prisma.user.findMany({
       where: {
         role: "CLIENT",
         OR: [
           { phone: cleanPhone },
+          { email: `${cleanPhone}@cliente.iadebarbearia.com` },
           { email: `${cleanPhone}@cliente.barberfluxo` },
+          { email: `${cleanPhone}@cliente.barberfluxo.com` },
           { email: `${cleanPhone}@cliente.barberapp` },
         ],
       },

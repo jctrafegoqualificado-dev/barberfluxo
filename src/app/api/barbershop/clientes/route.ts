@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanPhone = phone ? phone.replace(/\D/g, "") : null;
-    const finalEmail = email?.trim() || (cleanPhone ? `${cleanPhone}@cliente.barberfluxo.com` : null);
+    const finalEmail = email?.trim() || (cleanPhone ? `${cleanPhone}@cliente.iadebarbearia.com` : null);
 
     if (!finalEmail) {
       return NextResponse.json({ error: "Informe telefone ou e-mail" }, { status: 400 });

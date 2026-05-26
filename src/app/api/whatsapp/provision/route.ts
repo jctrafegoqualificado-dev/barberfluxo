@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import * as evolution from "@/lib/evolution/client";
 
-const WEBHOOK_URL = "https://barberfluxo.vercel.app/api/evolution/webhook";
+// URL do webhook N8N — toda nova instância aponta automaticamente para o assistente IA
+const WEBHOOK_URL = process.env.N8N_EVOLUTION_WEBHOOK_URL ?? "";
 
 export async function POST(req: NextRequest) {
   try {

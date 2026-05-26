@@ -188,12 +188,12 @@ export default function AssinaturasPage() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "overdue" | "paused" | "cancelled">("all");
-  const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "", billingDay: "" });
+  const [form, setForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", planId: "", billingDay: "" });
   const [usageModal, setUsageModal] = useState<Subscription | null>(null);
   const [editSub, setEditSub] = useState<Subscription | null>(null);
 
   // Autocomplete no modal de novo assinante
-  const [clientSuggestions, setClientSuggestions] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [clientSuggestions, setClientSuggestions] = useState<{ id: string; name: string; phone: string | null; email: string | null }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const clientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -227,9 +227,12 @@ export default function AssinaturasPage() {
     }, 200);
   }
 
-  function selectClientSuggestion(c: { id: string; name: string; phone: string | null }) {
+  function selectClientSuggestion(c: { id: string; name: string; phone: string | null; email: string | null }) {
     setField("clientName", c.name);
     setField("clientPhone", c.phone ?? "");
+    // Preenche e-mail real se o cliente tiver (ignora e-mails sintéticos gerados pelo sistema)
+    const isReal = c.email && !/@cliente\./i.test(c.email);
+    setField("clientEmail", isReal ? c.email! : "");
     setClientSuggestions([]);
     setShowSuggestions(false);
   }
@@ -295,7 +298,7 @@ export default function AssinaturasPage() {
       const data = await res.json();
       if (!res.ok) { alert(data.error || "Erro ao criar assinatura"); return; }
       setOpen(false);
-      setForm({ clientName: "", clientPhone: "", planId: "", billingDay: "" });
+      setForm({ clientName: "", clientPhone: "", clientEmail: "", planId: "", billingDay: "" });
       load();
     } finally {
       setLoading(false);
@@ -1243,6 +1246,22 @@ export default function AssinaturasPage() {
             </div>
           </div>
           <Input label="WhatsApp" type="tel" value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} required />
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
+              E-mail do cliente
+              {" "}<span className="text-zinc-400 font-normal">(recomendado para cobrança automática)</span>
+            </label>
+            <input
+              type="email"
+              value={form.clientEmail}
+              onChange={(e) => setField("clientEmail", e.target.value)}
+              placeholder="Ex: cliente@gmail.com"
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-[11px] text-zinc-400 mt-1">
+              Necessário para ativar o débito automático pelo Mercado Pago.
+            </p>
+          </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Plano</label>
             <select value={form.planId} onChange={(e) => setField("planId", e.target.value)} required className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">

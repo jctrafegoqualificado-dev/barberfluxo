@@ -70,7 +70,7 @@ export async function sendAppointmentConfirmation({
         </td></tr>
         <!-- Footer -->
         <tr><td style="background:#fafafa;border-top:1px solid #e4e4e7;padding:16px;text-align:center;">
-          <p style="margin:0;color:#a1a1aa;font-size:12px;">BarberFluxo — Sistema de Gestão para Barbearias</p>
+          <p style="margin:0;color:#a1a1aa;font-size:12px;">IaDeBarbearia — Sistema de Gestão para Barbearias</p>
         </td></tr>
       </table>
     </td></tr>
@@ -130,7 +130,7 @@ export async function sendSubscriptionConfirmation({
           </p>
         </td></tr>
         <tr><td style="background:#fafafa;border-top:1px solid #e4e4e7;padding:16px;text-align:center;">
-          <p style="margin:0;color:#a1a1aa;font-size:12px;">BarberFluxo — Sistema de Gestão para Barbearias</p>
+          <p style="margin:0;color:#a1a1aa;font-size:12px;">IaDeBarbearia — Sistema de Gestão para Barbearias</p>
         </td></tr>
       </table>
     </td></tr>

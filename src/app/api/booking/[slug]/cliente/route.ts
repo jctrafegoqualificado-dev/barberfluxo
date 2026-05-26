@@ -12,10 +12,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     }
 
     const cleanPhone = phone.replace(/\D/g, "");
-    const email = `${cleanPhone}@cliente.barberfluxo`;
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Busca compatível com todos os domínios sintéticos históricos
+    const user = await prisma.user.findFirst({
+      where: {
+        role: "CLIENT",
+        OR: [
+          { phone: cleanPhone },
+          { email: `${cleanPhone}@cliente.iadebarbearia.com` },
+          { email: `${cleanPhone}@cliente.barberfluxo` },
+          { email: `${cleanPhone}@cliente.barberfluxo.com` },
+          { email: `${cleanPhone}@cliente.barberapp` },
+        ],
+      },
       select: { name: true, phone: true },
     });
 

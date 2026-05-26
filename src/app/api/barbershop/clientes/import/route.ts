@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
         const cleanPhone = row.phone ? row.phone.replace(/\D/g, "") : null;
         const finalEmail =
           row.email?.trim() ||
-          (cleanPhone ? `${cleanPhone}@cliente.barberfluxo.com` : null);
+          (cleanPhone ? `${cleanPhone}@cliente.iadebarbearia.com` : null);
 
         if (!finalEmail) { skipped++; continue; }
 

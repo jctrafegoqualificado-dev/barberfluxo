@@ -76,10 +76,18 @@ export async function POST(req: NextRequest) {
     const barbershopToken = decrypt(gatewayConfig.accessToken);
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
+    // E-mails sintéticos gerados pelo sistema (ex: 41999@cliente.barber...) não são
+    // endereços reais. Enviá-los como payer_email faz o MP bloquear o checkout porque
+    // o cliente não consegue digitar um e-mail que ele não conhece.
+    const isFakeEmail = (email: string) =>
+      /@cliente\./i.test(email) || email.endsWith("@cliente.barberfluxo") || email.endsWith("@cliente.barberapp");
+
+    const payerEmail = isFakeEmail(sub.client.email) ? undefined : sub.client.email;
+
     const { preapprovalId, initPoint } = await createMpPreapproval({
       subscriptionId,
       reason:            `${sub.plan.name} — ${sub.barbershop.name}`,
-      payerEmail:        sub.client.email,
+      payerEmail,  // undefined → MP deixa o cliente entrar com o próprio e-mail
       transactionAmount: sub.plan.price,
       billingCycle:      sub.plan.billingCycle,
       startDate:         new Date(sub.nextBillingDate),
