@@ -207,6 +207,9 @@ export default function AssinaturasPage() {
   const [extratoHistory, setExtratoHistory] = useState<any[]>([]);
   const [extratoLoading, setExtratoLoading] = useState(false);
 
+  // Modal de e-mail para ativar débito automático MP (substitui window.prompt)
+  const [emailPromptModal, setEmailPromptModal] = useState<{ sub: any; inputValue: string } | null>(null);
+
   // States para o inline edit e cobrança WhatsApp
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
@@ -254,6 +257,9 @@ export default function AssinaturasPage() {
 
   // ── Débito automático (preapproval MP) ──────────────────────────────────────
 
+  /** E-mails sintéticos criados pelo sistema — não são e-mails reais do cliente */
+  const isFakeEmail = (email: string) => !email || /@cliente\./i.test(email);
+
   async function handleCancelPreapproval(sub: Subscription) {
     if (!confirm(`Cancelar o débito automático de ${sub.client.name}?\n\nO Mercado Pago parará de cobrar automaticamente. O cliente precisará autorizar novamente.`)) return;
     setExtratoLoading(true);
@@ -275,18 +281,13 @@ export default function AssinaturasPage() {
 
   async function handleCreatePreapproval(sub: Subscription, emailOverride?: string) {
     // O Mercado Pago exige payer_email. Se o cliente só tem e-mail sintético (@cliente.*),
-    // pedimos o e-mail real antes de chamar a API.
-    const isFakeEmail = (email: string) => /@cliente\./i.test(email);
-    let clientEmail = emailOverride ?? (isFakeEmail(sub.client.email) ? undefined : sub.client.email);
+    // abrimos o modal para o dono informar o e-mail real.
+    const clientEmail = emailOverride ?? (isFakeEmail(sub.client.email) ? undefined : sub.client.email);
 
     if (!clientEmail) {
-      const input = window.prompt(
-        `📧 E-mail do cliente obrigatório\n\n` +
-        `${sub.client.name} não tem e-mail cadastrado.\n` +
-        `Informe o e-mail dele para ativar o débito automático no Mercado Pago:`
-      );
-      if (!input?.trim()) return; // usuário cancelou
-      clientEmail = input.trim();
+      // Sem e-mail → abre modal (não usa window.prompt)
+      setEmailPromptModal({ sub, inputValue: "" });
+      return;
     }
 
     setExtratoLoading(true);
@@ -298,14 +299,15 @@ export default function AssinaturasPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        // Se a API pedir e-mail novamente (raro), repete o fluxo com prompt
         if (data.error === "EMAIL_REQUIRED") {
-          alert("E-mail inválido. Tente novamente.");
-          return handleCreatePreapproval(sub);
+          // API rejeitou o e-mail → reabre modal com valor anterior
+          setEmailPromptModal({ sub, inputValue: emailOverride || "" });
+          return;
         }
         alert(data.error || data.message || "Erro ao gerar link de autorização");
         return;
       }
+      setEmailPromptModal(null);
       alert(`✅ Link gerado!\n\nCompartilhe com ${sub.client.name}:\n${data.checkoutUrl}`);
       load();
       if (extratoSub?.id === sub.id) await loadExtrato(sub);
@@ -555,6 +557,70 @@ export default function AssinaturasPage() {
       )}
       {editSub && (
         <EditSubModal sub={editSub} plans={plans} token={token} onSave={load} onClose={() => setEditSub(null)} />
+      )}
+
+      {/* Modal de e-mail para ativar débito automático MP */}
+      {emailPromptModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+              <div>
+                <h2 className="font-semibold text-zinc-900 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" /> Ativar débito automático
+                </h2>
+                <p className="text-xs text-zinc-400 mt-0.5">{emailPromptModal.sub.client.name}</p>
+              </div>
+              <button onClick={() => setEmailPromptModal(null)} className="p-1 rounded-lg hover:bg-zinc-100">
+                <X className="w-4 h-4 text-zinc-500" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-sm text-zinc-600">
+                O Mercado Pago exige o e-mail do cliente para criar o link de autorização do débito automático.
+              </p>
+              <div>
+                <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide block mb-1.5">
+                  E-mail do cliente
+                </label>
+                <input
+                  type="email"
+                  value={emailPromptModal.inputValue}
+                  onChange={(e) => setEmailPromptModal(m => m ? { ...m, inputValue: e.target.value } : null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && emailPromptModal.inputValue.trim()) {
+                      handleCreatePreapproval(emailPromptModal.sub, emailPromptModal.inputValue.trim());
+                    }
+                  }}
+                  placeholder="exemplo@gmail.com"
+                  className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoFocus
+                />
+              </div>
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800 leading-relaxed">
+                <strong>Cliente sem e-mail?</strong> Sem problema — feche este modal e use a{" "}
+                <strong>cobrança manual</strong>. PIX, dinheiro ou cartão funcionam perfeitamente.
+              </div>
+            </div>
+            <div className="px-5 pb-5 flex gap-2">
+              <button
+                onClick={() => setEmailPromptModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (!emailPromptModal.inputValue.trim()) return;
+                  handleCreatePreapproval(emailPromptModal.sub, emailPromptModal.inputValue.trim());
+                }}
+                disabled={!emailPromptModal.inputValue.trim() || extratoLoading}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-40"
+              >
+                {extratoLoading ? "Gerando..." : "Gerar link"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex items-center justify-between">
@@ -1106,16 +1172,37 @@ export default function AssinaturasPage() {
                         </span>
 
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {/* Sem preapproval → criar */}
-                          {!hasPreapproval && (
-                            <button
-                              onClick={() => handleCreatePreapproval(extratoSub)}
-                              disabled={extratoLoading}
-                              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                            >
-                              <Link className="w-3.5 h-3.5" /> Gerar link de autorização
-                            </button>
-                          )}
+                          {/* Sem preapproval → comportamento depende de ter e-mail real */}
+                          {!hasPreapproval && (() => {
+                            const clientHasEmail = !isFakeEmail(extratoSub.client.email);
+                            return clientHasEmail ? (
+                              /* Tem e-mail → pode ativar débito automático direto */
+                              <button
+                                onClick={() => handleCreatePreapproval(extratoSub)}
+                                disabled={extratoLoading}
+                                className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" /> Ativar débito automático (MP)
+                              </button>
+                            ) : (
+                              /* Sem e-mail → cobrança manual é o modo correto; débito automático é opcional */
+                              <div className="w-full bg-zinc-50 rounded-xl p-4 border border-zinc-100 space-y-2">
+                                <p className="text-xs font-semibold text-zinc-700 flex items-center gap-1.5">
+                                  <Banknote className="w-3.5 h-3.5 text-zinc-500" /> Cobrança manual ativa
+                                </p>
+                                <p className="text-xs text-zinc-500 leading-relaxed">
+                                  Receba o pagamento (PIX, dinheiro, cartão) e registre manualmente.<br />
+                                  Ideal para clientes sem acesso a e-mail.
+                                </p>
+                                <button
+                                  onClick={() => setEmailPromptModal({ sub: extratoSub, inputValue: "" })}
+                                  className="text-xs text-primary font-semibold hover:underline flex items-center gap-1 mt-1"
+                                >
+                                  <CreditCard className="w-3 h-3" /> Quero ativar débito automático (MP)
+                                </button>
+                              </div>
+                            );
+                          })()}
 
                           {/* Tem preapproval pendente → reenviar + cancelar */}
                           {hasPreapproval && authStatus === "PENDING_AUTH" && (
@@ -1426,9 +1513,15 @@ export default function AssinaturasPage() {
               placeholder="Ex: cliente@gmail.com"
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <p className="text-[11px] text-zinc-400 mt-1">
-              Necessário para ativar o débito automático pelo Mercado Pago.
-            </p>
+            <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mt-2 font-medium border transition-colors ${
+              form.clientEmail.trim()
+                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                : "bg-zinc-50 text-zinc-500 border-zinc-100"
+            }`}>
+              {form.clientEmail.trim()
+                ? "💳 Com e-mail: débito automático via Mercado Pago disponível"
+                : "💵 Sem e-mail: cobrança manual (PIX, dinheiro, etc.)"}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">Plano</label>
