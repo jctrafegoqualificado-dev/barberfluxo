@@ -209,6 +209,8 @@ export async function POST(req: NextRequest) {
         const decryptedToken = decrypt(gatewayConfig.accessToken);
         const baseUrl = process.env.NEXTAUTH_URL ?? "https://iadebarbearia.com.br";
         const backUrl = `${baseUrl}/assinatura-confirmada?id=${subscription.id}`;
+        // MP chama este endpoint a cada cobrança automática — mantém o banco atualizado
+        const notificationUrl = `${baseUrl}/api/payments/webhook`;
 
         const { preapprovalId, initPoint } = await createMpPreapproval(
           {
@@ -219,6 +221,7 @@ export async function POST(req: NextRequest) {
             billingCycle:      plan.billingCycle,
             startDate:         nextBilling,
             backUrl,
+            notificationUrl,
           },
           decryptedToken,
         );

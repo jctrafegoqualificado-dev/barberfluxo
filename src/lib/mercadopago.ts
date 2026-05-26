@@ -60,6 +60,11 @@ export interface CreatePreapprovalInput {
   startDate: Date;
   /** URL de retorno após o cliente autorizar */
   backUrl: string;
+  /**
+   * URL que o MP chama a cada cobrança automática (webhook).
+   * Sem isso o sistema não sabe quando o cliente foi cobrado.
+   */
+  notificationUrl?: string;
 }
 
 export interface CreatePreapprovalResult {
@@ -89,6 +94,7 @@ export async function createMpPreapproval(
       reason: input.reason,
       payer_email: input.payerEmail,
       back_url: input.backUrl,
+      notification_url: input.notificationUrl,
       external_reference: input.subscriptionId,
       auto_recurring: {
         frequency,

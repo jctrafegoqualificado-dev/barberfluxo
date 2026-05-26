@@ -11,16 +11,21 @@
 
 import { Redis } from "@upstash/redis";
 
-const redis = new Redis({
-  url:   process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+const REDIS_URL   = process.env.UPSTASH_REDIS_REST_URL   ?? "";
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
+const redisAvailable = Boolean(REDIS_URL && REDIS_TOKEN && REDIS_URL.startsWith("http"));
+
+// Em dev local sem Redis configurado, todas as ops de cache retornam null/void
+const redis = redisAvailable
+  ? new Redis({ url: REDIS_URL, token: REDIS_TOKEN })
+  : null;
 
 /**
  * Lê um valor do cache.
  * Retorna null se não encontrado, expirado ou Redis indisponível.
  */
 export async function getCached<T>(key: string): Promise<T | null> {
+  if (!redis) return null;
   try {
     return await redis.get<T>(key);
   } catch (err) {
@@ -43,6 +48,7 @@ export async function setCached(
   value: unknown,
   ttlSeconds: number,
 ): Promise<void> {
+  if (!redis) return;
   try {
     await redis.setex(key, ttlSeconds, value as Parameters<typeof redis.setex>[2]);
   } catch (err) {
@@ -56,6 +62,7 @@ export async function setCached(
  * Útil quando um dado é gravado e queremos forçar refresh imediato.
  */
 export async function invalidateCache(key: string): Promise<void> {
+  if (!redis) return;
   try {
     await redis.del(key);
   } catch {

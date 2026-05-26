@@ -1,35 +1,50 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-// Redis client — usa as env vars UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+// ── Redis config check ───────────────────────────────────────────────────────
+// Se as env vars não estiverem configuradas (ex: desenvolvimento local),
+// os limitadores usam um stub que sempre permite a requisição (fail-open).
+// Em produção (Vercel), configure UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN.
+
+const REDIS_URL   = process.env.UPSTASH_REDIS_REST_URL   ?? "";
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
+const redisConfigured = Boolean(REDIS_URL && REDIS_TOKEN && REDIS_URL.startsWith("http"));
+
+if (!redisConfigured) {
+  console.warn("⚠️ [Ratelimit] Upstash Redis não configurado — rate limiting desativado (fail-open).");
+}
+
+// Instância única do Redis (criada só se configurado)
+const redis = redisConfigured
+  ? new Redis({ url: REDIS_URL, token: REDIS_TOKEN })
+  : null;
+
+// ── Tipo unificado ───────────────────────────────────────────────────────────
+interface Limiter {
+  limit(key: string): Promise<{ success: boolean }>;
+}
+
+// Stub: sempre permite (usado em dev sem Redis)
+const noopLimiter: Limiter = {
+  limit: async () => ({ success: true }),
+};
+
+// ── Limitadores ──────────────────────────────────────────────────────────────
 
 // 5 tentativas de login por email a cada 15 minutos (sliding window)
-export const loginRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, "15 m"),
-  prefix: "rl:login",
-  analytics: false,
-});
+export const loginRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "rl:login", analytics: false })
+  : noopLimiter;
 
 // 8 agendamentos por IP a cada 10 minutos — previne spam na página pública de booking
-export const bookingRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(8, "10 m"),
-  prefix: "rl:booking",
-  analytics: false,
-});
+export const bookingRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(8, "10 m"), prefix: "rl:booking", analytics: false })
+  : noopLimiter;
 
 // 30 criações de assinatura por barbearia a cada 15 minutos
-export const subscriptionCreateRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(30, "15 m"),
-  prefix: "rl:sub-create",
-  analytics: false,
-});
+export const subscriptionCreateRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, "15 m"), prefix: "rl:sub-create", analytics: false })
+  : noopLimiter;
 
 // Helpers — extrai IP do request de forma segura
 export function getIp(req: { headers: { get(k: string): string | null } }): string {
