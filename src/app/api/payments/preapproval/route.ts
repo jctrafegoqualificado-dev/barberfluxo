@@ -17,12 +17,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { createMpPreapproval, cancelMpPreapproval } from "@/lib/mercadopago";
+import { decrypt } from "@/lib/encrypt";
 
 // ─── POST /api/payments/preapproval ──────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
+    const barbershopId = payload.barbershopId!;
     const { subscriptionId } = await req.json();
 
     if (!subscriptionId) {
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const sub = await prisma.subscription.findUnique({
-      where: { id: subscriptionId, barbershopId: payload.barbershopId! },
+      where: { id: subscriptionId, barbershopId },
       include: {
         client:    { select: { email: true, name: true } },
         plan:      { select: { name: true, price: true, billingCycle: true } },
@@ -58,6 +60,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ── Busca token MP da barbearia (obrigatório) ─────────────────────────────
+    const gatewayConfig = await (prisma as any).paymentGatewayConfig.findUnique({
+      where:  { barbershopId, active: true },
+      select: { accessToken: true },
+    });
+
+    if (!gatewayConfig?.accessToken) {
+      return NextResponse.json(
+        { error: "Mercado Pago não conectado. Configure em Configurações → Pagamentos." },
+        { status: 400 },
+      );
+    }
+
+    const barbershopToken = decrypt(gatewayConfig.accessToken);
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
     const { preapprovalId, initPoint } = await createMpPreapproval({
@@ -68,7 +84,9 @@ export async function POST(req: NextRequest) {
       billingCycle:      sub.plan.billingCycle,
       startDate:         new Date(sub.nextBillingDate),
       backUrl:           `${baseUrl}/painel/assinaturas?preapproval=success`,
-    });
+      // barbershopId no webhook para identificar qual token usar ao processar
+      notificationUrl:   `${baseUrl}/api/payments/webhook?barbershopId=${barbershopId}`,
+    }, barbershopToken);
 
     // Persiste o ID para rastreamento futuro
     await prisma.subscription.update({
@@ -112,7 +130,16 @@ export async function DELETE(req: NextRequest) {
     const mpId = (sub as any).mpPreapprovalId as string | null;
 
     if (mpId) {
-      await cancelMpPreapproval(mpId);
+      // Busca token da barbearia para cancelar no contexto correto
+      const gatewayConfig = await (prisma as any).paymentGatewayConfig.findUnique({
+        where:  { barbershopId: payload.barbershopId!, active: true },
+        select: { accessToken: true },
+      });
+      const barbershopToken = gatewayConfig?.accessToken
+        ? decrypt(gatewayConfig.accessToken)
+        : undefined;
+
+      await cancelMpPreapproval(mpId, barbershopToken);
 
       await prisma.subscription.update({
         where: { id: subscriptionId },

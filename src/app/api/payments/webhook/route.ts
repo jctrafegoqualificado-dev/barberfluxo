@@ -23,6 +23,22 @@ import MercadoPago, { Payment } from "mercadopago";
 import { createHmac, timingSafeEqual } from "crypto";
 import { addMonths, addQuarters, addYears } from "date-fns";
 import { getMpAuthorizedPayment } from "@/lib/mercadopago";
+import { decrypt } from "@/lib/encrypt";
+
+// ─── Helper: descriptografa token MP da barbearia ────────────────────────────
+async function getBarbershopToken(barbershopId: string): Promise<string | undefined> {
+  try {
+    const config = await (prisma as any).paymentGatewayConfig.findUnique({
+      where:  { barbershopId, active: true },
+      select: { accessToken: true },
+    });
+    if (!config?.accessToken) return undefined;
+    return decrypt(config.accessToken);
+  } catch {
+    console.error(`[webhook] Falha ao obter token da barbearia ${barbershopId}`);
+    return undefined;
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,6 +186,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { type, data } = body as { type: string; data?: { id: string } };
+    // barbershopId vem na query string quando o preapproval foi criado com token da barbearia
+    const barbershopId = new URL(req.url).searchParams.get("barbershopId") ?? null;
 
     const dataId = data?.id ? String(data.id) : null;
 
@@ -217,7 +235,13 @@ export async function POST(req: NextRequest) {
 
     // ── Tipo 2: Débito automático (Preapproval) ───────────────────────────────
     if (type === "subscription_authorized_payment") {
-      const authPayment = await getMpAuthorizedPayment(dataId);
+      // Usa token da barbearia se disponível (preapproval criado via OAuth)
+      // senão usa token da plataforma como fallback (compatibilidade)
+      const mpToken = barbershopId
+        ? await getBarbershopToken(barbershopId)
+        : undefined;
+
+      const authPayment = await getMpAuthorizedPayment(dataId, mpToken);
 
       // Localiza a Subscription pelo mpPreapprovalId
       const sub = await prisma.subscription.findFirst({
