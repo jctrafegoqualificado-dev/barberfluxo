@@ -66,13 +66,20 @@ export async function POST(req: NextRequest) {
       };
       const method = methodMap[payment_method_id] ?? payment_method_id?.toUpperCase() ?? "CREDIT_CARD";
 
+      // Calcula data de vencimento baseada no ciclo de cobrança
+      const now = new Date();
+      const saasExpiresAt = billingCycle === "annual"
+        ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
+        : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+
       await Promise.all([
-        // 1. Atualiza plano e status da barbearia
+        // 1. Atualiza plano, status e data de vencimento da barbearia
         prisma.barbershop.update({
           where: { id: payload.barbershopId! },
           data: {
             saasPlan: planType,
             saasStatus: "ACTIVE",
+            saasExpiresAt,
           },
         }),
         // 2. Registra o pagamento SaaS no banco (visível no admin)

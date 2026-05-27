@@ -39,9 +39,16 @@ export async function POST(req: NextRequest) {
         if (amount <= 170) saasPlan = "PRO";
       }
 
+      // Ciclo de cobrança: lê da external_reference (formato: "barbershopId|plan|cycle")
+      const billingCycle = parts[2] === "annual" ? "annual" : "monthly";
+      const now = new Date();
+      const saasExpiresAt = billingCycle === "annual"
+        ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
+        : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+
       await prisma.barbershop.update({
         where: { id: barbershopId },
-        data: { saasPlan },
+        data: { saasPlan, saasStatus: "ACTIVE", saasExpiresAt },
       });
 
       await prisma.payment.create({

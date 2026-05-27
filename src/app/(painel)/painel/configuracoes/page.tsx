@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
@@ -427,6 +427,22 @@ export default function ConfiguracoesPage() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-zinc-900">Pagamentos Online</p>
               <p className="text-xs text-zinc-400 mt-0.5">Mercado Pago · Pix · Cartão · Débito automático</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-primary transition-colors shrink-0" />
+          </div>
+        </Card>
+      </Link>
+
+      {/* ── Shortcut: Assistente IA ── */}
+      <Link href="/painel/configuracoes/assistente-ia">
+        <Card className="hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+              <Bot className="w-5 h-5 text-violet-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-zinc-900">Assistente IA</p>
+              <p className="text-xs text-zinc-400 mt-0.5">Personalidade · Tom de voz · Saudação do WhatsApp</p>
             </div>
             <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-primary transition-colors shrink-0" />
           </div>

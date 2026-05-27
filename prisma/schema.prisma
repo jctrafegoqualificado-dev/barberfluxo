@@ -58,12 +58,14 @@ model Barbershop {
   secondaryColor String? @default("#fbbf24")
   favIconUrl   String?
   active      Boolean  @default(true)
+  onboardingCompleted Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   saasPlan    SaasPlan  @default(BASIC)
   trialEndsAt DateTime?
   saasStatus        String   @default("TRIAL")  // TRIAL | ACTIVE | OVERDUE | CANCELLED | PAUSED
+  saasExpiresAt     DateTime?  // data de vencimento do plano pago (null = trial / sem data)
   mpSubscriptionId  String?  // MP preapproval ID (assinatura recorrente)
 
   poeOwnerPct     Float @default(50)

@@ -38,10 +38,7 @@ function CadastroForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setAuth(data.user, data.token);
-      const redirectUrl = planParam
-        ? `/painel/assinatura?plano=${planParam}&novo=true`
-        : "/painel/assinatura?novo=true";
-      router.push(redirectUrl);
+      router.push("/onboarding");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao cadastrar");
     } finally {

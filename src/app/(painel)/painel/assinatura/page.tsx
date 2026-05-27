@@ -50,7 +50,8 @@ type PaidPlan = keyof typeof PLAN_CONFIG;
 export default function AssinaturaSaaSPage() {
   const { token, user } = useAuthStore();
   const searchParams = useSearchParams();
-  const trialExpired = searchParams.get("trial") === "expired";
+  const trialExpired    = searchParams.get("trial")   === "expired";
+  const planExpired     = searchParams.get("expired") === "true";
 
   const planParam = (searchParams.get("plano") ?? "").toUpperCase() as PaidPlan | "";
   const isNew = searchParams.get("novo") === "true";
@@ -60,6 +61,7 @@ export default function AssinaturaSaaSPage() {
   const [mpLoaded, setMpLoaded] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<null | "approved" | "pending" | "rejected">(null);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [saasStatus, setSaasStatus]   = useState<string | null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PaidPlan | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
@@ -71,7 +73,8 @@ export default function AssinaturaSaaSPage() {
     })
       .then((r) => r.json())
       .then((data) => {
-        setCurrentPlan(data.saasPlan || "BASIC");
+        setCurrentPlan(data.saasPlan   || "BASIC");
+        setSaasStatus(data.saasStatus  || "TRIAL");
         setTrialEndsAt(data.trialEndsAt || null);
       });
   }, [token]);
@@ -93,7 +96,8 @@ export default function AssinaturaSaaSPage() {
   }, [mpLoaded, currentPlan]);
 
   const normalizedPlan = currentPlan === "PREMIUM" ? "ELITE" : currentPlan;
-  const isPaidUser = normalizedPlan === "PRO" || normalizedPlan === "ELITE";
+  const isOverdue  = saasStatus === "OVERDUE" || saasStatus === "CANCELLED" || planExpired;
+  const isPaidUser = (normalizedPlan === "PRO" || normalizedPlan === "ELITE") && !isOverdue;
 
   const getPrice = (plan: PaidPlan, cycle: BillingCycle) =>
     cycle === "annual" ? PLAN_CONFIG[plan].annualPrice * 12 : PLAN_CONFIG[plan].monthlyPrice;
@@ -271,13 +275,27 @@ export default function AssinaturaSaaSPage() {
     <div className="max-w-6xl mx-auto py-8 px-6 pb-24">
       <Script src="https://sdk.mercadopago.com/js/v2" onLoad={() => setMpLoaded(true)} />
 
+      {/* Banner de plano pago vencido */}
+      {(planExpired || isOverdue) && !trialExpired && (
+        <div className="mb-8 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-red-800">Seu plano venceu</p>
+            <p className="text-sm text-red-600">
+              Sua assinatura expirou e o acesso foi reduzido ao plano Basic.
+              Renove abaixo para recuperar todas as funcionalidades.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Banner de trial expirado */}
       {trialExpired && (
         <div className="mb-8 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold text-red-800">Seu período de teste encerrou</p>
-            <p className="text-sm text-red-600">Escolha um plano abaixo para continuar usando o BarberApp.</p>
+            <p className="text-sm text-red-600">Escolha um plano abaixo para continuar usando o sistema.</p>
           </div>
         </div>
       )}

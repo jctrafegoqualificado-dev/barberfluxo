@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
         logoUrl: true,
         favIconUrl: true,
         saasPlan: true,
+        saasStatus: true,
+        saasExpiresAt: true,
         trialEndsAt: true,
+        onboardingCompleted: true,
       }
     });
 
