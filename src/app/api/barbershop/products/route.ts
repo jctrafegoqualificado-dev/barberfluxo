@@ -5,8 +5,10 @@ import { requireAuth } from "@/lib/auth";
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    const { searchParams } = new URL(req.url);
+    const includeInactive = searchParams.get("admin") === "1" && payload.role === "OWNER";
     const products = await prisma.product.findMany({
-      where: { barbershopId: payload.barbershopId!, active: true },
+      where: { barbershopId: payload.barbershopId!, ...(includeInactive ? {} : { active: true }) },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     });
     return NextResponse.json({ products });
@@ -19,7 +21,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { name, description, price, costPrice, stock, barcode, category, commissionType, commissionValue } = await req.json();
+    const { name, description, price, costPrice, stock, barcode, category, commissionType, commissionValue, imageUrl } = await req.json();
     const product = await prisma.product.create({
       data: {
         name, description,
@@ -28,6 +30,7 @@ export async function POST(req: NextRequest) {
         stock: Number(stock || 0),
         barcode: barcode || null,
         category: category || "GERAL",
+        imageUrl: imageUrl || null,
         commissionType: commissionType || "PERCENTAGE",
         commissionValue: Number(commissionValue || 10),
         barbershopId: payload.barbershopId!,

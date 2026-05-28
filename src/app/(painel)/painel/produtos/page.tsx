@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Package, Plus, ShoppingCart, AlertTriangle, TrendingUp, Edit2, Minus, Percent, HelpCircle } from "lucide-react";
+import { Package, Plus, ShoppingCart, AlertTriangle, TrendingUp, Edit2, Minus, Percent, HelpCircle, Trash2, Image as ImageIcon } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -19,6 +19,7 @@ interface Product {
   active: boolean;
   commissionType: string;
   commissionValue: number;
+  imageUrl: string | null;
 }
 
 interface Sale {
@@ -38,6 +39,19 @@ const CATEGORIAS: Record<string, { label: string; emoji: string; color: string }
   SKINCARE: { label: "Skincare",  emoji: "🧴",  color: "bg-green-100 text-green-700" },
 };
 
+const EMPTY_FORM = {
+  name: "",
+  description: "",
+  price: "",
+  costPrice: "",
+  stock: "",
+  category: "GERAL",
+  barcode: "",
+  commissionType: "PERCENTAGE",
+  commissionValue: "10",
+  imageUrl: "",
+};
+
 export default function ProdutosPage() {
   const { token } = useAuthStore();
   const [products, setProducts] = useState<Product[]>([]);
@@ -54,23 +68,13 @@ export default function ProdutosPage() {
   const [sellPaymentMethod, setSellPaymentMethod] = useState("CASH");
   const [barcodeSearch, setBarcodeSearch] = useState("");
 
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    price: "",
-    costPrice: "",
-    stock: "",
-    category: "GERAL",
-    barcode: "",
-    commissionType: "PERCENTAGE",
-    commissionValue: "10"
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function load() {
     const [pr, sr] = await Promise.all([
-      fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch("/api/barbershop/products?admin=1", { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/barbershop/products/sales", { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [pd, sd] = await Promise.all([pr.json(), sr.json()]);
@@ -85,31 +89,25 @@ export default function ProdutosPage() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    
-    const payload = {
-      name: form.name,
-      description: form.description || null,
-      price: parseFloat(form.price),
-      costPrice: parseFloat(form.costPrice || "0"),
-      stock: parseInt(form.stock || "0"),
-      barcode: form.barcode || null,
-      category: form.category,
-      commissionType: form.commissionType,
-      commissionValue: parseFloat(form.commissionValue || "0")
-    };
-
     await fetch("/api/barbershop/products", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        name: form.name,
+        description: form.description || null,
+        price: parseFloat(form.price),
+        costPrice: parseFloat(form.costPrice || "0"),
+        stock: parseInt(form.stock || "0"),
+        barcode: form.barcode || null,
+        category: form.category,
+        imageUrl: form.imageUrl || null,
+        commissionType: form.commissionType,
+        commissionValue: parseFloat(form.commissionValue || "0"),
+      }),
     });
-    
     setLoading(false);
     setOpenAdd(false);
-    setForm({
-      name: "", description: "", price: "", costPrice: "", stock: "", barcode: "", category: "GERAL",
-      commissionType: "PERCENTAGE", commissionValue: "10"
-    });
+    setForm(EMPTY_FORM);
     load();
   }
 
@@ -117,27 +115,43 @@ export default function ProdutosPage() {
     e.preventDefault();
     if (!selectedProduct) return;
     setLoading(true);
-    
-    const payload = {
-      name: form.name,
-      description: form.description || null,
-      price: parseFloat(form.price),
-      costPrice: parseFloat(form.costPrice || "0"),
-      stock: parseInt(form.stock || "0"),
-      barcode: form.barcode || null,
-      category: form.category,
-      commissionType: form.commissionType,
-      commissionValue: parseFloat(form.commissionValue || "0")
-    };
-
     await fetch(`/api/barbershop/products/${selectedProduct.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...selectedProduct, ...payload }),
+      body: JSON.stringify({
+        ...selectedProduct,
+        name: form.name,
+        description: form.description || null,
+        price: parseFloat(form.price),
+        costPrice: parseFloat(form.costPrice || "0"),
+        stock: parseInt(form.stock || "0"),
+        barcode: form.barcode || null,
+        category: form.category,
+        imageUrl: form.imageUrl || null,
+        commissionType: form.commissionType,
+        commissionValue: parseFloat(form.commissionValue || "0"),
+      }),
     });
-    
     setLoading(false);
     setOpenEdit(false);
+    load();
+  }
+
+  async function toggleActive(p: Product) {
+    await fetch(`/api/barbershop/products/${p.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ ...p, active: !p.active }),
+    });
+    load();
+  }
+
+  async function handleDelete(p: Product) {
+    if (!confirm(`Excluir "${p.name}"? O produto será desativado permanentemente.`)) return;
+    await fetch(`/api/barbershop/products/${p.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
     load();
   }
 
@@ -173,17 +187,57 @@ export default function ProdutosPage() {
       stock: String(p.stock),
       barcode: p.barcode || "",
       category: p.category,
+      imageUrl: p.imageUrl || "",
       commissionType: p.commissionType || "PERCENTAGE",
-      commissionValue: String(p.commissionValue ?? 10)
+      commissionValue: String(p.commissionValue ?? 10),
     });
     setOpenEdit(true);
   }
 
-  const lowStock = products.filter((p) => p.stock > 0 && p.stock <= 3);
+  const lowStock = products.filter((p) => p.active && p.stock > 0 && p.stock <= 3);
   const byCategory = Object.keys(CATEGORIAS).reduce<Record<string, Product[]>>((acc, cat) => {
     acc[cat] = products.filter((p) => p.category === cat);
     return acc;
   }, {});
+
+  const CommissionFields = () => (
+    <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-150 space-y-4">
+      <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
+        <Percent className="w-4 h-4 text-primary" /> Configuração de Comissão do Profissional
+      </h4>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-700 mb-1 flex items-center gap-1">
+            Tipo de Comissão
+            <span className="group relative cursor-help text-zinc-400 hover:text-zinc-600">
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:block w-48 bg-zinc-950 text-white text-[10px] p-2 rounded-lg leading-tight shadow-xl z-50">
+                Escolha se a comissão é uma porcentagem sobre o preço de venda ou um valor fixo em reais.
+              </span>
+            </span>
+          </label>
+          <select
+            value={form.commissionType}
+            onChange={(e) => setField("commissionType", e.target.value)}
+            className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="PERCENTAGE">Porcentagem (%)</option>
+            <option value="FIXED">Valor Fixo (R$)</option>
+          </select>
+        </div>
+        <Input
+          label={form.commissionType === "PERCENTAGE" ? "Comissão (%)" : "Comissão (R$)"}
+          type="number"
+          step="0.01"
+          min="0"
+          value={form.commissionValue}
+          onChange={(e) => setField("commissionValue", e.target.value)}
+          placeholder={form.commissionType === "PERCENTAGE" ? "10" : "5.00"}
+          required
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -195,18 +249,15 @@ export default function ProdutosPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Input 
-              placeholder="Bipar Código de Barras..." 
+            <Input
+              placeholder="Bipar Código de Barras..."
               value={barcodeSearch}
               onChange={(e) => {
                 setBarcodeSearch(e.target.value);
-                const found = products.find(p => p.barcode === e.target.value);
-                if (found) {
-                  openSellModal(found);
-                  setBarcodeSearch("");
-                }
+                const found = products.find(p => p.barcode === e.target.value && p.active);
+                if (found) { openSellModal(found); setBarcodeSearch(""); }
               }}
-              className="w-64"
+              className="w-48 sm:w-64"
             />
           </div>
           <Button onClick={() => setOpenAdd(true)}>
@@ -217,28 +268,28 @@ export default function ProdutosPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4 sm:p-5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-zinc-500">Vendas do mês</span>
+            <span className="text-xs sm:text-sm text-zinc-500">Vendas do mês</span>
             <TrendingUp className="w-4 h-4 text-green-500" />
           </div>
-          <p className="text-2xl font-bold text-zinc-900">{formatCurrency(totalMes)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-zinc-900">{formatCurrency(totalMes)}</p>
           <p className="text-xs text-zinc-400 mt-1">{totalUnidades} unidades vendidas</p>
         </div>
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4 sm:p-5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-zinc-500">Em estoque</span>
+            <span className="text-xs sm:text-sm text-zinc-500">Em estoque</span>
             <Package className="w-4 h-4 text-blue-500" />
           </div>
-          <p className="text-2xl font-bold text-zinc-900">{products.reduce((s, p) => s + p.stock, 0)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-zinc-900">{products.filter(p => p.active).reduce((s, p) => s + p.stock, 0)}</p>
           <p className="text-xs text-zinc-400 mt-1">unidades no total</p>
         </div>
-        <div className={`rounded-xl border shadow-sm p-5 ${lowStock.length > 0 ? "bg-red-50 border-red-100" : "bg-white border-zinc-100"}`}>
+        <div className={`rounded-xl border shadow-sm p-4 sm:p-5 ${lowStock.length > 0 ? "bg-red-50 border-red-100" : "bg-white border-zinc-100"}`}>
           <div className="flex items-center justify-between mb-2">
-            <span className={`text-sm ${lowStock.length > 0 ? "text-red-600" : "text-zinc-500"}`}>Estoque baixo</span>
+            <span className={`text-xs sm:text-sm ${lowStock.length > 0 ? "text-red-600" : "text-zinc-500"}`}>Estoque baixo</span>
             <AlertTriangle className={`w-4 h-4 ${lowStock.length > 0 ? "text-red-500" : "text-zinc-300"}`} />
           </div>
-          <p className={`text-2xl font-bold ${lowStock.length > 0 ? "text-red-700" : "text-zinc-400"}`}>{lowStock.length}</p>
+          <p className={`text-xl sm:text-2xl font-bold ${lowStock.length > 0 ? "text-red-700" : "text-zinc-400"}`}>{lowStock.length}</p>
           <p className={`text-xs mt-1 truncate ${lowStock.length > 0 ? "text-red-500" : "text-zinc-400"}`}>
             {lowStock.length > 0 ? lowStock.map((p) => p.name).join(", ") : "tudo OK"}
           </p>
@@ -271,7 +322,13 @@ export default function ProdutosPage() {
                       ? Math.round(((p.price - p.costPrice) / p.price) * 100)
                       : null;
                     return (
-                      <div key={p.id} className="bg-white rounded-xl border border-zinc-150 shadow-sm p-5 flex flex-col justify-between min-h-[220px]">
+                      <div key={p.id} className={`bg-white rounded-xl border border-zinc-150 shadow-sm p-5 flex flex-col justify-between min-h-[220px] relative overflow-hidden transition-all ${!p.active ? "opacity-50" : ""}`}>
+                        {/* Imagem de fundo decorativa */}
+                        {p.imageUrl && (
+                          <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
+                            <img src={p.imageUrl} alt="" className="w-full h-full object-cover rounded-bl-full" />
+                          </div>
+                        )}
                         <div>
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1 min-w-0">
@@ -300,7 +357,7 @@ export default function ProdutosPage() {
                         </div>
 
                         <div>
-                          {/* Comissão do produto */}
+                          {/* Comissão */}
                           <div className="flex items-center justify-between px-3 py-1.5 rounded-lg mb-2 bg-zinc-50 border border-zinc-100 text-xs text-zinc-500">
                             <span className="flex items-center gap-1 font-medium"><Percent className="w-3.5 h-3.5 text-primary" /> Comissão</span>
                             <span className="font-bold text-primary">
@@ -309,7 +366,7 @@ export default function ProdutosPage() {
                           </div>
 
                           {/* Estoque */}
-                          <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg mb-3 border text-xs ${p.stock <= 3 && p.stock > 0 ? "bg-red-50 border-red-100 text-red-700" : p.stock === 0 ? "bg-zinc-50 border-zinc-100 text-zinc-500" : "bg-zinc-50 border-zinc-100 text-zinc-500"}`}>
+                          <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg mb-3 border text-xs ${p.stock <= 3 && p.stock > 0 ? "bg-red-50 border-red-100 text-red-700" : "bg-zinc-50 border-zinc-100 text-zinc-500"}`}>
                             <span>Estoque</span>
                             <span className="font-bold">
                               {p.stock === 0 ? "Não controlado" : `${p.stock} un.`}
@@ -317,18 +374,33 @@ export default function ProdutosPage() {
                             </span>
                           </div>
 
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => openSellModal(p)}
-                              className="flex-1 font-bold text-xs" size="sm"
-                            >
-                              <ShoppingCart className="w-3.5 h-3.5 mr-1" /> Vender
-                            </Button>
+                          {/* Ações */}
+                          <div className="flex gap-2 items-center">
+                            {p.active && (
+                              <Button onClick={() => openSellModal(p)} className="flex-1 font-bold text-xs" size="sm">
+                                <ShoppingCart className="w-3.5 h-3.5 mr-1" /> Vender
+                              </Button>
+                            )}
                             <button
                               onClick={() => openEditModal(p)}
                               className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors"
+                              title="Editar produto"
                             >
                               <Edit2 className="w-3.5 h-3.5 text-zinc-500" />
+                            </button>
+                            <button
+                              onClick={() => toggleActive(p)}
+                              className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold border transition-colors ${p.active ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" : "bg-zinc-100 text-zinc-500 border-zinc-200 hover:bg-zinc-200"}`}
+                              title={p.active ? "Desativar produto" : "Ativar produto"}
+                            >
+                              {p.active ? "Ativo" : "Inativo"}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p)}
+                              className="p-2 rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
+                              title="Excluir produto"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-red-400" />
                             </button>
                           </div>
                         </div>
@@ -399,7 +471,24 @@ export default function ProdutosPage() {
           <Input label="Nome" value={form.name} onChange={(e) => setField("name", e.target.value)} placeholder="Ex: Pomada Modeladora Matte" required />
           <Input label="Descrição (opcional)" value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Breve descrição do produto" />
           <Input label="Código de Barras (opcional)" value={form.barcode} onChange={(e) => setField("barcode", e.target.value)} placeholder="Bipe aqui" />
-          
+
+          {/* Foto */}
+          <div>
+            <label className="block text-sm font-semibold text-zinc-700 mb-1 flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-zinc-400" /> Foto do produto (URL, opcional)
+            </label>
+            <input
+              type="url"
+              value={form.imageUrl}
+              onChange={(e) => setField("imageUrl", e.target.value)}
+              placeholder="https://exemplo.com/foto.jpg"
+              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            {form.imageUrl && (
+              <img src={form.imageUrl} alt="Preview" className="mt-2 h-16 w-16 object-cover rounded-lg border border-zinc-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-zinc-700 mb-1">Categoria</label>
@@ -418,45 +507,7 @@ export default function ProdutosPage() {
             <Input label="Preço de Custo (R$)" type="number" step="0.01" min="0" value={form.costPrice} onChange={(e) => setField("costPrice", e.target.value)} placeholder="20.00" />
           </div>
 
-          {/* Seção de Comissionamento Customizado por Produto */}
-          <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-250 space-y-4">
-            <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
-              <Percent className="w-4 h-4 text-primary" /> Configuração de Comissão do Profissional
-            </h4>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 mb-1 flex items-center gap-1">
-                  Tipo de Comissão
-                  <span className="group relative cursor-help text-zinc-400 hover:text-zinc-600">
-                    <HelpCircle className="w-3.5 h-3.5" />
-                    <span className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:block w-48 bg-zinc-950 text-white text-[10px] p-2 rounded-lg leading-tight shadow-xl z-50">
-                      Escolha se a comissão é uma porcentagem sobre o preço de venda ou um valor fixo em reais.
-                    </span>
-                  </span>
-                </label>
-                <select
-                  value={form.commissionType}
-                  onChange={(e) => setField("commissionType", e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="PERCENTAGE">Porcentagem (%)</option>
-                  <option value="FIXED">Valor Fixo (R$)</option>
-                </select>
-              </div>
-
-              <Input
-                label={form.commissionType === "PERCENTAGE" ? "Comissão (%)" : "Comissão (R$)"}
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.commissionValue}
-                onChange={(e) => setField("commissionValue", e.target.value)}
-                placeholder={form.commissionType === "PERCENTAGE" ? "10" : "5.00"}
-                required
-              />
-            </div>
-          </div>
+          <CommissionFields />
 
           <Button type="submit" loading={loading} className="w-full mt-2">Cadastrar Produto</Button>
         </form>
@@ -468,7 +519,24 @@ export default function ProdutosPage() {
           <Input label="Nome" value={form.name} onChange={(e) => setField("name", e.target.value)} required />
           <Input label="Descrição (opcional)" value={form.description} onChange={(e) => setField("description", e.target.value)} />
           <Input label="Código de Barras (opcional)" value={form.barcode} onChange={(e) => setField("barcode", e.target.value)} />
-          
+
+          {/* Foto */}
+          <div>
+            <label className="block text-sm font-semibold text-zinc-700 mb-1 flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-zinc-400" /> Foto do produto (URL, opcional)
+            </label>
+            <input
+              type="url"
+              value={form.imageUrl}
+              onChange={(e) => setField("imageUrl", e.target.value)}
+              placeholder="https://exemplo.com/foto.jpg"
+              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            {form.imageUrl && (
+              <img src={form.imageUrl} alt="Preview" className="mt-2 h-16 w-16 object-cover rounded-lg border border-zinc-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-zinc-700 mb-1">Categoria</label>
@@ -487,44 +555,7 @@ export default function ProdutosPage() {
             <Input label="Preço de Custo (R$)" type="number" step="0.01" value={form.costPrice} onChange={(e) => setField("costPrice", e.target.value)} />
           </div>
 
-          {/* Seção de Comissionamento Customizado por Produto (Edição) */}
-          <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-250 space-y-4">
-            <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
-              <Percent className="w-4 h-4 text-primary" /> Configuração de Comissão do Profissional
-            </h4>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 mb-1 flex items-center gap-1">
-                  Tipo de Comissão
-                  <span className="group relative cursor-help text-zinc-400 hover:text-zinc-600">
-                    <HelpCircle className="w-3.5 h-3.5" />
-                    <span className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:block w-48 bg-zinc-950 text-white text-[10px] p-2 rounded-lg leading-tight shadow-xl z-50">
-                      Escolha se a comissão é uma porcentagem sobre o preço de venda ou um valor fixo em reais.
-                    </span>
-                  </span>
-                </label>
-                <select
-                  value={form.commissionType}
-                  onChange={(e) => setField("commissionType", e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="PERCENTAGE">Porcentagem (%)</option>
-                  <option value="FIXED">Valor Fixo (R$)</option>
-                </select>
-              </div>
-
-              <Input
-                label={form.commissionType === "PERCENTAGE" ? "Comissão (%)" : "Comissão (R$)"}
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.commissionValue}
-                onChange={(e) => setField("commissionValue", e.target.value)}
-                required
-              />
-            </div>
-          </div>
+          <CommissionFields />
 
           <Button type="submit" loading={loading} className="w-full mt-2">Salvar Alterações</Button>
         </form>
@@ -534,12 +565,17 @@ export default function ProdutosPage() {
       <Modal open={openSell} onClose={() => setOpenSell(false)} title="Registrar Venda">
         {selectedProduct && (
           <div className="space-y-4">
-            <div className="bg-zinc-50 rounded-xl p-4">
-              <p className="font-semibold text-zinc-900">{selectedProduct.name}</p>
-              <p className="text-sm text-zinc-500 mt-0.5">{formatCurrency(selectedProduct.price)} por unidade</p>
-              {selectedProduct.stock > 0 && (
-                <p className="text-xs text-zinc-400 mt-0.5">{selectedProduct.stock} em estoque</p>
+            <div className="bg-zinc-50 rounded-xl p-4 flex items-center gap-3">
+              {selectedProduct.imageUrl && (
+                <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-12 h-12 object-cover rounded-lg border border-zinc-200 shrink-0" />
               )}
+              <div>
+                <p className="font-semibold text-zinc-900">{selectedProduct.name}</p>
+                <p className="text-sm text-zinc-500 mt-0.5">{formatCurrency(selectedProduct.price)} por unidade</p>
+                {selectedProduct.stock > 0 && (
+                  <p className="text-xs text-zinc-400 mt-0.5">{selectedProduct.stock} em estoque</p>
+                )}
+              </div>
             </div>
 
             <div>
@@ -559,8 +595,8 @@ export default function ProdutosPage() {
 
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-2">Forma de Pagamento (Caixa)</label>
-              <select 
-                value={sellPaymentMethod} 
+              <select
+                value={sellPaymentMethod}
                 onChange={(e) => setSellPaymentMethod(e.target.value)}
                 className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >

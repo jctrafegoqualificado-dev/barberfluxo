@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Sparkles, Plus, Clock, DollarSign, Edit, Image as ImageIcon, Percent, HelpCircle } from "lucide-react";
+import { Sparkles, Plus, Clock, DollarSign, Edit, Percent, HelpCircle, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -117,6 +117,15 @@ export default function ServicosPage() {
     load();
   }
 
+  async function handleDelete(s: Service) {
+    if (!confirm(`Excluir "${s.name}"? O serviço será desativado permanentemente.`)) return;
+    await fetch(`/api/barbershop/services/${s.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    load();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -143,12 +152,15 @@ export default function ServicosPage() {
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Sparkles className="w-5 h-5 text-primary" />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-primary/10 transition-colors" title="Editar serviço">
                     <Edit className="w-4 h-4" />
                   </button>
                   <button onClick={() => toggleActive(s)} className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${s.active ? "bg-green-50 text-green-700 border border-green-200" : "bg-zinc-100 text-zinc-500 border border-zinc-200"}`}>
                     {s.active ? "Ativo" : "Inativo"}
+                  </button>
+                  <button onClick={() => handleDelete(s)} className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Excluir serviço">
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>

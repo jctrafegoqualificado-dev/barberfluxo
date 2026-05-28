@@ -1207,29 +1207,29 @@ export default function AgendamentosPage() {
       )}
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+      <div className="flex items-center justify-between gap-2 mb-4">
         {/* Navegação de data */}
-        <div className="flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200" title="Dia anterior">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200 shrink-0" title="Dia anterior">
             <ChevronLeft className="w-4 h-4 text-zinc-600" />
           </button>
           <button onClick={() => setDate(todayStr)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${isToday ? "bg-primary text-white border-primary" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"}`}>
+            className={`px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border transition-colors shrink-0 ${isToday ? "bg-primary text-white border-primary" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"}`}>
             Hoje
           </button>
-          <button onClick={() => navigate(1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200" title="Próximo dia">
+          <button onClick={() => navigate(1)} className="p-1.5 rounded-lg hover:bg-zinc-100 border border-zinc-200 shrink-0" title="Próximo dia">
             <ChevronRight className="w-4 h-4 text-zinc-600" />
           </button>
-          <div className="relative flex items-center group cursor-pointer ml-2 bg-zinc-50 hover:bg-primary/10 px-3 py-1.5 rounded-lg border border-zinc-200 hover:border-amber-200 transition-all">
+          <div className="relative flex items-center group cursor-pointer bg-zinc-50 hover:bg-primary/10 px-2.5 py-1.5 rounded-lg border border-zinc-200 hover:border-amber-200 transition-all min-w-0">
             <input type="date" value={date} onChange={(e) => { if(e.target.value) setDate(e.target.value); }}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Selecionar data" />
-            <span className="text-base font-bold text-zinc-900 group-hover:text-primary/90 transition-colors select-none whitespace-nowrap">{dayLabel}</span>
-            <Calendar className="w-4 h-4 text-zinc-400 ml-2 group-hover:text-primary transition-colors pointer-events-none" />
+            <span className="text-sm font-bold text-zinc-900 group-hover:text-primary/90 transition-colors select-none truncate">{dayLabel}</span>
+            <Calendar className="w-3.5 h-3.5 text-zinc-400 ml-1.5 group-hover:text-primary transition-colors pointer-events-none shrink-0" />
           </div>
         </div>
 
         {/* Ações */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Toggle view */}
           <div className="flex rounded-lg border border-zinc-200 overflow-hidden">
             <button onClick={() => setView("list")}
@@ -1242,11 +1242,13 @@ export default function AgendamentosPage() {
             </button>
           </div>
           <button onClick={() => setShowBloqueio(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100">
-            <Lock className="w-3.5 h-3.5" /> Bloquear
+            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100">
+            <Lock className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Bloquear</span>
           </button>
-          <button onClick={() => setShowAgendamento(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold">
-            <Plus className="w-4 h-4" /> Novo agendamento
+          <button onClick={() => setShowAgendamento(true)} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Novo agendamento</span>
           </button>
         </div>
       </div>
