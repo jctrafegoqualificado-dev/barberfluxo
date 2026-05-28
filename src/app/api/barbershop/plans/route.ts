@@ -5,7 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
-    const payload = requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const plans = await prisma.plan.findMany({
       where: { barbershopId: payload.barbershopId! },
       include: {

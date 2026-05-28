@@ -658,7 +658,7 @@ export default function BarberAssinaturasPage() {
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                 placeholder="Buscar ou digitar nome..."
                 required
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary"
               />
               {showSuggestions && clientSuggestions.length > 0 && (
                 <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-50 overflow-hidden">
@@ -680,14 +680,14 @@ export default function BarberAssinaturasPage() {
           <Input label="WhatsApp" type="tel" value={form.clientPhone} onChange={(e) => setField("clientPhone", e.target.value)} required />
           <div>
             <label className="block text-sm font-medium text-zinc-900 mb-1">Plano</label>
-            <select value={form.planId} onChange={(e) => setField("planId", e.target.value)} required className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <select value={form.planId} onChange={(e) => setField("planId", e.target.value)} required className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary">
               <option value="">Selecione um plano...</option>
               {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {formatCurrency(p.price)}/mês</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-900 mb-1">Dia de vencimento <span className="text-zinc-400 font-normal">(opcional)</span></label>
-            <select value={form.billingDay} onChange={(e) => setField("billingDay", e.target.value)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <select value={form.billingDay} onChange={(e) => setField("billingDay", e.target.value)} className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary">
               <option value="">Sem dia fixo</option>
               {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>Dia {d}</option>
