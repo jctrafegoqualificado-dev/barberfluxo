@@ -1132,7 +1132,7 @@ a { text-decoration: none; color: inherit; }
 <footer class="footer">
   <div class="footer-inner">
     <a href="#" class="footer-logo"><img src="IA de barbearia.png transparente.png" alt="IA de Barbearia"></a>
-    <span class="footer-copy">© 2026 IA de Barbearia. Todos os direitos reservados.</span>
+    <span class="footer-copy">© 2026 IA de Barbearia. Todos os direitos reservados. · <a href="/privacidade" style="color:rgba(255,255,255,.3);text-decoration:none;transition:color .2s" onmouseover="this.style.color='#FF5F00'" onmouseout="this.style.color='rgba(255,255,255,.3)'">Privacidade</a></span>
     <a href="#" class="footer-top">↑ Topo</a>
   </div>
 </footer>
