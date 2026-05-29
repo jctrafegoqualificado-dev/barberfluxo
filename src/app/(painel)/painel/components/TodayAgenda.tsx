@@ -4,6 +4,13 @@ import { Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency } from "@/lib/utils";
 
+interface NoshowRisk {
+  label: "low" | "medium" | "high";
+  score: number;
+  noShowCount: number;
+  totalCount: number;
+}
+
 interface TodayAgendaProps {
   appointments: Array<{
     id: string;
@@ -12,6 +19,7 @@ interface TodayAgendaProps {
     client: { name: string };
     service: { name: string; price: number; duration: number };
     barber: { user: { name: string } };
+    noshowRisk?: NoshowRisk | null;
   }>;
   total: number;
 }
@@ -41,8 +49,20 @@ export function TodayAgenda({ appointments, total }: TodayAgendaProps) {
                 <span className="text-sm font-black text-zinc-900">{a.startTime}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-zinc-900 truncate">
+                <p className="text-sm font-bold text-zinc-900 truncate flex items-center gap-1.5">
                   {a.client?.name || "Cliente"}
+                  {a.noshowRisk && a.noshowRisk.label !== "low" && (
+                    <span
+                      title={`Risco de falta: ${a.noshowRisk.score}% (${a.noshowRisk.noShowCount}/${a.noshowRisk.totalCount} faltas)`}
+                      className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                        a.noshowRisk.label === "high"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-amber-100 text-amber-600"
+                      }`}
+                    >
+                      {a.noshowRisk.label === "high" ? "alto risco" : "risco"}
+                    </span>
+                  )}
                 </p>
                 <p className="text-[10px] text-zinc-500">
                   {a.service?.name || "Serviço"} · {a.barber?.user?.name || "Barbeiro"}

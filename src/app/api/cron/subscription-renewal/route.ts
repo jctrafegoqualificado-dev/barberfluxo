@@ -4,6 +4,7 @@ import { sendMessage } from "@/lib/evolution/client";
 import { setCronHealth } from "@/lib/cron-health";
 
 export async function GET(req: NextRequest) {
+  const startedAt = Date.now();
   try {
     // CVE-5: CRON_SECRET ausente bloqueia o endpoint (nunca silencia a proteção)
     const CRON_SECRET = process.env.CRON_SECRET;
@@ -17,8 +18,6 @@ export async function GET(req: NextRequest) {
     if (providedSecret !== CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const startedAt = Date.now();
     // Dia de amanhã (UTC-3)
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);

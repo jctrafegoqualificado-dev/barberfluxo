@@ -28,6 +28,7 @@ Podemos confirmar sua presença? Responda com *SIM* para confirmar ou *NÃO* par
  * 4. Marca reminderSent = true para evitar duplicatas
  */
 export async function GET(req: NextRequest) {
+  const startedAt = Date.now();
   try {
     // CVE-5: CRON_SECRET ausente bloqueia o endpoint (nunca silencia a proteção)
     const CRON_SECRET = process.env.CRON_SECRET;
@@ -41,8 +42,6 @@ export async function GET(req: NextRequest) {
     if (providedSecret !== CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const startedAt = Date.now();
     const now = new Date();
     console.log(`⏰ [Reminder Job] Starting at ${now.toISOString()}`);
 

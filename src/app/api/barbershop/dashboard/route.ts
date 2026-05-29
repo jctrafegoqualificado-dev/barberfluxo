@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { format, differenceInDays } from "date-fns";
 import { getCached, setCached, dashboardCacheKey } from "@/lib/cache";
+import { computeNoshowRisks } from "@/lib/noshow-risk";
 
 /**
  * Dashboard BI — Multi-Period API
@@ -97,6 +98,8 @@ export async function GET(req: NextRequest) {
       })
     ]);
 
+    const todayClientIds = [...new Set(todayAppointments.map((a) => a.clientId))];
+
     // In-memory derivations from Phase A — single pass over doneAppointmentsInPeriod
     const barberRevenueMap: Record<string, { revenue: number; count: number }> = {};
     const clientSpentMap: Record<string, { spent: number; count: number }> = {};
@@ -166,6 +169,7 @@ export async function GET(req: NextRequest) {
       clientUsers,
       periodSubPayments,
       prevPeriodSubPayments,
+      noshowRisks,
     ] = await Promise.all([
       prisma.appointment.aggregate({
         where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: prevPeriodStart, lte: prevPeriodEnd } },
@@ -241,6 +245,7 @@ export async function GET(req: NextRequest) {
         where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: prevPeriodStart, lte: prevPeriodEnd } },
         _sum: { amount: true },
       }),
+      computeNoshowRisks(todayClientIds, barbershopId),
     ]);
 
     // --- PHASE C: in-memory calculations + response ---
@@ -321,10 +326,14 @@ export async function GET(req: NextRequest) {
     const projecaoMes = diaAtual > 0 ? (monthRevenue / diaAtual) * diasNoMes : 0;
 
     // Hoje — assinaturas não geram caixa no dia (pagamento é mensal)
-    const todayDone = todayAppointments.filter((a) => a.status === "DONE");
-    const todayPending = todayAppointments.filter((a) => a.status === "PENDING" || a.status === "CONFIRMED");
+    const todayAppointmentsWithRisk = todayAppointments.map((a) => ({
+      ...a,
+      noshowRisk: noshowRisks.get(a.clientId) ?? null,
+    }));
+    const todayDone = todayAppointmentsWithRisk.filter((a) => a.status === "DONE");
+    const todayPending = todayAppointmentsWithRisk.filter((a) => a.status === "PENDING" || a.status === "CONFIRMED");
     const todayRevenue = todayDone.reduce((s, a) => s + (a.subscription ? 0 : a.price), 0);
-    const todayExpectedRevenue = todayAppointments
+    const todayExpectedRevenue = todayAppointmentsWithRisk
       .filter((a) => a.status !== "CANCELLED" && a.status !== "NO_SHOW")
       .reduce((s, a) => s + (a.subscription ? 0 : (a.service?.price || 0)), 0);
 
@@ -333,7 +342,7 @@ export async function GET(req: NextRequest) {
     }).format(now);
     const [brNowH, brNowM] = brTimeForNow.split(":").map(Number);
     const nowMinutes = brNowH * 60 + brNowM;
-    const nextAppointment = todayAppointments.find((a) => {
+    const nextAppointment = todayAppointmentsWithRisk.find((a) => {
       if (a.status !== "CONFIRMED" && a.status !== "PENDING") return false;
       const [h, m] = a.startTime.split(":").map(Number);
       return h * 60 + m >= nowMinutes;
@@ -406,11 +415,11 @@ export async function GET(req: NextRequest) {
         detractors: nps.detractors,
       },
       today: {
-        appointments: todayAppointments,
-        total: todayAppointments.length,
+        appointments: todayAppointmentsWithRisk,
+        total: todayAppointmentsWithRisk.length,
         done: todayDone.length,
         pending: todayPending.length,
-        noShow: todayAppointments.filter((a) => a.status === "NO_SHOW").length,
+        noShow: todayAppointmentsWithRisk.filter((a) => a.status === "NO_SHOW").length,
         revenue: todayRevenue,
         expectedRevenue: todayExpectedRevenue,
         nextAppointment,

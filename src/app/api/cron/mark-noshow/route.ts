@@ -14,6 +14,7 @@ import { setCronHealth } from "@/lib/cron-health";
  * fechar manualmente o agendamento antes de virar NO_SHOW automaticamente.
  */
 export async function GET(req: NextRequest) {
+  const startedAt = Date.now();
   try {
     // CVE-5: CRON_SECRET ausente bloqueia o endpoint (nunca silencia a proteção)
     const CRON_SECRET = process.env.CRON_SECRET;
@@ -27,8 +28,6 @@ export async function GET(req: NextRequest) {
     if (providedSecret !== CRON_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const startedAt = Date.now();
     const now = new Date();
 
     // Busca barbearias com auto-noshow ativado
