@@ -1370,7 +1370,7 @@ export default function AgendamentosPage() {
                           <button onClick={() => { 
                             setConfirmDialog({ title: "Remover Bloqueio", message: "Deseja remover este bloqueio de horário?", onConfirm: () => deleteBloqueio(bl.id) }); 
                           }}
-                            className="hidden group-hover:block p-0.5 rounded hover:bg-red-200">
+                            className="block sm:hidden sm:group-hover:block p-0.5 rounded hover:bg-red-200 active:bg-red-200">
                             <Trash2 className="w-3 h-3 text-red-500" />
                           </button>
                         </div>
