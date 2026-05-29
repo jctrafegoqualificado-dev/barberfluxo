@@ -71,7 +71,7 @@ export default function PlataformaClientes() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-white">Gestão de Assinantes</h1>
-        <p className="text-zinc-400 mt-1">Gerencie as assinaturas das barbearias que utilizam o BarberFluxo.</p>
+        <p className="text-zinc-400 mt-1">Gerencie as assinaturas das barbearias que utilizam o IaDeBarbearia.</p>
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">

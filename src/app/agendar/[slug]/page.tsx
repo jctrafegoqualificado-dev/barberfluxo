@@ -596,6 +596,19 @@ export default function AgendarPage() {
           </p>
         </div>
       )}
+
+      {/* Powered by — PLG passivo para donos de barbearia que chegam como clientes */}
+      <div className="text-center py-3">
+        <a
+          href="https://iadebarbearia.com.br"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-700 hover:text-zinc-500 transition-colors"
+        >
+          <Sparkles className="w-3 h-3" />
+          Agendamento por IaDeBarbearia
+        </a>
+      </div>
     </div>
     </>
   );

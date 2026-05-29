@@ -7,17 +7,18 @@ import { bookingRatelimit, getIp } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
-    // Rate limiting — 8 agendamentos por IP a cada 10 minutos
+    const { slug } = await params;
+
+    // Rate limiting — 8 agendamentos por IP por barbearia a cada 10 minutos
+    // Chave ip:slug evita que clientes de barbearias diferentes compartilhem cota
     const ip = getIp(req);
-    const { success } = await bookingRatelimit.limit(ip);
+    const { success } = await bookingRatelimit.limit(`${ip}:${slug}`);
     if (!success) {
       return NextResponse.json(
         { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." },
         { status: 429 },
       );
     }
-
-    const { slug } = await params;
     const { clientName, clientPhone, barberId, serviceId, date, startTime, subscriptionId } =
       await req.json();
     // Gera email interno a partir do telefone para identificar cliente sem exigir email

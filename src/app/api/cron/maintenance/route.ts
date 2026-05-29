@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import * as evolution from "@/lib/evolution/client";
 import { format, differenceInMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { setCronHealth } from "@/lib/cron-health";
 
 export async function GET(req: Request) {
   // 1. Verificação de Segurança — CVE-5: CRON_SECRET ausente bloqueia endpoint
@@ -19,6 +20,7 @@ export async function GET(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const startedAt = Date.now();
   console.log(`🕒 [Cron Job] Iniciando manutenção automática: ${new Date().toISOString()}`);
 
   const results = {
@@ -155,8 +157,10 @@ export async function GET(req: Request) {
       }
     }
 
+    await setCronHealth("maintenance", "ok", Date.now() - startedAt, results as Record<string, unknown>);
     return NextResponse.json({ success: true, ...results });
   } catch (error) {
+    await setCronHealth("maintenance", "error", Date.now() - startedAt, { error: String(error) });
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
 }

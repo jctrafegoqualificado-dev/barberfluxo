@@ -5,21 +5,22 @@ import { slugify } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, phone, role, shopName } = await req.json();
+    const { name, email, password, phone, shopName } = await req.json();
 
     const exists = await prisma.user.findUnique({ where: { email } });
     if (exists) {
       return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 400 });
     }
 
+    const derivedRole = shopName ? "OWNER" : "CLIENT";
     const hashed = await hashPassword(password);
     const user = await prisma.user.create({
-      data: { name, email, password: hashed, phone, role: role || "CLIENT" },
+      data: { name, email, password: hashed, phone, role: derivedRole },
     });
 
     let barbershopId: string | undefined;
 
-    if (role === "OWNER" && shopName) {
+    if (derivedRole === "OWNER" && shopName) {
       let slug = slugify(shopName);
       const existing = await prisma.barbershop.findUnique({ where: { slug } });
       if (existing) slug = `${slug}-${Date.now()}`;

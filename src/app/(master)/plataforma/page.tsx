@@ -6,10 +6,20 @@ import { formatCurrency } from "@/lib/utils";
 import {
   TrendingUp, Users, ShoppingBag, Activity, Store, ArrowUpRight,
   Crown, ShieldCheck, ShieldAlert, Search, Download, BadgeDollarSign,
-  BarChart3, UserPlus, UserMinus, Percent, Shield, Trash2, Mail
+  BarChart3, UserPlus, UserMinus, Percent, Shield, Trash2, Mail,
+  CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw
 } from "lucide-react";
 
-type TabType = "analytics" | "assinantes" | "pagamentos" | "equipe";
+type TabType = "analytics" | "assinantes" | "pagamentos" | "equipe" | "infraestrutura";
+
+type CronJob = {
+  name: string;
+  label: string;
+  status: "ok" | "error" | "stale" | "never";
+  lastRun: string | null;
+  durationMs: number | null;
+  result: Record<string, unknown> | null;
+};
 
 export default function PlataformaDashboard() {
   const { token } = useAuthStore();
@@ -20,6 +30,10 @@ export default function PlataformaDashboard() {
   const [filterPlan, setFilterPlan] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Infraestrutura
+  const [cronJobs, setCronJobs] = useState<CronJob[]>([]);
+  const [cronLoading, setCronLoading] = useState(false);
 
   // Equipe
   const [team, setTeam] = useState<{ id: string; name: string; email: string; role: string; isPlatformAdmin: boolean; createdAt: string }[]>([]);
@@ -63,6 +77,25 @@ export default function PlataformaDashboard() {
 
   useEffect(() => {
     if (activeTab === "equipe" && token) loadTeam();
+  }, [activeTab, token]);
+
+  async function loadCronHealth() {
+    setCronLoading(true);
+    try {
+      const res = await fetch("/api/plataforma/cron-health", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setCronJobs(data.jobs || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCronLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "infraestrutura" && token) loadCronHealth();
   }, [activeTab, token]);
 
   async function addAdmin(e: React.FormEvent) {
@@ -213,6 +246,7 @@ export default function PlataformaDashboard() {
             { id: "assinantes", label: "Assinantes" },
             { id: "pagamentos", label: "Pagamentos" },
             { id: "equipe", label: "Equipe" },
+            { id: "infraestrutura", label: "Infraestrutura" },
           ] as { id: TabType; label: string }[]).map(tab => (
             <button
               key={tab.id}
@@ -683,6 +717,95 @@ export default function PlataformaDashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      {/* ===== INFRAESTRUTURA TAB ===== */}
+      {activeTab === "infraestrutura" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">Saúde dos Jobs Automáticos</h2>
+              <p className="text-sm text-zinc-500">Monitore o último run de cada cron job</p>
+            </div>
+            <button
+              onClick={loadCronHealth}
+              disabled={cronLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm rounded-xl hover:bg-zinc-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${cronLoading ? "animate-spin" : ""}`} />
+              Atualizar
+            </button>
+          </div>
+
+          {cronLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-sm font-semibold text-zinc-400 bg-zinc-950/50">
+                    <th className="p-4">Job</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Último Run</th>
+                    <th className="p-4">Duração</th>
+                    <th className="p-4">Resultado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800 text-sm">
+                  {cronJobs.map((job) => (
+                    <tr key={job.name} className="hover:bg-zinc-800/30 transition-colors">
+                      <td className="p-4">
+                        <p className="font-semibold text-white">{job.label}</p>
+                        <p className="text-xs text-zinc-600 font-mono">{job.name}</p>
+                      </td>
+                      <td className="p-4">
+                        {job.status === "ok" && (
+                          <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
+                            <CheckCircle2 className="w-4 h-4" /> OK
+                          </span>
+                        )}
+                        {job.status === "error" && (
+                          <span className="flex items-center gap-1.5 text-red-400 text-xs font-bold">
+                            <XCircle className="w-4 h-4" /> ERRO
+                          </span>
+                        )}
+                        {job.status === "stale" && (
+                          <span className="flex items-center gap-1.5 text-amber-400 text-xs font-bold">
+                            <AlertCircle className="w-4 h-4" /> ATRASADO
+                          </span>
+                        )}
+                        {job.status === "never" && (
+                          <span className="flex items-center gap-1.5 text-zinc-500 text-xs font-bold">
+                            <Clock className="w-4 h-4" /> NUNCA RODOU
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-zinc-400">
+                        {job.lastRun
+                          ? new Date(job.lastRun).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+                          : <span className="text-zinc-600">—</span>}
+                      </td>
+                      <td className="p-4 text-zinc-400">
+                        {job.durationMs != null
+                          ? `${(job.durationMs / 1000).toFixed(1)}s`
+                          : <span className="text-zinc-600">—</span>}
+                      </td>
+                      <td className="p-4 text-zinc-500 text-xs font-mono max-w-xs truncate">
+                        {job.result
+                          ? Object.entries(job.result)
+                              .filter(([k]) => k !== "error" || job.status === "error")
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(" · ")
+                          : <span className="text-zinc-600">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

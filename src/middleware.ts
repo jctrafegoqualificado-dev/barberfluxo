@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiV1Ratelimit } from "@/lib/ratelimit";
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -9,7 +10,7 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // 1. Proteger rotas de painel
@@ -34,9 +35,21 @@ export function middleware(req: NextRequest) {
         { status: 401, headers: { "WWW-Authenticate": "ApiKey" } }
       );
     }
+
+    // Rate limit por slug — 120 req/min por barbearia (cobre ~12 conversas N8N simultâneas)
+    const slugMatch = pathname.match(/^\/api\/v1\/barbershops\/([^/]+)/);
+    if (slugMatch) {
+      const { success } = await apiV1Ratelimit.limit(slugMatch[1]);
+      if (!success) {
+        return NextResponse.json(
+          { error: "Rate limit excedido. Tente novamente em instantes." },
+          { status: 429 }
+        );
+      }
+    }
   }
 
-  // 3. Proteção básica para /api/barbershop/ (só checa se existe auth na header ou cookie, 
+  // 3. Proteção básica para /api/barbershop/ (só checa se existe auth na header ou cookie,
   // a validação real do JWT é feita no requireAuth de cada endpoint)
   if (pathname.startsWith("/api/barbershop/")) {
     const hasAuthHeader = req.headers.has("authorization");

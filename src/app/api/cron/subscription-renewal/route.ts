@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/evolution/client";
+import { setCronHealth } from "@/lib/cron-health";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const startedAt = Date.now();
     // Dia de amanhã (UTC-3)
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -135,10 +137,13 @@ export async function GET(req: NextRequest) {
       await new Promise((r) => setTimeout(r, 1500));
     }
 
-    return NextResponse.json({ ok: true, billingDay: tomorrowDay, processed: subscriptions.length, sent, skipped });
+    const result = { billingDay: tomorrowDay, processed: subscriptions.length, sent, skipped };
+    await setCronHealth("subscription-renewal", "ok", Date.now() - startedAt, result);
+    return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     console.error("[subscription-renewal] Fatal:", msg);
+    await setCronHealth("subscription-renewal", "error", Date.now() - startedAt, { error: msg });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

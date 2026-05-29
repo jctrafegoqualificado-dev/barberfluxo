@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { setCronHealth } from "@/lib/cron-health";
 
 /**
  * Mark-NoShow Cron — Multi-Tenant
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const startedAt = Date.now();
     const now = new Date();
 
     // Busca barbearias com auto-noshow ativado
@@ -87,9 +89,12 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(`[mark-noshow] Total: ${totalMarked} NO_SHOW em ${shops.length} barbearias`);
-    return NextResponse.json({ ok: true, marked: totalMarked, shops: shops.length });
+    const result = { marked: totalMarked, shops: shops.length };
+    await setCronHealth("mark-noshow", "ok", Date.now() - startedAt, result);
+    return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
+    await setCronHealth("mark-noshow", "error", Date.now() - startedAt, { error: msg });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

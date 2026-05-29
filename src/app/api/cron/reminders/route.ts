@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/evolution/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { setCronHealth } from "@/lib/cron-health";
 
 const DEFAULT_MESSAGE = `Olá {{nome}}! 😊
 
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const startedAt = Date.now();
     const now = new Date();
     console.log(`⏰ [Reminder Job] Starting at ${now.toISOString()}`);
 
@@ -166,11 +168,14 @@ export async function GET(req: NextRequest) {
     };
 
     console.log(`✅ [Reminder Job] Completed:`, summary);
+    await setCronHealth("reminders", "ok", Date.now() - startedAt, summary as Record<string, unknown>);
     return NextResponse.json(summary);
   } catch (e: unknown) {
     console.error("❌ [Reminder Job] Fatal error:", e);
+    const errMsg = e instanceof Error ? e.message : "Internal error";
+    await setCronHealth("reminders", "error", Date.now() - startedAt, { error: errMsg });
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Internal error" },
+      { error: errMsg },
       { status: 500 }
     );
   }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import WhatsAppManager from "@/components/whatsapp/WhatsAppManager";
 
 export const metadata: Metadata = {
-  title: "WhatsApp — BarberFluxo",
+  title: "WhatsApp — IaDeBarbearia",
 };
 
 export default function WhatsAppConfigPage() {

@@ -340,7 +340,7 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
               <BadgeDollarSign className="w-5 h-5 text-emerald-500" />
               Histórico de Pagamentos (Mensalidades SaaS)
             </h2>
-            <p className="text-sm text-zinc-500">Pagamentos da mensalidade BarberFluxo desta barbearia.</p>
+            <p className="text-sm text-zinc-500">Pagamentos da mensalidade IaDeBarbearia desta barbearia.</p>
           </div>
           <button
             onClick={() => { setActivatePlan(shop.saasPlan); setShowPaymentModal(true); }}

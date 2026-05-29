@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const spec = {
     openapi: "3.0.3",
     info: {
-      title: "BarberFluxo Public API",
+      title: "IaDeBarbearia Public API",
       version: "1.0.0",
       description:
         "API protegida por API key (header `x-api-key`) usada por bots/integrações externas (ex.: n8n + WhatsApp) para consultar barbearia e gerenciar agendamentos. Clique em **Authorize** e cole a chave antes de testar.",

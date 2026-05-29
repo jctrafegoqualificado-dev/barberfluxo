@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/evolution/client";
+import { setCronHealth } from "@/lib/cron-health";
 
 /**
  * check-saas-expiry — Cron de Vencimento de Planos SaaS
@@ -28,8 +29,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const startedAt = Date.now();
   const now = new Date();
-  // Janela de "3 dias antes": para aviso de vencimento próximo
   const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
   let markedOverdue = 0;
@@ -136,15 +137,13 @@ export async function GET(req: NextRequest) {
       await new Promise((r) => setTimeout(r, 1500));
     }
 
-    return NextResponse.json({
-      ok: true,
-      markedOverdue,
-      warningSent,
-      expiringSoon: expiringSoon.length,
-    });
+    const result = { markedOverdue, warningSent, expiringSoon: expiringSoon.length };
+    await setCronHealth("check-saas-expiry", "ok", Date.now() - startedAt, result);
+    return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     console.error("[check-saas-expiry] Fatal:", msg);
+    await setCronHealth("check-saas-expiry", "error", Date.now() - startedAt, { error: msg });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

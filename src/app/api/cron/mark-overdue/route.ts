@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { setCronHealth } from "@/lib/cron-health";
 
 /**
  * mark-overdue — Cron de Vencimento de Assinaturas
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Lógica principal ────────────────────────────────────────────────────
+  const startedAt = Date.now();
   const now = new Date();
 
   try {
@@ -88,10 +90,13 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(`[mark-overdue] Concluído: ${markedCount} OVERDUE, ${paymentCount} cobranças geradas`);
-    return NextResponse.json({ ok: true, marked: markedCount, payments: paymentCount });
+    const result = { marked: markedCount, payments: paymentCount };
+    await setCronHealth("mark-overdue", "ok", Date.now() - startedAt, result);
+    return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     console.error("[mark-overdue] Erro fatal:", msg);
+    await setCronHealth("mark-overdue", "error", Date.now() - startedAt, { error: msg });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

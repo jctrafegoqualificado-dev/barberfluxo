@@ -62,7 +62,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: "barberfluxo-auth",
+      name: "iadebarbearia-auth",
       onRehydrateStorage: () => (state) => {
         if (state?.token && isTokenExpired(state.token)) {
           state.clearAuth();

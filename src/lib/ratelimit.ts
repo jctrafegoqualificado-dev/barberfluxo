@@ -63,6 +63,12 @@ export const subscriptionCreateRatelimit: Limiter = redis
   ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, "15 m"), prefix: "rl:sub-create", analytics: false })
   : noopLimiter;
 
+// 120 chamadas por slug a cada minuto — protege os endpoints /api/v1/ contra abuso
+// (N8N normal: ~5-10 calls/conversa; 120/min permite ~12 conversas simultâneas por barbearia)
+export const apiV1Ratelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(120, "1 m"), prefix: "rl:v1", analytics: false })
+  : noopLimiter;
+
 // Helpers — extrai IP do request de forma segura
 export function getIp(req: { headers: { get(k: string): string | null } }): string {
   const forwarded = req.headers.get("x-forwarded-for");
