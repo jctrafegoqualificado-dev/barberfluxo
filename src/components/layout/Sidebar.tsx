@@ -106,10 +106,14 @@ export default function Sidebar({ branding }: {
       isDesktop && collapsed ? "w-16" : "w-64"
     )}>
       {/* Header */}
-      <div className={cn(
-        "flex items-center border-b border-zinc-800 min-h-[72px]",
-        isDesktop && collapsed ? "px-0 py-5 justify-center" : "gap-3 px-4 py-5"
-      )}>
+      <div
+        className={cn(
+          "flex items-center border-b border-zinc-800 min-h-[72px]",
+          isDesktop && collapsed ? "px-0 py-5 justify-center cursor-pointer hover:bg-zinc-800 transition-colors" : "gap-3 px-4 py-5"
+        )}
+        onClick={isDesktop && collapsed ? toggleCollapsed : undefined}
+        title={isDesktop && collapsed ? "Expandir menu" : undefined}
+      >
         <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0 overflow-hidden">
           {branding?.logoUrl ? (
             <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" />
@@ -125,6 +129,15 @@ export default function Sidebar({ branding }: {
             </div>
             <div className="flex items-center gap-1">
               {user?.role === "OWNER" && <NotificationBell />}
+              {isDesktop && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleCollapsed(); }}
+                  className="hidden md:flex p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+                  title="Recolher menu"
+                >
+                  <ChevronLeft className="w-4 h-4 text-zinc-400" />
+                </button>
+              )}
               <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors md:hidden">
                 <X className="w-4 h-4 text-zinc-400" />
               </button>
