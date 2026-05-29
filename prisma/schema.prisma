@@ -35,6 +35,7 @@ model User {
   whatsappContacts WhatsAppContact[]
   reviews          Review[]          @relation("ClientReviews")
   loyaltyPoints    LoyaltyPoint[]    @relation("ClientLoyaltyPoints")
+  clientRetentions ClientRetention[]
 }
 
 model Barbershop {
@@ -95,6 +96,11 @@ model Barbershop {
   autoNoShowEnabled Boolean @default(true)
   autoNoShowHours   Int     @default(24)
 
+  // ── Retenção de Clientes ────────────────────────────────────────────────────
+  retentionEnabled  Boolean @default(false)
+  retentionDays     Int     @default(45)   // dias de inatividade para disparar
+  retentionMessage  String? @db.Text       // template personalizado ({{nome}}, {{dias}}, {{empresa}})
+
   // Sistema de descontos na comanda
   discountServicesEnabled Boolean @default(false)
   discountServicesMax     Float   @default(20)   // teto máximo % que o barbeiro pode conceder em serviços
@@ -130,6 +136,7 @@ model Barbershop {
   apiKeys          ApiKey[]
   auditLogs        AuditLog[]
   paymentGateway   PaymentGatewayConfig?
+  clientRetentions ClientRetention[]
 }
 
 model WhatsAppInstance {
@@ -707,4 +714,19 @@ model CashFlowEntry {
 
   sessionId     String
   session       CashFlowSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// ===================== RETENÇÃO DE CLIENTES =====================
+
+model ClientRetention {
+  id           String     @id @default(cuid())
+  lastSentAt   DateTime   @default(now())
+
+  clientId     String
+  client       User       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, barbershopId])
+  @@index([barbershopId])
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
@@ -115,6 +115,10 @@ export default function ConfiguracoesPage() {
   const [autoNoShowHours, setAutoNoShowHours] = useState("24");
   const [savingNoShow, setSavingNoShow] = useState(false);
   const [noShowSaved, setNoShowSaved] = useState(false);
+  const [retentionEnabled, setRetentionEnabled] = useState(false);
+  const [retentionDays, setRetentionDays] = useState("45");
+  const [savingRetention, setSavingRetention] = useState(false);
+  const [retentionSaved, setRetentionSaved] = useState(false);
   const [discountServicesEnabled, setDiscountServicesEnabled] = useState(false);
   const [discountServicesMax, setDiscountServicesMax] = useState("20");
   const [discountProductsEnabled, setDiscountProductsEnabled] = useState(false);
@@ -143,6 +147,13 @@ export default function ConfiguracoesPage() {
         if (d.discountServicesMax !== undefined) setDiscountServicesMax(String(d.discountServicesMax));
         if (d.discountProductsEnabled !== undefined) setDiscountProductsEnabled(Boolean(d.discountProductsEnabled));
         if (d.discountProductsMax !== undefined) setDiscountProductsMax(String(d.discountProductsMax));
+      });
+
+    fetch("/api/barbershop/retention", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.retentionEnabled !== undefined) setRetentionEnabled(Boolean(d.retentionEnabled));
+        if (d.retentionDays !== undefined) setRetentionDays(String(d.retentionDays));
       });
 
     fetch("/api/barbershop/horarios", { headers: { Authorization: `Bearer ${token}` } })
@@ -255,6 +266,18 @@ export default function ConfiguracoesPage() {
     setSavingNoShow(false);
     setNoShowSaved(true);
     setTimeout(() => setNoShowSaved(false), 2500);
+  }
+
+  async function saveRetention() {
+    setSavingRetention(true);
+    await fetch("/api/barbershop/retention", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ retentionEnabled, retentionDays: Number(retentionDays) }),
+    });
+    setSavingRetention(false);
+    setRetentionSaved(true);
+    setTimeout(() => setRetentionSaved(false), 2500);
   }
 
   async function saveDiscount() {
@@ -586,6 +609,61 @@ export default function ConfiguracoesPage() {
         <div className="flex justify-end">
           <Button variant="primary" size="sm" onClick={saveNoShow} disabled={savingNoShow}>
             {noShowSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingNoShow ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Retenção de Clientes */}
+      <Card>
+        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 text-primary" /> Retenção de Clientes
+        </h2>
+        <p className="text-xs text-zinc-400 mb-4">
+          Envia uma mensagem automática via WhatsApp para clientes que estão inativos há mais de N dias, incentivando um novo agendamento.
+        </p>
+
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-800">Ativar retenção automática</p>
+            <p className="text-xs text-zinc-400">
+              {retentionEnabled
+                ? `Clientes sem visita há +${retentionDays} dias receberão um WhatsApp`
+                : "Desativado — nenhuma mensagem de retenção será enviada"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRetentionEnabled((v) => !v)}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${retentionEnabled ? "bg-primary" : "bg-zinc-200"}`}
+          >
+            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${retentionEnabled ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+
+        {retentionEnabled && (
+          <div className="mb-4">
+            <label className="block text-xs text-zinc-500 mb-1">Dias de inatividade para disparar</label>
+            <select
+              value={retentionDays}
+              onChange={(e) => setRetentionDays(e.target.value)}
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            >
+              <option value="14">14 dias</option>
+              <option value="21">21 dias</option>
+              <option value="30">30 dias</option>
+              <option value="45">45 dias (recomendado)</option>
+              <option value="60">60 dias</option>
+              <option value="90">90 dias</option>
+            </select>
+            <p className="text-xs text-zinc-400 mt-1.5">
+              A mensagem é reenviada no máximo uma vez a cada 30 dias por cliente. Requer WhatsApp conectado.
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button variant="primary" size="sm" onClick={saveRetention} disabled={savingRetention}>
+            {retentionSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingRetention ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
           </Button>
         </div>
       </Card>
