@@ -84,6 +84,13 @@ model Barbershop {
   aiAssistantName     String?  @db.VarChar(50)  // Ex: "Barba Bot"
   aiPersonality       String?  @db.Text         // Texto livre → vai direto para o system prompt do LLM
   aiGreetingDirective String?  @db.Text         // Diretriz de como cumprimentar na primeira mensagem
+  aiIdioma            String?  @db.VarChar(10)  // Ex: "pt-BR", "en-US", "es-ES"
+  aiAtendimentoAtivo  Boolean  @default(true)   // Liga/desliga o assistente por completo
+  aiMensagemBoasVindas             String?  @db.Text  // Mensagem literal enviada no primeiro contato
+  aiMensagemAusencia               String?  @db.Text  // Fora do horário de atendimento
+  aiMensagemConfirmacaoAgendamento String?  @db.Text  // Após confirmar agendamento
+  aiMensagemCancelamento           String?  @db.Text  // Após cancelar agendamento
+  aiObservacoesAdicionais          String?  @db.Text  // Instruções extras / regras adicionais
 
   autoNoShowEnabled Boolean @default(true)
   autoNoShowHours   Int     @default(24)

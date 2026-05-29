@@ -13,6 +13,13 @@ export async function GET(req: NextRequest) {
         aiAssistantName: true,
         aiPersonality: true,
         aiGreetingDirective: true,
+        aiIdioma: true,
+        aiAtendimentoAtivo: true,
+        aiMensagemBoasVindas: true,
+        aiMensagemAusencia: true,
+        aiMensagemConfirmacaoAgendamento: true,
+        aiMensagemCancelamento: true,
+        aiObservacoesAdicionais: true,
       },
     });
 
@@ -30,23 +37,38 @@ export async function PATCH(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     const body = await req.json();
 
-    // Limites de caracteres alinhados com o schema (VarChar(50) e Text)
-    const aiAssistantName = typeof body.aiAssistantName === "string"
-      ? body.aiAssistantName.trim().slice(0, 50) || null
-      : null;
+    const str = (v: unknown, max: number) =>
+      typeof v === "string" ? v.trim().slice(0, max) || null : null;
 
-    const aiPersonality = typeof body.aiPersonality === "string"
-      ? body.aiPersonality.trim().slice(0, 500) || null
-      : null;
-
-    const aiGreetingDirective = typeof body.aiGreetingDirective === "string"
-      ? body.aiGreetingDirective.trim().slice(0, 200) || null
-      : null;
+    const aiAssistantName = str(body.aiAssistantName, 50);
+    const aiPersonality = str(body.aiPersonality, 500);
+    const aiGreetingDirective = str(body.aiGreetingDirective, 200);
+    const aiIdioma = str(body.aiIdioma, 10);
+    const aiAtendimentoAtivo = typeof body.aiAtendimentoAtivo === "boolean"
+      ? body.aiAtendimentoAtivo
+      : undefined;
+    const aiMensagemBoasVindas = str(body.aiMensagemBoasVindas, 500);
+    const aiMensagemAusencia = str(body.aiMensagemAusencia, 500);
+    const aiMensagemConfirmacaoAgendamento = str(body.aiMensagemConfirmacaoAgendamento, 500);
+    const aiMensagemCancelamento = str(body.aiMensagemCancelamento, 500);
+    const aiObservacoesAdicionais = str(body.aiObservacoesAdicionais, 1000);
 
     const updated = await prisma.barbershop.update({
       where: { id: barbershopId },
-      data: { aiAssistantName, aiPersonality, aiGreetingDirective },
-      select: { aiAssistantName: true, aiPersonality: true, aiGreetingDirective: true },
+      data: {
+        aiAssistantName, aiPersonality, aiGreetingDirective,
+        aiIdioma, aiAtendimentoAtivo,
+        aiMensagemBoasVindas, aiMensagemAusencia,
+        aiMensagemConfirmacaoAgendamento, aiMensagemCancelamento,
+        aiObservacoesAdicionais,
+      },
+      select: {
+        aiAssistantName: true, aiPersonality: true, aiGreetingDirective: true,
+        aiIdioma: true, aiAtendimentoAtivo: true,
+        aiMensagemBoasVindas: true, aiMensagemAusencia: true,
+        aiMensagemConfirmacaoAgendamento: true, aiMensagemCancelamento: true,
+        aiObservacoesAdicionais: true,
+      },
     });
 
     return NextResponse.json(updated);
