@@ -109,7 +109,13 @@ export async function PATCH(req: NextRequest) {
 
     // ── Mover agendamento (drag & drop) ──
     if (body.startTime !== undefined) {
-      const current = await prisma.appointment.findUnique({ where: { id } });
+      const current = await prisma.appointment.findUnique({
+        where: { id },
+        include: {
+          client: { select: { name: true, phone: true } },
+          barbershop: { select: { name: true } },
+        },
+      });
       if (!current || current.barbershopId !== barbershopId) {
         return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
       }
@@ -124,6 +130,13 @@ export async function PATCH(req: NextRequest) {
         where: { id },
         data: { startTime: body.startTime, endTime: newEndTime, barberId: newBarberId },
       });
+
+      if (current.client.phone) {
+        const dateFormatted = format(new Date(current.date), "dd/MM", { locale: ptBR });
+        const rescheduleMsg = `🔄 *Agendamento Remarcado*\n\nOlá *${current.client.name.split(" ")[0]}*, seu horário no *${current.barbershop.name}* foi atualizado:\n\n🗓️ *${dateFormatted}* às *${body.startTime as string}*\n\nQualquer dúvida, entre em contato. Até lá! 💈`;
+        sendWhatsAppNotification(barbershopId, current.client.phone, rescheduleMsg).catch(console.error);
+      }
+
       return NextResponse.json({ success: true });
     }
 
@@ -250,14 +263,17 @@ export async function PATCH(req: NextRequest) {
 
     // ── Automação de WhatsApp: Confirmação de Status + NPS Link ──
     if ((status === "DONE" || status === "CANCELLED") && appointment.client.phone) {
-      const host = req.headers.get("host") || "barberfluxo.com";
+      const host = req.headers.get("host") || "iadebarbearia.com.br";
       const protocol = host.includes("localhost") ? "http" : "https";
       const appUrl = `${protocol}://${host}`;
 
-      const msg = status === "DONE" 
-        ? `✅ *Atendimento Concluído!*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu atendimento no *${appointment.barbershop.name}* foi finalizado. Obrigado pela preferência! 🙏\n\n⭐ *O que achou do seu atendimento?* Avalie em 10 segundos e ganhe *+10 pontos* de fidelidade:\n🔗 ${appUrl}/avaliar/${appointment.id}`
-        : `⚠️ *Agendamento Cancelado*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu agendamento para o dia ${format(new Date(appointment.date), "dd/MM")} às ${appointment.startTime} foi cancelado. Se houver dúvidas, entre em contato.`;
-      
+      const defaultDoneMsg = `✅ *Atendimento Concluído!*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu atendimento no *${appointment.barbershop.name}* foi finalizado. Obrigado pela preferência! 🙏\n\n⭐ *O que achou do seu atendimento?* Avalie em 10 segundos e ganhe *+10 pontos* de fidelidade:\n🔗 ${appUrl}/avaliar/${appointment.id}`;
+      const defaultCancelledMsg = `⚠️ *Agendamento Cancelado*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu agendamento para o dia ${format(new Date(appointment.date), "dd/MM")} às ${appointment.startTime} foi cancelado. Se houver dúvidas, entre em contato.`;
+
+      const msg = status === "DONE"
+        ? defaultDoneMsg
+        : (appointment.barbershop.aiMensagemCancelamento || defaultCancelledMsg);
+
       sendWhatsAppNotification(barbershopId, appointment.client.phone, msg).catch(console.error);
     }
 
@@ -442,10 +458,13 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Automação de WhatsApp: Confirmação de Agendamento ──
+    const [shopInfo, barberInfo] = await Promise.all([
+      prisma.barbershop.findUnique({ where: { id: barbershopId }, select: { name: true, aiMensagemConfirmacaoAgendamento: true } }),
+      prisma.barber.findUnique({ where: { id: barberId }, include: { user: { select: { name: true } } } }),
+    ]);
     const servicesStr = services.map(s => s.name).join(" + ");
-    const welcomeMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${clientName.split(" ")[0]}*, seu horário no *${(await prisma.barbershop.findUnique({ where: { id: barbershopId } }))?.name}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${(await prisma.barber.findUnique({ where: { id: barberId }, include: { user: true } }))?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
-    
-    sendWhatsAppNotification(barbershopId, clientPhone, welcomeMsg).catch(console.error);
+    const defaultConfirmMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${clientName.split(" ")[0]}*, seu horário no *${shopInfo?.name}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${barberInfo?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
+    sendWhatsAppNotification(barbershopId, clientPhone, shopInfo?.aiMensagemConfirmacaoAgendamento || defaultConfirmMsg).catch(console.error);
 
     return NextResponse.json({ appointment }, { status: 201 });
   } catch (e: unknown) {
