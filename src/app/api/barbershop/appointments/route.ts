@@ -318,7 +318,16 @@ export async function POST(req: NextRequest) {
     const clientEmail = `${phoneDigits}@cliente.iadebarbearia.com`;
     let client = await prisma.user.findFirst({ where: { phone: phoneDigits, role: "CLIENT" } })
       ?? await prisma.user.findUnique({ where: { email: clientEmail } })
-      ?? await prisma.user.findFirst({ where: { email: `${phoneDigits}@cliente.barberfluxo.com` } });
+      ?? await prisma.user.findFirst({
+          where: {
+            role: "CLIENT",
+            OR: [
+              { email: `${phoneDigits}@cliente.barberfluxo.com` },
+              { email: `${phoneDigits}@cliente.barberfluxo` },
+              { email: `${phoneDigits}@cliente.barberapp` },
+            ],
+          },
+        });
 
     if (!client) {
       client = await prisma.user.create({

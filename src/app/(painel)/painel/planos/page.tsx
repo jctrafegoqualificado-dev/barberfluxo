@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Layers, Plus, Check, Pencil, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
@@ -137,6 +138,13 @@ export default function PlanosPage() {
     load();
   }
 
+  const totalMRR = plans.reduce((acc, p) => {
+    if (!p._count?.subscriptions) return acc;
+    const m = p.billingCycle === "QUARTERLY" ? 1/3 : p.billingCycle === "YEARLY" ? 1/12 : 1;
+    return acc + p.price * p._count.subscriptions * m;
+  }, 0);
+  const totalSubscribers = plans.reduce((acc, p) => acc + (p._count?.subscriptions ?? 0), 0);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -145,6 +153,19 @@ export default function PlanosPage() {
           <Plus className="w-4 h-4 mr-1" /> Novo Plano
         </Button>
       </div>
+
+      {totalMRR > 0 && (
+        <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-zinc-500 font-medium uppercase tracking-wide">Receita Mensal Recorrente</p>
+            <p className="text-2xl font-bold text-zinc-900 mt-0.5">{formatCurrency(totalMRR)}<span className="text-sm font-normal text-zinc-400">/mês</span></p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-zinc-400">Assinantes ativos</p>
+            <p className="text-2xl font-bold text-primary">{totalSubscribers}</p>
+          </div>
+        </div>
+      )}
 
       {plans.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-zinc-400 bg-white rounded-xl border border-zinc-100">
@@ -179,11 +200,20 @@ export default function PlanosPage() {
               <div className="flex items-baseline justify-between mt-2 flex-wrap gap-2">
                 <p className="text-3xl font-bold text-primary">{formatCurrency(p.price)}<span className="text-sm font-normal text-zinc-400">/{CYCLES[p.billingCycle]?.toLowerCase()}</span></p>
                 {p._count?.subscriptions != null && p._count.subscriptions > 0 && (
-                  <span className="text-[11px] font-bold text-zinc-600 bg-zinc-50 border border-zinc-100 px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                  <Link
+                    href={`/painel/assinaturas?plano=${p.id}`}
+                    className="text-[11px] font-bold text-zinc-600 bg-zinc-50 border border-zinc-100 px-2 py-1 rounded-full flex items-center gap-1 shadow-sm hover:bg-primary/5 hover:border-primary/20 hover:text-primary transition-colors"
+                    title="Ver assinantes deste plano"
+                  >
                     <Layers className="w-3 h-3 text-primary" /> {p._count.subscriptions} ativa{p._count.subscriptions === 1 ? "" : "s"}
-                  </span>
+                  </Link>
                 )}
               </div>
+              {p._count?.subscriptions != null && p._count.subscriptions > 0 && (
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  ≈ {formatCurrency(p.price * p._count.subscriptions * (p.billingCycle === "QUARTERLY" ? 1/3 : p.billingCycle === "YEARLY" ? 1/12 : 1))}/mês
+                </p>
+              )}
               <div className="flex items-center gap-2 mt-1">
                 {p.maxUses && <p className="text-xs text-zinc-500">Até {p.maxUses} usos/mês</p>}
                 {p.commissionPercentage != null && (

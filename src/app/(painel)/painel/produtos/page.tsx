@@ -268,7 +268,7 @@ export default function ProdutosPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4 sm:p-5">
+        <div className="bg-white rounded-xl border border-zinc-200 shadow-sm p-4 sm:p-5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs sm:text-sm text-zinc-500">Vendas do mês</span>
             <TrendingUp className="w-4 h-4 text-green-500" />
@@ -276,7 +276,7 @@ export default function ProdutosPage() {
           <p className="text-xl sm:text-2xl font-bold text-zinc-900">{formatCurrency(totalMes)}</p>
           <p className="text-xs text-zinc-400 mt-1">{totalUnidades} unidades vendidas</p>
         </div>
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4 sm:p-5">
+        <div className="bg-white rounded-xl border border-zinc-200 shadow-sm p-4 sm:p-5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs sm:text-sm text-zinc-500">Em estoque</span>
             <Package className="w-4 h-4 text-blue-500" />
@@ -284,7 +284,7 @@ export default function ProdutosPage() {
           <p className="text-xl sm:text-2xl font-bold text-zinc-900">{products.filter(p => p.active).reduce((s, p) => s + p.stock, 0)}</p>
           <p className="text-xs text-zinc-400 mt-1">unidades no total</p>
         </div>
-        <div className={`rounded-xl border shadow-sm p-4 sm:p-5 ${lowStock.length > 0 ? "bg-red-50 border-red-100" : "bg-white border-zinc-100"}`}>
+        <div className={`rounded-xl border shadow-sm p-4 sm:p-5 ${lowStock.length > 0 ? "bg-red-50 border-red-300" : "bg-white border-zinc-200"}`}>
           <div className="flex items-center justify-between mb-2">
             <span className={`text-xs sm:text-sm ${lowStock.length > 0 ? "text-red-600" : "text-zinc-500"}`}>Estoque baixo</span>
             <AlertTriangle className={`w-4 h-4 ${lowStock.length > 0 ? "text-red-500" : "text-zinc-300"}`} />
@@ -358,7 +358,7 @@ export default function ProdutosPage() {
 
                         <div>
                           {/* Comissão */}
-                          <div className="flex items-center justify-between px-3 py-1.5 rounded-lg mb-2 bg-zinc-50 border border-zinc-100 text-xs text-zinc-500">
+                          <div className="flex items-center justify-between px-3 py-1.5 rounded-lg mb-2 bg-zinc-100 border border-zinc-200 text-xs text-zinc-600">
                             <span className="flex items-center gap-1 font-medium"><Percent className="w-3.5 h-3.5 text-primary" /> Comissão</span>
                             <span className="font-bold text-primary">
                               {p.commissionType === "PERCENTAGE" ? `${p.commissionValue}%` : formatCurrency(p.commissionValue)}
@@ -366,7 +366,7 @@ export default function ProdutosPage() {
                           </div>
 
                           {/* Estoque */}
-                          <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg mb-3 border text-xs ${p.stock <= 3 && p.stock > 0 ? "bg-red-50 border-red-100 text-red-700" : "bg-zinc-50 border-zinc-100 text-zinc-500"}`}>
+                          <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg mb-3 border text-xs ${p.stock <= 3 && p.stock > 0 ? "bg-red-50 border-red-300 text-red-700" : "bg-zinc-100 border-zinc-200 text-zinc-600"}`}>
                             <span>Estoque</span>
                             <span className="font-bold">
                               {p.stock === 0 ? "Não controlado" : `${p.stock} un.`}
@@ -432,7 +432,7 @@ export default function ProdutosPage() {
               <p>Nenhuma venda registrada este mês</p>
             </div>
           ) : (
-            <div className="divide-y divide-zinc-50">
+            <div className="divide-y divide-zinc-100">
               {sales.map((s) => {
                 const cfg = CATEGORIAS[s.product.category] || CATEGORIAS.GERAL;
                 return (
@@ -457,7 +457,7 @@ export default function ProdutosPage() {
             </div>
           )}
           {sales.length > 0 && (
-            <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-between text-sm">
+            <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-200 flex justify-between text-sm">
               <span className="text-zinc-500 font-medium">Total do mês</span>
               <span className="font-black text-zinc-900">{formatCurrency(totalMes)}</span>
             </div>

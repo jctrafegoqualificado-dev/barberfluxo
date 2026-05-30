@@ -299,8 +299,9 @@ export default function ClientesPage() {
   const currentMonth = new Date().getMonth();
 
   const filtered = clientes.filter((c) => {
+    const realEmail = c.email && !c.email.includes("@cliente.") ? c.email : "";
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase()) ||
+      realEmail.toLowerCase().includes(search.toLowerCase()) ||
       (c.phone ?? "").includes(search);
 
     let matchFilter = true;
@@ -624,7 +625,7 @@ export default function ClientesPage() {
                             </div>
                             <p className="text-xs text-zinc-400 truncate max-w-[150px] sm:max-w-[200px] flex items-center gap-1 mt-0.5">
                               <Mail className="w-3 h-3 text-zinc-400 shrink-0" />
-                              {c.email}
+                              {c.email && !c.email.includes("@cliente.") ? c.email : <span className="italic text-zinc-300">sem e-mail</span>}
                             </p>
                           </div>
                         </div>

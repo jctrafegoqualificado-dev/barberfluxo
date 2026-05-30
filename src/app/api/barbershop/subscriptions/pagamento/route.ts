@@ -21,11 +21,81 @@ function revertBillingDate(current: Date, billingDay: number | null): Date {
   return new Date(prev.getFullYear(), prev.getMonth(), clampDay(billingDay, prev.getFullYear(), prev.getMonth()));
 }
 
+async function processSinglePayment(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  barbershopId: string,
+  subscriptionId: string,
+  method: string,
+  sub: { id: string; plan: { price: number }; nextBillingDate: Date; billingDay?: number | null }
+) {
+  const pendingPayment = await tx.payment.findFirst({
+    where: { subscriptionId, status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (pendingPayment) {
+    await tx.payment.update({
+      where: { id: pendingPayment.id },
+      data: { method, status: "PAID", paidAt: new Date() },
+    });
+  } else {
+    await tx.payment.create({
+      data: {
+        amount: sub.plan.price,
+        method,
+        status: "PAID",
+        paidAt: new Date(),
+        subscriptionId,
+        barbershopId,
+      },
+    });
+  }
+
+  await tx.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      nextBillingDate: advanceBillingDate(
+        new Date(sub.nextBillingDate),
+        (sub as any).billingDay ?? null
+      ),
+      usesThisCycle: 0,
+      status: "ACTIVE",
+    },
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
-    const { subscriptionId, method } = await req.json();
+    const body = await req.json();
+
+    // Batch mode: { ids: string[], method: string }
+    if (Array.isArray(body.ids)) {
+      const { ids, method } = body as { ids: string[]; method: string };
+      if (!ids.length || !method) {
+        return NextResponse.json({ error: "ids e method são obrigatórios" }, { status: 400 });
+      }
+
+      const subs = await prisma.subscription.findMany({
+        where: { id: { in: ids }, barbershopId },
+        include: { plan: true },
+      });
+      if (subs.length === 0) {
+        return NextResponse.json({ error: "Nenhuma assinatura encontrada" }, { status: 404 });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        for (const sub of subs) {
+          await processSinglePayment(tx, barbershopId, sub.id, method, sub);
+        }
+      });
+
+      return NextResponse.json({ ok: true, processed: subs.length });
+    }
+
+    // Single mode: { subscriptionId: string, method: string }
+    const { subscriptionId, method } = body;
 
     const sub = await prisma.subscription.findFirst({
       where: { id: subscriptionId, barbershopId },

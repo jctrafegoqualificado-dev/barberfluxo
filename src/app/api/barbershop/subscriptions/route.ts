@@ -24,63 +24,183 @@ function initialBillingDate(billingDay: number | null): Date {
   return new Date(next.getFullYear(), next.getMonth(), clampDay(billingDay, next.getFullYear(), next.getMonth()));
 }
 
+const SUB_SELECT = {
+  id: true,
+  status: true,
+  startDate: true,
+  nextBillingDate: true,
+  billingDay: true,
+  usesThisCycle: true,
+  beneficiaries: true,
+  createdAt: true,
+  mpPreapprovalId: true,
+  authorizationStatus: true,
+  authorizationLink: true,
+  authorizationSentAt: true,
+  client: { select: { id: true, name: true, email: true, phone: true } },
+  plan: {
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      price: true,
+      billingCycle: true,
+      maxUses: true,
+      beneficiaryRules: true,
+      active: true,
+      commissionPercentage: true,
+      planServices: {
+        select: {
+          id: true,
+          quantity: true,
+          service: { select: { id: true, name: true, price: true, duration: true } },
+        },
+      },
+      allowedBarbers: { select: { id: true, userId: true } },
+    },
+  },
+  payments: {
+    select: { id: true, amount: true, method: true, status: true, paidAt: true, createdAt: true },
+    orderBy: { createdAt: "desc" as const },
+    take: 1,
+  },
+} as const;
+
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const { searchParams } = new URL(req.url);
-    const phone = searchParams.get("phone");
+    const barbershopId = payload.barbershopId!;
 
-    const where: any = { barbershopId: payload.barbershopId! };
+    // Legacy: phone lookup used by other features
+    const phone = searchParams.get("phone");
     if (phone) {
-      where.client = { phone: { contains: phone.replace(/\D/g, "") } };
+      const subscriptions = await prisma.subscription.findMany({
+        where: { barbershopId, client: { phone: { contains: phone.replace(/\D/g, "") } } },
+        select: SUB_SELECT,
+        orderBy: { createdAt: "desc" },
+      });
+      return NextResponse.json({ subscriptions });
     }
 
-    const subscriptions = await prisma.subscription.findMany({
-      where,
-      select: {
-        id: true,
-        status: true,
-        startDate: true,
-        nextBillingDate: true,
-        billingDay: true,
-        usesThisCycle: true,
-        beneficiaries: true,
-        createdAt: true,
-        mpPreapprovalId:    true,
-        authorizationStatus: true,
-        authorizationLink:   true,
-        authorizationSentAt: true,
-        client: { select: { id: true, name: true, email: true, phone: true } },
-        plan: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            price: true,
-            billingCycle: true,
-            maxUses: true,
-            beneficiaryRules: true,
-            active: true,
-            commissionPercentage: true,
-            planServices: {
-              select: {
-                id: true,
-                quantity: true,
-                service: { select: { id: true, name: true, price: true, duration: true } },
-              },
-            },
-            allowedBarbers: { select: { id: true, userId: true } },
-          },
-        },
-        payments: {
-          select: { id: true, amount: true, method: true, status: true, createdAt: true },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
-      },
-      orderBy: { createdAt: "desc" },
+    const takeParam = searchParams.get("take");
+
+    // Legacy mode: return all (backward compat for barbeiro page)
+    if (!takeParam) {
+      const subscriptions = await prisma.subscription.findMany({
+        where: { barbershopId },
+        select: SUB_SELECT,
+        orderBy: { createdAt: "desc" },
+      });
+      const res = NextResponse.json({ subscriptions });
+      res.headers.set("Cache-Control", "private, no-cache");
+      return res;
+    }
+
+    // ── Paginated mode ──────────────────────────────────────────────────────
+    const take = Number(takeParam);
+    const skip = Number(searchParams.get("skip") ?? "0");
+    const q = searchParams.get("q") ?? "";
+    const statusParam = searchParams.get("status") ?? "";
+    const planIdParam = searchParams.get("planId") ?? "";
+    const sortField = searchParams.get("sortField") ?? "nextBillingDate";
+    const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
+
+    const now = new Date();
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+    const in7Days = new Date(todayStart); in7Days.setDate(in7Days.getDate() + 7); in7Days.setHours(23, 59, 59, 999);
+
+    // Build where using AND clauses to handle OR + search combinations
+    const andClauses: any[] = [{ barbershopId }];
+
+    if (statusParam === "active") {
+      andClauses.push({ status: "ACTIVE", nextBillingDate: { gt: now } });
+    } else if (statusParam === "overdue") {
+      andClauses.push({ OR: [{ status: "OVERDUE" }, { status: "ACTIVE", nextBillingDate: { lte: now } }] });
+    } else if (statusParam === "paused") {
+      andClauses.push({ status: "PAUSED" });
+    } else if (statusParam === "cancelled") {
+      andClauses.push({ status: "CANCELLED" });
+    }
+
+    if (planIdParam) andClauses.push({ planId: planIdParam });
+
+    if (q) {
+      andClauses.push({
+        OR: [
+          { client: { name: { contains: q, mode: "insensitive" } } },
+          { client: { phone: { contains: q } } },
+        ],
+      });
+    }
+
+    const tableWhere = andClauses.length === 1 ? andClauses[0] : { AND: andClauses };
+
+    // Build orderBy
+    let orderBy: any = { nextBillingDate: sortDir };
+    if (sortField === "name") orderBy = { client: { name: sortDir } };
+    else if (sortField === "price") orderBy = { plan: { price: sortDir } };
+
+    const overdueWhere = {
+      barbershopId,
+      OR: [{ status: "OVERDUE" }, { status: "ACTIVE", nextBillingDate: { lte: now } }],
+    };
+
+    // Run all queries in parallel
+    const [
+      subscriptions,
+      total,
+      allStatsRaw,
+      todayBilling,
+      billingIn7Days,
+      overdueSubs,
+    ] = await Promise.all([
+      prisma.subscription.findMany({ where: tableWhere, select: SUB_SELECT, orderBy, skip, take }),
+      prisma.subscription.count({ where: tableWhere }),
+      // Lightweight aggregate for KPI stats (all subs, no filter)
+      prisma.subscription.findMany({
+        where: { barbershopId },
+        select: { status: true, nextBillingDate: true, plan: { select: { price: true } } },
+      }),
+      // Panels: cobranças hoje
+      prisma.subscription.findMany({
+        where: { barbershopId, status: "ACTIVE", nextBillingDate: { gte: todayStart, lte: todayEnd } },
+        select: SUB_SELECT,
+        orderBy: { nextBillingDate: "asc" },
+      }),
+      // Panels: vencendo em 7 dias
+      prisma.subscription.findMany({
+        where: { barbershopId, status: "ACTIVE", nextBillingDate: { gt: todayEnd, lte: in7Days } },
+        select: SUB_SELECT,
+        orderBy: { nextBillingDate: "asc" },
+      }),
+      // All overdue subs for bulk UI (select all + bulk modal)
+      prisma.subscription.findMany({
+        where: overdueWhere,
+        select: SUB_SELECT,
+        orderBy: { nextBillingDate: "asc" },
+      }),
+    ]);
+
+    // Compute KPI stats from lightweight aggregate
+    const activeItems = allStatsRaw.filter((s) => s.status === "ACTIVE");
+    const totalActive = activeItems.length;
+    const mrr = activeItems.reduce((sum, s) => sum + (s.plan as any).price, 0);
+    const overdueItems = allStatsRaw.filter(
+      (s) => s.status === "OVERDUE" || (s.status === "ACTIVE" && new Date(s.nextBillingDate) <= now)
+    );
+    const overdueCount = overdueItems.length;
+    const overdueTotal = overdueItems.reduce((sum, s) => sum + (s.plan as any).price, 0);
+
+    const res = NextResponse.json({
+      subscriptions,
+      total,
+      stats: { totalActive, mrr, overdueCount, overdueTotal },
+      todayBilling,
+      billingIn7Days,
+      overdueSubs,
     });
-    const res = NextResponse.json({ subscriptions });
     res.headers.set("Cache-Control", "private, no-cache");
     return res;
   } catch (e: unknown) {
@@ -350,14 +470,14 @@ export async function PATCH(req: NextRequest) {
     if (beneficiaryName && Array.isArray(sub.beneficiaries)) {
       const beneficiaries = sub.beneficiaries as any[];
       const bIndex = beneficiaries.findIndex(b => b.name === beneficiaryName);
-      
+
       if (bIndex === -1) return NextResponse.json({ error: "Beneficiário não encontrado" }, { status: 404 });
-      
+
       if (beneficiaries[bIndex].uses >= beneficiaries[bIndex].maxUses) {
         return NextResponse.json({ error: `Limite de uso atingido para ${beneficiaryName}` }, { status: 400 });
       }
 
-      updatedBeneficiaries = beneficiaries.map((b, i) => 
+      updatedBeneficiaries = beneficiaries.map((b, i) =>
         i === bIndex ? { ...b, uses: b.uses + 1 } : b
       );
     }

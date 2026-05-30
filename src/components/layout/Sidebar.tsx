@@ -6,40 +6,56 @@ import { useAuthStore } from "@/store/auth";
 import NotificationBell from "@/components/layout/NotificationBell";
 import CashWidget from "@/components/financeiro/CashWidget";
 import {
-  LayoutDashboard, Calendar, Users, Scissors, CreditCard,
-  Package, Settings, LogOut, ChevronRight, ChevronDown, ChevronLeft, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, Bell, Banknote, BarChart3, Wallet, Building2, Award
+  LayoutDashboard, Calendar, Users, UserCheck, Scissors, CreditCard,
+  Package, Settings, LogOut, ChevronRight, ChevronDown, ChevronLeft,
+  Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X,
+  Crown, MessageSquare, Sparkles, Bell, Banknote, BarChart3, Wallet,
+  Building2, Award, BookOpen, Activity
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const ownerTopNav = [
+// Acesso rápido — bloco acima de Cadastros
+const ownerTopNavA = [
   { href: "/painel", label: "Dashboard", icon: LayoutDashboard },
   { href: "/painel/agendamentos", label: "Agendamentos", icon: Calendar },
-  { href: "/painel/clientes", label: "Clientes", icon: Users },
-  { href: "/painel/barbeiros", label: "Profissionais", icon: Users },
-  { href: "/painel/servicos", label: "Serviços", icon: Sparkles },
+];
+
+// Análises — pouco acessados, agrupados
+const ownerAnalisesNav = [
   { href: "/painel/ocupacao", label: "Ocupação", icon: Clock },
   { href: "/painel/metas", label: "Metas", icon: Target },
   { href: "/painel/kanban", label: "Kanban", icon: KanbanSquare },
-  { href: "/painel/produtos", label: "Produtos", icon: Package },
+];
+
+// Links diretos abaixo de Análises
+const ownerTopNavB = [
   { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare },
   { href: "/painel/fidelidade", label: "Fidelidade", icon: Award },
 ];
 
+// Cadastros — dados mestre / catálogo
+const ownerCadastrosNav = [
+  { href: "/painel/clientes", label: "Clientes", icon: Users },
+  { href: "/painel/barbeiros", label: "Profissionais", icon: UserCheck },
+  { href: "/painel/servicos", label: "Serviços", icon: Sparkles },
+  { href: "/painel/produtos", label: "Produtos", icon: Package },
+  { href: "/painel/planos", label: "Planos", icon: Layers },
+];
+
+// Gestão Financeira
 const ownerFinanceNav = [
   { href: "/painel/financeiro", label: "Fluxo & POE", icon: TrendingUp },
   { href: "/painel/financeiro/indicadores", label: "Indicadores (BI)", icon: BarChart3 },
   { href: "/painel/assinaturas", label: "Assinantes", icon: CreditCard },
   { href: "/painel/comissoes", label: "Comissões", icon: DollarSign },
-  { href: "/painel/planos", label: "Planos", icon: Layers },
   { href: "/painel/fluxo-caixa", label: "Fluxo de Caixa", icon: Banknote },
 ];
 
-const ownerBottomNav = [
-  { href: "/painel/meu-negocio", label: "Meu Negócio", icon: Building2 },
-  { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
+// Configurações — sub-itens
+const ownerConfigNav = [
+  { href: "/painel/configuracoes", label: "Geral", icon: Settings },
   { href: "/painel/configuracoes/pagamentos", label: "Pagamentos", icon: CreditCard },
   { href: "/painel/configuracoes/lembretes", label: "Lembretes", icon: Bell },
-  { href: "/painel/assinatura", label: "Minha Assinatura", icon: Crown },
 ];
 
 const barberNav = [
@@ -65,12 +81,49 @@ export default function Sidebar({ branding }: {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
+  const cadastrosActive =
+    pathname.startsWith("/painel/clientes") ||
+    pathname.startsWith("/painel/barbeiros") ||
+    pathname.startsWith("/painel/servicos") ||
+    pathname.startsWith("/painel/produtos") ||
+    pathname.startsWith("/painel/planos");
+
+  const financeActive =
+    pathname.startsWith("/painel/financeiro") ||
+    pathname.startsWith("/painel/assinaturas") ||
+    pathname.startsWith("/painel/comissoes") ||
+    pathname.startsWith("/painel/fluxo-caixa");
+
+  const analisesActive =
+    pathname.startsWith("/painel/ocupacao") ||
+    pathname.startsWith("/painel/metas") ||
+    pathname.startsWith("/painel/kanban");
+
+  const configActive = pathname.startsWith("/painel/configuracoes");
+
+  const [analisesOpen, setAnalisesOpen] = useState(() =>
+    pathname.startsWith("/painel/ocupacao") ||
+    pathname.startsWith("/painel/metas") ||
+    pathname.startsWith("/painel/kanban")
+  );
+
+  const [cadastrosOpen, setCadastrosOpen] = useState(() =>
+    pathname.startsWith("/painel/clientes") ||
+    pathname.startsWith("/painel/barbeiros") ||
+    pathname.startsWith("/painel/servicos") ||
+    pathname.startsWith("/painel/produtos") ||
+    pathname.startsWith("/painel/planos")
+  );
+
   const [financeOpen, setFinanceOpen] = useState(() =>
     pathname.startsWith("/painel/financeiro") ||
     pathname.startsWith("/painel/assinaturas") ||
     pathname.startsWith("/painel/comissoes") ||
-    pathname.startsWith("/painel/planos") ||
     pathname.startsWith("/painel/fluxo-caixa")
+  );
+
+  const [configOpen, setConfigOpen] = useState(() =>
+    pathname.startsWith("/painel/configuracoes")
   );
 
   useEffect(() => {
@@ -93,13 +146,6 @@ export default function Sidebar({ branding }: {
   function navClick() {
     setMobileOpen(false);
   }
-
-  const financeActive =
-    pathname.startsWith("/painel/financeiro") ||
-    pathname.startsWith("/painel/assinaturas") ||
-    pathname.startsWith("/painel/comissoes") ||
-    pathname.startsWith("/painel/planos") ||
-    pathname.startsWith("/painel/fluxo-caixa");
 
   const sidebarContent = (isDesktop: boolean) => (
     <aside className={cn(
@@ -130,15 +176,6 @@ export default function Sidebar({ branding }: {
             </div>
             <div className="flex items-center gap-1">
               {user?.role === "OWNER" && <NotificationBell />}
-              {isDesktop && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleCollapsed(); }}
-                  className="hidden md:flex p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
-                  title="Recolher menu"
-                >
-                  <ChevronLeft className="w-4 h-4 text-zinc-400" />
-                </button>
-              )}
               <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors md:hidden">
                 <X className="w-4 h-4 text-zinc-400" />
               </button>
@@ -177,8 +214,143 @@ export default function Sidebar({ branding }: {
           })
         ) : (
           <>
-            {ownerTopNav.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href;
+            {/* Dashboard + Agendamentos */}
+            {ownerTopNavA.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || (href !== "/painel" && pathname.startsWith(href));
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={navClick}
+                  title={isDesktop && collapsed ? label : undefined}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    isDesktop && collapsed && "justify-center px-0",
+                    active
+                      ? "bg-primary text-white"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  )}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {(!isDesktop || !collapsed) && <span className="flex-1">{label}</span>}
+                  {(!isDesktop || !collapsed) && active && <ChevronRight className="w-4 h-4" />}
+                </Link>
+              );
+            })}
+
+            {/* Cadastros */}
+            {isDesktop && collapsed ? (
+              <Link
+                href="/painel/clientes"
+                title="Cadastros"
+                className={cn(
+                  "flex justify-center items-center px-0 py-2.5 rounded-lg transition-colors",
+                  cadastrosActive ? "text-amber-400 bg-zinc-800/50" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                )}
+              >
+                <BookOpen className="w-4 h-4" />
+              </Link>
+            ) : (
+              <div>
+                <button
+                  onClick={() => setCadastrosOpen(!cadastrosOpen)}
+                  className={cn(
+                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-zinc-400 hover:text-white hover:bg-zinc-800",
+                    cadastrosActive && "text-amber-400 font-semibold bg-zinc-800/30"
+                  )}
+                >
+                  <BookOpen className="w-4 h-4 shrink-0" />
+                  <span className="flex-1 text-left">Cadastros</span>
+                  {cadastrosOpen ? (
+                    <ChevronDown className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 shrink-0" />
+                  )}
+                </button>
+                {cadastrosOpen && (
+                  <div className="mt-1 pl-4 space-y-1 border-l border-zinc-800 ml-5">
+                    {ownerCadastrosNav.map(({ href, label, icon: Icon }) => {
+                      const active = pathname === href || pathname.startsWith(href + "/");
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={navClick}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                            active
+                              ? "bg-primary/10 text-primary font-semibold"
+                              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                          )}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="flex-1 text-left">{label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Análises */}
+            {isDesktop && collapsed ? (
+              <Link
+                href="/painel/ocupacao"
+                title="Análises"
+                className={cn(
+                  "flex justify-center items-center px-0 py-2.5 rounded-lg transition-colors",
+                  analisesActive ? "text-amber-400 bg-zinc-800/50" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                )}
+              >
+                <Activity className="w-4 h-4" />
+              </Link>
+            ) : (
+              <div>
+                <button
+                  onClick={() => setAnalisesOpen(!analisesOpen)}
+                  className={cn(
+                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-zinc-400 hover:text-white hover:bg-zinc-800",
+                    analisesActive && "text-amber-400 font-semibold bg-zinc-800/30"
+                  )}
+                >
+                  <Activity className="w-4 h-4 shrink-0" />
+                  <span className="flex-1 text-left">Análises</span>
+                  {analisesOpen ? (
+                    <ChevronDown className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 shrink-0" />
+                  )}
+                </button>
+                {analisesOpen && (
+                  <div className="mt-1 pl-4 space-y-1 border-l border-zinc-800 ml-5">
+                    {ownerAnalisesNav.map(({ href, label, icon: Icon }) => {
+                      const active = pathname === href || pathname.startsWith(href + "/");
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={navClick}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                            active
+                              ? "bg-primary/10 text-primary font-semibold"
+                              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                          )}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="flex-1 text-left">{label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* WhatsApp + Fidelidade */}
+            {ownerTopNavB.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + "/");
               return (
                 <Link
                   key={href}
@@ -255,35 +427,102 @@ export default function Sidebar({ branding }: {
               </div>
             )}
 
-            {ownerBottomNav.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href;
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={navClick}
-                  title={isDesktop && collapsed ? label : undefined}
+            {/* Meu Negócio */}
+            <Link
+              href="/painel/meu-negocio"
+              onClick={navClick}
+              title={isDesktop && collapsed ? "Meu Negócio" : undefined}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                isDesktop && collapsed && "justify-center px-0",
+                pathname === "/painel/meu-negocio"
+                  ? "bg-primary text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+              )}
+            >
+              <Building2 className="w-4 h-4 shrink-0" />
+              {(!isDesktop || !collapsed) && <span className="flex-1">Meu Negócio</span>}
+              {(!isDesktop || !collapsed) && pathname === "/painel/meu-negocio" && <ChevronRight className="w-4 h-4" />}
+            </Link>
+
+            {/* Configurações */}
+            {isDesktop && collapsed ? (
+              <Link
+                href="/painel/configuracoes"
+                title="Configurações"
+                className={cn(
+                  "flex justify-center items-center px-0 py-2.5 rounded-lg transition-colors",
+                  configActive ? "text-amber-400 bg-zinc-800/50" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                )}
+              >
+                <Settings className="w-4 h-4" />
+              </Link>
+            ) : (
+              <div>
+                <button
+                  onClick={() => setConfigOpen(!configOpen)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                    isDesktop && collapsed && "justify-center px-0",
-                    active
-                      ? "bg-primary text-white"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-zinc-400 hover:text-white hover:bg-zinc-800",
+                    configActive && "text-amber-400 font-semibold bg-zinc-800/30"
                   )}
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {(!isDesktop || !collapsed) && <span className="flex-1">{label}</span>}
-                  {(!isDesktop || !collapsed) && active && <ChevronRight className="w-4 h-4" />}
-                </Link>
-              );
-            })}
+                  <Settings className="w-4 h-4 shrink-0" />
+                  <span className="flex-1 text-left">Configurações</span>
+                  {configOpen ? (
+                    <ChevronDown className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 shrink-0" />
+                  )}
+                </button>
+                {configOpen && (
+                  <div className="mt-1 pl-4 space-y-1 border-l border-zinc-800 ml-5">
+                    {ownerConfigNav.map(({ href, label, icon: Icon }) => {
+                      const active = pathname === href;
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={navClick}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                            active
+                              ? "bg-primary/10 text-primary font-semibold"
+                              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                          )}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="flex-1 text-left">{label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Minha Assinatura */}
+            <Link
+              href="/painel/assinatura"
+              onClick={navClick}
+              title={isDesktop && collapsed ? "Minha Assinatura" : undefined}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                isDesktop && collapsed && "justify-center px-0",
+                pathname === "/painel/assinatura"
+                  ? "bg-primary text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+              )}
+            >
+              <Crown className="w-4 h-4 shrink-0" />
+              {(!isDesktop || !collapsed) && <span className="flex-1">Minha Assinatura</span>}
+              {(!isDesktop || !collapsed) && pathname === "/painel/assinatura" && <ChevronRight className="w-4 h-4" />}
+            </Link>
           </>
         )}
       </nav>
 
       {/* Footer: recolher (desktop) + sair */}
       <div className={cn("py-3 border-t border-zinc-800 space-y-1", isDesktop && collapsed ? "px-2" : "px-3")}>
-        {/* Botão recolher — somente desktop */}
         {isDesktop && (
           <button
             onClick={toggleCollapsed}

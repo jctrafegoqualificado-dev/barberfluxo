@@ -24,6 +24,7 @@ export default function ServicosPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<"active" | "inactive" | "all">("active");
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [form, setForm] = useState({
@@ -126,6 +127,14 @@ export default function ServicosPage() {
     load();
   }
 
+  const filtered = services.filter((s) => {
+    if (filter === "active") return s.active;
+    if (filter === "inactive") return !s.active;
+    return true;
+  });
+
+  const inactiveCount = services.filter(s => !s.active).length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -138,8 +147,22 @@ export default function ServicosPage() {
         </Button>
       </div>
 
+      <div className="flex gap-2 flex-wrap">
+        {(["active", "inactive", "all"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filter === f ? "bg-primary text-white" : "bg-white border border-zinc-200 text-zinc-600 hover:border-zinc-300"
+            }`}
+          >
+            {f === "active" ? "Ativos" : f === "inactive" ? `Inativos${inactiveCount > 0 ? ` (${inactiveCount})` : ""}` : "Todos"}
+          </button>
+        ))}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {services.map((s) => (
+        {filtered.map((s) => (
           <div key={s.id} className={`bg-white rounded-2xl border shadow-sm p-5 relative overflow-hidden flex flex-col justify-between min-h-[220px] transition-all hover:shadow-md ${!s.active ? "opacity-50" : "border-zinc-200"}`}>
             {s.imageUrl && (
               <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
@@ -169,7 +192,7 @@ export default function ServicosPage() {
               {s.description && <p className="text-xs text-zinc-400 mb-3 line-clamp-2">{s.description}</p>}
             </div>
 
-            <div className="space-y-2 mt-4 pt-3 border-t border-zinc-100 text-sm">
+            <div className="space-y-2 mt-4 pt-3 border-t border-zinc-200 text-sm">
               <div className="flex justify-between items-center text-zinc-500">
                 <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5" /> Duração</span>
                 <span className="font-semibold text-zinc-700">{s.duration} min</span>
@@ -182,11 +205,21 @@ export default function ServicosPage() {
               )}
               <div className="flex justify-between items-center text-zinc-500">
                 <span className="flex items-center gap-1.5 text-xs"><Percent className="w-3.5 h-3.5" /> Comissão</span>
-                <span className="font-semibold text-zinc-700 text-xs">
-                  {s.commission !== null ? `${s.commission}%` : "Geral do Profissional"}
+                <span className="font-semibold text-zinc-700 text-xs flex items-center gap-1">
+                  {s.commission !== null ? `${s.commission}%` : (
+                    <>
+                      Geral do Profissional
+                      <span className="group relative cursor-help text-zinc-400 hover:text-zinc-600">
+                        <HelpCircle className="w-3 h-3" />
+                        <span className="absolute bottom-5 right-0 hidden group-hover:block w-52 bg-zinc-950 text-white text-[10px] p-2 rounded-lg leading-tight shadow-xl z-50 font-normal">
+                          Usa a comissão padrão configurada no perfil do profissional. Para definir uma taxa específica deste serviço, edite e preencha o campo de comissão.
+                        </span>
+                      </span>
+                    </>
+                  )}
                 </span>
               </div>
-              <div className="flex justify-between items-center pt-1 border-t border-zinc-50">
+              <div className="flex justify-between items-center pt-1 border-t border-zinc-100">
                 <span className="text-xs font-semibold text-zinc-500">Preço Final</span>
                 <span className="font-extrabold text-zinc-950 text-base">{formatCurrency(s.price)}</span>
               </div>

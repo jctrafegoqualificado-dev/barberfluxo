@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { CreditCard, Plus, Search, Banknote, Smartphone, AlertTriangle, Check, X, Trash2, Users, TrendingUp, DollarSign, MessageSquare, Calendar, Edit2, Clock, FileText, RotateCcw, ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Filter, Link, RefreshCw, Send } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
@@ -185,13 +186,24 @@ function EditSubModal({ sub, plans, token, onSave, onClose }: {
 
 export default function AssinaturasPage() {
   const { token } = useAuthStore();
-  const [subs, setSubs] = useState<Subscription[]>([]);
+  const searchParams = useSearchParams();
+
+  // Paginated data
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState({ totalActive: 0, mrr: 0, overdueCount: 0, overdueTotal: 0 });
+  const [todayBilling, setTodayBilling] = useState<Subscription[]>([]);
+  const [billingIn7Days, setBillingIn7Days] = useState<Subscription[]>([]);
+  const [overdueSubs, setOverdueSubs] = useState<Subscription[]>([]);
+
   const [plans, setPlans] = useState<Plan[]>([]);
   const [open, setOpen] = useState(false);
   const [paymentSub, setPaymentSub] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "overdue" | "paused" | "cancelled">("all");
+  const [planFilter, setPlanFilter] = useState<string | null>(null);
   const [form, setForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", planId: "", billingDay: "" });
   const [usageModal, setUsageModal] = useState<Subscription | null>(null);
   const [editSub, setEditSub] = useState<Subscription | null>(null);
@@ -213,6 +225,12 @@ export default function AssinaturasPage() {
   // States para o inline edit e cobrança WhatsApp
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
+
+  // Dar baixa em lote
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkMethod, setBulkMethod] = useState<string | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Sorting & Pagination states
   const [sortField, setSortField] = useState<"name" | "price" | "nextBillingDate">("nextBillingDate");
@@ -352,21 +370,50 @@ export default function AssinaturasPage() {
   }
 
   async function load() {
+    if (!token) return;
+    const params = new URLSearchParams({
+      q: debouncedSearch,
+      status: filter === "all" ? "" : filter,
+      sortField,
+      sortDir: sortDirection,
+      skip: String((currentPage - 1) * rowsPerPage),
+      take: String(rowsPerPage),
+    });
+    if (planFilter) params.set("planId", planFilter);
+
     const [sr, pr] = await Promise.all([
-      fetch("/api/barbershop/subscriptions", { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/barbershop/subscriptions?${params}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch("/api/barbershop/plans", { headers: { Authorization: `Bearer ${token}` } }),
     ]);
     const [sd, pd] = await Promise.all([sr.json(), pr.json()]);
-    setSubs(sd.subscriptions || []);
+    setSubscriptions(sd.subscriptions || []);
+    setTotal(sd.total ?? 0);
+    setStats(sd.stats ?? { totalActive: 0, mrr: 0, overdueCount: 0, overdueTotal: 0 });
+    setTodayBilling(sd.todayBilling || []);
+    setBillingIn7Days(sd.billingIn7Days || []);
+    setOverdueSubs(sd.overdueSubs || []);
     setPlans(pd.plans || []);
   }
 
-  useEffect(() => { load(); }, []);
-
-  // Reset pagination when searching or filtering
+  // Debounce search input before triggering API call
   useEffect(() => {
-    setCurrentPage(1);
-  }, [search, filter]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    if (!token) return;
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, filter, planFilter, debouncedSearch, currentPage, rowsPerPage, sortField, sortDirection]);
+
+  useEffect(() => {
+    const plano = searchParams.get("plano");
+    if (plano) setPlanFilter(plano);
+  }, []);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -431,8 +478,7 @@ export default function AssinaturasPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ subscriptionId, method }),
       });
-      const sub = subs.find(s => s.id === subscriptionId);
-      if (sub) await loadExtrato(sub);
+      if (extratoSub) await loadExtrato(extratoSub);
       load();
     } finally {
       setExtratoLoading(false);
@@ -452,8 +498,7 @@ export default function AssinaturasPage() {
         alert(data.error || "Erro ao desfazer pagamento");
         return;
       }
-      const sub = subs.find(s => s.id === subscriptionId);
-      if (sub) await loadExtrato(sub);
+      if (extratoSub) await loadExtrato(extratoSub);
       load();
     } finally {
       setExtratoLoading(false);
@@ -484,9 +529,27 @@ export default function AssinaturasPage() {
     }
   }
 
+  async function handleBulkPayment() {
+    if (!bulkMethod || selectedIds.length === 0) return;
+    setBulkLoading(true);
+    try {
+      await fetch("/api/barbershop/subscriptions/pagamento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: selectedIds, method: bulkMethod }),
+      });
+      setSelectedIds([]);
+      setShowBulkModal(false);
+      setBulkMethod(null);
+      load();
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      setSortDirection(d => d === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
       setSortDirection(field === "name" ? "asc" : "desc");
@@ -501,54 +564,8 @@ export default function AssinaturasPage() {
       : <ChevronDown className="w-3.5 h-3.5 ml-1 text-primary font-bold shrink-0" />;
   };
 
-  const overdueSubs = subs.filter((s) => s.status === "ACTIVE" && isOverdue(s.nextBillingDate));
-
-  const totalActive = subs.filter((s) => s.status === "ACTIVE").length;
-  const overdueCount = overdueSubs.length;
-  const mrr = subs.filter((s) => s.status === "ACTIVE").reduce((sum, s) => sum + s.plan.price, 0);
-  const overdueTotal = overdueSubs.reduce((sum, s) => sum + s.plan.price, 0);
-
-  const filtered = subs
-    .filter((s) => {
-      if (filter === "all") return true;
-      if (filter === "active") return s.status === "ACTIVE" && !isOverdue(s.nextBillingDate);
-      if (filter === "overdue") return s.status === "OVERDUE" || (s.status === "ACTIVE" && isOverdue(s.nextBillingDate));
-      if (filter === "paused") return s.status === "PAUSED";
-      if (filter === "cancelled") return s.status === "CANCELLED";
-      return true;
-    })
-    .filter((s) =>
-      s.client.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.client.phone ?? "").includes(search)
-    );
-
-  const sorted = [...filtered].sort((a, b) => {
-    let valA: any;
-    let valB: any;
-
-    if (sortField === "name") {
-      valA = a.client.name;
-      valB = b.client.name;
-    } else if (sortField === "price") {
-      valA = a.plan.price;
-      valB = b.plan.price;
-    } else if (sortField === "nextBillingDate") {
-      valA = a.nextBillingDate;
-      valB = b.nextBillingDate;
-    }
-
-    if (typeof valA === "string") {
-      return sortDirection === "asc"
-        ? valA.localeCompare(valB)
-        : valB.localeCompare(valA);
-    }
-
-    return sortDirection === "asc" ? valA - valB : valB - valA;
-  });
-
-  const totalRows = sorted.length;
-  const totalPages = Math.ceil(totalRows / rowsPerPage);
-  const paginated = sorted.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const { totalActive, mrr, overdueCount, overdueTotal } = stats;
+  const totalPages = Math.ceil(total / rowsPerPage);
 
   return (
     <div className="space-y-6">
@@ -558,6 +575,78 @@ export default function AssinaturasPage() {
       {editSub && (
         <EditSubModal sub={editSub} plans={plans} token={token} onSave={load} onClose={() => setEditSub(null)} />
       )}
+
+      {/* Modal — Dar baixa em lote */}
+      {showBulkModal && (() => {
+        const selectedSubs = overdueSubs.filter((s: Subscription) => selectedIds.includes(s.id));
+        const totalBulk = selectedSubs.reduce((sum, s) => sum + s.plan.price, 0);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+                <div>
+                  <h2 className="font-semibold text-zinc-900">Dar baixa em lote</h2>
+                  <p className="text-xs text-zinc-400 mt-0.5">{selectedSubs.length} assinante{selectedSubs.length > 1 ? "s" : ""} · {formatCurrency(totalBulk)}</p>
+                </div>
+                <button onClick={() => setShowBulkModal(false)} className="p-1 rounded-lg hover:bg-zinc-100">
+                  <X className="w-4 h-4 text-zinc-500" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-4">
+                <div className="max-h-48 overflow-y-auto space-y-1.5">
+                  {selectedSubs.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between bg-zinc-50 rounded-lg px-3 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-bold">{getInitials(s.client.name)}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-900">{s.client.name}</p>
+                          <p className="text-[11px] text-zinc-400">{s.plan.name}</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-zinc-700">{formatCurrency(s.plan.price)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-zinc-50 rounded-xl px-4 py-3 flex items-center justify-between border border-zinc-100">
+                  <span className="text-sm text-zinc-500 font-medium">Total a receber</span>
+                  <span className="text-lg font-bold text-zinc-900">{formatCurrency(totalBulk)}</span>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500 mb-3">Forma de pagamento recebida:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PAYMENT_OPTIONS.map(({ value, label, icon: Icon, color }) => (
+                      <button
+                        key={value}
+                        onClick={() => setBulkMethod(value)}
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                          bulkMethod === value ? color + " ring-2 ring-offset-1 ring-current" : "border-zinc-200 text-zinc-500 hover:border-zinc-300"
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span className="text-sm font-semibold">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="px-5 pb-5 flex gap-2">
+                <button onClick={() => setShowBulkModal(false)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleBulkPayment}
+                  disabled={!bulkMethod || bulkLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-40"
+                >
+                  {bulkLoading ? "Salvando..." : `Confirmar ${selectedSubs.length} pagamento${selectedSubs.length > 1 ? "s" : ""}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal de e-mail para ativar débito automático MP */}
       {emailPromptModal && (
@@ -626,10 +715,10 @@ export default function AssinaturasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Assinantes</h1>
-          {overdueSubs.length > 0 && (
+          {overdueCount > 0 && (
             <p className="text-sm text-red-600 font-medium mt-0.5 flex items-center gap-1">
               <AlertTriangle className="w-3.5 h-3.5" />
-              {overdueSubs.length} pagamento{overdueSubs.length > 1 ? "s" : ""} vencido{overdueSubs.length > 1 ? "s" : ""}
+              {overdueCount} pagamento{overdueCount > 1 ? "s" : ""} vencido{overdueCount > 1 ? "s" : ""}
             </p>
           )}
         </div>
@@ -681,6 +770,133 @@ export default function AssinaturasPage() {
         </div>
       </div>
 
+      {(todayBilling.length > 0 || billingIn7Days.length > 0) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {todayBilling.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 flex items-center gap-2 border-b border-red-100">
+                <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-red-800">Cobranças de Hoje</p>
+                  <p className="text-[10px] text-red-500">{todayBilling.length} assinante{todayBilling.length > 1 ? "s" : ""} · {formatCurrency(todayBilling.reduce((s, x) => s + x.plan.price, 0))}</p>
+                </div>
+              </div>
+              <div className="divide-y divide-red-100 max-h-52 overflow-y-auto">
+                {todayBilling.map((s) => (
+                  <div key={s.id} className="px-4 py-3 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold">{getInitials(s.client.name)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-zinc-900 truncate">{s.client.name}</p>
+                      <p className="text-[11px] text-zinc-500">{s.plan.name} · {formatCurrency(s.plan.price)}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => setPaymentSub(s)}
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+                      >
+                        Dar baixa
+                      </button>
+                      <button
+                        onClick={() => loadExtrato(s)}
+                        className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-100 transition-colors"
+                        title="Ver extrato"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {billingIn7Days.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 flex items-center gap-2 border-b border-amber-100">
+                <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-amber-800">Vencendo em 7 dias</p>
+                  <p className="text-[10px] text-amber-600">{billingIn7Days.length} assinante{billingIn7Days.length > 1 ? "s" : ""}</p>
+                </div>
+              </div>
+              <div className="divide-y divide-amber-100 max-h-52 overflow-y-auto">
+                {billingIn7Days.map((s) => {
+                  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+                  const d = new Date(s.nextBillingDate); d.setHours(0, 0, 0, 0);
+                  const daysUntil = Math.round((d.getTime() - todayMidnight.getTime()) / 86400000);
+                  return (
+                    <div key={s.id} className="px-4 py-3 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-bold">{getInitials(s.client.name)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-zinc-900 truncate">{s.client.name}</p>
+                        <p className="text-[11px] text-zinc-500">{s.plan.name} · {formatCurrency(s.plan.price)}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-2 py-1 rounded-full whitespace-nowrap">
+                          {daysUntil === 1 ? "amanhã" : `em ${daysUntil}d`}
+                        </span>
+                        <button
+                          onClick={() => loadExtrato(s)}
+                          className="p-1.5 rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-100 transition-colors"
+                          title="Ver extrato"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {planFilter && (() => {
+        const planName = plans.find(p => p.id === planFilter)?.name;
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-500">Filtrando por plano:</span>
+            <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 text-xs font-semibold px-3 py-1.5 rounded-full">
+              {planName ?? "…"}
+              <button onClick={() => { setPlanFilter(null); setCurrentPage(1); }} className="hover:text-red-600 transition-colors" title="Remover filtro">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          </div>
+        );
+      })()}
+
+      {overdueCount > 0 && (() => {
+        const allSelected = overdueSubs.length > 0 && overdueSubs.every((s: Subscription) => selectedIds.includes(s.id));
+        return (
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setSelectedIds(allSelected ? [] : overdueSubs.map((s: Subscription) => s.id))}
+              className={`text-xs px-3 py-2 rounded-lg border font-semibold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                allSelected
+                  ? "border-zinc-200 text-zinc-500 bg-white hover:bg-zinc-50"
+                  : "border-red-200 text-red-600 bg-white hover:bg-red-50"
+              }`}
+            >
+              <Check className="w-3.5 h-3.5" />
+              {allSelected ? "Desmarcar todos" : `Selecionar ${overdueCount} vencido${overdueCount > 1 ? "s" : ""}`}
+            </button>
+            {selectedIds.length > 0 && (
+              <span className="text-xs text-zinc-400 font-medium">{selectedIds.length} selecionado{selectedIds.length > 1 ? "s" : ""}</span>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="relative w-full md:flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
@@ -688,13 +904,13 @@ export default function AssinaturasPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="flex rounded-lg border border-zinc-200 overflow-x-auto hide-scrollbar text-sm font-medium">
-            <button onClick={() => setFilter("all")} className={`px-3 py-2 shrink-0 transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Todos</button>
-            <button onClick={() => setFilter("active")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "active" ? "bg-emerald-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Ativas</button>
-            <button onClick={() => setFilter("overdue")} className={`px-3 py-2 shrink-0 flex items-center gap-1 transition-colors border-l border-zinc-200 ${filter === "overdue" ? "bg-red-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>
-              <AlertTriangle className="w-3.5 h-3.5" /> Vencidas {overdueSubs.length > 0 && `(${overdueSubs.length})`}
+            <button onClick={() => { setFilter("all"); setCurrentPage(1); }} className={`px-3 py-2 shrink-0 transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Todos</button>
+            <button onClick={() => { setFilter("active"); setCurrentPage(1); }} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "active" ? "bg-emerald-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Ativas</button>
+            <button onClick={() => { setFilter("overdue"); setCurrentPage(1); }} className={`px-3 py-2 shrink-0 flex items-center gap-1 transition-colors border-l border-zinc-200 ${filter === "overdue" ? "bg-red-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>
+              <AlertTriangle className="w-3.5 h-3.5" /> Vencidas {overdueCount > 0 && `(${overdueCount})`}
             </button>
-            <button onClick={() => setFilter("paused")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "paused" ? "bg-amber-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Pausadas</button>
-            <button onClick={() => setFilter("cancelled")} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "cancelled" ? "bg-zinc-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Canceladas</button>
+            <button onClick={() => { setFilter("paused"); setCurrentPage(1); }} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "paused" ? "bg-amber-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Pausadas</button>
+            <button onClick={() => { setFilter("cancelled"); setCurrentPage(1); }} className={`px-3 py-2 shrink-0 transition-colors border-l border-zinc-200 ${filter === "cancelled" ? "bg-zinc-500 text-white border-transparent" : "bg-white text-zinc-500 hover:bg-zinc-50"}`}>Canceladas</button>
           </div>
           <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500 ml-auto md:ml-0 bg-white px-3 py-2 rounded-lg border border-zinc-200">
             <span>Mostrar:</span>
@@ -715,7 +931,7 @@ export default function AssinaturasPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden flex flex-col justify-between">
-        {paginated.length === 0 ? (
+        {subscriptions.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-zinc-400">
             <CreditCard className="w-12 h-12 mb-3" />
             <p className="font-medium">Nenhum assinante encontrado</p>
@@ -751,8 +967,8 @@ export default function AssinaturasPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {paginated.map((s) => {
-                    const overdue = s.status === "ACTIVE" && isOverdue(s.nextBillingDate);
+                  {subscriptions.map((s) => {
+                    const overdue = s.status === "OVERDUE" || (s.status === "ACTIVE" && isOverdue(s.nextBillingDate));
                     const lastPaid = s.payments.find((p) => p.status === "PAID");
 
                     return (
@@ -760,6 +976,19 @@ export default function AssinaturasPage() {
                         {/* Cliente Info */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
+                            {overdue && (
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(s.id)}
+                                onChange={(e) =>
+                                  setSelectedIds((prev) =>
+                                    e.target.checked ? [...prev, s.id] : prev.filter((id) => id !== s.id)
+                                  )
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-4 h-4 rounded border-zinc-300 accent-primary cursor-pointer shrink-0"
+                              />
+                            )}
                             <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${overdue ? "bg-red-100 text-red-700" : "bg-primary/20 text-amber-700"}`}>
                               <span className="font-bold text-xs">{getInitials(s.client.name)}</span>
                             </div>
@@ -932,7 +1161,7 @@ export default function AssinaturasPage() {
               <div className="p-4 border-t border-zinc-100 bg-zinc-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">
                   Mostrando {(currentPage - 1) * rowsPerPage + 1} a{" "}
-                  {Math.min(currentPage * rowsPerPage, totalRows)} de {totalRows} assinantes
+                  {Math.min(currentPage * rowsPerPage, total)} de {total} assinantes
                 </p>
                 <div className="flex gap-1">
                   <button
@@ -1466,6 +1695,37 @@ export default function AssinaturasPage() {
               <button onClick={() => setExtratoSub(null)} className="w-full py-3 rounded-xl bg-zinc-900 text-white font-bold hover:bg-zinc-800 transition-colors">Fechar</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Barra flutuante — seleção em lote */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-zinc-700">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold shrink-0">
+              {selectedIds.length}
+            </div>
+            <span className="text-sm font-semibold whitespace-nowrap">
+              selecionado{selectedIds.length > 1 ? "s" : ""}
+            </span>
+            <span className="text-zinc-400 text-sm whitespace-nowrap">
+              · {formatCurrency(overdueSubs.filter((s: Subscription) => selectedIds.includes(s.id)).reduce((sum, s) => sum + s.plan.price, 0))}
+            </span>
+          </div>
+          <div className="w-px h-5 bg-zinc-700 shrink-0" />
+          <button
+            onClick={() => { setBulkMethod(null); setShowBulkModal(true); }}
+            className="bg-primary text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors whitespace-nowrap"
+          >
+            Dar baixa
+          </button>
+          <button
+            onClick={() => setSelectedIds([])}
+            className="p-1.5 hover:bg-zinc-700 rounded-lg transition-colors"
+            title="Limpar seleção"
+          >
+            <X className="w-4 h-4 text-zinc-400" />
+          </button>
         </div>
       )}
 

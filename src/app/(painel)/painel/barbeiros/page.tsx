@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Users, Plus, Percent, Edit2, Trash2, Camera } from "lucide-react";
+import { Users, Plus, Percent, Edit2, Trash2, Camera, Search } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { getInitials } from "@/lib/utils";
+import { getInitials, cn } from "@/lib/utils";
 
 interface Barber {
   id: string;
@@ -155,6 +155,20 @@ export default function BarbeirosPage() {
     load();
   }
 
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "vacation">("all");
+
+  const filtered = barbers.filter((b) => {
+    const matchSearch = !search ||
+      b.user.name.toLowerCase().includes(search.toLowerCase()) ||
+      (b.nickname?.toLowerCase().includes(search.toLowerCase()) ?? false);
+    const matchStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && b.active) ||
+      (statusFilter === "vacation" && !b.active);
+    return matchSearch && matchStatus;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -174,8 +188,54 @@ export default function BarbeirosPage() {
           <p className="font-medium">Nenhum profissional cadastrado</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {barbers.map((b) => (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Ativos", count: barbers.filter(b => b.active).length, color: "text-green-700", bg: "bg-green-100", border: "border-green-200" },
+              { label: "Em Férias", count: barbers.filter(b => !b.active).length, color: "text-amber-700", bg: "bg-amber-100", border: "border-amber-200" },
+              { label: "Total", count: barbers.length, color: "text-zinc-700", bg: "bg-white", border: "border-zinc-200" },
+            ].map(({ label, count, color, bg, border }) => (
+              <div key={label} className={`${bg} rounded-xl border ${border} shadow-sm px-4 py-3 flex items-center gap-3`}>
+                <p className={`text-2xl font-bold ${color}`}>{count}</p>
+                <p className="text-xs text-zinc-400 leading-tight">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-3 flex-wrap items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar profissional..."
+                className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              />
+            </div>
+            <div className="flex gap-1">
+              {(["all", "active", "vacation"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setStatusFilter(f)}
+                  className={cn(
+                    "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    statusFilter === f ? "bg-primary text-white" : "bg-white border border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                  )}
+                >
+                  {f === "all" ? "Todos" : f === "active" ? "Ativos" : "Em Férias"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-zinc-400 bg-white rounded-xl border border-zinc-100">
+              <Users className="w-10 h-10 mb-2" />
+              <p className="font-medium text-sm">Nenhum profissional encontrado</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((b) => (
             <div
               key={b.id}
               className={`bg-white rounded-xl border shadow-sm p-5 transition-opacity ${b.active ? "border-zinc-100" : "border-zinc-200 opacity-60"}`}
@@ -238,8 +298,9 @@ export default function BarbeirosPage() {
                   </p>
                 )}
                 <div className="flex items-center gap-1 mt-2">
-                  <Percent className="w-4 h-4 text-primary" />
-                  <span className="font-semibold text-primary">{b.commission}% de comissão</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-700 bg-zinc-200 px-2 py-0.5 rounded-full">
+                    <Percent className="w-3 h-3" /> {b.commission}% comissão
+                  </span>
                 </div>
                 {b.dayOff !== null && b.dayOff !== undefined && (
                   <p className="text-xs text-zinc-400 mt-1">🗓 Folga: {DAYS[b.dayOff]}</p>
@@ -247,7 +308,9 @@ export default function BarbeirosPage() {
               </div>
             </div>
           ))}
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       <Modal

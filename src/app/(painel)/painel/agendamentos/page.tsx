@@ -68,10 +68,12 @@ function getInitials(name: string) { return name.split(" ").slice(0, 2).map(n =>
 
 /* ─── Modal de pagamento (com edição de serviços) ─── */
 function PaymentModal({
-  appt, services, onConfirm, onUpdateServices, onDelete, onReopen, onClose
+  appt, services, products, discountSettings, onConfirm, onUpdateServices, onDelete, onReopen, onClose
 }: {
   appt: Appointment;
   services: any[];
+  products: { id: string; name: string; price: number; stock: number }[];
+  discountSettings: { servicesEnabled: boolean; servicesMax: number };
   onConfirm: (id: string, m: string, p: number, extraPrice?: number, extraPaymentMethod?: string, discountPercent?: number) => Promise<void>;
   onUpdateServices: (id: string, sids: string[]) => Promise<void>;
   onDelete: (id: string) => void;
@@ -82,18 +84,7 @@ function PaymentModal({
   const [mode, setMode] = useState<"payment" | "edit">("payment");
   const [sel, setSel] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
   const [qtys, setQtys] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    if (!token) return;
-    setLoadingProducts(true);
-    fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => setProducts(d.products || []))
-      .finally(() => setLoadingProducts(false));
-  }, [token]);
 
   function changeQty(id: string, delta: number) {
     setQtys(q => {
@@ -124,14 +115,6 @@ function PaymentModal({
       ? (appt.subscription?.plan as any).extraDiscount
       : 0
   );
-  const [discountSettings, setDiscountSettings] = useState<{ servicesEnabled: boolean; servicesMax: number }>({ servicesEnabled: false, servicesMax: 20 });
-
-  useEffect(() => {
-    if (!token) return;
-    fetch("/api/barbershop/financeiro", { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => setDiscountSettings({ servicesEnabled: Boolean(d.discountServicesEnabled), servicesMax: Number(d.discountServicesMax ?? 20) }));
-  }, [token]);
 
   function toggleService(id: string) {
     setSelectedServiceIds(prev =>
@@ -371,9 +354,6 @@ function PaymentModal({
                   )}
                 </div>
               )}
-              {loadingProducts && (
-                <p className="text-xs text-zinc-400 pt-2">Carregando produtos...</p>
-              )}
               {appt.client.phone && (
                 <a href={`tel:${appt.client.phone}`}
                   className="mt-3 w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors text-sm">
@@ -602,16 +582,16 @@ function BloqueioModal({ barbers, date, onConfirm, onClose }: {
 
 /* ─── Modal de agendamento (multi-serviço) ─── */
 function AgendamentoModal({
-  barbers, date, onConfirm, onClose, initialBarberId, initialStartTime
+  barbers, date, services, onConfirm, onClose, initialBarberId, initialStartTime
 }: {
   barbers: Barber[]; date: string;
+  services: { id: string; name: string; price: number; duration: number }[];
   onConfirm: (data: { clientName: string; clientPhone: string; barberId: string; serviceIds: string[]; date: string; startTime: string; beneficiaryName?: string; price?: number }) => Promise<boolean>;
   onClose: () => void;
   initialBarberId?: string;
   initialStartTime?: string;
 }) {
   const { token } = useAuthStore();
-  const [services, setServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [barberId, setBarberId] = useState(initialBarberId ?? barbers[0]?.id ?? "");
@@ -684,13 +664,6 @@ function AgendamentoModal({
     }
   }, [clientPhone, token]);
 
-  useEffect(() => {
-    fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => {
-        const svcs = (d.services || []).filter((s: any) => s.active);
-        setServices(svcs);
-      });
-  }, [token]);
 
   // Ajusta barbeiro selecionado se não for permitido pelo plano
   useEffect(() => {
@@ -921,6 +894,8 @@ export default function AgendamentosPage() {
   const [bloqueios, setBloqueios] = useState<Bloqueio[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
+  const [discountSettings, setDiscountSettings] = useState<{ servicesEnabled: boolean; servicesMax: number }>({ servicesEnabled: false, servicesMax: 20 });
   const [modalAppt, setModalAppt] = useState<Appointment | null>(null);
   const [showBloqueio, setShowBloqueio] = useState(false);
   const [showAgendamento, setShowAgendamento] = useState(false);
@@ -954,6 +929,10 @@ export default function AgendamentosPage() {
       .then(r => r.json()).then(d => setBarbers(d.barbers || []));
     fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setServices((d.services || []).filter((s: any) => s.active)));
+    fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => setProducts(d.products || []));
+    fetch("/api/barbershop/financeiro", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => setDiscountSettings({ servicesEnabled: Boolean(d.discountServicesEnabled), servicesMax: Number(d.discountServicesMax ?? 20) }));
   }, [token]);
 
   /* Linha do horário atual */
@@ -1126,7 +1105,7 @@ export default function AgendamentosPage() {
     <div className="flex flex-col h-full" style={{ minHeight: 0 }}>
       {/* Modais */}
       {modalAppt && (
-        <PaymentModal appt={modalAppt} services={services}
+        <PaymentModal appt={modalAppt} services={services} products={products} discountSettings={discountSettings}
           onConfirm={async (id, m, p, extraPrice, extraPaymentMethod, discountPercent) => { await updateStatus(id, "DONE", m, p, extraPrice, extraPaymentMethod, discountPercent); }}
           onUpdateServices={async (id, sids) => {
             const res = await fetch("/api/barbershop/appointments", {
@@ -1153,7 +1132,7 @@ export default function AgendamentosPage() {
           onClose={() => setShowBloqueio(false)} />
       )}
       {showAgendamento && (
-        <AgendamentoModal barbers={barbers} date={date}
+        <AgendamentoModal barbers={barbers} date={date} services={services}
           onConfirm={handleNovoAgendamento}
           initialBarberId={agendamentoInit?.barberId}
           initialStartTime={agendamentoInit?.startTime}
