@@ -9,28 +9,28 @@
 
 ### 🔧 CTO — Qualidade & Dívida Técnica
 
-- [ ] **Renomear identidade no codebase** — `package.json` `name: "barberfluxo"` → `"iadebarbearia"`; título da OpenAPI spec (`/api/v1/openapi`) → "IaDeBarbearia Public API"; eliminar qualquer referência residual a "BarberFluxo"
-- [ ] **Remover código morto** — deletar `src/app/(painel)/painel/financeiro/page_old_poe.tsx`
-- [ ] **CI/CD pipeline** — GitHub Actions: lint + build + `npx tsc --noEmit` em cada PR; bloquear merge se falhar
-- [ ] **Testes críticos** — cobertura mínima nos fluxos de maior risco: autenticação (login/refresh), criação de agendamento, webhook do Mercado Pago
-- [ ] **ADR: Evolution API** — documentar por que Evolution em vez de WhatsApp Business API oficial (custo, controle, risco); serve para futuras decisões de migração
-- [ ] **ADR: N8N como orquestrador** — documentar por que N8N em vez de chamada direta à API de LLM
+- [x] **Renomear identidade no codebase** — `package.json name: "iadebarbearia"`; OpenAPI spec title: "IaDeBarbearia Public API"; emails sintéticos migrados para `@cliente.iadebarbearia.com`; lookups retrocompat para domínios antigos
+- [x] **Remover código morto** — `src/app/(painel)/painel/financeiro/page_old_poe.tsx` deletado
+- [x] **CI/CD pipeline** — `.github/workflows/ci.yml`: lint + `npx tsc --noEmit` + build em cada PR; bloqueia merge se falhar
+- [x] **Testes críticos** — Vitest v4; 18 testes cobrindo auth (login/refresh), booking (novo cliente, existente, double-booking, assinante, 404s) e webhook MP (approved/rejected/cancelled/HMAC); todos passando
+- [x] **ADR: Evolution API** — `docs/adr/001-evolution-api.md`; custo zero/mensagem, setup por QR, sem template approval, multi-instância por barbearia; gatilho de revisão documentado
+- [x] **ADR: N8N como orquestrador** — `docs/adr/002-n8n-orquestrador.md`; iteração de prompt sem deploy, visibilidade de execução, sem cold start serverless, separação CRM ↔ IA
 
 ### 🖥️ CIO — Segurança & LGPD
 
-- [ ] **Security headers middleware** — adicionar `next.config` com headers: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`
-- [ ] **Proteção de `isPlatformAdmin`** — auditar todas as rotas de update de usuário (`PATCH /api/barbershop/profile`, registro) para garantir que `isPlatformAdmin` e `role` não podem ser alterados pelo próprio usuário
-- [ ] **Política de retenção de WhatsApp** — definir TTL para `WhatsAppMessage` (ex: 12 meses); `rawPayload Json` armazena PII não estruturado — criar job de limpeza ou mascarar dados sensíveis
-- [ ] **WAF para endpoints públicos** — aplicar rate limiting mais agressivo em `/api/booking/[slug]` e `/api/v1/` (atualmente apenas Upstash geral)
+- [x] **Security headers middleware** — `next.config.ts` com: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`
+- [x] **Proteção de `isPlatformAdmin`** — rotas de update auditadas; OWNER não pode alterar `isPlatformAdmin` nem `role` de contas PLATFORM_ADMIN
+- [x] **Política de retenção de WhatsApp** — `cron/whatsapp-retention`: TTL 365 dias (ajustável via `WHATSAPP_RETENTION_DAYS`); job apaga `WhatsAppMessage` com mais de 12 meses; LGPD art. 15
+- [x] **WAF para endpoints públicos** — `bookingReadRatelimit` (60/min por IP) em todos os GETs de booking; `phoneLookupRatelimit` (15/5min) em `/cliente`, `/subscriber`, `/meus-agendamentos` e cancel público; ambos no middleware Edge
 
 ### ⚙️ COO — Operações & Métricas
 
-- [ ] **Dashboard de saúde dos crons** — instrumentar `cron/reminders`, `cron/mark-noshow`, `cron/subscription-renewal`, `cron/check-saas-expiry` com último run + status no painel `/plataforma`; alertar se job não rodou no prazo esperado
-- [ ] **Instrumentar CAC/LTV no painel da plataforma** — adicionar no `/api/plataforma/stats`: custo por tenant ativo, receita média por barbearia, churn mensal de tenants
+- [x] **Dashboard de saúde dos crons** — `/api/plataforma/cron-health` registra último run + status de todos os crons (`reminders`, `mark-noshow`, `subscription-renewal`, `check-saas-expiry`, `whatsapp-retention`, `client-retention`); exibido no painel `/plataforma`
+- [x] **Instrumentar CAC/LTV no painel da plataforma** — `/api/plataforma/stats` retorna: `arpu`, `ltv`, `avgTenureMonths`, `weeklyGrowth`, `conversionRate`, `churnRate`; exibido no `/plataforma`
 
 ### 📣 CMO — Marketing & Crescimento
 
-- [ ] **"Powered by IaDeBarbearia" no portal de booking** — rodapé discreto em `/booking/[slug]` com link para página de cadastro; captura donos de barbearia que chegam como clientes de outras barbearias (PLG passivo)
+- [x] **"Powered by IaDeBarbearia" no portal de booking** — rodapé em `agendar/[slug]/page.tsx` com link PLG passivo para captação de novos donos
 
 ---
 
@@ -38,9 +38,9 @@
 
 ### 🤖 CAIO — IA & Automação
 
-- [ ] **Predictive No-Show** — modelo de classificação usando histórico de status `NOSHOW` por cliente; exibir no painel do admin/barbeiro o risco de falta do próximo agendamento; dados já existem no schema
-- [ ] **Client Retention AI Trigger** — detectar clientes sem agendamento há N dias (configurável), disparar mensagem WhatsApp personalizada automaticamente; usar `aiMensagemAusencia` como template base
-- [ ] **Revenue Forecast** — previsão de receita 30/60/90 dias com base em assinaturas ativas + frequência histórica de atendimentos; exibir no dashboard financeiro
+- [x] **Predictive No-Show** — Laplace smoothing sobre histórico de `NOSHOW` por cliente; badge "risco" (âmbar ≥20%) e "alto risco" (vermelho ≥50%) na Agenda de Hoje; hover mostra percentual e histórico; `src/lib/noshow-risk.ts`
+- [x] **Client Retention AI Trigger** — `cron/client-retention`: detecta clientes sem agendamento há N dias (configurável por barbearia), dispara WhatsApp personalizado; `ClientRetention` controla cooldown para evitar spam
+- [x] **Revenue Forecast** — `/api/barbershop/financeiro/forecast`: projeção 30/60/90 dias baseada em MRR de assinaturas + frequência histórica de atendimentos; tab "Previsão de Receita" em `/painel/financeiro/indicadores`
 
 ### 🔧 CTO — Observabilidade
 
@@ -49,13 +49,13 @@
 
 ### 🖥️ CIO — Compliance LGPD Formal
 
-- [ ] **Privacy policy pública** — página `/privacidade` documentando: dados coletados, finalidade, retenção, direitos do titular; obrigatório para LGPD
+- [x] **Privacy policy pública** — `/privacidade`: dados coletados, finalidade, retenção, direitos do titular
 - [ ] **Data Processing Agreement (DPA) template** — documento para barbearias assinarem declarando que são controladoras dos dados dos clientes delas
 - [ ] **DPO designado** — nomear responsável pelo tratamento de dados (pode ser o próprio fundador no estágio atual); registrar contato no site
 
 ### 📣 CMO — Retenção & Fidelidade
 
-- [ ] **Fechar loop de fidelidade** — criar área do cliente (app web ou via WhatsApp) para visualizar e resgatar pontos de `LoyaltyPoint`; sem isso o incentivo de +10 pontos no NPS é promessa vazia
+- [x] **Fechar loop de fidelidade** — `/painel/fidelidade`: OWNER gerencia pontos e resgates; `/avaliar/[id]`: cliente vê saldo e progresso; API `/api/barbershop/fidelidade` com ranking e resgate de desconto
 - [ ] **NPS loop completo** — após review coletado, enviar mensagem de agradecimento via WhatsApp; clientes com nota ≥ 9 receber pedido de indicação; clientes com nota ≤ 6 receber contato proativo do dono
 
 ### ⚙️ COO — Processos
@@ -100,3 +100,18 @@
 - [x] **[P3] Autocomplete de cliente no agendamento** — busca debounced por nome/telefone; seleção preenche campos
 - [x] **[Notificações] Drag & drop notifica cliente** — WhatsApp "Agendamento Remarcado" ao mover na agenda
 - [x] **[Notificações] Mensagens configuráveis** — `aiMensagemCancelamento` e `aiMensagemConfirmacaoAgendamento` com fallback para texto padrão
+- [x] **[SaaS] Vencimento de plano** — `saasExpiresAt`, cron `check-saas-expiry`, enforcement no layout, banner 5 dias antes
+- [x] **[Onboarding] Wizard guiado** — 6 passos; gate no layout redireciona para `/onboarding` se incompleto
+- [x] **[Retenção] Client Retention AI** — cron detecta inatividade e dispara WhatsApp personalizado
+- [x] **[Agenda] Predictive No-Show** — badge de risco na agenda do dia com Laplace smoothing
+- [x] **[Financeiro] Revenue Forecast** — projeção 30/60/90 dias no dashboard financeiro
+- [x] **[Fidelidade] Loop completo** — pontos por corte, resgate de desconto, ranking, página do cliente
+- [x] **[LGPD] Privacy policy** — página pública `/privacidade`
+- [x] **[Segurança] Security headers** — CSP, HSTS, X-Frame-Options, nosniff, Referrer-Policy no `next.config.ts`
+- [x] **[Segurança] isPlatformAdmin protegido** — OWNER não pode escalar privilégios via API
+- [x] **[Operações] WhatsApp retention cron** — TTL 365 dias, job de limpeza de PII
+- [x] **[Operações] Cron health dashboard** — último run + status de todos os jobs no painel plataforma
+- [x] **[Plataforma] Unit economics** — ARPU, LTV, tenure médio, weekly growth no `/plataforma`
+- [x] **[PLG] "Powered by IaDeBarbearia"** — rodapé no portal de booking
+- [x] **[CI/CD] Pipeline** — GitHub Actions com lint + tsc + build em cada PR
+- [x] **[Identidade] Renomear para IaDeBarbearia** — package.json, OpenAPI spec, emails sintéticos

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiV1Ratelimit } from "@/lib/ratelimit";
+import { apiV1Ratelimit, bookingReadRatelimit, phoneLookupRatelimit, getIp } from "@/lib/ratelimit";
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -56,6 +56,43 @@ export async function middleware(req: NextRequest) {
     const hasCookie = req.cookies.has("token");
     if (!hasAuthHeader && !hasCookie) {
       return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+  }
+
+  // 4. WAF: endpoints públicos de booking — scraping e enumeração de PII
+  if (pathname.startsWith("/api/booking/") && req.method === "GET") {
+    const ip = getIp(req);
+
+    const { success } = await bookingReadRatelimit.limit(ip);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Muitas requisições. Aguarde um momento." },
+        { status: 429 },
+      );
+    }
+
+    // Limite adicional mais agressivo nos endpoints que expõem PII por telefone
+    const SENSITIVE_SUFFIX = ["/cliente", "/subscriber", "/meus-agendamentos"];
+    if (SENSITIVE_SUFFIX.some((s) => pathname.endsWith(s))) {
+      const { success: ok } = await phoneLookupRatelimit.limit(ip);
+      if (!ok) {
+        return NextResponse.json(
+          { error: "Muitas tentativas. Aguarde alguns minutos." },
+          { status: 429 },
+        );
+      }
+    }
+  }
+
+  // 5. WAF: endpoint público de cancelamento (/api/v1/.../cancel sem API key)
+  if (isPublicCancelRoute) {
+    const ip = getIp(req);
+    const { success } = await phoneLookupRatelimit.limit(`cancel:${ip}`);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Muitas tentativas. Aguarde alguns minutos." },
+        { status: 429 },
+      );
     }
   }
 

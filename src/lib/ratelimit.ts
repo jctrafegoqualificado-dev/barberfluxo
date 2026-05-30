@@ -69,6 +69,18 @@ export const apiV1Ratelimit: Limiter = redis
   ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(120, "1 m"), prefix: "rl:v1", analytics: false })
   : noopLimiter;
 
+// 60 GETs por IP por minuto nos endpoints públicos de booking (shop info, slots)
+// Permite uso normal da página pública mas bloqueia scraping automatizado
+export const bookingReadRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, "1 m"), prefix: "rl:book-read", analytics: false })
+  : noopLimiter;
+
+// 15 lookups por IP a cada 5 minutos para endpoints que expõem PII via telefone
+// Cobre /cliente, /subscriber, /meus-agendamentos e o cancel público da v1
+export const phoneLookupRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(15, "5 m"), prefix: "rl:phone-lookup", analytics: false })
+  : noopLimiter;
+
 // Helpers — extrai IP do request de forma segura
 export function getIp(req: { headers: { get(k: string): string | null } }): string {
   const forwarded = req.headers.get("x-forwarded-for");
