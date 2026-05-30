@@ -24,6 +24,9 @@ export default function ClientReviewPage() {
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null);
+  const [loyaltyThreshold, setLoyaltyThreshold] = useState(50);
+  const [loyaltyDiscountPercent, setLoyaltyDiscountPercent] = useState(10);
 
   useEffect(() => {
     fetch(`/api/reviews?appointmentId=${id}`)
@@ -60,6 +63,11 @@ export default function ClientReviewPage() {
         throw new Error(json.error || "Erro ao salvar avaliação");
       }
 
+      if (json.loyaltyBalance !== undefined) {
+        setLoyaltyBalance(json.loyaltyBalance);
+        setLoyaltyThreshold(json.loyaltyThreshold ?? 50);
+        setLoyaltyDiscountPercent(json.loyaltyDiscountPercent ?? 10);
+      }
       setSubmitted(true);
     } catch (err: any) {
       alert(err.message);
@@ -109,7 +117,7 @@ export default function ClientReviewPage() {
         {/* Loyalty Reward Card */}
         <div className="w-full max-w-sm bg-zinc-900/50 rounded-2xl border border-zinc-800/80 p-5 backdrop-blur-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl" />
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5 mb-4">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
               <Award className="w-6 h-6 animate-bounce" />
             </div>
@@ -119,9 +127,32 @@ export default function ClientReviewPage() {
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               </div>
               <p className="text-lg font-black text-white mt-0.5">+10 Pontos Ganhos!</p>
-              <p className="text-[11px] text-zinc-400 mt-0.5">Acumule pontos e troque por prêmios e descontos exclusivos!</p>
             </div>
           </div>
+
+          {loyaltyBalance !== null && (
+            <>
+              <div className="flex justify-between text-xs mb-1.5">
+                <span className="text-zinc-400">Seu saldo</span>
+                <span className="font-black text-amber-400">{loyaltyBalance} pts</span>
+              </div>
+              <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-amber-500 h-2 rounded-full transition-all duration-700"
+                  style={{ width: `${Math.min(100, (loyaltyBalance / loyaltyThreshold) * 100)}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-zinc-500 mt-1.5">
+                {loyaltyBalance >= loyaltyThreshold
+                  ? `🎉 Você tem pontos suficientes para resgatar ${loyaltyDiscountPercent}% de desconto!`
+                  : `Faltam ${loyaltyThreshold - loyaltyBalance} pts para ${loyaltyDiscountPercent}% de desconto`}
+              </p>
+            </>
+          )}
+
+          {loyaltyBalance === null && (
+            <p className="text-[11px] text-zinc-400">Acumule pontos e troque por descontos exclusivos!</p>
+          )}
         </div>
       </div>
     );

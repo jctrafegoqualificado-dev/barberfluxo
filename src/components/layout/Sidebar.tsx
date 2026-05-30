@@ -7,7 +7,7 @@ import NotificationBell from "@/components/layout/NotificationBell";
 import CashWidget from "@/components/financeiro/CashWidget";
 import {
   LayoutDashboard, Calendar, Users, Scissors, CreditCard,
-  Package, Settings, LogOut, ChevronRight, ChevronDown, ChevronLeft, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, Bell, Banknote, BarChart3, Wallet, Building2
+  Package, Settings, LogOut, ChevronRight, ChevronDown, ChevronLeft, Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X, Crown, MessageSquare, Palette, Sparkles, Bell, Banknote, BarChart3, Wallet, Building2, Award
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -22,6 +22,7 @@ const ownerTopNav = [
   { href: "/painel/kanban", label: "Kanban", icon: KanbanSquare },
   { href: "/painel/produtos", label: "Produtos", icon: Package },
   { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare },
+  { href: "/painel/fidelidade", label: "Fidelidade", icon: Award },
 ];
 
 const ownerFinanceNav = [

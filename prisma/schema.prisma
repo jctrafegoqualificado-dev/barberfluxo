@@ -101,6 +101,10 @@ model Barbershop {
   retentionDays     Int     @default(45)   // dias de inatividade para disparar
   retentionMessage  String? @db.Text       // template personalizado ({{nome}}, {{dias}}, {{empresa}})
 
+  // ── Programa de Fidelidade ──────────────────────────────────────────────────
+  loyaltyThreshold      Int   @default(50)  // pontos necessários para resgatar 1 desconto
+  loyaltyDiscountPercent Float @default(10) // % de desconto concedido no resgate
+
   // Sistema de descontos na comanda
   discountServicesEnabled Boolean @default(false)
   discountServicesMax     Float   @default(20)   // teto máximo % que o barbeiro pode conceder em serviços

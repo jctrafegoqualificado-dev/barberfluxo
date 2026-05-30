@@ -7,7 +7,7 @@ import {
   TrendingUp, Users, ShoppingBag, Activity, Store, ArrowUpRight,
   Crown, ShieldCheck, ShieldAlert, Search, Download, BadgeDollarSign,
   BarChart3, UserPlus, UserMinus, Percent, Shield, Trash2, Mail,
-  CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw
+  CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw, TrendingDown, Timer
 } from "lucide-react";
 
 type TabType = "analytics" | "assinantes" | "pagamentos" | "equipe" | "infraestrutura";
@@ -302,6 +302,39 @@ export default function PlataformaDashboard() {
               </div>
               <h2 className="text-2xl font-black text-white mt-2">{stats.churnRate}%</h2>
               <p className="text-xs text-zinc-500 mt-1">Perda de ativos (últimos 30d)</p>
+            </div>
+          </div>
+
+          {/* Unit Economics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-zinc-900 border border-indigo-500/20 rounded-2xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl" />
+              <div className="flex justify-between items-start">
+                <p className="text-sm font-medium text-zinc-400">ARPU</p>
+                <BadgeDollarSign className="w-5 h-5 text-indigo-400/60" />
+              </div>
+              <h2 className="text-2xl font-black text-white mt-2">{formatCurrency(stats.arpu ?? 0)}</h2>
+              <p className="text-xs text-zinc-500 mt-1">Receita média por tenant pago/mês</p>
+            </div>
+
+            <div className="bg-zinc-900 border border-emerald-500/20 rounded-2xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl" />
+              <div className="flex justify-between items-start">
+                <p className="text-sm font-medium text-zinc-400">LTV Histórico</p>
+                <TrendingUp className="w-5 h-5 text-emerald-400/60" />
+              </div>
+              <h2 className="text-2xl font-black text-white mt-2">{formatCurrency(stats.ltv ?? 0)}</h2>
+              <p className="text-xs text-zinc-500 mt-1">Receita total ÷ tenants únicos pagantes</p>
+            </div>
+
+            <div className="bg-zinc-900 border border-amber-500/20 rounded-2xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl" />
+              <div className="flex justify-between items-start">
+                <p className="text-sm font-medium text-zinc-400">Tenure Médio</p>
+                <Timer className="w-5 h-5 text-amber-400/60" />
+              </div>
+              <h2 className="text-2xl font-black text-white mt-2">{stats.avgTenureMonths ?? 0}<span className="text-lg font-semibold text-zinc-400 ml-1">meses</span></h2>
+              <p className="text-xs text-zinc-500 mt-1">Tempo médio de vida dos tenants pagos</p>
             </div>
           </div>
 

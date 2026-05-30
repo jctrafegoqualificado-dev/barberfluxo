@@ -1,10 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot, RefreshCw } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot, RefreshCw, MessageSquare, Sparkles, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+
+const RETENTION_DEFAULT_MESSAGE = `Olá, {{nome}}! 😊\n\nSentimos sua falta! Faz {{dias}} dia{{plural}} que você não passa por aqui.\n\nQue tal agendar um horário? Estamos te esperando! ✂️`;
+
+const RETENTION_VARIABLES = [
+  { tag: "{{nome}}", desc: "Primeiro nome do cliente" },
+  { tag: "{{dias}}", desc: "Dias sem visita" },
+  { tag: "{{empresa}}", desc: "Nome do estabelecimento" },
+];
 
 const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const DAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -117,6 +125,7 @@ export default function ConfiguracoesPage() {
   const [noShowSaved, setNoShowSaved] = useState(false);
   const [retentionEnabled, setRetentionEnabled] = useState(false);
   const [retentionDays, setRetentionDays] = useState("45");
+  const [retentionMessage, setRetentionMessage] = useState("");
   const [savingRetention, setSavingRetention] = useState(false);
   const [retentionSaved, setRetentionSaved] = useState(false);
   const [discountServicesEnabled, setDiscountServicesEnabled] = useState(false);
@@ -154,6 +163,7 @@ export default function ConfiguracoesPage() {
       .then((d) => {
         if (d.retentionEnabled !== undefined) setRetentionEnabled(Boolean(d.retentionEnabled));
         if (d.retentionDays !== undefined) setRetentionDays(String(d.retentionDays));
+        if (d.retentionMessage !== undefined) setRetentionMessage(d.retentionMessage || "");
       });
 
     fetch("/api/barbershop/horarios", { headers: { Authorization: `Bearer ${token}` } })
@@ -273,7 +283,7 @@ export default function ConfiguracoesPage() {
     await fetch("/api/barbershop/retention", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ retentionEnabled, retentionDays: Number(retentionDays) }),
+      body: JSON.stringify({ retentionEnabled, retentionDays: Number(retentionDays), retentionMessage: retentionMessage || null }),
     });
     setSavingRetention(false);
     setRetentionSaved(true);
@@ -641,23 +651,80 @@ export default function ConfiguracoesPage() {
         </div>
 
         {retentionEnabled && (
-          <div className="mb-4">
-            <label className="block text-xs text-zinc-500 mb-1">Dias de inatividade para disparar</label>
-            <select
-              value={retentionDays}
-              onChange={(e) => setRetentionDays(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-            >
-              <option value="14">14 dias</option>
-              <option value="21">21 dias</option>
-              <option value="30">30 dias</option>
-              <option value="45">45 dias (recomendado)</option>
-              <option value="60">60 dias</option>
-              <option value="90">90 dias</option>
-            </select>
-            <p className="text-xs text-zinc-400 mt-1.5">
-              A mensagem é reenviada no máximo uma vez a cada 30 dias por cliente. Requer WhatsApp conectado.
-            </p>
+          <div className="space-y-4 mb-4">
+            {/* Dias de inatividade */}
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Dias de inatividade para disparar</label>
+              <select
+                value={retentionDays}
+                onChange={(e) => setRetentionDays(e.target.value)}
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              >
+                <option value="14">14 dias</option>
+                <option value="21">21 dias</option>
+                <option value="30">30 dias</option>
+                <option value="45">45 dias (recomendado)</option>
+                <option value="60">60 dias</option>
+                <option value="90">90 dias</option>
+              </select>
+              <p className="text-xs text-zinc-400 mt-1.5">
+                A mensagem é reenviada no máximo uma vez a cada 30 dias por cliente. Requer WhatsApp conectado.
+              </p>
+            </div>
+
+            {/* Mensagem personalizada */}
+            <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-purple-500" />
+                <p className="text-sm font-medium text-zinc-800">Mensagem Personalizada</p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {RETENTION_VARIABLES.map((v) => (
+                  <button
+                    key={v.tag}
+                    type="button"
+                    onClick={() => setRetentionMessage((prev) => prev + v.tag)}
+                    className="group relative text-xs font-mono px-2 py-1 rounded-lg bg-white text-zinc-600 hover:bg-primary/10 hover:text-primary transition-colors border border-zinc-200"
+                  >
+                    {v.tag}
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-36 bg-zinc-900 text-white text-[10px] p-1.5 rounded-lg text-center leading-tight shadow-xl z-50">
+                      {v.desc}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={retentionMessage}
+                onChange={(e) => setRetentionMessage(e.target.value)}
+                placeholder={RETENTION_DEFAULT_MESSAGE}
+                rows={4}
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all bg-white"
+              />
+              <p className="text-[11px] text-zinc-400 flex items-center gap-1">
+                <HelpCircle className="w-3 h-3" />
+                Deixe em branco para usar a mensagem padrão do sistema.
+              </p>
+            </div>
+
+            {/* Preview */}
+            <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-green-500" />
+                <p className="text-sm font-medium text-zinc-800">Pré-visualização</p>
+              </div>
+              <div className="bg-[#e5ddd5] rounded-xl p-3">
+                <div className="bg-white rounded-xl p-3 max-w-xs shadow-sm">
+                  <p className="text-sm text-zinc-800 whitespace-pre-line leading-relaxed">
+                    {(retentionMessage || RETENTION_DEFAULT_MESSAGE)
+                      .replace(/\{\{nome\}\}/g, "Carlos")
+                      .replace(/\{\{dias\}\}/g, retentionDays)
+                      .replace(/\{\{plural\}\}/g, Number(retentionDays) === 1 ? "" : "s")
+                      .replace(/\{\{empresa\}\}/g, "Lord of Barba")}
+                  </p>
+                  <p className="text-[10px] text-zinc-400 text-right mt-1.5">14:30 ✓✓</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

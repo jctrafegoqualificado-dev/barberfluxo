@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import {
   TrendingUp, DollarSign, Users, Award, Calendar, Smartphone, AlertTriangle,
   CheckCircle2, XCircle, ArrowUpRight, BarChart3, Scissors, Wallet,
-  ChevronLeft, ChevronRight, MessageSquare, RefreshCw, BadgeAlert, Sparkles, Settings2
+  ChevronLeft, ChevronRight, MessageSquare, RefreshCw, BadgeAlert, Sparkles, Settings2,
+  LineChart, TrendingDown, Minus, Info
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -108,7 +109,16 @@ export default function IndicadoresPage() {
   const [data, setData] = useState<BIData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"subscriptions" | "services" | "clients">("subscriptions");
+  const [activeTab, setActiveTab] = useState<"subscriptions" | "services" | "clients" | "forecast">("subscriptions");
+
+  // Forecast state
+  interface ForecastPeriod { days: number; label: string; mrrPortion: number; servicesPortion: number; revenue: number; expenses: number; net: number }
+  interface ForecastData {
+    breakdown: { monthlyMRR: number; activeSubscriptions: number; avgMonthlyServices: number; monthlyFixedExpenses: number; avgMonthlyVarExpenses: number; avgMonthlyExpenses: number; historicalMonths: number };
+    periods: ForecastPeriod[];
+  }
+  const [forecast, setForecast] = useState<ForecastData | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
   const [preset, setPreset] = useState<Preset>("thisMonth");
 
   // POE configuration edit states
@@ -222,6 +232,15 @@ export default function IndicadoresPage() {
   useEffect(() => {
     if (token) loadData();
   }, [token, preset]);
+
+  useEffect(() => {
+    if (activeTab !== "forecast" || !token || forecast) return;
+    setForecastLoading(true);
+    fetch("/api/barbershop/financeiro/forecast", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => { if (!d.error) setForecast(d); })
+      .finally(() => setForecastLoading(false));
+  }, [activeTab, token]);
 
   if (loading) {
     return (
@@ -337,6 +356,7 @@ export default function IndicadoresPage() {
           { id: "subscriptions", label: "Assinaturas & Receita", icon: Wallet },
           { id: "services", label: "Atendimentos & Serviços", icon: Scissors },
           { id: "clients", label: "Comportamento de Clientes", icon: Users },
+          { id: "forecast", label: "Previsão de Receita", icon: LineChart },
         ].map((t) => {
           const ActiveIcon = t.icon;
           return (
@@ -1093,6 +1113,118 @@ export default function IndicadoresPage() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. PREVISÃO DE RECEITA TAB                                                */}
+      {/* ========================================================================= */}
+      {activeTab === "forecast" && (
+        <div className="space-y-6 animate-fadeIn">
+          {forecastLoading || !forecast ? (
+            <div className="flex items-center justify-center py-32">
+              <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
+            </div>
+          ) : (
+            <>
+              {/* Aviso metodologia */}
+              <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-blue-700">
+                  Projeção baseada em: <strong>MRR das assinaturas ativas</strong> +{" "}
+                  <strong>média mensal de serviços</strong> dos últimos{" "}
+                  {forecast.breakdown.historicalMonths} mês(es) registrado(s), descontando{" "}
+                  <strong>despesas fixas e variáveis</strong> recorrentes.
+                </p>
+              </div>
+
+              {/* Cards 30 / 60 / 90 dias */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {forecast.periods.map((p) => {
+                  const isPositive = p.net >= 0;
+                  return (
+                    <div key={p.days} className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                      <div className={`px-5 py-3 flex items-center justify-between ${p.days === 30 ? "bg-emerald-50" : p.days === 60 ? "bg-blue-50" : "bg-violet-50"}`}>
+                        <span className={`text-xs font-bold uppercase tracking-wider ${p.days === 30 ? "text-emerald-600" : p.days === 60 ? "text-blue-600" : "text-violet-600"}`}>
+                          Próximos {p.label}
+                        </span>
+                        {isPositive
+                          ? <TrendingUp className={`w-4 h-4 ${p.days === 30 ? "text-emerald-500" : p.days === 60 ? "text-blue-500" : "text-violet-500"}`} />
+                          : <TrendingDown className="w-4 h-4 text-red-500" />}
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <div>
+                          <p className="text-xs text-zinc-400 font-medium mb-0.5">Receita Projetada</p>
+                          <p className="text-2xl font-black text-zinc-950">{formatCurrency(p.revenue)}</p>
+                        </div>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between text-zinc-500">
+                            <span>Assinaturas (MRR × {p.days / 30})</span>
+                            <span className="font-semibold text-zinc-700">{formatCurrency(p.mrrPortion)}</span>
+                          </div>
+                          <div className="flex justify-between text-zinc-500">
+                            <span>Serviços avulsos</span>
+                            <span className="font-semibold text-zinc-700">{formatCurrency(p.servicesPortion)}</span>
+                          </div>
+                          <div className="border-t border-zinc-100 pt-2 flex justify-between text-zinc-500">
+                            <span>Despesas estimadas</span>
+                            <span className="font-semibold text-red-500">- {formatCurrency(p.expenses)}</span>
+                          </div>
+                        </div>
+                        <div className={`rounded-xl px-4 py-3 flex items-center justify-between ${isPositive ? "bg-emerald-50" : "bg-red-50"}`}>
+                          <span className={`text-xs font-bold ${isPositive ? "text-emerald-700" : "text-red-700"}`}>Saldo líquido</span>
+                          <span className={`text-lg font-black ${isPositive ? "text-emerald-700" : "text-red-700"}`}>
+                            {isPositive ? "+" : ""}{formatCurrency(p.net)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Breakdown das bases de cálculo */}
+              <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6">
+                <h3 className="font-bold text-zinc-950 text-base mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-amber-500" />
+                  Bases de Cálculo
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-zinc-50 rounded-xl p-4">
+                    <p className="text-xs text-zinc-400 font-medium mb-1">MRR Atual</p>
+                    <p className="text-xl font-black text-zinc-900">{formatCurrency(forecast.breakdown.monthlyMRR)}</p>
+                    <p className="text-[11px] text-zinc-400 mt-1">{forecast.breakdown.activeSubscriptions} assinatura(s) ativa(s)</p>
+                  </div>
+                  <div className="bg-zinc-50 rounded-xl p-4">
+                    <p className="text-xs text-zinc-400 font-medium mb-1">Serviços / Mês</p>
+                    <p className="text-xl font-black text-zinc-900">{formatCurrency(forecast.breakdown.avgMonthlyServices)}</p>
+                    <p className="text-[11px] text-zinc-400 mt-1">Média dos últimos {forecast.breakdown.historicalMonths} mês(es)</p>
+                  </div>
+                  <div className="bg-zinc-50 rounded-xl p-4">
+                    <p className="text-xs text-zinc-400 font-medium mb-1">Despesas Fixas</p>
+                    <p className="text-xl font-black text-red-600">{formatCurrency(forecast.breakdown.monthlyFixedExpenses)}</p>
+                    <p className="text-[11px] text-zinc-400 mt-1">Despesas recorrentes mensais</p>
+                  </div>
+                  <div className="bg-zinc-50 rounded-xl p-4">
+                    <p className="text-xs text-zinc-400 font-medium mb-1">Despesas Variáveis</p>
+                    <p className="text-xl font-black text-red-600">{formatCurrency(forecast.breakdown.avgMonthlyVarExpenses)}</p>
+                    <p className="text-[11px] text-zinc-400 mt-1">Média dos últimos 3 meses</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Aviso dados insuficientes */}
+              {forecast.breakdown.historicalMonths < 3 && (
+                <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-700">
+                    Apenas <strong>{forecast.breakdown.historicalMonths}</strong> mês(es) de histórico disponível.
+                    A previsão ficará mais precisa com o tempo — idealmente 3+ meses de dados.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

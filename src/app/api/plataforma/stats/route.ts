@@ -78,6 +78,23 @@ export async function GET(req: NextRequest) {
       .filter(p => p.status === "PAID")
       .reduce((acc, p) => acc + p.amount, 0);
 
+    // ── ARPU, LTV histórico, tenure médio ──────────────────────────────────
+    const arpu = paidCount > 0 ? mrr / paidCount : 0;
+
+    const uniquePayingShops = new Set(
+      allSaasPayments.filter(p => p.status === "PAID" && p.barbershopId).map(p => p.barbershopId)
+    ).size;
+    const ltv = uniquePayingShops > 0 ? saasRevenueTotal / uniquePayingShops : 0;
+
+    const paidActiveShops = shops.filter(
+      s => s.active && (s.saasPlan === "PRO" || s.saasPlan === "ELITE" || s.saasPlan === "PREMIUM")
+    );
+    const avgTenureMonths = paidActiveShops.length > 0
+      ? paidActiveShops.reduce((sum, s) => {
+          return sum + (now.getTime() - new Date(s.createdAt).getTime()) / (1000 * 60 * 60 * 24 * 30);
+        }, 0) / paidActiveShops.length
+      : 0;
+
     // Weekly growth data (last 8 weeks)
     const weeklyGrowth = [];
     for (let i = 7; i >= 0; i--) {
@@ -104,6 +121,9 @@ export async function GET(req: NextRequest) {
       saasPayments: allSaasPayments,
       saasRevenueThisMonth,
       saasRevenueTotal,
+      arpu,
+      ltv,
+      avgTenureMonths: Math.round(avgTenureMonths * 10) / 10,
       weeklyGrowth,
       shops
     });

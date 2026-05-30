@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendMessage } from "@/lib/evolution/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -88,7 +89,72 @@ export async function POST(req: NextRequest) {
       return { review, points };
     });
 
-    return NextResponse.json({ success: true, ...result });
+    // ── Saldo de pontos atualizado + config de fidelidade ──────────────────
+    const [balanceAgg, shopConfig] = await Promise.all([
+      prisma.loyaltyPoint.aggregate({
+        where: { clientId: appointment.clientId, barbershopId: appointment.barbershopId },
+        _sum: { points: true },
+      }),
+      prisma.barbershop.findUnique({
+        where: { id: appointment.barbershopId },
+        select: { loyaltyThreshold: true, loyaltyDiscountPercent: true },
+      }),
+    ]);
+    const loyaltyBalance = balanceAgg._sum.points ?? 0;
+
+    // ── NPS follow-up via WhatsApp (non-critical) ──────────────────────────
+    try {
+      const [client, shop] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: appointment.clientId },
+          select: { name: true, phone: true },
+        }),
+        prisma.barbershop.findUnique({
+          where: { id: appointment.barbershopId },
+          select: {
+            name: true,
+            owner: { select: { phone: true } },
+            whatsappInstance: {
+              select: { evolutionInstanceName: true, evolutionToken: true, status: true },
+            },
+          },
+        }),
+      ]);
+
+      if (shop?.whatsappInstance?.status === "CONNECTED") {
+        const { evolutionInstanceName, evolutionToken } = shop.whatsappInstance;
+        const firstName = client?.name?.split(" ")[0] ?? "Cliente";
+
+        let clientMsg: string;
+        if (ratingInt >= 9) {
+          clientMsg = `Obrigado, ${firstName}! 🌟 Ficamos muito felizes com sua avaliação!\n\nSe quiser indicar a *${shop.name}* para um amigo, será uma honra receber mais clientes como você! 🙏✂️`;
+        } else if (ratingInt >= 7) {
+          clientMsg = `Obrigado pela avaliação, ${firstName}! 😊\n\nFoi um prazer atender você. Até a próxima! ✂️`;
+        } else {
+          clientMsg = `Obrigado pelo feedback, ${firstName}. 🙏\n\nSentimos muito que a experiência não foi a ideal. Vamos trabalhar para melhorar e esperamos te surpreender na próxima visita!`;
+        }
+
+        if (client?.phone) {
+          await sendMessage(evolutionInstanceName, client.phone, clientMsg, 1200, evolutionToken);
+        }
+
+        // Alerta ao dono para detratores (≤6)
+        if (ratingInt <= 6 && shop.owner?.phone) {
+          const ownerMsg = `⚠️ *Alerta NPS — ${shop.name}*\n\nO cliente *${client?.name ?? "desconhecido"}* deixou uma nota *${ratingInt}/10*.\n\nConsidere entrar em contato para entender o que aconteceu e reconquistar esse cliente.`;
+          await sendMessage(evolutionInstanceName, shop.owner.phone, ownerMsg, 1200, evolutionToken);
+        }
+      }
+    } catch {
+      // WhatsApp falhou — review já salva, não impacta o cliente
+    }
+
+    return NextResponse.json({
+      success: true,
+      ...result,
+      loyaltyBalance,
+      loyaltyThreshold: shopConfig?.loyaltyThreshold ?? 50,
+      loyaltyDiscountPercent: shopConfig?.loyaltyDiscountPercent ?? 10,
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 500 });
