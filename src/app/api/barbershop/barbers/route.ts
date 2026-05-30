@@ -106,9 +106,14 @@ export async function PATCH(req: NextRequest) {
     // Valida que o barbeiro pertence a esta barbearia (CVE-6)
     const barber = await prisma.barber.findFirst({
       where: { id: barberId, barbershopId: payload.barbershopId! },
-      select: { userId: true },
+      select: { userId: true, user: { select: { role: true, isPlatformAdmin: true } } },
     });
     if (!barber) return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
+
+    // Previne que OWNER sobrescreva dados (incluindo senha) de conta com privilégios
+    if (barber.user.role === "PLATFORM_ADMIN" || barber.user.isPlatformAdmin) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    }
 
     await prisma.user.update({
       where: { id: barber.userId },
@@ -163,6 +168,11 @@ export async function POST(req: NextRequest) {
           ...(birthday ? { birthday: new Date(birthday) } : {}),
         },
       });
+    } else if (user.role === "PLATFORM_ADMIN" || user.isPlatformAdmin) {
+      return NextResponse.json(
+        { error: "Este e-mail pertence a uma conta com privilégios e não pode ser adicionado como barbeiro." },
+        { status: 400 }
+      );
     }
 
     const barber = await prisma.barber.create({
