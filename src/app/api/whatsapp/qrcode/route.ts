@@ -4,7 +4,10 @@ import { requireAuth } from "@/lib/auth";
 import * as evolution from "@/lib/evolution/client";
 
 const WEBHOOK_URL = process.env.N8N_EVOLUTION_WEBHOOK_URL ?? "";
-const PENDING_TOKEN = "__pending__";
+
+// Sentinels de estado
+const PENDING_TOKEN  = "__pending__";   // createInstance ainda não foi chamado
+const CREATING_TOKEN = "__creating__";  // createInstance foi chamado mas não houve resposta (POST bloqueado/lento)
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,42 +27,66 @@ export async function GET(req: NextRequest) {
 
     const instanceName = instance.evolutionInstanceName;
 
-    // Se token ainda for o sentinel, a instância ainda não foi criada no Evolution.
-    // Criamos aqui com orçamento próprio de 10s (separado do /provision).
     if (instance.evolutionToken === PENDING_TOKEN) {
-      console.log(`[QrCode] Creating Evolution instance: ${instanceName}`);
-      const createResult = await evolution.createInstance(instanceName, 7000);
+      // Primeira tentativa de criar a instância no Evolution.
+      // Timeout curto (3s) para caber dentro do limite Vercel Hobby (10s - cold_start - DB).
+      // Se a Evolution não responder em 3s, marcamos como __creating__ e retornamos null.
+      // O frontend tenta de novo em 5s. Se a Evolution processou o POST mesmo após timeout,
+      // na próxima chamada (token=__creating__) tentamos getQrCode diretamente.
+      console.log(`[QrCode] Tentando criar instância Evolution: ${instanceName}`);
+      const createResult = await evolution.createInstance(instanceName, 3000);
 
       if ("error" in createResult) {
-        console.error(`[QrCode] createInstance failed: ${createResult.error}`);
-        return NextResponse.json(
-          { error: `Falha ao criar instância WhatsApp: ${createResult.error}` },
-          { status: 502 }
-        );
+        const isAbortOrTimeout =
+          createResult.error.toLowerCase().includes("abort") ||
+          createResult.error.toLowerCase().includes("timeout") ||
+          createResult.error.toLowerCase().includes("network");
+
+        console.error(`[QrCode] createInstance erro: ${createResult.error} (abort=${isAbortOrTimeout})`);
+
+        // Marca como __creating__ — próxima chamada tenta getQrCode diretamente
+        // (a Evolution pode ter processado o POST mesmo após o nosso timeout)
+        await prisma.whatsAppInstance
+          .update({ where: { id: instance.id }, data: { evolutionToken: CREATING_TOKEN } })
+          .catch(() => {});
+
+        return NextResponse.json({ qrcode: null, count: 0 });
       }
 
-      // Persiste o token real no DB
+      // createInstance retornou com sucesso — salva token real
       await prisma.whatsAppInstance
-        .update({
-          where: { id: instance.id },
-          data: { evolutionToken: createResult.token },
-        })
-        .catch((err) => console.error("[QrCode] Failed to persist token:", err));
+        .update({ where: { id: instance.id }, data: { evolutionToken: createResult.token } })
+        .catch((err) => console.error("[QrCode] Falha ao salvar token:", err));
 
-      // Configura webhook fire-and-forget
       if (WEBHOOK_URL) {
         evolution.setWebhook(instanceName, WEBHOOK_URL).catch(() => {});
-      } else {
-        console.warn("[QrCode] N8N_EVOLUTION_WEBHOOK_URL não configurada — webhook ignorado");
       }
 
-      console.log(`[QrCode] Instance created, returning null QR — client will retry`);
-      // Retorna null: a instância ainda está inicializando no Evolution.
-      // O frontend (polling de 5s) vai tentar novamente e receberá o QR na próxima chamada.
+      console.log(`[QrCode] Instância criada com sucesso, retornando null QR — cliente retentar em 5s`);
       return NextResponse.json({ qrcode: null, count: 0 });
     }
 
-    // Instância já criada — busca o QR code no Evolution
+    if (instance.evolutionToken === CREATING_TOKEN) {
+      // createInstance já foi disparado (pode ter sido processado pela Evolution mesmo após timeout).
+      // Tenta buscar o QR diretamente — se a instância existe, funciona; senão, retorna null e retenta.
+      console.log(`[QrCode] Verificando se instância foi criada: ${instanceName}`);
+      const qrResult = await evolution.getQrCode(instanceName);
+
+      if ("error" in qrResult) {
+        console.warn(`[QrCode] Instância ainda não disponível: ${qrResult.error}`);
+        // Retorna null sem erro — frontend retenta em 5s
+        return NextResponse.json({ qrcode: null, count: 0 });
+      }
+
+      // Instância criada com sucesso após retry — atualiza token para indicar operacional
+      await prisma.whatsAppInstance
+        .update({ where: { id: instance.id }, data: { evolutionToken: "__global__", lastQrCode: qrResult.base64 } })
+        .catch(() => {});
+
+      return NextResponse.json({ qrcode: qrResult.base64, count: qrResult.count });
+    }
+
+    // Estado normal — instância já criada, busca QR
     const qrResult = await evolution.getQrCode(instanceName);
     if ("error" in qrResult) {
       return NextResponse.json(
@@ -68,12 +95,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Salva QR no banco (fire-and-forget)
     prisma.whatsAppInstance
-      .update({
-        where: { id: instance.id },
-        data: { lastQrCode: qrResult.base64 },
-      })
+      .update({ where: { id: instance.id }, data: { lastQrCode: qrResult.base64 } })
       .catch((err) => console.error("Failed to save QR to DB:", err));
 
     return NextResponse.json({
