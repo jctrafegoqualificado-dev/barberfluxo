@@ -33,7 +33,19 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 2. Consultar Evolution
+    // 2. Se token for sentinela, a instância ainda está sendo criada — não consultar Evolution
+    // (ela estaria em "close" e sobrescreveria PENDING com DISCONNECTED, quebrando o fluxo)
+    const SENTINEL_TOKENS = ["__pending__", "__creating__"];
+    if (SENTINEL_TOKENS.includes(instance.evolutionToken)) {
+      return NextResponse.json({
+        provisioned: true,
+        status: instance.status,
+        evolutionInstanceName: instance.evolutionInstanceName,
+        lastConnectedAt: instance.lastConnectedAt,
+      });
+    }
+
+    // 3. Consultar Evolution
     const statusResult = await evolution.getInstanceStatus(
       instance.evolutionInstanceName
     );
