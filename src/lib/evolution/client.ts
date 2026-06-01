@@ -116,7 +116,8 @@ export async function getInstanceStatus(
 
 // 3. Buscar QR code atualizado
 export async function getQrCode(
-  instanceName: string
+  instanceName: string,
+  timeoutMs = TIMEOUT_MS
 ): Promise<{ base64: string; count: number } | { error: string }> {
   try {
     if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
@@ -125,7 +126,8 @@ export async function getQrCode(
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/instance/connect/${instanceName}`,
-      { method: "GET", headers: headers() }
+      { method: "GET", headers: headers() },
+      timeoutMs
     );
 
     const data = await res.json();

@@ -70,10 +70,11 @@ export async function GET(req: NextRequest) {
       // createInstance já foi disparado (pode ter sido processado pela Evolution mesmo após timeout).
       // Tenta buscar o QR diretamente — se a instância existe, funciona; senão, retorna null e retenta.
       console.log(`[QrCode] Verificando se instância foi criada: ${instanceName}`);
-      const qrResult = await evolution.getQrCode(instanceName);
+      // Usa timeout curto (5s) para caber no budget Vercel Hobby junto com cold start e DB overhead.
+      const qrResult = await evolution.getQrCode(instanceName, 5000);
 
-      if ("error" in qrResult) {
-        console.warn(`[QrCode] Instância ainda não disponível: ${qrResult.error}`);
+      if ("error" in qrResult || !qrResult.base64) {
+        console.warn(`[QrCode] Instância ainda não disponível: ${"error" in qrResult ? qrResult.error : "base64 vazia"}`);
         // Retorna null sem erro — frontend retenta em 5s
         return NextResponse.json({ qrcode: null, count: 0 });
       }
@@ -87,12 +88,18 @@ export async function GET(req: NextRequest) {
     }
 
     // Estado normal — instância já criada, busca QR
-    const qrResult = await evolution.getQrCode(instanceName);
+    const qrResult = await evolution.getQrCode(instanceName, 5000);
     if ("error" in qrResult) {
       return NextResponse.json(
         { error: `Failed to fetch QR code: ${qrResult.error}` },
         { status: 502 }
       );
+    }
+
+    if (!qrResult.base64) {
+      // Evolution respondeu mas QR ainda não gerado (Baileys inicializando) — retenta em 5s
+      console.warn(`[QrCode] Evolution retornou base64 vazia para ${instanceName} — retentando`);
+      return NextResponse.json({ qrcode: null, count: 0 });
     }
 
     prisma.whatsAppInstance

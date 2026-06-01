@@ -73,8 +73,11 @@ export async function POST(req: NextRequest) {
       // Sem isso, Evolution restaura a sessão antiga ao recriar com o mesmo nome.
       instanceName = `${barbershop.slug}-${barbershop.id.slice(0, 6)}`;
       token = PENDING_TOKEN;
+      // Logout primeiro para limpar arquivos de sessão no disco do VPS.
+      // Sem isso, o Evolution restaura sessão antiga ao recriar com o mesmo nome → "Conectando" em vez de QR.
+      await evolution.logoutInstance(instanceName, 2000).catch(() => {});
       await evolution.deleteInstance(instanceName, 3000).catch(() => {});
-      console.log(`[Provision] auto flow — instancia deletada, criacao deferred to /qrcode at ${elapsed()}`);
+      console.log(`[Provision] auto flow — logout+delete feitos, criacao deferred to /qrcode at ${elapsed()}`);
     }
 
     // Upsert DB apenas — sem chamar Evolution API (elimina o gargalo de timeout)

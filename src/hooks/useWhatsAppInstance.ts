@@ -210,8 +210,9 @@ export function useWhatsAppInstance() {
     try {
       const res = await fetch("/api/whatsapp/qrcode", { cache: "no-store" });
       const data = await asJson<QrCodeResponse>(res);
+      // Trata string vazia como null — evita parar o loop de retry com QR em branco
       safeSetState((prev) =>
-        prev.kind === "pending" ? { ...prev, qrcode: data.qrcode } : prev
+        prev.kind === "pending" ? { ...prev, qrcode: data.qrcode || null } : prev
       );
       safeSetAction({ kind: "idle" });
     } catch (e) {
