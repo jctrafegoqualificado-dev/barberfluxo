@@ -58,8 +58,6 @@ export async function POST(req: NextRequest) {
           { status: 409 }
         );
       }
-      // Fire-and-forget: não bloqueia o provision
-      evolution.logoutInstance(existing.evolutionInstanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
     }
 
     let instanceName: string;
@@ -71,12 +69,12 @@ export async function POST(req: NextRequest) {
       token = manualToken;
       console.log(`[Provision] manual connect to ${instanceName} at ${elapsed()}`);
     } else {
-      // Fluxo automático: criação da instância no Evolution ocorre em /qrcode (orçamento separado)
+      // Fluxo automático: apaga instância anterior (aguardado) para limpar sessão salva.
+      // Sem isso, Evolution restaura a sessão antiga ao recriar com o mesmo nome.
       instanceName = `${barbershop.slug}-${barbershop.id.slice(0, 6)}`;
       token = PENDING_TOKEN;
-      // Fire-and-forget: limpa possível instância órfã no Evolution
-      evolution.deleteInstance(instanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
-      console.log(`[Provision] auto flow — Evolution creation deferred to /qrcode at ${elapsed()}`);
+      await evolution.deleteInstance(instanceName, 3000).catch(() => {});
+      console.log(`[Provision] auto flow — instancia deletada, criacao deferred to /qrcode at ${elapsed()}`);
     }
 
     // Upsert DB apenas — sem chamar Evolution API (elimina o gargalo de timeout)
