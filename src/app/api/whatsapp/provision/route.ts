@@ -6,10 +6,20 @@ import * as evolution from "@/lib/evolution/client";
 // URL do webhook N8N — toda nova instância aponta automaticamente para o assistente IA
 const WEBHOOK_URL = process.env.N8N_EVOLUTION_WEBHOOK_URL ?? "";
 
+// Permite até 30s nesta rota (requer Vercel Pro; Hobby fica em 10s)
+export const maxDuration = 30;
+
+// Timeout curto para operações de limpeza (best-effort, não bloqueia o fluxo principal)
+const CLEANUP_TIMEOUT_MS = 2000;
+
 export async function POST(req: NextRequest) {
+  const t0 = Date.now();
+  const elapsed = () => `${Date.now() - t0}ms`;
+
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
+    console.log(`[Provision] start barbershopId=${barbershopId}`);
 
     // 0. Ler corpo da requisição (opcional para conexão manual)
     const body = await req.json().catch(() => ({}));
@@ -38,6 +48,7 @@ export async function POST(req: NextRequest) {
     const existing = await prisma.whatsAppInstance.findUnique({
       where: { barbershopId },
     });
+    console.log(`[Provision] db done at ${elapsed()}, existing=${!!existing}`);
 
     if (existing) {
       // Se for a mesma instância manual que já está conectada, avisar
@@ -48,9 +59,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Cleanup: logout da antiga (best effort) e deletar registro
-      await evolution.logoutInstance(existing.evolutionInstanceName).catch(() => {});
+      // Cleanup: logout da antiga (best effort, timeout curto) e deletar registro
+      await evolution.logoutInstance(existing.evolutionInstanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
       await prisma.whatsAppInstance.delete({ where: { id: existing.id } });
+      console.log(`[Provision] cleanup existing done at ${elapsed()}`);
     }
 
     let instanceName = manualInstanceName;
@@ -59,19 +71,23 @@ export async function POST(req: NextRequest) {
 
     if (manualInstanceName && manualToken) {
       // CONEXÃO MANUAL (Instância já criada no Evolution)
-      console.log(`🔗 [Provision] Connecting manually to instance: ${instanceName}`);
+      console.log(`[Provision] manual connect to ${instanceName} at ${elapsed()}`);
     } else {
       // CRIAÇÃO AUTOMÁTICA (Fluxo padrão)
       instanceName = `${barbershop.slug}-${barbershop.id.slice(0, 6)}`;
-      
-      // Cleanup preventivo: tentar deletar da Evolution caso exista lá (mesmo que não esteja no nosso banco)
-      await evolution.deleteInstance(instanceName).catch(() => {});
+
+      // Cleanup preventivo (best effort, timeout curto para não bloquear o fluxo)
+      await evolution.deleteInstance(instanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
+      console.log(`[Provision] preventive delete done at ${elapsed()}`);
 
       // 5. Criar instância no Evolution
+      console.log(`[Provision] calling createInstance at ${elapsed()}`);
       const createResult = await evolution.createInstance(instanceName);
+      console.log(`[Provision] createInstance done at ${elapsed()}, error=${"error" in createResult}`);
       if ("error" in createResult) {
+        console.error(`[Provision] createInstance error: ${createResult.error}`);
         return NextResponse.json(
-          { error: `Failed to create instance: ${createResult.error}` },
+          { error: `Falha ao criar instância WhatsApp: ${createResult.error}` },
           { status: 502 }
         );
       }
@@ -79,25 +95,31 @@ export async function POST(req: NextRequest) {
       qrcodeBase64 = createResult.qrcodeBase64;
     }
 
-    // 6. Configurar webhook (Sempre configurar para garantir que o bot ouça esta instância)
-    const webhookResult = await evolution.setWebhook(instanceName, WEBHOOK_URL);
-    if ("error" in webhookResult) {
-      return NextResponse.json(
-        { error: `Failed to configure webhook: ${webhookResult.error}` },
-        { status: 502 }
-      );
+    // 6. Configurar webhook — apenas se a URL estiver configurada
+    if (WEBHOOK_URL) {
+      console.log(`[Provision] calling setWebhook at ${elapsed()}`);
+      const webhookResult = await evolution.setWebhook(instanceName, WEBHOOK_URL);
+      console.log(`[Provision] setWebhook done at ${elapsed()}, error=${"error" in webhookResult}`);
+      if ("error" in webhookResult) {
+        // Webhook é importante mas não crítico — logar e continuar
+        console.warn(`[Provision] webhook setup failed (non-fatal): ${webhookResult.error}`);
+      }
+    } else {
+      console.warn(`[Provision] N8N_EVOLUTION_WEBHOOK_URL não configurada — webhook ignorado`);
     }
 
     // 7. Salvar no banco
+    console.log(`[Provision] saving to db at ${elapsed()}`);
     const instance = await prisma.whatsAppInstance.create({
       data: {
         barbershopId,
         evolutionInstanceName: instanceName,
         evolutionToken: token,
-        status: "PENDING", // Começa como pending para o polling verificar o status real
+        status: "PENDING",
         lastQrCode: qrcodeBase64 || null,
       },
     });
+    console.log(`[Provision] done at ${elapsed()}`);
 
     // 8. Retornar sucesso
     return NextResponse.json({
@@ -108,6 +130,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Internal error";
+    console.error(`[Provision] unhandled error at ${elapsed()}: ${msg}`);
     const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
     return NextResponse.json({ error: msg }, { status });
   }

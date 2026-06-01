@@ -1,8 +1,10 @@
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "";
 const EVOLUTION_GLOBAL_API_KEY = process.env.EVOLUTION_GLOBAL_API_KEY || "";
-console.log("🚀 [Evolution Client] VERSION 1.1 - LOADED");
+console.log("🚀 [Evolution Client] VERSION 1.2 - LOADED");
 
-const TIMEOUT_MS = 15000;
+// Reduzido de 15000 para caber dentro do limite de 10s do Vercel Hobby,
+// deixando margem para DB calls e overhead de rede.
+const TIMEOUT_MS = 7000;
 
 function headers(customApiKey?: string): Record<string, string> {
   return {
@@ -13,10 +15,11 @@ function headers(customApiKey?: string): Record<string, string> {
 
 async function fetchWithTimeout(
   url: string,
-  options: RequestInit
+  options: RequestInit,
+  timeoutMs = TIMEOUT_MS
 ): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { ...options, signal: controller.signal });
     return res;
@@ -27,7 +30,8 @@ async function fetchWithTimeout(
 
 // 1. Criar instância no Evolution
 export async function createInstance(
-  instanceName: string
+  instanceName: string,
+  timeoutMs = TIMEOUT_MS
 ): Promise<{ instanceName: string; token: string; qrcodeBase64: string } | { error: string }> {
   try {
     if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
@@ -44,7 +48,7 @@ export async function createInstance(
         qrcode: true,
         integration: "WHATSAPP-BAILEYS",
       }),
-    });
+    }, timeoutMs);
 
     const data = await res.json();
 
@@ -142,7 +146,8 @@ export async function getQrCode(
 
 // 4. Desconectar instância (logout)
 export async function logoutInstance(
-  instanceName: string
+  instanceName: string,
+  timeoutMs = TIMEOUT_MS
 ): Promise<{ success: true } | { error: string }> {
   try {
     if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
@@ -153,7 +158,8 @@ export async function logoutInstance(
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/instance/logout/${instanceName}`,
-      { method: "DELETE", headers: headers() }
+      { method: "DELETE", headers: headers() },
+      timeoutMs
     );
 
     if (!res.ok) {
@@ -172,7 +178,8 @@ export async function logoutInstance(
 
 // 4.1. Deletar instância completamente (limpeza de sistema)
 export async function deleteInstance(
-  instanceName: string
+  instanceName: string,
+  timeoutMs = TIMEOUT_MS
 ): Promise<{ success: true } | { error: string }> {
   try {
     if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
@@ -183,7 +190,8 @@ export async function deleteInstance(
 
     const res = await fetchWithTimeout(
       `${EVOLUTION_API_URL}/instance/delete/${instanceName}`,
-      { method: "DELETE", headers: headers() }
+      { method: "DELETE", headers: headers() },
+      timeoutMs
     );
 
     if (!res.ok) {
@@ -203,7 +211,8 @@ export async function deleteInstance(
 // 5. Configurar webhook na instância
 export async function setWebhook(
   instanceName: string,
-  webhookUrl: string
+  webhookUrl: string,
+  timeoutMs = TIMEOUT_MS
 ): Promise<{ success: true } | { error: string }> {
   try {
     if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
@@ -230,7 +239,8 @@ export async function setWebhook(
             webhookBase64: false,
           },
         }),
-      }
+      },
+      timeoutMs
     );
 
     if (!res.ok) {

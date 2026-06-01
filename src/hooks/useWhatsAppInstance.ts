@@ -121,14 +121,18 @@ async function asJson<T>(res: Response): Promise<T> {
     try {
       body = JSON.parse(text);
     } catch {
-      /* corpo não é JSON, mantém null */
+      /* corpo não é JSON (ex: HTML de erro do Vercel/proxy), mantém null */
     }
   }
   if (!res.ok) {
-    const msg =
-      body && typeof body === "object" && body !== null && "error" in body
-        ? String((body as { error: unknown }).error)
-        : `HTTP ${res.status}`;
+    let msg: string;
+    if (body && typeof body === "object" && body !== null && "error" in body) {
+      msg = String((body as { error: unknown }).error);
+    } else if (res.status === 502 || res.status === 503 || res.status === 504) {
+      msg = "Serviço de WhatsApp indisponível no momento. Verifique se o servidor Evolution API está online e tente novamente.";
+    } else {
+      msg = `Erro HTTP ${res.status}`;
+    }
     throw new Error(msg);
   }
   return body as T;
