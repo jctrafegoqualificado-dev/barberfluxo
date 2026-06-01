@@ -50,6 +50,9 @@ const STATUS_POLL_MS = 3000;
 /** Intervalo de auto-refresh do QR Code enquanto em PENDING (WhatsApp expira ~20s). */
 const QR_REFRESH_MS = 25000;
 
+/** Retry rápido enquanto aguarda a instância Evolution inicializar (qrcode ainda nulo). */
+const QR_INIT_POLL_MS = 5000;
+
 // ============================================================================
 // Tipos das respostas da API
 // ============================================================================
@@ -241,20 +244,25 @@ export function useWhatsAppInstance() {
     return () => window.clearInterval(id);
   }, [state.kind, fetchStatus]);
 
-  // Auto-refresh do QR enquanto PENDING
+  // Retry rápido enquanto PENDING sem QR (instância ainda inicializando no Evolution)
   useEffect(() => {
-    if (state.kind !== "pending") return;
+    if (state.kind !== "pending" || state.qrcode !== null) return;
+    refreshQrCode();
+    const id = window.setInterval(() => {
+      if (!document.hidden) refreshQrCode();
+    }, QR_INIT_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [state.kind, state.qrcode, refreshQrCode]);
 
-    // Se o QR está nulo (caso o status venha de polling sem QR), busca já
-    if (state.qrcode === null) refreshQrCode();
-
+  // Auto-refresh do QR a cada 25s quando QR já está disponível (evita expiração)
+  useEffect(() => {
+    if (state.kind !== "pending" || state.qrcode === null) return;
     const id = window.setInterval(() => {
       if (!document.hidden) refreshQrCode();
     }, QR_REFRESH_MS);
     return () => window.clearInterval(id);
-    // Importante: depende só do kind, não do qrcode, para não reiniciar o timer a cada refresh
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.kind, refreshQrCode]);
+  }, [state.kind, !!state.qrcode, refreshQrCode]);
 
   // Quando a aba volta a ficar visível, força um refetch
   useEffect(() => {

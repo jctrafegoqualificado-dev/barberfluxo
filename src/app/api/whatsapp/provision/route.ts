@@ -3,17 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import * as evolution from "@/lib/evolution/client";
 
-// URL do webhook N8N — toda nova instância aponta automaticamente para o assistente IA
-const WEBHOOK_URL = process.env.N8N_EVOLUTION_WEBHOOK_URL ?? "";
-
-// Permite até 30s nesta rota (requer Vercel Pro; Hobby fica em 10s)
 export const maxDuration = 30;
 
-// Timeout curto para operações de limpeza (best-effort, não bloqueia o fluxo principal)
 const CLEANUP_TIMEOUT_MS = 500;
 
-// Evita que queries Prisma travem indefinidamente em cold starts serverless.
-// Sem isso, o Vercel Hobby mata a função em 10s e retorna 502 com body vazio.
 function withDbTimeout<T>(promise: Promise<T>, ms = 3000): Promise<T> {
   return Promise.race([
     promise,
@@ -22,6 +15,9 @@ function withDbTimeout<T>(promise: Promise<T>, ms = 3000): Promise<T> {
     ),
   ]);
 }
+
+// Sentinel: instância ainda não criada no Evolution — será criada na primeira chamada a /qrcode
+const PENDING_TOKEN = "__pending__";
 
 export async function POST(req: NextRequest) {
   const t0 = Date.now();
@@ -32,13 +28,11 @@ export async function POST(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     console.log(`[Provision] start barbershopId=${barbershopId}`);
 
-    // 0. Ler corpo da requisição (opcional para conexão manual)
     const body = await req.json().catch(() => ({}));
     const manualInstanceName = body.instanceName?.trim();
     const manualToken = body.token?.trim();
 
-    // 1. Leituras paralelas — economiza ~3s vs. sequencial no Vercel Hobby (limite 10s)
-    // 3s cada, mas correm em paralelo: custo total = max(3s, 3s) = 3s
+    // Leituras paralelas — custo total = max(3s, 3s) = 3s
     const [barbershop, existing] = await Promise.all([
       withDbTimeout(prisma.barbershop.findUnique({ where: { id: barbershopId } }), 3000),
       withDbTimeout(prisma.whatsAppInstance.findUnique({ where: { barbershopId } }), 3000),
@@ -49,7 +43,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Barbershop not found" }, { status: 404 });
     }
 
-    // 2. Validar plano pago (PRO, ELITE ou PREMIUM legado)
     const paidPlans = ["PRO", "ELITE", "PREMIUM"];
     if (!paidPlans.includes(barbershop.saasPlan)) {
       return NextResponse.json(
@@ -59,58 +52,34 @@ export async function POST(req: NextRequest) {
     }
 
     if (existing) {
-      // Se for a mesma instância manual que já está conectada, avisar
       if (existing.status === "CONNECTED" && (!manualInstanceName || existing.evolutionInstanceName === manualInstanceName)) {
         return NextResponse.json(
           { error: "Already connected. Disconnect first to re-provision" },
           { status: 409 }
         );
       }
-
-      // Fire-and-forget: logout da antiga sem bloquear o fluxo principal
+      // Fire-and-forget: não bloqueia o provision
       evolution.logoutInstance(existing.evolutionInstanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
     }
 
-    let instanceName = manualInstanceName;
-    let token = manualToken;
-    let qrcodeBase64 = null;
+    let instanceName: string;
+    let token: string;
 
     if (manualInstanceName && manualToken) {
-      // CONEXÃO MANUAL (Instância já criada no Evolution)
+      // Conexão manual: instância já existe no Evolution
+      instanceName = manualInstanceName;
+      token = manualToken;
       console.log(`[Provision] manual connect to ${instanceName} at ${elapsed()}`);
     } else {
-      // CRIAÇÃO AUTOMÁTICA (Fluxo padrão)
+      // Fluxo automático: criação da instância no Evolution ocorre em /qrcode (orçamento separado)
       instanceName = `${barbershop.slug}-${barbershop.id.slice(0, 6)}`;
-
-      // Fire-and-forget: delete preventivo sem bloquear o fluxo
+      token = PENDING_TOKEN;
+      // Fire-and-forget: limpa possível instância órfã no Evolution
       evolution.deleteInstance(instanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
-
-      // Criar instância no Evolution — 5s de budget (restou ~8s do limite Hobby)
-      console.log(`[Provision] calling createInstance at ${elapsed()}`);
-      const createResult = await evolution.createInstance(instanceName, 5000);
-      console.log(`[Provision] createInstance done at ${elapsed()}, error=${"error" in createResult}`);
-      if ("error" in createResult) {
-        console.error(`[Provision] createInstance error: ${createResult.error}`);
-        return NextResponse.json(
-          { error: `Falha ao criar instância WhatsApp: ${createResult.error}` },
-          { status: 502 }
-        );
-      }
-      token = createResult.token;
-      qrcodeBase64 = createResult.qrcodeBase64;
+      console.log(`[Provision] auto flow — Evolution creation deferred to /qrcode at ${elapsed()}`);
     }
 
-    // Configurar webhook — fire-and-forget
-    if (WEBHOOK_URL) {
-      evolution.setWebhook(instanceName, WEBHOOK_URL).catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[Provision] webhook setup failed (non-fatal): ${msg}`);
-      });
-    } else {
-      console.warn(`[Provision] N8N_EVOLUTION_WEBHOOK_URL não configurada — webhook ignorado`);
-    }
-
-    // Upsert atômico — elimina o delete+create separado (economiza ~3s no caso de instância existente)
+    // Upsert DB apenas — sem chamar Evolution API (elimina o gargalo de timeout)
     console.log(`[Provision] upserting to db at ${elapsed()}`);
     const instance = await withDbTimeout(
       prisma.whatsAppInstance.upsert({
@@ -119,14 +88,14 @@ export async function POST(req: NextRequest) {
           evolutionInstanceName: instanceName,
           evolutionToken: token,
           status: "PENDING",
-          lastQrCode: qrcodeBase64 || null,
+          lastQrCode: null,
         },
         create: {
           barbershopId,
           evolutionInstanceName: instanceName,
           evolutionToken: token,
           status: "PENDING",
-          lastQrCode: qrcodeBase64 || null,
+          lastQrCode: null,
         },
       }),
       2000
@@ -135,9 +104,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       instanceName: instance.evolutionInstanceName,
-      qrcode: qrcodeBase64 || null, // null dispara busca imediata no frontend via /qrcode
+      qrcode: null, // null → frontend chama /qrcode imediatamente
       status: "PENDING",
-      message: manualInstanceName ? "Manual connection successful" : "Scan QR code with WhatsApp to connect",
+      message: manualInstanceName
+        ? "Manual connection successful"
+        : "Instance queued — QR code will be available shortly via /qrcode",
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Internal error";
