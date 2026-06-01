@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
     const manualToken = body.token?.trim();
 
     // 1. Leituras paralelas — economiza ~3s vs. sequencial no Vercel Hobby (limite 10s)
+    // 3s cada, mas correm em paralelo: custo total = max(3s, 3s) = 3s
     const [barbershop, existing] = await Promise.all([
-      withDbTimeout(prisma.barbershop.findUnique({ where: { id: barbershopId } }), 2000),
-      withDbTimeout(prisma.whatsAppInstance.findUnique({ where: { barbershopId } }), 2000),
+      withDbTimeout(prisma.barbershop.findUnique({ where: { id: barbershopId } }), 3000),
+      withDbTimeout(prisma.whatsAppInstance.findUnique({ where: { barbershopId } }), 3000),
     ]);
     console.log(`[Provision] db reads done at ${elapsed()}, existing=${!!existing}`);
 
