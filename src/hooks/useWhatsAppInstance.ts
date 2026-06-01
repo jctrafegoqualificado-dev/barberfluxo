@@ -171,7 +171,14 @@ export function useWhatsAppInstance() {
     try {
       const res = await fetch("/api/whatsapp/status", { cache: "no-store" });
       const data = await asJson<StatusResponse>(res);
-      safeSetState(mapStatusResponse(data));
+      safeSetState((prev) => {
+        const next = mapStatusResponse(data);
+        // Preserva o QR já obtido quando permanece em pending — evita piscar
+        if (prev.kind === "pending" && next.kind === "pending") {
+          return { ...next, qrcode: prev.qrcode };
+        }
+        return next;
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro ao buscar status";
       safeSetState({ kind: "error", message: msg });
