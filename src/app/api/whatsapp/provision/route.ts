@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       instanceName: instance.evolutionInstanceName,
-      qrcode: qrcodeBase64,
+      qrcode: qrcodeBase64 || null, // null dispara busca imediata no frontend via /qrcode
       status: "PENDING",
       message: manualInstanceName ? "Manual connection successful" : "Scan QR code with WhatsApp to connect",
     });

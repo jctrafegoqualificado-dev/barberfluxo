@@ -45,7 +45,7 @@ export async function createInstance(
       headers: headers(),
       body: JSON.stringify({
         instanceName,
-        qrcode: true,
+        qrcode: false, // QR buscado separadamente via /instance/connect — evita timeout no Vercel Hobby
         integration: "WHATSAPP-BAILEYS",
       }),
     }, timeoutMs);
