@@ -61,13 +61,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. Mapear estado
+    // 4. Mapear estado
     const mappedStatus = mapEvolutionState(statusResult.state);
 
-    // 4. Atualizar banco se status mudou
-    if (mappedStatus !== instance.status) {
-      const updateData: Record<string, unknown> = { status: mappedStatus };
-      if (mappedStatus === "CONNECTED") {
+    // Nunca regredir PENDING → DISCONNECTED pelo status route:
+    // "close" no Evolution significa tanto "aguardando QR" quanto "desconectado após uso".
+    // A transição PENDING→DISCONNECTED só ocorre via rota /disconnect (ação explícita do usuário).
+    const effectiveStatus =
+      instance.status === "PENDING" && mappedStatus === "DISCONNECTED"
+        ? "PENDING"
+        : mappedStatus;
+
+    // 5. Atualizar banco se status mudou
+    if (effectiveStatus !== instance.status) {
+      const updateData: Record<string, unknown> = { status: effectiveStatus };
+      if (effectiveStatus === "CONNECTED") {
         updateData.lastConnectedAt = new Date();
       }
       await prisma.whatsAppInstance.update({
@@ -76,9 +84,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── NOVO: Auto-Fix de Webhook para Produção ──
+    // ── Auto-Fix de Webhook para Produção ──
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null));
-    if (mappedStatus === "CONNECTED" && appUrl) {
+    if (effectiveStatus === "CONNECTED" && appUrl) {
       const webhookUrl = `${appUrl}/api/evolution/webhook`;
       console.log(`🔗 [Webhook Sync] Verificando webhook para: ${webhookUrl}`);
       // Configuramos o webhook na Evolution para garantir que as mensagens cheguem
@@ -87,10 +95,10 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 5. Retornar
+    // 6. Retornar
     return NextResponse.json({
       provisioned: true,
-      status: mappedStatus,
+      status: effectiveStatus,
       evolutionInstanceName: instance.evolutionInstanceName,
       lastConnectedAt:
         mappedStatus === "CONNECTED"
