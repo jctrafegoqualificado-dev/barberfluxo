@@ -149,6 +149,9 @@ export function useWhatsAppInstance() {
   const [state, setState] = useState<InstanceState>({ kind: "loading" });
   const [action, setAction] = useState<ActionState>({ kind: "idle" });
 
+  // Extrai qrcode com segurança de tipo (só existe no variant "pending")
+  const pendingQrcode = state.kind === "pending" ? state.qrcode : undefined;
+
   // Evita setState após unmount (StrictMode double-invoke + abort em navegação)
   const aliveRef = useRef(true);
 
@@ -246,23 +249,23 @@ export function useWhatsAppInstance() {
 
   // Retry rápido enquanto PENDING sem QR (instância ainda inicializando no Evolution)
   useEffect(() => {
-    if (state.kind !== "pending" || state.qrcode !== null) return;
+    if (state.kind !== "pending" || pendingQrcode !== null) return;
     refreshQrCode();
     const id = window.setInterval(() => {
       if (!document.hidden) refreshQrCode();
     }, QR_INIT_POLL_MS);
     return () => window.clearInterval(id);
-  }, [state.kind, state.qrcode, refreshQrCode]);
+  }, [state.kind, pendingQrcode, refreshQrCode]);
 
   // Auto-refresh do QR a cada 25s quando QR já está disponível (evita expiração)
   useEffect(() => {
-    if (state.kind !== "pending" || state.qrcode === null) return;
+    if (state.kind !== "pending" || pendingQrcode === null || pendingQrcode === undefined) return;
     const id = window.setInterval(() => {
       if (!document.hidden) refreshQrCode();
     }, QR_REFRESH_MS);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.kind, !!state.qrcode, refreshQrCode]);
+  }, [state.kind, !!pendingQrcode, refreshQrCode]);
 
   // Quando a aba volta a ficar visível, força um refetch
   useEffect(() => {
