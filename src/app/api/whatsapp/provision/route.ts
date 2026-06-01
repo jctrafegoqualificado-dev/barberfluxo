@@ -37,10 +37,12 @@ export async function POST(req: NextRequest) {
     const manualInstanceName = body.instanceName?.trim();
     const manualToken = body.token?.trim();
 
-    // 1. Buscar barbershop
-    const barbershop = await withDbTimeout(
-      prisma.barbershop.findUnique({ where: { id: barbershopId } })
-    );
+    // 1. Leituras paralelas — economiza ~3s vs. sequencial no Vercel Hobby (limite 10s)
+    const [barbershop, existing] = await Promise.all([
+      withDbTimeout(prisma.barbershop.findUnique({ where: { id: barbershopId } }), 2000),
+      withDbTimeout(prisma.whatsAppInstance.findUnique({ where: { barbershopId } }), 2000),
+    ]);
+    console.log(`[Provision] db reads done at ${elapsed()}, existing=${!!existing}`);
 
     if (!barbershop) {
       return NextResponse.json({ error: "Barbershop not found" }, { status: 404 });
@@ -55,12 +57,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Checar instância existente
-    const existing = await withDbTimeout(
-      prisma.whatsAppInstance.findUnique({ where: { barbershopId } })
-    );
-    console.log(`[Provision] db done at ${elapsed()}, existing=${!!existing}`);
-
     if (existing) {
       // Se for a mesma instância manual que já está conectada, avisar
       if (existing.status === "CONNECTED" && (!manualInstanceName || existing.evolutionInstanceName === manualInstanceName)) {
@@ -70,10 +66,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Cleanup: logout da antiga (best effort, timeout curto) e deletar registro
-      await evolution.logoutInstance(existing.evolutionInstanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
-      await withDbTimeout(prisma.whatsAppInstance.delete({ where: { id: existing.id } }));
-      console.log(`[Provision] cleanup existing done at ${elapsed()}`);
+      // Fire-and-forget: logout da antiga sem bloquear o fluxo principal
+      evolution.logoutInstance(existing.evolutionInstanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
     }
 
     let instanceName = manualInstanceName;
@@ -87,13 +81,12 @@ export async function POST(req: NextRequest) {
       // CRIAÇÃO AUTOMÁTICA (Fluxo padrão)
       instanceName = `${barbershop.slug}-${barbershop.id.slice(0, 6)}`;
 
-      // Cleanup preventivo (best effort, timeout curto para não bloquear o fluxo)
-      await evolution.deleteInstance(instanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
-      console.log(`[Provision] preventive delete done at ${elapsed()}`);
+      // Fire-and-forget: delete preventivo sem bloquear o fluxo
+      evolution.deleteInstance(instanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
 
-      // 5. Criar instância no Evolution
+      // Criar instância no Evolution — 5s de budget (restou ~8s do limite Hobby)
       console.log(`[Provision] calling createInstance at ${elapsed()}`);
-      const createResult = await evolution.createInstance(instanceName, 3000);
+      const createResult = await evolution.createInstance(instanceName, 5000);
       console.log(`[Provision] createInstance done at ${elapsed()}, error=${"error" in createResult}`);
       if ("error" in createResult) {
         console.error(`[Provision] createInstance error: ${createResult.error}`);
@@ -106,9 +99,8 @@ export async function POST(req: NextRequest) {
       qrcodeBase64 = createResult.qrcodeBase64;
     }
 
-    // 6. Configurar webhook — apenas se a URL estiver configurada
+    // Configurar webhook — fire-and-forget
     if (WEBHOOK_URL) {
-      // Fire-and-forget: não bloqueia a resposta (Vercel Hobby tem 10s de limite)
       evolution.setWebhook(instanceName, WEBHOOK_URL).catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[Provision] webhook setup failed (non-fatal): ${msg}`);
@@ -117,20 +109,29 @@ export async function POST(req: NextRequest) {
       console.warn(`[Provision] N8N_EVOLUTION_WEBHOOK_URL não configurada — webhook ignorado`);
     }
 
-    // 7. Salvar no banco
-    console.log(`[Provision] saving to db at ${elapsed()}`);
-    const instance = await withDbTimeout(prisma.whatsAppInstance.create({
-      data: {
-        barbershopId,
-        evolutionInstanceName: instanceName,
-        evolutionToken: token,
-        status: "PENDING",
-        lastQrCode: qrcodeBase64 || null,
-      },
-    }));
+    // Upsert atômico — elimina o delete+create separado (economiza ~3s no caso de instância existente)
+    console.log(`[Provision] upserting to db at ${elapsed()}`);
+    const instance = await withDbTimeout(
+      prisma.whatsAppInstance.upsert({
+        where: { barbershopId },
+        update: {
+          evolutionInstanceName: instanceName,
+          evolutionToken: token,
+          status: "PENDING",
+          lastQrCode: qrcodeBase64 || null,
+        },
+        create: {
+          barbershopId,
+          evolutionInstanceName: instanceName,
+          evolutionToken: token,
+          status: "PENDING",
+          lastQrCode: qrcodeBase64 || null,
+        },
+      }),
+      2000
+    );
     console.log(`[Provision] done at ${elapsed()}`);
 
-    // 8. Retornar sucesso
     return NextResponse.json({
       instanceName: instance.evolutionInstanceName,
       qrcode: qrcodeBase64,
