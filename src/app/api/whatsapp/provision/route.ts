@@ -10,7 +10,7 @@ const WEBHOOK_URL = process.env.N8N_EVOLUTION_WEBHOOK_URL ?? "";
 export const maxDuration = 30;
 
 // Timeout curto para operações de limpeza (best-effort, não bloqueia o fluxo principal)
-const CLEANUP_TIMEOUT_MS = 2000;
+const CLEANUP_TIMEOUT_MS = 500;
 
 // Evita que queries Prisma travem indefinidamente em cold starts serverless.
 // Sem isso, o Vercel Hobby mata a função em 10s e retorna 502 com body vazio.
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
       // 5. Criar instância no Evolution
       console.log(`[Provision] calling createInstance at ${elapsed()}`);
-      const createResult = await evolution.createInstance(instanceName);
+      const createResult = await evolution.createInstance(instanceName, 5000);
       console.log(`[Provision] createInstance done at ${elapsed()}, error=${"error" in createResult}`);
       if ("error" in createResult) {
         console.error(`[Provision] createInstance error: ${createResult.error}`);
@@ -108,13 +108,11 @@ export async function POST(req: NextRequest) {
 
     // 6. Configurar webhook — apenas se a URL estiver configurada
     if (WEBHOOK_URL) {
-      console.log(`[Provision] calling setWebhook at ${elapsed()}`);
-      const webhookResult = await evolution.setWebhook(instanceName, WEBHOOK_URL);
-      console.log(`[Provision] setWebhook done at ${elapsed()}, error=${"error" in webhookResult}`);
-      if ("error" in webhookResult) {
-        // Webhook é importante mas não crítico — logar e continuar
-        console.warn(`[Provision] webhook setup failed (non-fatal): ${webhookResult.error}`);
-      }
+      // Fire-and-forget: não bloqueia a resposta (Vercel Hobby tem 10s de limite)
+      evolution.setWebhook(instanceName, WEBHOOK_URL).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[Provision] webhook setup failed (non-fatal): ${msg}`);
+      });
     } else {
       console.warn(`[Provision] N8N_EVOLUTION_WEBHOOK_URL não configurada — webhook ignorado`);
     }
