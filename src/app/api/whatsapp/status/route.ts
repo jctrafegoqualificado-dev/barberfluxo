@@ -64,11 +64,11 @@ export async function GET(req: NextRequest) {
     // 4. Mapear estado
     const mappedStatus = mapEvolutionState(statusResult.state);
 
-    // Nunca regredir PENDING → DISCONNECTED pelo status route:
-    // "close" no Evolution significa tanto "aguardando QR" quanto "desconectado após uso".
-    // A transição PENDING→DISCONNECTED só ocorre via rota /disconnect (ação explícita do usuário).
+    // Nunca regredir PENDING → DISCONNECTED ou PENDING → CONNECTING via status route.
+    // "close" = aguardando QR ou desconectado; "connecting" = Evolution tentando restaurar sessão antiga.
+    // Ambas as transições só devem ocorrer via ação explícita do usuário (/disconnect ou /provision).
     const effectiveStatus =
-      instance.status === "PENDING" && mappedStatus === "DISCONNECTED"
+      instance.status === "PENDING" && (mappedStatus === "DISCONNECTED" || mappedStatus === "CONNECTING")
         ? "PENDING"
         : mappedStatus;
 
