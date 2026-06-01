@@ -14,7 +14,7 @@ const CLEANUP_TIMEOUT_MS = 2000;
 
 // Evita que queries Prisma travem indefinidamente em cold starts serverless.
 // Sem isso, o Vercel Hobby mata a função em 10s e retorna 502 com body vazio.
-function withDbTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
+function withDbTimeout<T>(promise: Promise<T>, ms = 5000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
