@@ -12,6 +12,17 @@ export const maxDuration = 30;
 // Timeout curto para operações de limpeza (best-effort, não bloqueia o fluxo principal)
 const CLEANUP_TIMEOUT_MS = 2000;
 
+// Evita que queries Prisma travem indefinidamente em cold starts serverless.
+// Sem isso, o Vercel Hobby mata a função em 10s e retorna 502 com body vazio.
+function withDbTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Database timeout after ${ms}ms — verifique a conexão Supabase`)), ms)
+    ),
+  ]);
+}
+
 export async function POST(req: NextRequest) {
   const t0 = Date.now();
   const elapsed = () => `${Date.now() - t0}ms`;
@@ -27,9 +38,9 @@ export async function POST(req: NextRequest) {
     const manualToken = body.token?.trim();
 
     // 1. Buscar barbershop
-    const barbershop = await prisma.barbershop.findUnique({
-      where: { id: barbershopId },
-    });
+    const barbershop = await withDbTimeout(
+      prisma.barbershop.findUnique({ where: { id: barbershopId } })
+    );
 
     if (!barbershop) {
       return NextResponse.json({ error: "Barbershop not found" }, { status: 404 });
@@ -45,9 +56,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Checar instância existente
-    const existing = await prisma.whatsAppInstance.findUnique({
-      where: { barbershopId },
-    });
+    const existing = await withDbTimeout(
+      prisma.whatsAppInstance.findUnique({ where: { barbershopId } })
+    );
     console.log(`[Provision] db done at ${elapsed()}, existing=${!!existing}`);
 
     if (existing) {
@@ -61,7 +72,7 @@ export async function POST(req: NextRequest) {
 
       // Cleanup: logout da antiga (best effort, timeout curto) e deletar registro
       await evolution.logoutInstance(existing.evolutionInstanceName, CLEANUP_TIMEOUT_MS).catch(() => {});
-      await prisma.whatsAppInstance.delete({ where: { id: existing.id } });
+      await withDbTimeout(prisma.whatsAppInstance.delete({ where: { id: existing.id } }));
       console.log(`[Provision] cleanup existing done at ${elapsed()}`);
     }
 
@@ -110,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     // 7. Salvar no banco
     console.log(`[Provision] saving to db at ${elapsed()}`);
-    const instance = await prisma.whatsAppInstance.create({
+    const instance = await withDbTimeout(prisma.whatsAppInstance.create({
       data: {
         barbershopId,
         evolutionInstanceName: instanceName,
@@ -118,7 +129,7 @@ export async function POST(req: NextRequest) {
         status: "PENDING",
         lastQrCode: qrcodeBase64 || null,
       },
-    });
+    }));
     console.log(`[Provision] done at ${elapsed()}`);
 
     // 8. Retornar sucesso
