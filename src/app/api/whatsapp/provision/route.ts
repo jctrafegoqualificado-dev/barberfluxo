@@ -14,7 +14,7 @@ const CLEANUP_TIMEOUT_MS = 500;
 
 // Evita que queries Prisma travem indefinidamente em cold starts serverless.
 // Sem isso, o Vercel Hobby mata a função em 10s e retorna 502 com body vazio.
-function withDbTimeout<T>(promise: Promise<T>, ms = 5000): Promise<T> {
+function withDbTimeout<T>(promise: Promise<T>, ms = 3000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
       // 5. Criar instância no Evolution
       console.log(`[Provision] calling createInstance at ${elapsed()}`);
-      const createResult = await evolution.createInstance(instanceName, 5000);
+      const createResult = await evolution.createInstance(instanceName, 3000);
       console.log(`[Provision] createInstance done at ${elapsed()}, error=${"error" in createResult}`);
       if ("error" in createResult) {
         console.error(`[Provision] createInstance error: ${createResult.error}`);
