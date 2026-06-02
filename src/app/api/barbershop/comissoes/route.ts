@@ -14,12 +14,23 @@ export async function GET(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
     const monthOffset = Number(req.nextUrl.searchParams.get("month") || "0");
+    const fromParam = req.nextUrl.searchParams.get("from");
+    const toParam = req.nextUrl.searchParams.get("to");
 
-    const refDate = subMonths(new Date(), monthOffset);
-    const start = startOfMonth(refDate);
-    const end = endOfMonth(refDate);
-    const mesLabel = format(refDate, "MMMM yyyy", { locale: ptBR });
-    const monthKey = format(refDate, "yyyy-MM");
+    let start: Date, end: Date, mesLabel: string, monthKey: string;
+
+    if (fromParam && toParam) {
+      start = new Date(fromParam + "T00:00:00");
+      end = new Date(toParam + "T23:59:59");
+      mesLabel = `${format(start, "dd/MM/yyyy")} — ${format(end, "dd/MM/yyyy")}`;
+      monthKey = `${fromParam}_${toParam}`;
+    } else {
+      const refDate = subMonths(new Date(), monthOffset);
+      start = startOfMonth(refDate);
+      end = endOfMonth(refDate);
+      mesLabel = format(refDate, "MMMM yyyy", { locale: ptBR });
+      monthKey = format(refDate, "yyyy-MM");
+    }
 
     // ── Bulk queries sequenciais (8 total, independente do nº de barbeiros) ──
     // connection_limit=1 no Vercel/Supabase: queries paralelas causam pool

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import {
   DollarSign, Percent, Hash, Edit2, Check, X,
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, BadgeCheck, RotateCcw, Banknote, Trash2, Plus,
-  Scissors, CreditCard, Printer, Download
+  Scissors, CreditCard, Printer, Download, CalendarRange
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency, getInitials } from "@/lib/utils";
@@ -484,11 +484,20 @@ export default function ComissoesPage() {
   const [month, setMonth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"standard" | "subscription">("standard");
+  const [customMode, setCustomMode] = useState(false);
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  });
+  const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
 
-  async function load(m: number) {
+  async function load(m: number, from?: string, to?: string) {
     setLoading(true);
     try {
-      const r = await fetch(`/api/barbershop/comissoes?month=${m}`, {
+      const url = from && to
+        ? `/api/barbershop/comissoes?from=${from}&to=${to}`
+        : `/api/barbershop/comissoes?month=${m}`;
+      const r = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) {
@@ -505,7 +514,25 @@ export default function ComissoesPage() {
     }
   }
 
-  useEffect(() => { load(month); }, [month]);
+  useEffect(() => { if (!customMode) load(month); }, [month, customMode]);
+
+  function toggleCustomMode() {
+    if (customMode) {
+      setCustomMode(false);
+    } else {
+      setCustomMode(true);
+      load(0, fromDate, toDate);
+    }
+  }
+
+  function handleApplyCustomRange() {
+    load(0, fromDate, toDate);
+  }
+
+  function reload() {
+    if (customMode) load(0, fromDate, toDate);
+    else load(month);
+  }
 
   async function handleSave(barberId: string, data: ComissaoUpdate) {
     await fetch("/api/barbershop/comissoes", {
@@ -513,7 +540,7 @@ export default function ComissoesPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ barberId, ...data }),
     });
-    load(month);
+    reload();
   }
 
   async function handlePay(barberId: string, monthKeyStr: string, amount: number, type: string) {
@@ -522,7 +549,7 @@ export default function ComissoesPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ barberId, month: monthKeyStr, amount, type }),
     });
-    load(month);
+    reload();
   }
 
   async function handleUnpay(barberId: string, monthKeyStr: string, type: string) {
@@ -531,7 +558,7 @@ export default function ComissoesPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ barberId, month: monthKeyStr, type }),
     });
-    load(month);
+    reload();
   }
 
   async function handleAddVale(barberId: string, monthKeyStr: string, amount: number, description: string) {
@@ -540,7 +567,7 @@ export default function ComissoesPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ barberId, month: monthKeyStr, amount, description }),
     });
-    load(month);
+    reload();
   }
 
   async function handleDeleteVale(id: string) {
@@ -549,7 +576,7 @@ export default function ComissoesPage() {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id }),
     });
-    load(month);
+    reload();
   }
 
   const filteredBarbers = activeTab === "standard" 
@@ -594,15 +621,53 @@ export default function ComissoesPage() {
           <button onClick={exportCSV} className="flex items-center gap-2 bg-white border border-zinc-200 px-4 py-2 rounded-xl text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors">
             <Download className="w-4 h-4" /> CSV
           </button>
-          <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-xl px-3 py-2">
-            <button onClick={() => setMonth((m) => m + 1)} className="p-1 rounded hover:bg-zinc-100 transition-colors">
-              <ChevronLeft className="w-4 h-4 text-zinc-500" />
-            </button>
-            <span className="text-sm font-medium text-zinc-700 min-w-[120px] text-center capitalize">{mes}</span>
-            <button onClick={() => setMonth((m) => m - 1)} disabled={month === 0} className="p-1 rounded hover:bg-zinc-100 transition-colors disabled:opacity-30">
-              <ChevronRight className="w-4 h-4 text-zinc-500" />
-            </button>
-          </div>
+          {customMode ? (
+            <div className="flex items-center gap-2 bg-white border border-primary/30 rounded-xl px-3 py-2 shadow-sm">
+              <CalendarRange className="w-4 h-4 text-primary shrink-0" />
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="text-sm text-zinc-700 border-0 outline-none bg-transparent w-[130px]"
+              />
+              <span className="text-zinc-400 text-sm">—</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="text-sm text-zinc-700 border-0 outline-none bg-transparent w-[130px]"
+              />
+              <button
+                onClick={handleApplyCustomRange}
+                disabled={loading}
+                className="flex items-center gap-1 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <Check className="w-3.5 h-3.5" /> Aplicar
+              </button>
+              <button onClick={toggleCustomMode} className="p-1 rounded hover:bg-zinc-100 transition-colors text-zinc-400 hover:text-zinc-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-xl px-3 py-2">
+                <button onClick={() => setMonth((m) => m + 1)} className="p-1 rounded hover:bg-zinc-100 transition-colors">
+                  <ChevronLeft className="w-4 h-4 text-zinc-500" />
+                </button>
+                <span className="text-sm font-medium text-zinc-700 min-w-[120px] text-center capitalize">{mes}</span>
+                <button onClick={() => setMonth((m) => m - 1)} disabled={month === 0} className="p-1 rounded hover:bg-zinc-100 transition-colors disabled:opacity-30">
+                  <ChevronRight className="w-4 h-4 text-zinc-500" />
+                </button>
+              </div>
+              <button
+                onClick={toggleCustomMode}
+                title="Filtrar por período personalizado"
+                className="p-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors text-zinc-500 hover:text-primary"
+              >
+                <CalendarRange className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           {!loading && barbers.length > 0 && (
             <div className="flex gap-2">
               {totalValesGeral > 0 && (
