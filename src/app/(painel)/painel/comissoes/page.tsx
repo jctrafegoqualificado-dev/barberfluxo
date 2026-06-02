@@ -487,14 +487,22 @@ export default function ComissoesPage() {
 
   async function load(m: number) {
     setLoading(true);
-    const r = await fetch(`/api/barbershop/comissoes?month=${m}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const d = await r.json();
-    setBarbers(d.barbers || []);
-    setMes(d.mes || "");
-    setMonthKey(d.monthKey || "");
-    setLoading(false);
+    try {
+      const r = await fetch(`/api/barbershop/comissoes?month=${m}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        console.error("[Comissoes] API error:", (d as { error?: string }).error ?? r.status);
+        return;
+      }
+      const d = await r.json();
+      setBarbers(d.barbers || []);
+      setMes(d.mes || "");
+      setMonthKey(d.monthKey || "");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(month); }, [month]);

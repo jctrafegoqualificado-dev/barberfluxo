@@ -169,11 +169,23 @@ export async function GET(req: NextRequest) {
           faturado: totalAvulso,
           comissao: comissaoAvulso,
           totalDescontos: Math.round(totalDescontos * 100) / 100,
+          items: avulsos.map((a) => ({
+            date: a.date.toISOString(),
+            clientName: a.client?.name ?? "—",
+            serviceName: a.service?.name ?? "—",
+            price: a.price,
+          })),
         },
         assinatura: {
           servicos: subAppointments.length,
-          ticketMedio: ticketMedioSub, // Adicionado para transparência
+          ticketMedio: ticketMedioSub,
           comissao: comissaoAssinatura,
+          items: subAppointments.map((a) => ({
+            date: a.date.toISOString(),
+            clientName: a.client?.name ?? "—",
+            serviceName: a.service?.name ?? "—",
+            price: a.price,
+          })),
         },
         produtos: {
           vendas: productSales.length,
@@ -205,7 +217,8 @@ export async function GET(req: NextRequest) {
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro";
-    return NextResponse.json({ error: msg }, { status: 401 });
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
 
