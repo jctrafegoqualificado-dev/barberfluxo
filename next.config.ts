@@ -39,9 +39,29 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   compress: true,
   async headers() {
+    const apiDocsCSP = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://sdk.mercadopago.com https://www.mercadopago.com https://*.sentry.io https://vercel.live",
+      "style-src 'self' 'unsafe-inline' https://unpkg.com",
+      "img-src 'self' data: blob: https://*.supabase.co https://www.mercadopago.com",
+      "font-src 'self' data: https://unpkg.com",
+      "connect-src 'self' https://*.sentry.io https://*.supabase.co https://api.mercadopago.com https://vercel.live wss://vercel.live",
+      "frame-src https://www.mercadopago.com https://sdk.mercadopago.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; ");
+
     return [
       {
-        source: "/(.*)",
+        source: "/api-docs",
+        headers: [
+          ...securityHeaders.filter((h) => h.key !== "Content-Security-Policy"),
+          { key: "Content-Security-Policy", value: apiDocsCSP },
+        ],
+      },
+      {
+        source: "/((?!api-docs$).*)",
         headers: securityHeaders,
       },
     ];
