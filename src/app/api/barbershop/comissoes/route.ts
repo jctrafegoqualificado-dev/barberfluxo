@@ -21,103 +21,80 @@ export async function GET(req: NextRequest) {
     const mesLabel = format(refDate, "MMMM yyyy", { locale: ptBR });
     const monthKey = format(refDate, "yyyy-MM");
 
+    // ── Bulk queries sequenciais (8 total, independente do nº de barbeiros) ──
+    // connection_limit=1 no Vercel/Supabase: queries paralelas causam pool
+    // exhaustion com N barbeiros → substituído por bulk + agrupamento em memória
+
     const barbers = await prisma.barber.findMany({
       where: { barbershopId, active: true },
       include: { user: { select: { id: true, name: true, email: true } } },
     });
 
-    // --- LÓGICA DE ASSINATURA SÊNIOR ---
-    // 1. Faturamento Total de Assinaturas (Pagamentos Recebidos no mês)
+    if (barbers.length === 0) {
+      return NextResponse.json({ barbers: [], mes: mesLabel, monthOffset, monthKey, totalSubRevenue: 0, ticketMedioSub: 0 });
+    }
+
     const subPayments = await prisma.payment.findMany({
-      where: {
-        barbershopId,
-        subscriptionId: { not: null },
-        status: "PAID",
-        paidAt: { gte: start, lte: end },
-      }
+      where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end } },
     });
+
+    const allAvulsos = await prisma.appointment.findMany({
+      where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: start, lte: end } },
+      include: { service: true, client: { select: { name: true } } },
+    });
+
+    const allSubAppointments = await prisma.appointment.findMany({
+      where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: start, lte: end } },
+      include: { service: true, client: { select: { name: true } }, subscription: { include: { plan: true } } },
+    });
+
+    const allProductSales = await prisma.productSale.findMany({
+      where: { barbershopId, createdAt: { gte: start, lte: end } },
+      include: { product: true },
+    });
+
+    const allCommissionPayments = await prisma.commissionPayment.findMany({
+      where: { barbershopId, month: monthKey },
+    });
+
+    const allVales = await prisma.commissionVale.findMany({
+      where: { barbershopId, month: monthKey },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const allReviews = await prisma.review.findMany({
+      where: { barbershopId, createdAt: { gte: start, lte: end } },
+    });
+
+    // ── Pool de assinaturas (calculado globalmente) ──
     const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
     const poolBarbeiros = totalSubRevenue * 0.5;
+    const ticketMedioSub = allSubAppointments.length > 0 ? poolBarbeiros / allSubAppointments.length : 0;
 
-    // 2. Total de Atendimentos via Assinatura (Todos os barbeiros)
-    const allSubAppointmentsCount = await prisma.appointment.count({
-      where: {
-        barbershopId,
-        subscriptionId: { not: null },
-        status: "DONE",
-        date: { gte: start, lte: end },
-      }
-    });
+    // ── Agrupamento em memória por barbeiro ──
+    const result = barbers.map((b) => {
+      const avulsos = allAvulsos.filter((a) => a.barberId === b.id);
+      const subAppointments = allSubAppointments.filter((a) => a.barberId === b.id);
+      const productSales = allProductSales.filter((p) => p.barberId === b.id);
+      const vales = allVales.filter((v) => v.barberId === b.id);
+      const reviews = allReviews.filter((r) => r.barberId === b.id);
+      const standardPayment = allCommissionPayments.find((cp) => cp.barberId === b.id && cp.type === "STANDARD") ?? null;
+      const subscriptionPayment = allCommissionPayments.find((cp) => cp.barberId === b.id && cp.type === "SUBSCRIPTION") ?? null;
 
-    // 3. Ticket Médio da Assinatura (R$ por atendimento)
-    const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
-
-    const result = await Promise.all(barbers.map(async (b) => {
-      const [avulsos, subAppointments, productSales, standardPayment, subscriptionPayment, vales, reviews] = await Promise.all([
-        prisma.appointment.findMany({
-          where: {
-            barberId: b.id,
-            status: "DONE",
-            subscriptionId: null,
-            date: { gte: start, lte: end },
-          },
-          include: { service: true, client: { select: { name: true } } },
-          // discountPercent já incluso via select implícito do findMany
-        }),
-        prisma.appointment.findMany({
-          where: {
-            barberId: b.id,
-            status: "DONE",
-            subscriptionId: { not: null },
-            date: { gte: start, lte: end },
-          },
-          include: { service: true, client: { select: { name: true } }, subscription: { include: { plan: true } } },
-        }),
-        prisma.productSale.findMany({
-          where: {
-            barberId: b.id,
-            createdAt: { gte: start, lte: end },
-          },
-          include: { product: true },
-        }),
-        prisma.commissionPayment.findUnique({
-          where: { barberId_month_type: { barberId: b.id, month: monthKey, type: "STANDARD" } },
-        }),
-        prisma.commissionPayment.findUnique({
-          where: { barberId_month_type: { barberId: b.id, month: monthKey, type: "SUBSCRIPTION" } },
-        }),
-        prisma.commissionVale.findMany({
-          where: { barberId: b.id, month: monthKey },
-          orderBy: { createdAt: "asc" },
-        }),
-        prisma.review.findMany({
-          where: { barberId: b.id, createdAt: { gte: start, lte: end } }
-        }),
-      ]);
-
-      const totalAvulso = avulsos.reduce((s, a) => s + a.price, 0); // price já é o valor descontado (o desconto foi aplicado no DONE)
+      const totalAvulso = avulsos.reduce((s, a) => s + a.price, 0);
       const totalDescontos = avulsos.reduce((s, a) => {
         if (!a.discountPercent || a.discountPercent === 0) return s;
-        // O desconto já foi aplicado ao price; recalcula o valor original para exibição
         const original = a.price / (1 - a.discountPercent / 100);
         return s + (original - a.price);
       }, 0);
       const comissaoAvulso = avulsos.reduce((s, a) => {
         const materialCost = a.service?.materialCost || 0;
-        const netValue = Math.max(0, a.price - materialCost); // comissão sobre preço já descontado (compartilha o desconto proporcionalmente)
+        const netValue = Math.max(0, a.price - materialCost);
         const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
-        
-        if (hasCustomCommission) {
-          return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
-        }
+        if (hasCustomCommission) return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
         return s + calcComissao(netValue, b.commissionType, b.commission);
       }, 0);
 
-      // Nova regra: Comissao de Assinatura
-      // Se o plano tiver uma comissão específica, usa ela sobre o valor nominal do serviço (descontando custo).
-      // Se não, usa o Ticket Médio do Pool (rateio igualitário).
-      const totalAssinatura = subAppointments.reduce((s, a) => s + a.price, 0); // Faturamento nominal (apenas para relatório)
-      
       const comissaoAssinatura = subAppointments.reduce((s, a) => {
         const customPlanCommission = a.subscription?.plan?.commissionPercentage;
         if (customPlanCommission != null) {
@@ -131,30 +108,28 @@ export async function GET(req: NextRequest) {
       const totalProdutos = productSales.reduce((s, p) => s + p.total, 0);
       const comissaoProdutos = productSales.reduce((s, p) => {
         const commType = p.product?.commissionType || b.productCommissionType;
-        const commValue = p.product?.commissionValue !== undefined && p.product?.commissionValue !== null 
-          ? p.product.commissionValue 
-          : b.productCommission;
-        
-        if (commType === "FIXED") {
-          return s + (commValue * p.quantity);
-        }
+        const commValue =
+          p.product?.commissionValue !== undefined && p.product?.commissionValue !== null
+            ? p.product.commissionValue
+            : b.productCommission;
+        if (commType === "FIXED") return s + commValue * p.quantity;
         return s + calcComissao(p.total, commType, commValue);
       }, 0);
 
       const totalComissao = comissaoAvulso + comissaoAssinatura + comissaoProdutos;
       const totalVales = vales.reduce((s, v) => s + v.amount, 0);
-      
       const liquidoAPagar = Math.max(0, comissaoAvulso + comissaoProdutos - totalVales);
       const liquidoAssinatura = comissaoAssinatura;
 
       let promoters = 0;
       let detractors = 0;
-      reviews.forEach((r: any) => {
+      reviews.forEach((r) => {
         if (r.rating >= 9) promoters++;
         else if (r.rating <= 6) detractors++;
       });
-      const totalReviews = reviews.length;
-      const npsScore = totalReviews > 0 ? Math.round(((promoters - detractors) / totalReviews) * 100) : null;
+      const npsScore = reviews.length > 0
+        ? Math.round(((promoters - detractors) / reviews.length) * 100)
+        : null;
 
       return {
         id: b.id,
@@ -197,24 +172,13 @@ export async function GET(req: NextRequest) {
         liquidoAPagar,
         liquidoAssinatura,
         vales: vales.map((v) => ({ id: v.id, amount: v.amount, description: v.description, createdAt: v.createdAt })),
-        paid: standardPayment
-          ? { paidAt: standardPayment.paidAt, amount: standardPayment.amount }
-          : null,
-        subPaid: subscriptionPayment
-          ? { paidAt: subscriptionPayment.paidAt, amount: subscriptionPayment.amount }
-          : null,
+        paid: standardPayment ? { paidAt: standardPayment.paidAt, amount: standardPayment.amount } : null,
+        subPaid: subscriptionPayment ? { paidAt: subscriptionPayment.paidAt, amount: subscriptionPayment.amount } : null,
         npsScore,
       };
-    }));
-
-    return NextResponse.json({ 
-      barbers: result, 
-      mes: mesLabel, 
-      monthOffset, 
-      monthKey,
-      totalSubRevenue, // Dados globais para o painel
-      ticketMedioSub 
     });
+
+    return NextResponse.json({ barbers: result, mes: mesLabel, monthOffset, monthKey, totalSubRevenue, ticketMedioSub });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro";
     const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
