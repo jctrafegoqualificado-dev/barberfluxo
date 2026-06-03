@@ -9,7 +9,32 @@ export async function GET(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     const now = new Date();
 
-    const shop = await prisma.barbershop.findUnique({ where: { id: barbershopId } });
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    const [shop, subscriptions, avulsosDoMes, inadimplentes, novasMes] = await Promise.all([
+      prisma.barbershop.findUnique({ where: { id: barbershopId } }),
+      prisma.subscription.findMany({
+        where: { barbershopId, status: "ACTIVE" },
+        include: {
+          plan: true,
+          appointments: {
+            where: { status: "DONE", subscriptionId: { not: null }, date: { gte: monthStart, lte: monthEnd } },
+            include: {
+              barber: { include: { user: { select: { name: true } } } },
+              service: true,
+            },
+          },
+        },
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: monthStart, lte: monthEnd } },
+        select: { price: true, paymentMethod: true },
+      }),
+      prisma.subscription.count({ where: { barbershopId, status: "OVERDUE" } }),
+      prisma.subscription.count({ where: { barbershopId, createdAt: { gte: monthStart, lte: monthEnd } } }),
+    ]);
+
     const poeOwnerPct = shop?.poeOwnerPct ?? 50;
     const debitFee = shop?.debitFee ?? 0;
     const creditFee = shop?.creditFee ?? 0;
@@ -24,42 +49,14 @@ export async function GET(req: NextRequest) {
     const discountProductsMax = shop?.discountProductsMax ?? 20;
     const poeBarberPct = 100 - poeOwnerPct;
 
-    // Assinaturas ativas
-    const subscriptions = await prisma.subscription.findMany({
-      where: { barbershopId, status: "ACTIVE" },
-      include: {
-        plan: true,
-        appointments: {
-          where: {
-            status: "DONE",
-            subscriptionId: { not: null }, // apenas serviços de assinatura
-            date: { gte: startOfMonth(now), lte: endOfMonth(now) },
-          },
-          include: {
-            barber: {
-              include: { user: { select: { name: true } } },
-            },
-            service: true,
-          },
-        },
-      },
-    });
-
-    // POE = soma de todos os planos ativos (MRR)
     const poeTotal = subscriptions.reduce((s, sub) => s + sub.plan.price, 0);
-
-    // Fatias do POE
     const poeBarbearia = poeTotal * (poeOwnerPct / 100);
     const poolBarbeiros = poeTotal * (poeBarberPct / 100);
 
-    // Total de serviços realizados via assinatura no mês
     const allAppointments = subscriptions.flatMap((sub) => sub.appointments);
     const totalServicos = allAppointments.length;
-
-    // Ticket médio por serviço (pool ÷ total serviços)
     const ticketPorServico = totalServicos > 0 ? poolBarbeiros / totalServicos : 0;
 
-    // Partilha por barbeiro
     const barberMap: Record<string, { name: string; servicos: number; recebe: number }> = {};
     for (const appt of allAppointments) {
       const id = appt.barber.id;
@@ -69,7 +66,6 @@ export async function GET(req: NextRequest) {
       barberMap[id].recebe += ticketPorServico;
     }
 
-    // Planos
     const planMap: Record<string, { name: string; price: number; assinantes: number; receita: number }> = {};
     for (const sub of subscriptions) {
       const pid = sub.plan.id;
@@ -78,20 +74,8 @@ export async function GET(req: NextRequest) {
       planMap[pid].receita += sub.plan.price;
     }
 
-    // Utilização dos planos
     const totalUsos = subscriptions.reduce((s, sub) => s + sub.usesThisCycle, 0);
     const totalDisponivel = subscriptions.reduce((s, sub) => s + (sub.plan.maxUses || 0), 0);
-
-    // Serviços avulsos do mês por forma de pagamento
-    const avulsosDoMes = await prisma.appointment.findMany({
-      where: {
-        barbershopId,
-        status: "DONE",
-        subscriptionId: null,
-        date: { gte: startOfMonth(now), lte: endOfMonth(now) },
-      },
-      select: { price: true, paymentMethod: true },
-    });
 
     const avulsoByMethod: Record<string, { count: number; bruto: number; taxa: number; liquido: number }> = {};
     let avulsoBrutoTotal = 0;
@@ -109,14 +93,6 @@ export async function GET(req: NextRequest) {
       avulsoBrutoTotal += ap.price;
       avulsoLiquidoTotal += ap.price - taxa;
     }
-
-    // Inadimplentes e novas assinaturas
-    const [inadimplentes, novasMes] = await Promise.all([
-      prisma.subscription.count({ where: { barbershopId, status: "OVERDUE" } }),
-      prisma.subscription.count({
-        where: { barbershopId, createdAt: { gte: startOfMonth(now), lte: endOfMonth(now) } },
-      }),
-    ]);
 
     return NextResponse.json({
       poeOwnerPct,
