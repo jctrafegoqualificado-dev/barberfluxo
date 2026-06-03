@@ -332,6 +332,9 @@ model Subscription {
   plan         Plan          @relation(fields: [planId], references: [id])
   payments     Payment[]
   appointments Appointment[]
+
+  @@index([barbershopId, status])
+  @@index([barbershopId, status, nextBillingDate])
 }
 
 model Payment {
@@ -353,7 +356,8 @@ model Payment {
   barbershopId   String?
   barbershop     Barbershop?   @relation(fields: [barbershopId], references: [id])
 
-  @@index([mpPaymentId]) // busca rápida por ID do MP no webhook
+  @@index([subscriptionId]) // lookup rápido de pagamentos por assinatura
+  @@index([mpPaymentId])    // busca rápida por ID do MP no webhook
 }
 
 model OpeningHour {

@@ -66,6 +66,30 @@ const SUB_SELECT = {
   },
 } as const;
 
+// Versão leve para painéis (cobranças hoje, 7 dias, inadimplentes)
+// Omite planServices e allowedBarbers que são sub-queries desnecessárias na listagem
+const PANEL_SELECT = {
+  id: true,
+  status: true,
+  startDate: true,
+  nextBillingDate: true,
+  billingDay: true,
+  usesThisCycle: true,
+  beneficiaries: true,
+  createdAt: true,
+  mpPreapprovalId: true,
+  authorizationStatus: true,
+  authorizationLink: true,
+  authorizationSentAt: true,
+  client: { select: { id: true, name: true, email: true, phone: true } },
+  plan: { select: { id: true, name: true, price: true, maxUses: true } },
+  payments: {
+    select: { id: true, amount: true, method: true, status: true, paidAt: true, createdAt: true },
+    orderBy: { createdAt: "desc" as const },
+    take: 1,
+  },
+} as const;
+
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
@@ -147,51 +171,42 @@ export async function GET(req: NextRequest) {
       OR: [{ status: "OVERDUE" }, { status: "ACTIVE", nextBillingDate: { lte: now } }],
     };
 
-    // Run all queries in parallel
-    const [
-      subscriptions,
-      total,
-      allStatsRaw,
-      todayBilling,
-      billingIn7Days,
-      overdueSubs,
-    ] = await Promise.all([
-      prisma.subscription.findMany({ where: tableWhere, select: SUB_SELECT, orderBy, skip, take }),
-      prisma.subscription.count({ where: tableWhere }),
-      // Lightweight aggregate for KPI stats (all subs, no filter)
-      prisma.subscription.findMany({
-        where: { barbershopId },
-        select: { status: true, nextBillingDate: true, plan: { select: { price: true } } },
-      }),
-      // Panels: cobranças hoje
-      prisma.subscription.findMany({
-        where: { barbershopId, status: "ACTIVE", nextBillingDate: { gte: todayStart, lte: todayEnd } },
-        select: SUB_SELECT,
-        orderBy: { nextBillingDate: "asc" },
-      }),
-      // Panels: vencendo em 7 dias
-      prisma.subscription.findMany({
-        where: { barbershopId, status: "ACTIVE", nextBillingDate: { gt: todayEnd, lte: in7Days } },
-        select: SUB_SELECT,
-        orderBy: { nextBillingDate: "asc" },
-      }),
-      // All overdue subs for bulk UI (select all + bulk modal)
-      prisma.subscription.findMany({
-        where: overdueWhere,
-        select: SUB_SELECT,
-        orderBy: { nextBillingDate: "asc" },
-      }),
-    ]);
+    // ── Queries sequenciais (connection_limit=1 no Vercel/Supabase) ──────────
+    // allStatsRaw anterior buscava TODOS os assinantes sem paginação para calcular
+    // 4 números — substituído por queries direcionadas com índices.
+    const subscriptions = await prisma.subscription.findMany({ where: tableWhere, select: SUB_SELECT, orderBy, skip, take });
+    const total         = await prisma.subscription.count({ where: tableWhere });
 
-    // Compute KPI stats from lightweight aggregate
-    const activeItems = allStatsRaw.filter((s) => s.status === "ACTIVE");
-    const totalActive = activeItems.length;
-    const mrr = activeItems.reduce((sum, s) => sum + (s.plan as any).price, 0);
-    const overdueItems = allStatsRaw.filter(
-      (s) => s.status === "OVERDUE" || (s.status === "ACTIVE" && new Date(s.nextBillingDate) <= now)
-    );
-    const overdueCount = overdueItems.length;
-    const overdueTotal = overdueItems.reduce((sum, s) => sum + (s.plan as any).price, 0);
+    // Stats: busca apenas { plan.price } — sem client, payments, beneficiaries etc.
+    const activePriceRows  = await prisma.subscription.findMany({
+      where: { barbershopId, status: "ACTIVE", nextBillingDate: { gt: now } },
+      select: { plan: { select: { price: true } } },
+    });
+    const overduePriceRows = await prisma.subscription.findMany({
+      where: overdueWhere,
+      select: { plan: { select: { price: true } } },
+    });
+    const totalActive  = activePriceRows.length;
+    const mrr          = activePriceRows.reduce((s, r) => s + r.plan.price, 0);
+    const overdueCount = overduePriceRows.length;
+    const overdueTotal = overduePriceRows.reduce((s, r) => s + r.plan.price, 0);
+
+    // Panels: PANEL_SELECT omite planServices + allowedBarbers (sub-queries desnecessárias aqui)
+    const todayBilling  = await prisma.subscription.findMany({
+      where: { barbershopId, status: "ACTIVE", nextBillingDate: { gte: todayStart, lte: todayEnd } },
+      select: PANEL_SELECT,
+      orderBy: { nextBillingDate: "asc" },
+    });
+    const billingIn7Days = await prisma.subscription.findMany({
+      where: { barbershopId, status: "ACTIVE", nextBillingDate: { gt: todayEnd, lte: in7Days } },
+      select: PANEL_SELECT,
+      orderBy: { nextBillingDate: "asc" },
+    });
+    const overdueSubs = await prisma.subscription.findMany({
+      where: overdueWhere,
+      select: PANEL_SELECT,
+      orderBy: { nextBillingDate: "asc" },
+    });
 
     const res = NextResponse.json({
       subscriptions,
