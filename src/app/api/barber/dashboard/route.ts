@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         include: {
           client: { select: { name: true, phone: true } },
           service: { select: { name: true, duration: true } },
-          subscription: { select: { id: true, status: true, plan: { select: { name: true } } } },
+          subscription: { select: { id: true, status: true, plan: { select: { name: true, extraDiscount: true, planServices: { select: { serviceId: true } } } } } },
         },
         orderBy: { startTime: "asc" },
       }),
