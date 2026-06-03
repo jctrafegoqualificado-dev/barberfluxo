@@ -12,19 +12,18 @@ export async function GET(req: NextRequest) {
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
-    const [shop, subscriptions, avulsosDoMes, inadimplentes, novasMes] = await Promise.all([
+    // Queries planas e paralelas — evita include aninhado subscription→appointments→barber→user
+    const [shop, subscriptions, subAppointments, avulsosDoMes, inadimplentes, novasMes] = await Promise.all([
       prisma.barbershop.findUnique({ where: { id: barbershopId } }),
       prisma.subscription.findMany({
         where: { barbershopId, status: "ACTIVE" },
-        include: {
-          plan: true,
-          appointments: {
-            where: { status: "DONE", subscriptionId: { not: null }, date: { gte: monthStart, lte: monthEnd } },
-            include: {
-              barber: { include: { user: { select: { name: true } } } },
-              service: true,
-            },
-          },
+        select: { id: true, planId: true, usesThisCycle: true, plan: { select: { id: true, name: true, price: true, maxUses: true } } },
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: monthStart, lte: monthEnd } },
+        select: {
+          barberId: true,
+          barber: { select: { id: true, user: { select: { name: true } } } },
         },
       }),
       prisma.appointment.findMany({
@@ -53,7 +52,7 @@ export async function GET(req: NextRequest) {
     const poeBarbearia = poeTotal * (poeOwnerPct / 100);
     const poolBarbeiros = poeTotal * (poeBarberPct / 100);
 
-    const allAppointments = subscriptions.flatMap((sub) => sub.appointments);
+    const allAppointments = subAppointments;
     const totalServicos = allAppointments.length;
     const ticketPorServico = totalServicos > 0 ? poolBarbeiros / totalServicos : 0;
 
