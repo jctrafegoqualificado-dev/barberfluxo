@@ -101,14 +101,21 @@ export async function GET(req: NextRequest) {
       byShop[shopId].count++;
     }
 
-    // Busca telefone do dono de cada barbearia e envia resumo
+    // Busca donos de todas as barbearias em uma única query
+    const shopIdsWithInstance = Object.entries(byShop)
+      .filter(([, info]) => info.instance !== null)
+      .map(([id]) => id);
+
+    const shopOwners = await prisma.barbershop.findMany({
+      where: { id: { in: shopIdsWithInstance } },
+      select: { id: true, owner: { select: { name: true, phone: true } } },
+    });
+    const ownerByShop = new Map(shopOwners.map((s) => [s.id, s.owner]));
+
     for (const [shopId, info] of Object.entries(byShop)) {
       if (!info.instance) continue;
 
-      const owner = await prisma.user.findFirst({
-        where: { role: "OWNER", ownedShop: { id: shopId } },
-        select: { name: true, phone: true },
-      });
+      const owner = ownerByShop.get(shopId);
 
       if (!owner?.phone) continue;
 

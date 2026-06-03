@@ -11,6 +11,23 @@ Que tal agendar um horário? Estamos te esperando! ✂️`;
 
 const COOLDOWN_DAYS = 30;
 
+type EligibleClient = {
+  clientId: string;
+  date: Date;
+  name: string;
+  phone: string | null;
+};
+
+type ShopEligible = {
+  shop: {
+    id: string;
+    name: string;
+    retentionMessage: string | null;
+    whatsappInstance: { evolutionInstanceName: string; evolutionToken: string | null } | null;
+  };
+  eligible: EligibleClient[];
+};
+
 export async function GET(req: NextRequest) {
   const startedAt = Date.now();
   try {
@@ -27,6 +44,7 @@ export async function GET(req: NextRequest) {
     }
 
     const now = new Date();
+    const cooldownCutoff = new Date(now.getTime() - COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
     console.log(`[client-retention] Starting at ${now.toISOString()}`);
 
     const shops = await prisma.barbershop.findMany({
@@ -48,77 +66,72 @@ export async function GET(req: NextRequest) {
 
     console.log(`[client-retention] ${shops.length} barbearias com retenção ativa`);
 
-    let totalSent = 0;
-    let totalSkipped = 0;
-    let totalErrors = 0;
+    // Phase 1: coleta clientes elegíveis de todas as barbearias em paralelo
+    const allShopEligible: ShopEligible[] = [];
 
-    for (const shop of shops) {
-      if (!shop.whatsappInstance) continue;
+    await Promise.all(shops.map(async (shop) => {
+      if (!shop.whatsappInstance) return;
 
       const inactivityCutoff = new Date(now.getTime() - shop.retentionDays * 24 * 60 * 60 * 1000);
-      const cooldownCutoff = new Date(now.getTime() - COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
 
-      // Clientes desta barbearia com último agendamento DONE antes do corte de inatividade
       const inactiveClients = await prisma.appointment.findMany({
-        where: {
-          barbershopId: shop.id,
-          status: "DONE",
-          date: { lte: inactivityCutoff },
-        },
+        where: { barbershopId: shop.id, status: "DONE", date: { lte: inactivityCutoff } },
         select: { clientId: true, date: true },
         orderBy: { date: "desc" },
         distinct: ["clientId"],
       });
 
-      if (inactiveClients.length === 0) continue;
+      if (inactiveClients.length === 0) return;
 
-      // Exclui clientes com agendamento futuro ou recente (< retentionDays)
-      const clientsWithFuture = await prisma.appointment.findMany({
-        where: {
-          barbershopId: shop.id,
-          clientId: { in: inactiveClients.map((c) => c.clientId) },
-          date: { gt: inactivityCutoff },
-        },
-        select: { clientId: true },
-        distinct: ["clientId"],
-      });
+      const clientIds = inactiveClients.map((c) => c.clientId);
+
+      const [clientsWithFuture, recentlySent, clientData] = await Promise.all([
+        prisma.appointment.findMany({
+          where: { barbershopId: shop.id, clientId: { in: clientIds }, date: { gt: inactivityCutoff } },
+          select: { clientId: true },
+          distinct: ["clientId"],
+        }),
+        prisma.clientRetention.findMany({
+          where: { barbershopId: shop.id, clientId: { in: clientIds }, lastSentAt: { gte: cooldownCutoff } },
+          select: { clientId: true },
+        }),
+        prisma.user.findMany({
+          where: { id: { in: clientIds } },
+          select: { id: true, name: true, phone: true },
+        }),
+      ]);
+
       const hasRecentSet = new Set(clientsWithFuture.map((c) => c.clientId));
-
-      // Exclui quem já recebeu mensagem de retenção nos últimos COOLDOWN_DAYS
-      const recentlySent = await prisma.clientRetention.findMany({
-        where: {
-          barbershopId: shop.id,
-          clientId: { in: inactiveClients.map((c) => c.clientId) },
-          lastSentAt: { gte: cooldownCutoff },
-        },
-        select: { clientId: true },
-      });
       const sentRecentlySet = new Set(recentlySent.map((r) => r.clientId));
-
-      const eligible = inactiveClients.filter(
-        (c) => !hasRecentSet.has(c.clientId) && !sentRecentlySet.has(c.clientId)
-      );
-
-      if (eligible.length === 0) continue;
-
-      // Busca dados dos clientes elegíveis
-      const clientData = await prisma.user.findMany({
-        where: { id: { in: eligible.map((c) => c.clientId) } },
-        select: { id: true, name: true, phone: true },
-      });
       const clientMap = new Map(clientData.map((c) => [c.id, c]));
 
-      console.log(`[client-retention] ${shop.name}: ${eligible.length} clientes inativos elegíveis`);
+      const eligible: EligibleClient[] = inactiveClients.flatMap((c) => {
+        if (hasRecentSet.has(c.clientId) || sentRecentlySet.has(c.clientId)) return [];
+        const client = clientMap.get(c.clientId);
+        if (!client) return [];
+        return [{ clientId: c.clientId, date: c.date, name: client.name, phone: client.phone }];
+      });
 
+      if (eligible.length > 0) {
+        allShopEligible.push({ shop, eligible });
+        console.log(`[client-retention] ${shop.name}: ${eligible.length} clientes inativos elegíveis`);
+      }
+    }));
+
+    let totalSent = 0;
+    let totalSkipped = 0;
+    let totalErrors = 0;
+
+    // Phase 2: envia mensagens sequencialmente (rate limiting do WhatsApp)
+    for (const { shop, eligible } of allShopEligible) {
       const template = shop.retentionMessage || DEFAULT_MESSAGE;
-      const { evolutionInstanceName, evolutionToken } = shop.whatsappInstance;
+      const { evolutionInstanceName, evolutionToken } = shop.whatsappInstance!;
 
-      for (const { clientId, date } of eligible) {
-        const client = clientMap.get(clientId);
-        if (!client?.phone) { totalSkipped++; continue; }
+      for (const { clientId, date, name, phone } of eligible) {
+        if (!phone) { totalSkipped++; continue; }
 
         const diasInativos = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-        const firstName = client.name.split(" ")[0];
+        const firstName = name.split(" ")[0];
 
         const message = template
           .replace(/\{\{nome\}\}/g, firstName)
@@ -128,14 +141,14 @@ export async function GET(req: NextRequest) {
 
         const result = await sendMessage(
           evolutionInstanceName,
-          client.phone,
+          phone,
           message,
           1200,
-          evolutionToken
+          evolutionToken ?? undefined
         );
 
         if ("error" in result) {
-          console.error(`[client-retention] Erro ao enviar para ${client.phone}: ${result.error}`);
+          console.error(`[client-retention] Erro ao enviar para ${phone}: ${result.error}`);
           totalErrors++;
         } else {
           totalSent++;

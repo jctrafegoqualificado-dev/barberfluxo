@@ -24,50 +24,55 @@ export async function GET(req: NextRequest) {
     const monthStart = startOfMonth(new Date(month + "-15"));
     const monthEnd = endOfMonth(monthStart);
 
-    // Fetch shop fees
-    const shop = await prisma.barbershop.findUnique({ where: { id: barbershopId } });
-    const debitFee = shop?.debitFee ?? 0;
-    const creditFee = shop?.creditFee ?? 0;
-
-    // ── 1. Appointments (Entradas)
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        barbershopId,
-        status: "DONE",
-        date: { gte: monthStart, lte: monthEnd },
-      },
-      include: {
-        client: { select: { name: true } },
-        barber: { include: { user: { select: { name: true } } } },
-        service: { select: { name: true } },
-        services: { include: { service: { select: { name: true } } } },
-      },
-      orderBy: { date: "desc" },
-    });
-
-    // ── 2. Expenses (Saídas)
-    const expenses = await prisma.expense.findMany({
-      where: { barbershopId, month },
-      orderBy: { createdAt: "desc" },
-    });
-
-    // ── 2b. Subscription payments confirmed this month (admin deu baixa)
-    const subscriptionPayments = await prisma.payment.findMany({
-      where: {
-        subscription: { barbershopId },
-        status: "PAID",
-        paidAt: { gte: monthStart, lte: monthEnd },
-      },
-      include: {
-        subscription: {
-          include: {
-            client: { select: { name: true } },
-            plan: { select: { name: true } },
+    // ── 1-2b. Todas as queries em paralelo
+    const [shop, appointments, expenses, subscriptionPayments] = await Promise.all([
+      prisma.barbershop.findUnique({
+        where: { id: barbershopId },
+        select: { debitFee: true, creditFee: true },
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: "DONE", date: { gte: monthStart, lte: monthEnd } },
+        select: {
+          id: true,
+          price: true,
+          paymentMethod: true,
+          date: true,
+          subscriptionId: true,
+          client: { select: { name: true } },
+          service: { select: { name: true } },
+          services: { select: { service: { select: { name: true } } } },
+        },
+        orderBy: { date: "desc" },
+      }),
+      prisma.expense.findMany({
+        where: { barbershopId, month },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.payment.findMany({
+        where: {
+          subscription: { barbershopId },
+          status: "PAID",
+          paidAt: { gte: monthStart, lte: monthEnd },
+        },
+        select: {
+          id: true,
+          amount: true,
+          method: true,
+          paidAt: true,
+          createdAt: true,
+          subscription: {
+            select: {
+              client: { select: { name: true } },
+              plan: { select: { name: true } },
+            },
           },
         },
-      },
-      orderBy: { paidAt: "desc" },
-    });
+        orderBy: { paidAt: "desc" },
+      }),
+    ]);
+
+    const debitFee = shop?.debitFee ?? 0;
+    const creditFee = shop?.creditFee ?? 0;
 
     // ── 3. Build unified transaction list
     type Transaction = {
