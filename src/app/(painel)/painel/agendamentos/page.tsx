@@ -931,7 +931,7 @@ export default function AgendamentosPage() {
       .then(r => r.json()).then(d => setServices((d.services || []).filter((s: any) => s.active)));
     fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setProducts(d.products || []));
-    fetch("/api/barbershop/financeiro", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/api/barbershop/settings", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setDiscountSettings({ servicesEnabled: Boolean(d.discountServicesEnabled), servicesMax: Number(d.discountServicesMax ?? 20) }));
   }, [token]);
 

@@ -22,6 +22,13 @@ export async function GET(req: NextRequest) {
         saasExpiresAt: true,
         trialEndsAt: true,
         onboardingCompleted: true,
+        discountServicesEnabled: true,
+        discountServicesMax: true,
+        discountProductsEnabled: true,
+        discountProductsMax: true,
+        debitFee: true,
+        creditFee: true,
+        poeOwnerPct: true,
       }
     });
 
