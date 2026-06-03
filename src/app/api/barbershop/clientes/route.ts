@@ -20,35 +20,37 @@ export async function GET(req: NextRequest) {
       barberIdFilter = barber.id;
     }
 
-    // Busca todos os usuários que são CLIENTES nesta barbearia (com agendamentos, assinaturas ou vinculados à barbearia)
-    const dbClients = await prisma.user.findMany({
-      where: {
-        role: "CLIENT", // Note: DELETED_CLIENT is excluded automatically here
-        OR: [
-          { appointments: { some: { barbershopId } } },
-          { subscriptions: { some: { barbershopId } } }
-        ]
-      },
-      include: {
-        appointments: {
-          where: { barbershopId, status: { in: ["DONE", "NO_SHOW"] } },
-          orderBy: { date: "asc" },
-          select: { date: true, price: true, status: true },
+    const [dbClients, reviewsAgg] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          role: "CLIENT",
+          OR: [
+            { appointments: { some: { barbershopId } } },
+            { subscriptions: { some: { barbershopId } } },
+          ],
         },
-        subscriptions: {
-          where: { barbershopId, status: "ACTIVE" },
-          include: { plan: true }
-        }
-      }
-    });
+        include: {
+          appointments: {
+            where: { barbershopId, status: { in: ["DONE", "NO_SHOW"] } },
+            orderBy: { date: "asc" },
+            select: { date: true, price: true, status: true },
+          },
+          subscriptions: {
+            where: { barbershopId, status: "ACTIVE" },
+            select: { createdAt: true, plan: { select: { name: true } } },
+          },
+        },
+      }),
+      prisma.review.aggregate({
+        where: { barbershopId },
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+    ]);
 
-    // Calcula a média geral das avaliações realizadas para obter a "Moral" (NPS geral) da barbearia
-    const reviews = await prisma.review.findMany({
-      where: { barbershopId }
-    });
-    const totalReviews = reviews.length;
-    const avgRating = totalReviews > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews : 0;
-    const moral = totalReviews > 0 ? Math.round(avgRating * 10) / 10 : 5.0; // Padrão 5.0 se sem reviews
+    const totalReviews = reviewsAgg._count._all;
+    const avgRating = reviewsAgg._avg.rating ?? 0;
+    const moral = totalReviews > 0 ? Math.round(avgRating * 10) / 10 : 5.0;
 
     const clientes = dbClients.map((u) => {
       const doneAppts = u.appointments.filter((a) => a.status === "DONE");
@@ -90,7 +92,7 @@ export async function GET(req: NextRequest) {
         avgFrequency,
         isNew,
         noShowCount,
-        activePlan: u.subscriptions[0]?.plan.name ?? null,
+        activePlan: u.subscriptions[0]?.plan?.name ?? null,
       };
     });
 

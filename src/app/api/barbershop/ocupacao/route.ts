@@ -20,12 +20,24 @@ export async function GET(req: NextRequest) {
     const start = periodo === "semana" ? startOfWeek(now, { weekStartsOn: 1 }) : startOfMonth(now);
     const end = periodo === "semana" ? endOfWeek(now, { weekStartsOn: 1 }) : endOfMonth(now);
 
-    // Horários de funcionamento da barbearia
-    let openingHours = await prisma.openingHour.findMany({
-      where: { barbershopId, isOpen: true },
-    });
+    const [openingHoursRaw, barbers, appointments] = await Promise.all([
+      prisma.openingHour.findMany({ where: { barbershopId, isOpen: true } }),
+      prisma.barber.findMany({
+        where: { barbershopId, active: true },
+        include: { user: { select: { name: true } } },
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, date: { gte: start, lte: end }, status: "DONE" },
+        select: {
+          barberId: true,
+          date: true,
+          service: { select: { duration: true } },
+          services: { select: { duration: true, service: { select: { duration: true } } } },
+        },
+      }),
+    ]);
 
-    // Fallback caso não existam horários configurados no banco (como Lord of Barba)
+    let openingHours = openingHoursRaw;
     if (openingHours.length === 0) {
       openingHours = [1, 2, 3, 4, 5, 6].map((day) => ({
         id: "default",
@@ -41,27 +53,6 @@ export async function GET(req: NextRequest) {
     for (const oh of openingHours) {
       minutesByDay[oh.dayOfWeek] = timeToMinutes(oh.closeTime) - timeToMinutes(oh.openTime);
     }
-
-    // Barbeiros ativos
-    const barbers = await prisma.barber.findMany({
-      where: { barbershopId, active: true },
-      include: { user: { select: { name: true } } },
-    });
-
-    // Apenas comandas fechadas (serviços efetivamente realizados)
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        barbershopId,
-        date: { gte: start, lte: end },
-        status: "DONE",
-      },
-      include: { 
-        service: true,
-        services: {
-          include: { service: true }
-        }
-      },
-    });
 
     // Dias úteis no período
     const days = eachDayOfInterval({ start, end });
