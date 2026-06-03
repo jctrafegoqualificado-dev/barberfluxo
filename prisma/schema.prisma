@@ -195,6 +195,9 @@ model Barber {
   commissionVales    CommissionVale[]
   reviews            Review[]
   allowedPlans       Plan[] @relation("PlanAllowedBarbers")
+
+  @@index([barbershopId])
+  @@index([barbershopId, active])
 }
 
 model Service {
@@ -215,6 +218,9 @@ model Service {
   appointments        Appointment[]
   planServices        PlanService[]
   appointmentServices AppointmentService[] @relation("AppointmentServices")
+
+  @@index([barbershopId])
+  @@index([barbershopId, active])
 }
 
 model Appointment {
@@ -291,6 +297,9 @@ model Plan {
   commissionPercentage Float? // Comissão especial (%) para os serviços realizados dentro deste plano
   extraDiscount        Float  @default(0) // % de desconto automático nos serviços extras para assinantes deste plano (0 = sem desconto)
   allowedBarbers Barber[] @relation("PlanAllowedBarbers")
+
+  @@index([barbershopId])
+  @@index([barbershopId, active])
 }
 
 model PlanService {
@@ -335,6 +344,7 @@ model Subscription {
 
   @@index([barbershopId, status])
   @@index([barbershopId, status, nextBillingDate])
+  @@index([clientId])
 }
 
 model Payment {
@@ -358,6 +368,7 @@ model Payment {
 
   @@index([subscriptionId]) // lookup rápido de pagamentos por assinatura
   @@index([mpPaymentId])    // busca rápida por ID do MP no webhook
+  @@index([barbershopId, status, createdAt])
 }
 
 model OpeningHour {
@@ -406,6 +417,9 @@ model Product {
   barbershopId String
   barbershop   Barbershop    @relation(fields: [barbershopId], references: [id])
   sales        ProductSale[]
+
+  @@index([barbershopId])
+  @@index([barbershopId, active])
 }
 
 model ProductSale {
@@ -425,6 +439,7 @@ model ProductSale {
   client       User?      @relation("ClientProductSales", fields: [clientId], references: [id])
 
   @@index([barbershopId, createdAt])
+  @@index([barbershopId, barberId])
 }
 
 model CommissionPayment {
@@ -441,6 +456,8 @@ model CommissionPayment {
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
 
   @@unique([barberId, month, type])
+  @@index([barbershopId, month])
+  @@index([barbershopId, barberId, month])
 }
 
 model CommissionVale {
@@ -454,6 +471,8 @@ model CommissionVale {
   barber       Barber     @relation(fields: [barberId], references: [id])
   barbershopId String
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
+
+  @@index([barbershopId, barberId, month])
 }
 
 model Meta {
@@ -470,6 +489,9 @@ model Meta {
 
   barberId String?
   barber   Barber? @relation(fields: [barberId], references: [id])
+
+  @@index([barbershopId])
+  @@index([barbershopId, barberId])
 }
 
 model ScheduleBlock {
@@ -481,6 +503,8 @@ model ScheduleBlock {
 
   barberId String
   barber   Barber @relation(fields: [barberId], references: [id])
+
+  @@index([barberId, date])
 }
 
 model Task {
@@ -497,6 +521,9 @@ model Task {
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
   barberId     String?
   barber       Barber?    @relation(fields: [barberId], references: [id])
+
+  @@index([barbershopId, status])
+  @@index([barbershopId, barberId])
 }
 
 model WhatsAppContact {
@@ -576,6 +603,7 @@ model Review {
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
 
   @@index([barbershopId, createdAt])
+  @@index([barbershopId, barberId])
 }
 
 model LoyaltyPoint {
@@ -589,6 +617,9 @@ model LoyaltyPoint {
   client        User        @relation("ClientLoyaltyPoints", fields: [clientId], references: [id])
   barbershopId  String
   barbershop    Barbershop  @relation(fields: [barbershopId], references: [id])
+
+  @@index([barbershopId, clientId])
+  @@index([barbershopId, createdAt])
 }
 
 model ApiKey {
@@ -722,6 +753,8 @@ model CashFlowEntry {
 
   sessionId     String
   session       CashFlowSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
 }
 
 // ===================== RETENÇÃO DE CLIENTES =====================

@@ -32,10 +32,6 @@ export async function GET(req: NextRequest) {
       monthKey = format(refDate, "yyyy-MM");
     }
 
-    // ── Bulk queries sequenciais (8 total, independente do nº de barbeiros) ──
-    // connection_limit=1 no Vercel/Supabase: queries paralelas causam pool
-    // exhaustion com N barbeiros → substituído por bulk + agrupamento em memória
-
     const barbers = await prisma.barber.findMany({
       where: { barbershopId, active: true },
       include: { user: { select: { id: true, name: true, email: true } } },
@@ -45,37 +41,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ barbers: [], mes: mesLabel, monthOffset, monthKey, totalSubRevenue: 0, ticketMedioSub: 0 });
     }
 
-    const subPayments = await prisma.payment.findMany({
-      where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end } },
-    });
-
-    const allAvulsos = await prisma.appointment.findMany({
-      where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: start, lte: end } },
-      include: { service: true, client: { select: { name: true } } },
-    });
-
-    const allSubAppointments = await prisma.appointment.findMany({
-      where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: start, lte: end } },
-      include: { service: true, client: { select: { name: true } }, subscription: { include: { plan: true } } },
-    });
-
-    const allProductSales = await prisma.productSale.findMany({
-      where: { barbershopId, createdAt: { gte: start, lte: end } },
-      include: { product: true },
-    });
-
-    const allCommissionPayments = await prisma.commissionPayment.findMany({
-      where: { barbershopId, month: monthKey },
-    });
-
-    const allVales = await prisma.commissionVale.findMany({
-      where: { barbershopId, month: monthKey },
-      orderBy: { createdAt: "asc" },
-    });
-
-    const allReviews = await prisma.review.findMany({
-      where: { barbershopId, createdAt: { gte: start, lte: end } },
-    });
+    const [subPayments, allAvulsos, allSubAppointments, allProductSales, allCommissionPayments, allVales, allReviews] = await Promise.all([
+      prisma.payment.findMany({
+        where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end } },
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: start, lte: end } },
+        include: { service: true, client: { select: { name: true } } },
+      }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: start, lte: end } },
+        include: { service: true, client: { select: { name: true } }, subscription: { include: { plan: true } } },
+      }),
+      prisma.productSale.findMany({
+        where: { barbershopId, createdAt: { gte: start, lte: end } },
+        include: { product: true },
+      }),
+      prisma.commissionPayment.findMany({
+        where: { barbershopId, month: monthKey },
+      }),
+      prisma.commissionVale.findMany({
+        where: { barbershopId, month: monthKey },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.review.findMany({
+        where: { barbershopId, createdAt: { gte: start, lte: end } },
+      }),
+    ]);
 
     // ── Pool de assinaturas (calculado globalmente) ──
     const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
