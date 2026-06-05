@@ -1362,8 +1362,12 @@ export default function AgendamentosPage() {
                       const height = Math.max(durationHeight(a.startTime, a.endTime), ROW_H * 2);
                       const s = STATUS_STYLE[a.status] ?? STATUS_STYLE.CONFIRMED;
 
-                      // Lógica de Encaixe: Divide a largura se houver colisão de horário inicial
-                      const overlapping = barberAppts.filter(x => x.startTime === a.startTime);
+                      // Detecta sobreposição real por intervalo (não só startTime idêntico)
+                      const aStart = toMin(a.startTime);
+                      const aEnd   = toMin(a.endTime);
+                      const overlapping = barberAppts
+                        .filter(x => aStart < toMin(x.endTime) && aEnd > toMin(x.startTime))
+                        .sort((x, y) => x.id.localeCompare(y.id));
                       const totalOverlapping = overlapping.length;
                       const overlapIndex = overlapping.findIndex(x => x.id === a.id);
                       
