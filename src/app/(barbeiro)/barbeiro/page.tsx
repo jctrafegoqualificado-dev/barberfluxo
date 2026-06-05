@@ -586,9 +586,8 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
   );
   const [tip, setTip] = useState("");
   const [extraPaymentMethod, setExtraPaymentMethod] = useState("CASH");
-  const [planServiceIds] = useState<string[]>(() =>
-    appt.subscription?.plan?.planServices?.map((ps: any) => ps.serviceId) ?? []
-  );
+  const [overrideSub, setOverrideSub] = useState<any | null>(null);
+  const [applyOverride, setApplyOverride] = useState(false);
   const [products, setProducts] = useState<{ id: string; name: string; price: number; stock: number }[]>([]);
   const [allServices, setAllServices] = useState<{ id: string; name: string; price: number; duration: number }[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
@@ -606,7 +605,10 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
   });
   const isActive = appt.status === "CONFIRMED" || appt.status === "PENDING";
   const isActiveSub = appt.subscription?.status === "ACTIVE";
-  const extraServiceIds = isActiveSub ? selectedServiceIds.filter(id => !planServiceIds.includes(id)) : [];
+  const effectiveSub = isActiveSub ? appt.subscription : (applyOverride ? overrideSub : null);
+  const effectiveIsActiveSub = !!effectiveSub;
+  const planServiceIds = effectiveSub?.plan?.planServices?.map((ps: any) => ps.serviceId ?? ps.service?.id).filter(Boolean) ?? [];
+  const extraServiceIds = effectiveIsActiveSub ? selectedServiceIds.filter(id => !planServiceIds.includes(id)) : [];
   const extraServices = allServices.filter(s => extraServiceIds.includes(s.id));
   const calculatedExtraPrice = extraServices.reduce((sum, s) => sum + s.price, 0);
   const tipAmount = Number(tip) || 0;
@@ -651,6 +653,28 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
       .finally(() => setLoadingProducts(false));
   }, [showPayment, token]);
 
+  // Detecta assinatura ativa do cliente quando o agendamento foi criado sem uma
+  useEffect(() => {
+    if (isActiveSub || !appt.client?.phone || !token) return;
+    const phone = appt.client.phone.replace(/\D/g, "");
+    if (phone.length < 10) return;
+    fetch(`/api/barbershop/subscriptions?phone=${phone}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => {
+        const sub = (d.subscriptions || []).find((s: any) => s.status === "ACTIVE");
+        setOverrideSub(sub ?? null);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  function handleApplyOverride() {
+    setApplyOverride(true);
+    setPaymentMethod("SUBSCRIPTION");
+    const d = overrideSub?.plan?.extraDiscount ?? 0;
+    if (d > 0) setDiscountPercent(d);
+  }
+
   async function saveServices() {
     if (selectedServiceIds.length === 0) return;
     setSaving(true);
@@ -691,7 +715,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
         fetch(`/api/barbershop/products/${pid}/sell`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ quantity: qty, paymentMethod: isActiveSub ? extraPaymentMethod : paymentMethod }),
+          body: JSON.stringify({ quantity: qty, paymentMethod: effectiveIsActiveSub ? extraPaymentMethod : paymentMethod }),
         })
       ));
     }
@@ -721,9 +745,10 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
         status: "DONE",
         paymentMethod,
         ...(discountPercent > 0 ? { discountPercent } : {}),
-        ...(isActiveSub && totalExtraToCharge > 0
+        ...(effectiveIsActiveSub && totalExtraToCharge > 0
           ? { extraPrice: totalExtraToCharge, extraPaymentMethod }
           : {}),
+        ...(applyOverride && overrideSub ? { subscriptionId: overrideSub.id } : {}),
       }),
     });
     onDone();
@@ -829,11 +854,26 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
               <h3 className="font-semibold text-zinc-900 text-center">Fechar comanda</h3>
 
-              {appt.subscription?.status === "ACTIVE" ? (
+              {!isActiveSub && overrideSub && !applyOverride && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-blue-700 font-semibold text-sm">Assinante detectado</p>
+                    <p className="text-blue-600 text-xs mt-0.5 truncate">Plano: {overrideSub.plan?.name}</p>
+                  </div>
+                  <button
+                    onClick={handleApplyOverride}
+                    className="shrink-0 text-xs font-bold text-blue-700 bg-blue-100 border border-blue-300 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition-colors"
+                  >
+                    Usar assinatura
+                  </button>
+                </div>
+              )}
+
+              {effectiveIsActiveSub ? (
                 <div className="space-y-3">
                   {/* Serviços cobertos pelo plano */}
                   <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-                    <p className="text-green-700 font-semibold text-sm">✅ Coberto pelo plano · {appt.subscription.plan.name}</p>
+                    <p className="text-green-700 font-semibold text-sm">✅ Coberto pelo plano · {effectiveSub!.plan.name}</p>
                     {allServices.filter(s => planServiceIds.includes(s.id) && selectedServiceIds.includes(s.id)).map(s => (
                       <div key={s.id} className="flex justify-between text-xs text-green-600 mt-1">
                         <span>{s.name}</span>

@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
     const body = await req.json();
-    const { id, status, paymentMethod, serviceIds, extraPrice, extraPaymentMethod, discountPercent } = body;
+    const { id, status, paymentMethod, serviceIds, extraPrice, extraPaymentMethod, discountPercent, subscriptionId: overrideSubscriptionId } = body;
 
     // ── Edição de serviços da comanda ──
     if (Array.isArray(serviceIds) && serviceIds.length > 0) {
@@ -160,10 +160,22 @@ export async function PATCH(req: NextRequest) {
     // Busca o estado ANTERIOR e valida posse do tenant em uma única query
     const previousState = await prisma.appointment.findUnique({
       where: { id },
-      select: { status: true, barbershopId: true, price: true, subscriptionId: true },
+      select: { status: true, barbershopId: true, price: true, subscriptionId: true, clientId: true },
     });
     if (!previousState || previousState.barbershopId !== barbershopId) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    }
+
+    // Vincula assinatura retroativamente (cliente virou assinante após agendar)
+    if (overrideSubscriptionId && !previousState.subscriptionId) {
+      const sub = await prisma.subscription.findUnique({
+        where: { id: overrideSubscriptionId },
+        select: { clientId: true, barbershopId: true },
+      });
+      if (!sub || sub.barbershopId !== barbershopId || sub.clientId !== previousState.clientId) {
+        return NextResponse.json({ error: "Assinatura inválida" }, { status: 400 });
+      }
+      updateData.subscriptionId = overrideSubscriptionId;
     }
 
     // Aplica desconto ao price para clientes não-assinantes (extraPrice já vem descontado do front para assinantes)

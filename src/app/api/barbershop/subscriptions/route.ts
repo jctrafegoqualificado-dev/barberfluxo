@@ -49,6 +49,7 @@ const SUB_SELECT = {
       beneficiaryRules: true,
       active: true,
       commissionPercentage: true,
+      extraDiscount: true,
       planServices: {
         select: {
           id: true,
