@@ -1714,12 +1714,29 @@ export default function BarbeiroAgendaPage() {
                 const height = Math.max((timeToMin(a.endTime) - timeToMin(a.startTime)) * PX_PER_MIN, 28);
                 const bg = STATUS_BG[a.status] ?? "bg-primary";
                 const isActive = a.status === "CONFIRMED" || a.status === "PENDING";
+
+                // Detecta sobreposição real por intervalo (não só startTime idêntico)
+                const aStart = timeToMin(a.startTime);
+                const aEnd   = timeToMin(a.endTime);
+                const overlapping = agendaAppts
+                  .filter(b => aStart < timeToMin(b.endTime) && aEnd > timeToMin(b.startTime))
+                  .sort((x, y) => x.id.localeCompare(y.id));
+                const total = overlapping.length;
+                const idx   = overlapping.findIndex(b => b.id === a.id);
+                const widthPct = 100 / total;
+                const leftPct  = idx * widthPct;
+
                 return (
                   <div
                     key={a.id}
                     draggable
-                    style={{ top: `${top}px`, height: `${height}px` }}
-                    className={`absolute left-1 right-1 ${bg} rounded-lg px-2 py-1 z-20 overflow-hidden cursor-grab select-none active:brightness-90`}
+                    style={{
+                      top: `${top}px`,
+                      height: `${height}px`,
+                      left: `calc(${leftPct}% + 2px)`,
+                      width: `calc(${widthPct}% - 4px)`,
+                    }}
+                    className={`absolute ${bg} rounded-lg px-2 py-1 z-20 overflow-hidden cursor-grab select-none active:brightness-90`}
                     onDragStart={(e) => {
                       draggingId.current = a.id;
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
