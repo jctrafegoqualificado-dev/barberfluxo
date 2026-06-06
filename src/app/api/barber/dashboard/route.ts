@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const monthStart = new Date(Date.UTC(brYear, brMonth - 1, 1, 0, 0, 0, 0));
     const monthEnd = new Date(Date.UTC(brYear, brMonth - 1, new Date(brYear, brMonth, 0).getDate(), 23, 59, 59, 999));
 
-    const [todayAppts, monthAppts, productSalesMonth] = await Promise.all([
+    const [todayAppts, monthAppts, productSalesMonth, subPaymentsMonth, allSubApptsCount] = await Promise.all([
       prisma.appointment.findMany({
         where: { barberId: barber.id, date: { gte: todayStart, lte: todayEnd } },
         include: {
@@ -39,24 +39,41 @@ export async function GET(req: NextRequest) {
         where: { barberId: barber.id, createdAt: { gte: monthStart, lte: monthEnd } },
         select: { total: true, quantity: true, product: { select: { commissionType: true, commissionValue: true } } },
       }),
+      prisma.payment.findMany({
+        where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: monthStart, lte: monthEnd } },
+        select: { amount: true },
+      }),
+      prisma.appointment.count({
+        where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "DONE", date: { gte: monthStart, lte: monthEnd } },
+      }),
     ]);
 
     function calcComissao(valor: number, type: string, rate: number) {
       return type === "FIXED" ? rate : valor * (rate / 100);
     }
 
+    // Pool de assinatura (mesma lógica do relatório de comissões)
+    const totalSubRevenue = subPaymentsMonth.reduce((s, p) => s + p.amount, 0);
+    const ticketMedioSub = allSubApptsCount > 0 ? (totalSubRevenue * 0.5) / allSubApptsCount : 0;
+
     const monthFaturado = monthAppts.reduce((s, a) => s + a.price, 0);
     const monthComissaoServicos = monthAppts.reduce((s, a) => {
+      const extraComm = (a.extraPrice ?? 0) > 0
+        ? calcComissao(a.extraPrice ?? 0, barber.commissionType, barber.commission)
+        : 0;
+
+      // Assinante: comissão pelo pool (ticketMédio), não pelo preço cheio do serviço
+      if (a.subscriptionId) {
+        return s + ticketMedioSub + extraComm;
+      }
+
+      // Avulso: comissão normal sobre o preço do serviço
       const materialCost = a.service?.materialCost || 0;
       const netValue = Math.max(0, a.price - materialCost);
       const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
       const baseComm = hasCustomCommission
         ? calcComissao(netValue, "PERCENTAGE", a.service!.commission!)
         : calcComissao(netValue, barber.commissionType, barber.commission);
-      // Comissão padrão do barbeiro sobre extras cobrados além do plano
-      const extraComm = (a.extraPrice ?? 0) > 0
-        ? calcComissao(a.extraPrice ?? 0, barber.commissionType, barber.commission)
-        : 0;
       return s + baseComm + extraComm;
     }, 0);
     
