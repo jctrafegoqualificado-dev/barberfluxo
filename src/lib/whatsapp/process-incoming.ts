@@ -114,24 +114,25 @@ export async function processIncomingMessage(
     }
   }
 
-  // 5. Acionar lógica do Bot (se não for mensagem enviada por nós e o usuário não estiver bloqueado)
-  if (!fromMe && textContent && !remoteJid.includes("g.us") && !userBlocked) {
-    const instance = await prisma.whatsAppInstance.findUnique({ where: { id: whatsappInstanceId } });
-    if (instance) {
-      try {
-        const result = await handleWhatsAppBot(
-          realJid, // Usamos o JID Real (com telefone) para a lógica e sessão
-          textContent,
-          barbershopId,
-          instance.evolutionInstanceName,
-          instance.evolutionToken
-        );
-        console.log(`🤖 [Bot Result]`, JSON.stringify(result, null, 2));
-      } catch (err) {
-        console.error("❌ [Bot Error]:", err);
-      }
-    }
-  }
+  // Bot CRM desativado — N8N é o responsável por responder via webhook da Evolution
+  // Para reativar, descomentar o bloco abaixo
+  // if (!fromMe && textContent && !remoteJid.includes("g.us") && !userBlocked) {
+  //   const instance = await prisma.whatsAppInstance.findUnique({ where: { id: whatsappInstanceId } });
+  //   if (instance) {
+  //     try {
+  //       const result = await handleWhatsAppBot(
+  //         realJid,
+  //         textContent,
+  //         barbershopId,
+  //         instance.evolutionInstanceName,
+  //         instance.evolutionToken
+  //       );
+  //       console.log(`🤖 [Bot Result]`, JSON.stringify(result, null, 2));
+  //     } catch (err) {
+  //       console.error("❌ [Bot Error]:", err);
+  //     }
+  //   }
+  // }
 
   return { contactId: contact.id, messageId: message.id, linked };
 }
