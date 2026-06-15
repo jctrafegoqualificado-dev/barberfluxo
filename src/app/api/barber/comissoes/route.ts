@@ -93,9 +93,13 @@ export async function GET(req: NextRequest) {
       const materialCost = a.service?.materialCost || 0;
       const netValue = Math.max(0, a.price - materialCost);
       const hasCustomCommission = a.service?.commission != null;
-      const comissao = hasCustomCommission
+      // Serviços extras cobrados além do serviço principal (ex.: sobrancelha) comissionam pela taxa padrão do barbeiro
+      const extraComm = (a.extraPrice ?? 0) > 0
+        ? calcComissao(a.extraPrice ?? 0, barber.commissionType, barber.commission)
+        : 0;
+      const comissao = (hasCustomCommission
         ? calcComissao(netValue, "PERCENTAGE", a.service!.commission!)
-        : calcComissao(netValue, barber.commissionType, barber.commission);
+        : calcComissao(netValue, barber.commissionType, barber.commission)) + extraComm;
 
       return {
         id: a.id,
@@ -113,12 +117,16 @@ export async function GET(req: NextRequest) {
 
     // Assinatura
     const assinaturaItems = subAppointments.map((a) => {
-      let comissao = ticketMedioSub;
+      // Serviços extras fora do plano (ex.: sobrancelha) comissionam pela taxa padrão, além do ticket médio do pool
+      const extraComm = (a.extraPrice ?? 0) > 0
+        ? calcComissao(a.extraPrice ?? 0, barber.commissionType, barber.commission)
+        : 0;
+      let comissao = ticketMedioSub + extraComm;
       const customPlanCommission = a.subscription?.plan?.commissionPercentage;
       if (customPlanCommission != null) {
         const materialCost = a.service?.materialCost || 0;
         const netValue = Math.max(0, a.price - materialCost);
-        comissao = calcComissao(netValue, "PERCENTAGE", customPlanCommission);
+        comissao = calcComissao(netValue, "PERCENTAGE", customPlanCommission) + extraComm;
       }
 
       return {

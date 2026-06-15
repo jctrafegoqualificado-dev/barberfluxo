@@ -90,12 +90,18 @@ export async function GET(req: NextRequest) {
         const original = a.price / (1 - a.discountPercent / 100);
         return s + (original - a.price);
       }, 0);
+      // Serviços extras cobrados além do principal (ex.: sobrancelha) comissionam pela taxa padrão do barbeiro
+      const extraComm = (a: { extraPrice?: number | null }) =>
+        (a.extraPrice ?? 0) > 0 ? calcComissao(a.extraPrice ?? 0, b.commissionType, b.commission) : 0;
+
       const comissaoAvulso = avulsos.reduce((s, a) => {
         const materialCost = a.service?.materialCost || 0;
         const netValue = Math.max(0, a.price - materialCost);
         const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
-        if (hasCustomCommission) return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
-        return s + calcComissao(netValue, b.commissionType, b.commission);
+        const baseComm = hasCustomCommission
+          ? calcComissao(netValue, "PERCENTAGE", a.service!.commission!)
+          : calcComissao(netValue, b.commissionType, b.commission);
+        return s + baseComm + extraComm(a);
       }, 0);
 
       const comissaoAssinatura = subAppointments.reduce((s, a) => {
@@ -103,9 +109,9 @@ export async function GET(req: NextRequest) {
         if (customPlanCommission != null) {
           const materialCost = a.service?.materialCost || 0;
           const netValue = Math.max(0, a.price - materialCost);
-          return s + calcComissao(netValue, "PERCENTAGE", customPlanCommission);
+          return s + calcComissao(netValue, "PERCENTAGE", customPlanCommission) + extraComm(a);
         }
-        return s + ticketMedioSub;
+        return s + ticketMedioSub + extraComm(a);
       }, 0);
 
       const totalProdutos = productSales.reduce((s, p) => s + p.total, 0);
