@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         { status: 429 },
       );
     }
-    const { clientName, clientPhone, barberId, serviceId, date, startTime, subscriptionId } =
+    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, subscriptionId } =
       await req.json();
     // Gera email interno a partir do telefone para identificar cliente sem exigir email
     const cleanPhone = (clientPhone ?? "").replace(/\D/g, "") || "sem-telefone";
@@ -28,8 +28,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const shop = await prisma.barbershop.findUnique({ where: { slug } });
     if (!shop) return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 });
 
-    const service = await prisma.service.findUnique({ where: { id: serviceId } });
-    if (!service) return NextResponse.json({ error: "Serviço inválido" }, { status: 404 });
+    // Aceita múltiplos serviços (serviceIds[]) ou um único (serviceId) por compatibilidade
+    const ids: string[] = Array.isArray(serviceIds) && serviceIds.length > 0
+      ? serviceIds
+      : serviceId ? [serviceId] : [];
+    if (ids.length === 0) return NextResponse.json({ error: "Serviço inválido" }, { status: 404 });
+
+    const foundServices = await prisma.service.findMany({
+      where: { id: { in: ids }, barbershopId: shop.id, active: true },
+    });
+    if (foundServices.length !== ids.length) {
+      return NextResponse.json({ error: "Serviço inválido" }, { status: 404 });
+    }
+    // Preserva a ordem em que o cliente escolheu
+    const services = ids.map((id) => foundServices.find((s) => s.id === id)!);
+    const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+    const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
+    const servicesLabel = services.map((s) => s.name).join(" + ");
 
     const barber = await prisma.barber.findUnique({
       where: { id: barberId },
@@ -93,7 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     }
 
     const [h, m] = startTime.split(":").map(Number);
-    const endMin = h * 60 + m + service.duration;
+    const endMin = h * 60 + m + totalDuration;
     const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
 
     const appointment = await prisma.appointment.create({
@@ -101,13 +116,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         date: new Date(date),
         startTime,
         endTime,
-        price: service.price,
+        price: totalPrice,
         clientId: client.id,
         barbershopId: shop.id,
         barberId,
-        serviceId,
+        serviceId: services[0].id, // Legado: primeiro serviço para retrocompatibilidade
         status: "CONFIRMED",
         ...(subscriptionId ? { subscriptionId } : {}),
+        services: {
+          create: services.map((s) => ({ serviceId: s.id, price: s.price, duration: s.duration })),
+        },
       },
     });
 
@@ -116,7 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
     // Notificação WhatsApp para o barbeiro
     if (barber?.user.phone) {
-      const msg = `Novo Agendamento - ${shop.name}\n\nCliente: ${client.name}\nData: ${dataFormatada}\nHorario: ${startTime}\nServico: ${service.name}`;
+      const msg = `Novo Agendamento - ${shop.name}\n\nCliente: ${client.name}\nData: ${dataFormatada}\nHorario: ${startTime}\nServico: ${servicesLabel}`;
       sendWhatsApp(barber.user.phone, msg).catch(console.error);
     }
 
@@ -127,7 +145,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         ``,
         `Ola, ${client.name.split(" ")[0]}! Seu horario foi confirmado.`,
         ``,
-        `Servico: ${service.name}`,
+        `Servico: ${servicesLabel}`,
         `Barbeiro: ${barber?.user.name ?? ""}`,
         `Data: ${dataFormatada}`,
         `Horario: ${startTime}`,
@@ -142,7 +160,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       to: client.email,
       clientName: client.name,
       shopName: shop.name,
-      serviceName: service.name,
+      serviceName: servicesLabel,
       barberName: barber?.user.name ?? "Barbeiro",
       date,
       time: startTime,

@@ -49,7 +49,8 @@ export default function AgendarPage() {
   const { slug } = useParams<{ slug: string }>();
   const [shop, setShop] = useState<Shop | null>(null);
   const [step, setStep] = useState<Step>("service");
-  const [selected, setSelected] = useState({ service: "", barber: "", date: "", slot: "" });
+  const [selected, setSelected] = useState({ barber: "", date: "", slot: "" });
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [form, setForm] = useState({ firstName: "", lastName: "", phone: "" });
   const [clientFound, setClientFound] = useState<boolean | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
@@ -106,7 +107,7 @@ export default function AgendarPage() {
 
   // Carrega os próximos 14 dias ao entrar no step datetime
   useEffect(() => {
-    if (step !== "datetime" || !selected.barber || !selected.service) return;
+    if (step !== "datetime" || !selected.barber || serviceIds.length === 0) return;
 
     setLoadingSlots(true);
     setDaySlots([]);
@@ -123,7 +124,7 @@ export default function AgendarPage() {
 
     Promise.all(
       dates.map((date) =>
-        fetch(`/api/booking/${slug}/slots?barberId=${selected.barber}&serviceId=${selected.service}&date=${date}`)
+        fetch(`/api/booking/${slug}/slots?barberId=${selected.barber}&serviceIds=${serviceIds.join(",")}&date=${date}`)
           .then((r) => r.json())
           .then((d) => ({ date, label: formatDayLabel(date), slots: d.slots || [] }))
       )
@@ -138,9 +139,12 @@ export default function AgendarPage() {
       }
       setLoadingSlots(false);
     });
-  }, [step, selected.barber, selected.service, slug]);
+  }, [step, selected.barber, serviceIds.join(","), slug]);
 
   function sel(key: string, val: string) { setSelected((s) => ({ ...s, [key]: val })); }
+  function toggleService(id: string) {
+    setServiceIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
 
   function pickSlot(date: string, slot: string) {
     setSelected((s) => ({ ...s, date, slot }));
@@ -160,7 +164,7 @@ export default function AgendarPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clientName, clientPhone: form.phone,
-        barberId: selected.barber, serviceId: selected.service,
+        barberId: selected.barber, serviceIds,
         date: selected.date, startTime: selected.slot,
         subscriptionId,
       }),
@@ -171,7 +175,9 @@ export default function AgendarPage() {
     setLoading(false);
   }
 
-  const selectedService = shop?.services.find((s) => s.id === selected.service);
+  const selectedServices = shop?.services.filter((s) => serviceIds.includes(s.id)) ?? [];
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
   const selectedBarber = shop?.barbers.find((b) => b.id === selected.barber);
   const hasAnySlot = daySlots.some((d) => d.slots.length > 0);
   const isFormValid = form.firstName.trim().length > 0 && form.phone.trim().length >= 8;
@@ -242,22 +248,40 @@ export default function AgendarPage() {
         {/* STEP 1 — Serviço */}
         {step === "service" && (
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold mb-4">Escolha o serviço</h2>
-            {shop.services.map((s) => (
-              <button key={s.id} onClick={() => { sel("service", s.id); setStep("barber"); }}
-                className={`w-full text-left p-4 rounded-xl border transition-colors ${selected.service === s.id ? "border-primary bg-primary/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">{s.name}</p>
-                    {s.description && <p className="text-xs text-zinc-400 mt-0.5">{s.description}</p>}
-                    <span className="text-xs text-zinc-400 flex items-center gap-1 mt-1">
-                      <Clock className="w-3 h-3" />{s.duration}min
-                    </span>
+            <h2 className="text-lg font-semibold mb-1">Escolha o serviço</h2>
+            <p className="text-xs text-zinc-500 mb-4">Você pode selecionar mais de um.</p>
+            {shop.services.map((s) => {
+              const checked = serviceIds.includes(s.id);
+              return (
+                <button key={s.id} onClick={() => toggleService(s.id)}
+                  className={`w-full text-left p-4 rounded-xl border transition-colors ${checked ? "border-primary bg-primary/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${checked ? "border-primary bg-primary text-white" : "border-zinc-600"}`}>
+                        {checked && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{s.name}</p>
+                        {s.description && <p className="text-xs text-zinc-400 mt-0.5">{s.description}</p>}
+                        <span className="text-xs text-zinc-400 flex items-center gap-1 mt-1">
+                          <Clock className="w-3 h-3" />{s.duration}min
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-primary/80 font-bold text-lg shrink-0">{formatCurrency(s.price)}</span>
                   </div>
-                  <span className="text-primary/80 font-bold text-lg">{formatCurrency(s.price)}</span>
+                </button>
+              );
+            })}
+            {serviceIds.length > 0 && (
+              <div className="sticky bottom-0 pt-3 bg-gradient-to-t from-black via-black/95 to-transparent">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex items-center justify-between mb-3">
+                  <p className="text-sm text-zinc-400">{serviceIds.length} serviço{serviceIds.length > 1 ? "s" : ""} · {totalDuration}min</p>
+                  <p className="text-primary/80 font-bold text-lg">{formatCurrency(totalPrice)}</p>
                 </div>
-              </button>
-            ))}
+                <Button onClick={() => setStep("barber")} className="w-full" size="lg">Continuar</Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -442,10 +466,10 @@ export default function AgendarPage() {
             </button>
             <h2 className="text-lg font-semibold">Seus dados</h2>
             <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 space-y-1 text-sm">
-              <p className="text-zinc-400">Serviço: <span className="text-white font-medium">{selectedService?.name}</span></p>
+              <p className="text-zinc-400">Serviço{selectedServices.length > 1 ? "s" : ""}: <span className="text-white font-medium">{selectedServices.map((s) => s.name).join(" + ")}</span></p>
               <p className="text-zinc-400">Profissional: <span className="text-white font-medium">{selectedBarber?.user.name}</span></p>
               <p className="text-zinc-400">Data: <span className="text-white font-medium">{formatDayLabel(selected.date)} às {selected.slot}</span></p>
-              <p className="text-zinc-400">Valor: <span className="text-primary/80 font-bold">{formatCurrency(selectedService?.price || 0)}</span></p>
+              <p className="text-zinc-400">Valor: <span className="text-primary/80 font-bold">{formatCurrency(totalPrice)}</span></p>
             </div>
             <form onSubmit={handleBook} className="space-y-3">
               <div>
@@ -567,7 +591,7 @@ export default function AgendarPage() {
             <h2 className="text-2xl font-bold mb-2">Agendado!</h2>
             <p className="text-zinc-400 mb-6">Seu horário foi confirmado.</p>
             <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 text-left space-y-2 text-sm mb-6">
-              <p className="text-zinc-400">Serviço: <span className="text-white">{selectedService?.name}</span></p>
+              <p className="text-zinc-400">Serviço{selectedServices.length > 1 ? "s" : ""}: <span className="text-white">{selectedServices.map((s) => s.name).join(" + ")}</span></p>
               <p className="text-zinc-400">Profissional: <span className="text-white">{selectedBarber?.user.name}</span></p>
               <p className="text-zinc-400">Data: <span className="text-white">{formatDayLabel(selected.date)} às {booked?.startTime}</span></p>
             </div>
@@ -577,7 +601,7 @@ export default function AgendarPage() {
                 Gerenciar meus agendamentos
               </a>
             </p>
-            <Button onClick={() => { setStep("service"); setSelected({ service: "", barber: "", date: "", slot: "" }); }} variant="secondary">
+            <Button onClick={() => { setStep("service"); setSelected({ barber: "", date: "", slot: "" }); setServiceIds([]); }} variant="secondary">
               Fazer novo agendamento
             </Button>
           </div>

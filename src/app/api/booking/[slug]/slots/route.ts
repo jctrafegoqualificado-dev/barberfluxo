@@ -7,20 +7,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date");
     const barberId = searchParams.get("barberId");
-    const serviceId = searchParams.get("serviceId");
+    // Aceita múltiplos serviços (serviceIds=id1,id2) ou um único (serviceId) por compatibilidade
+    const serviceIdsParam = searchParams.get("serviceIds");
+    const serviceIds = serviceIdsParam
+      ? serviceIdsParam.split(",").map((s) => s.trim()).filter(Boolean)
+      : [searchParams.get("serviceId")].filter(Boolean) as string[];
 
-    if (!date || !barberId || !serviceId) {
+    if (!date || !barberId || serviceIds.length === 0) {
       return NextResponse.json({ error: "Parâmetros obrigatórios" }, { status: 400 });
     }
 
     const shop = await prisma.barbershop.findUnique({ where: { slug } });
     if (!shop) return NextResponse.json({ error: "Não encontrada" }, { status: 404 });
 
-    const [service, barber] = await Promise.all([
-      prisma.service.findUnique({ where: { id: serviceId } }),
+    const [services, barber] = await Promise.all([
+      prisma.service.findMany({ where: { id: { in: serviceIds } } }),
       prisma.barber.findUnique({ where: { id: barberId } }),
     ]);
-    if (!service || !barber) return NextResponse.json({ slots: [] });
+    if (services.length === 0 || !barber) return NextResponse.json({ slots: [] });
+
+    // Duração total reserva o bloco somado de todos os serviços escolhidos
+    const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
     const d = new Date(date + "T12:00:00");
     const dayOfWeek = d.getDay();
@@ -83,13 +90,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     }
 
     const slots: string[] = [];
-    for (let m = openMinutes; m + service.duration <= closeMinutes; m += 15) {
+    for (let m = openMinutes; m + totalDuration <= closeMinutes; m += 15) {
       // Ignora slots passados (barberMode = -1 libera todos)
       if (nowMinutes >= 0 && isToday && m < nowMinutes) continue;
 
       const hh = String(Math.floor(m / 60)).padStart(2, "0");
       const mm = String(m % 60).padStart(2, "0");
-      const slotEnd = m + service.duration;
+      const slotEnd = m + totalDuration;
 
       // Conflito com agendamentos existentes
       const apptConflict = existing.some((a) => {
