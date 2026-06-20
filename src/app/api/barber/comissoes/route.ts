@@ -127,13 +127,14 @@ export async function GET(req: NextRequest) {
       avulsos.reduce((s, a) => s + a.price, 0) + extraAppts.reduce((s, a) => s + (a.extraPrice ?? 0), 0);
     const totalAvulsoComissao = avulsoItemsAll.reduce((s, i) => s + i.comissao, 0);
 
-    // Assinatura
+    // Assinatura — desconta o extraPrice, que já é contabilizado como avulso acima
     const assinaturaItems = subAppointments.map((a) => {
+      const baseSubPrice = Math.max(0, a.price - (a.extraPrice ?? 0));
       let comissao = ticketMedioSub;
       const customPlanCommission = a.subscription?.plan?.commissionPercentage;
       if (customPlanCommission != null) {
         const materialCost = a.service?.materialCost || 0;
-        const netValue = Math.max(0, a.price - materialCost);
+        const netValue = Math.max(0, baseSubPrice - materialCost);
         comissao = calcComissao(netValue, "PERCENTAGE", customPlanCommission);
       }
 
@@ -144,12 +145,12 @@ export async function GET(req: NextRequest) {
         client: a.client.name,
         service: a.service?.name ?? "Serviço",
         plano: a.subscription?.plan.name ?? "Assinatura",
-        valor: a.price,
+        valor: baseSubPrice,
         comissao,
         tipo: "assinatura" as const,
       };
     });
-    const totalAssinaturaFaturado = subAppointments.reduce((s, a) => s + a.price, 0);
+    const totalAssinaturaFaturado = subAppointments.reduce((s, a) => s + Math.max(0, a.price - (a.extraPrice ?? 0)), 0);
     const totalAssinaturaComissao = assinaturaItems.reduce((s, i) => s + i.comissao, 0);
 
     // Produtos

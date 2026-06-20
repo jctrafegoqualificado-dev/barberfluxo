@@ -109,10 +109,11 @@ export async function GET(req: NextRequest) {
       const comissaoAvulso = comissaoAvulsoBase + comissaoExtra;
 
       const comissaoAssinatura = subAppointments.reduce((s, a) => {
+        const baseSubPrice = Math.max(0, a.price - (a.extraPrice ?? 0));
         const customPlanCommission = a.subscription?.plan?.commissionPercentage;
         if (customPlanCommission != null) {
           const materialCost = a.service?.materialCost || 0;
-          const netValue = Math.max(0, a.price - materialCost);
+          const netValue = Math.max(0, baseSubPrice - materialCost);
           return s + calcComissao(netValue, "PERCENTAGE", customPlanCommission);
         }
         return s + ticketMedioSub;
@@ -180,7 +181,7 @@ export async function GET(req: NextRequest) {
             date: a.date.toISOString(),
             clientName: a.client?.name ?? "—",
             serviceName: a.service?.name ?? "—",
-            price: a.price,
+            price: Math.max(0, a.price - (a.extraPrice ?? 0)),
           })),
         },
         produtos: {
