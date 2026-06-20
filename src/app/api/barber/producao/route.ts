@@ -24,31 +24,62 @@ export async function GET(req: NextRequest) {
       return type === "FIXED" ? rate : valor * (rate / 100);
     }
 
-    const [appointments, productSales] = await Promise.all([
+    const [appointments, productSales, subPaymentsMonth, allSubApptsCount] = await Promise.all([
       prisma.appointment.findMany({
         where: { barberId: barber.id, date: { gte: start, lte: end } },
-        include: { service: { select: { name: true, materialCost: true, commission: true } } },
+        include: {
+          service: { select: { name: true, materialCost: true, commission: true } },
+          subscription: { include: { plan: { select: { commissionPercentage: true } } } },
+        },
         orderBy: { date: "asc" },
       }),
       prisma.productSale.findMany({
         where: { barberId: barber.id, createdAt: { gte: start, lte: end } },
         include: { product: { select: { name: true, commissionType: true, commissionValue: true } } },
       }),
+      prisma.payment.findMany({
+        where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end } },
+        select: { amount: true },
+      }),
+      prisma.appointment.count({
+        where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "DONE", date: { gte: start, lte: end } },
+      }),
     ]);
+
+    // Pool de assinatura (mesma lógica do relatório de comissões)
+    const totalSubRevenue = subPaymentsMonth.reduce((s, p) => s + p.amount, 0);
+    const ticketMedioSub = allSubApptsCount > 0 ? (totalSubRevenue * 0.5) / allSubApptsCount : 0;
 
     const done = appointments.filter((a) => a.status === "DONE");
     const noShow = appointments.filter((a) => a.status === "NO_SHOW").length;
     const cancelled = appointments.filter((a) => a.status === "CANCELLED").length;
     const totalFaturado = done.reduce((s, a) => s + a.price, 0);
     const comissaoServicos = done.reduce((s, a) => {
+      // Serviço extra (ex.: sobrancelha/hidratação) comissiona como avulso pela taxa padrão
+      const extraComm = (a.extraPrice ?? 0) > 0
+        ? calcComissao(a.extraPrice ?? 0, barber.commissionType, barber.commission)
+        : 0;
+
+      // Assinante: comissão pelo pool (ticket médio), descontando o extra do preço base
+      if (a.subscriptionId) {
+        const customPlanCommission = a.subscription?.plan?.commissionPercentage;
+        if (customPlanCommission != null) {
+          const materialCost = a.service?.materialCost || 0;
+          const baseSubPrice = Math.max(0, a.price - (a.extraPrice ?? 0));
+          const netValue = Math.max(0, baseSubPrice - materialCost);
+          return s + calcComissao(netValue, "PERCENTAGE", customPlanCommission) + extraComm;
+        }
+        return s + ticketMedioSub + extraComm;
+      }
+
+      // Avulso: comissão normal sobre o preço do serviço
       const materialCost = a.service?.materialCost || 0;
       const netValue = Math.max(0, a.price - materialCost);
       const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
-      
-      if (hasCustomCommission) {
-        return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
-      }
-      return s + calcComissao(netValue, barber.commissionType, barber.commission);
+      const baseComm = hasCustomCommission
+        ? calcComissao(netValue, "PERCENTAGE", a.service!.commission!)
+        : calcComissao(netValue, barber.commissionType, barber.commission);
+      return s + baseComm + extraComm;
     }, 0);
     
     const comissaoProdutos = productSales.reduce((s, p) => {
