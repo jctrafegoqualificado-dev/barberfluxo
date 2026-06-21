@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolvePlanFromAmount, type SaasPlanKey } from "@/lib/saasPlans";
+import { loadSaasPlans } from "@/lib/saasPlans.server";
 import MercadoPago, { Payment as MPPayment } from "mercadopago";
 
 export async function POST(req: NextRequest) {
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
       if (planFromRef === "PRO" || planFromRef === "ELITE") {
         saasPlan = planFromRef;
       } else {
-        saasPlan = resolvePlanFromAmount(Number(mpPayment.transaction_amount));
+        const plans = await loadSaasPlans();
+        saasPlan = resolvePlanFromAmount(Number(mpPayment.transaction_amount), plans);
       }
 
       // Ciclo de cobrança: lê da external_reference (formato: "barbershopId|plan|cycle")

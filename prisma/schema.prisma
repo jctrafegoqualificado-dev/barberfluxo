@@ -694,6 +694,24 @@ model AuditLog {
   @@index([userId])
 }
 
+// Configuração editável dos planos do SaaS (preço/nome/descrição).
+// Fonte da verdade em runtime; src/lib/saasPlans.ts guarda os defaults/fallback.
+// key = BASIC | PRO | ELITE | PREMIUM (espelha o enum SaasPlan).
+model SaasPlanConfig {
+  id                 String   @id @default(cuid())
+  key                String   @unique
+  label              String
+  tagline            String   @default("")
+  monthlyPrice       Float    @default(0)
+  annualPriceMonthly Float?   // preço mensal equivalente no plano anual; null = sem anual
+  isPaid             Boolean  @default(false)
+  legacy             Boolean  @default(false)
+  active             Boolean  @default(true)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
 // ===================== MÓDULO FINANCEIRO =====================
 
 model Expense {

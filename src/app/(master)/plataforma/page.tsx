@@ -10,7 +10,18 @@ import {
   CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw, TrendingDown, Timer
 } from "lucide-react";
 
-type TabType = "analytics" | "assinantes" | "pagamentos" | "equipe" | "infraestrutura";
+type TabType = "analytics" | "assinantes" | "pagamentos" | "planos" | "equipe" | "infraestrutura";
+
+type SaasPlanRow = {
+  key: string;
+  label: string;
+  tagline: string;
+  monthlyPrice: number;
+  annualPriceMonthly: number | null;
+  isPaid: boolean;
+  legacy: boolean;
+  active: boolean;
+};
 
 type CronJob = {
   name: string;
@@ -34,6 +45,13 @@ export default function PlataformaDashboard() {
   // Infraestrutura
   const [cronJobs, setCronJobs] = useState<CronJob[]>([]);
   const [cronLoading, setCronLoading] = useState(false);
+
+  // Planos
+  const [plans, setPlans] = useState<SaasPlanRow[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [planDrafts, setPlanDrafts] = useState<Record<string, SaasPlanRow>>({});
+  const [savingPlan, setSavingPlan] = useState<string | null>(null);
+  const [planMsg, setPlanMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Equipe
   const [team, setTeam] = useState<{ id: string; name: string; email: string; role: string; isPlatformAdmin: boolean; createdAt: string }[]>([]);
@@ -97,6 +115,66 @@ export default function PlataformaDashboard() {
   useEffect(() => {
     if (activeTab === "infraestrutura" && token) loadCronHealth();
   }, [activeTab, token]);
+
+  async function loadPlans() {
+    setPlansLoading(true);
+    try {
+      const res = await fetch("/api/plataforma/plans", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Falha ao carregar planos");
+      const data = await res.json();
+      const rows: SaasPlanRow[] = data.plans || [];
+      setPlans(rows);
+      setPlanDrafts(Object.fromEntries(rows.map((p) => [p.key, { ...p }])));
+    } catch (e: any) {
+      setPlanMsg({ type: "error", text: e.message || "Erro ao carregar planos" });
+    } finally {
+      setPlansLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "planos" && token) loadPlans();
+  }, [activeTab, token]);
+
+  function setDraft(key: string, field: keyof SaasPlanRow, value: unknown) {
+    setPlanDrafts((d) => ({ ...d, [key]: { ...d[key], [field]: value } }));
+  }
+
+  async function savePlan(key: string) {
+    const draft = planDrafts[key];
+    if (!draft) return;
+    setPlanMsg(null);
+    setSavingPlan(key);
+    try {
+      const res = await fetch("/api/plataforma/plans", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          key,
+          label: draft.label,
+          tagline: draft.tagline,
+          monthlyPrice: Number(draft.monthlyPrice),
+          annualPriceMonthly:
+            draft.annualPriceMonthly === null || draft.annualPriceMonthly === undefined
+              ? null
+              : Number(draft.annualPriceMonthly),
+          isPaid: draft.isPaid,
+          legacy: draft.legacy,
+          active: draft.active,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao salvar");
+      setPlanMsg({ type: "success", text: `Plano ${key} atualizado.` });
+      await loadPlans();
+    } catch (e: any) {
+      setPlanMsg({ type: "error", text: e.message || "Erro ao salvar plano" });
+    } finally {
+      setSavingPlan(null);
+    }
+  }
 
   async function addAdmin(e: React.FormEvent) {
     e.preventDefault();
@@ -245,6 +323,7 @@ export default function PlataformaDashboard() {
             { id: "analytics", label: "Analytics" },
             { id: "assinantes", label: "Assinantes" },
             { id: "pagamentos", label: "Pagamentos" },
+            { id: "planos", label: "Planos" },
             { id: "equipe", label: "Equipe" },
             { id: "infraestrutura", label: "Infraestrutura" },
           ] as { id: TabType; label: string }[]).map(tab => (
@@ -752,6 +831,116 @@ export default function PlataformaDashboard() {
           </div>
         </div>
       )}
+      {/* ===== PLANOS TAB ===== */}
+      {activeTab === "planos" && (
+        <div className="space-y-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">Planos & Preços</h2>
+              <p className="text-sm text-zinc-500">Edite preços, nomes e descrições dos planos. As mudanças valem para novos checkouts, cobrança recorrente e cálculo de MRR.</p>
+            </div>
+          </div>
+
+          {planMsg && (
+            <div className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm ${
+              planMsg.type === "success"
+                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                : "bg-red-500/10 border border-red-500/20 text-red-400"
+            }`}>
+              {planMsg.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              {planMsg.text}
+            </div>
+          )}
+
+          <div className="flex items-start gap-3 bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4">
+            <AlertCircle className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-zinc-400">
+              Mudanças de preço afetam <strong className="text-zinc-200">novos pagamentos e novas assinaturas</strong>. Assinantes recorrentes já criados no Mercado Pago mantêm o valor original até refazerem a assinatura. Toda alteração aqui é registrada na trilha de auditoria.
+            </p>
+          </div>
+
+          {plansLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {plans.map((p) => {
+                const d = planDrafts[p.key] || p;
+                const annualTotal = d.annualPriceMonthly != null && d.annualPriceMonthly !== ("" as any)
+                  ? Number(d.annualPriceMonthly) * 12 : null;
+                const dirty = JSON.stringify(d) !== JSON.stringify(p);
+                return (
+                  <div key={p.key} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold tracking-widest text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-lg">{p.key}</span>
+                      <div className="flex items-center gap-3 text-xs">
+                        <label className="flex items-center gap-1.5 text-zinc-400 cursor-pointer">
+                          <input type="checkbox" checked={d.isPaid} onChange={(e) => setDraft(p.key, "isPaid", e.target.checked)} className="accent-indigo-500" />
+                          Pago (MRR)
+                        </label>
+                        <label className="flex items-center gap-1.5 text-zinc-400 cursor-pointer">
+                          <input type="checkbox" checked={d.active} onChange={(e) => setDraft(p.key, "active", e.target.checked)} className="accent-indigo-500" />
+                          Ativo
+                        </label>
+                        <label className="flex items-center gap-1.5 text-zinc-400 cursor-pointer">
+                          <input type="checkbox" checked={d.legacy} onChange={(e) => setDraft(p.key, "legacy", e.target.checked)} className="accent-indigo-500" />
+                          Legado
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="block text-xs text-zinc-500 mb-1">Nome comercial</label>
+                        <input value={d.label} onChange={(e) => setDraft(p.key, "label", e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs text-zinc-500 mb-1">Descrição curta</label>
+                        <input value={d.tagline} onChange={(e) => setDraft(p.key, "tagline", e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-500 mb-1">Preço mensal (R$)</label>
+                        <input type="number" step="0.01" min="0" value={d.monthlyPrice}
+                          onChange={(e) => setDraft(p.key, "monthlyPrice", e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-500 mb-1">Mensal no plano anual (R$)</label>
+                        <input type="number" step="0.01" min="0" placeholder="sem anual"
+                          value={d.annualPriceMonthly ?? ""}
+                          onChange={(e) => setDraft(p.key, "annualPriceMonthly", e.target.value === "" ? null : e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <p className="text-xs text-zinc-500">
+                        {annualTotal != null
+                          ? `Cobrança anual: ${formatCurrency(annualTotal)}`
+                          : "Sem cobrança anual"}
+                      </p>
+                      <button
+                        onClick={() => savePlan(p.key)}
+                        disabled={!dirty || savingPlan === p.key}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {savingPlan === p.key
+                          ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          : null}
+                        Salvar
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ===== INFRAESTRUTURA TAB ===== */}
       {activeTab === "infraestrutura" && (
         <div className="space-y-6">

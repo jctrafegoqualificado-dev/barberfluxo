@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requirePlatformAdmin } from "@/lib/auth";
 import { getMonthlyPrice } from "@/lib/saasPlans";
+import { loadSaasPlans } from "@/lib/saasPlans.server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
     // MRR só conta receita recorrente real: exclui inadimplente/pausado/cancelado.
     // (a contagem por plano segue refletindo todos os ativos, para distribuição)
     const NON_BILLING_STATUSES = ["OVERDUE", "CANCELLED", "PAUSED"];
+    const plans = await loadSaasPlans();
     let mrr = 0;
     let basicCount = 0;
     let proCount = 0;
@@ -40,8 +42,8 @@ export async function GET(req: NextRequest) {
       if (s.active) {
         const billing = !NON_BILLING_STATUSES.includes(s.saasStatus);
         if (s.saasPlan === "BASIC") { basicCount++; }
-        if (s.saasPlan === "PRO") { proCount++; if (billing) mrr += getMonthlyPrice("PRO"); }
-        if (s.saasPlan === "ELITE" || s.saasPlan === "PREMIUM") { eliteCount++; if (billing) mrr += getMonthlyPrice(s.saasPlan); }
+        if (s.saasPlan === "PRO") { proCount++; if (billing) mrr += getMonthlyPrice("PRO", plans); }
+        if (s.saasPlan === "ELITE" || s.saasPlan === "PREMIUM") { eliteCount++; if (billing) mrr += getMonthlyPrice(s.saasPlan, plans); }
       }
     });
 

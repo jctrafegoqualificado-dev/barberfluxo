@@ -74,25 +74,27 @@ export const PAID_PLANS: SaasPlanKey[] = (Object.values(SAAS_PLANS) as SaasPlanD
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-function getPlan(plan: string): SaasPlanDef | undefined {
-  return SAAS_PLANS[plan as SaasPlanKey];
+export type PlansMap = Record<SaasPlanKey, SaasPlanDef>;
+
+function getPlan(plan: string, plans: PlansMap = SAAS_PLANS): SaasPlanDef | undefined {
+  return plans[plan as SaasPlanKey];
 }
 
-export function isPaidPlan(plan: string): boolean {
-  return getPlan(plan)?.isPaid ?? false;
+export function isPaidPlan(plan: string, plans: PlansMap = SAAS_PLANS): boolean {
+  return getPlan(plan, plans)?.isPaid ?? false;
 }
 
 /** Preço mensal de um plano (0 se desconhecido). Usado no MRR. */
-export function getMonthlyPrice(plan: string): number {
-  return getPlan(plan)?.monthlyPrice ?? 0;
+export function getMonthlyPrice(plan: string, plans: PlansMap = SAAS_PLANS): number {
+  return getPlan(plan, plans)?.monthlyPrice ?? 0;
 }
 
 /**
  * Valor que deve ser cobrado no checkout para (plano, ciclo).
  * Anual = preço mensal equivalente × 12. Retorna null para plano não-pago/desconhecido.
  */
-export function getCheckoutAmount(plan: string, cycle: BillingCycle): number | null {
-  const def = getPlan(plan);
+export function getCheckoutAmount(plan: string, cycle: BillingCycle, plans: PlansMap = SAAS_PLANS): number | null {
+  const def = getPlan(plan, plans);
   if (!def || !def.isPaid) return null;
   if (cycle === "annual") {
     return def.annualPriceMonthly != null ? round2(def.annualPriceMonthly * 12) : null;
@@ -105,13 +107,13 @@ export function getCheckoutAmount(plan: string, cycle: BillingCycle): number | n
  * canônicos (mensal e anual). Substitui o threshold mágico `amount <= 170`.
  * Só retorna planos não-legados (PRO/ELITE).
  */
-export function resolvePlanFromAmount(amount: number): SaasPlanKey {
+export function resolvePlanFromAmount(amount: number, plans: PlansMap = SAAS_PLANS): SaasPlanKey {
   let best: SaasPlanKey = "ELITE";
   let bestDist = Infinity;
   for (const key of PAID_PLANS) {
-    if (SAAS_PLANS[key].legacy) continue; // PREMIUM mapeia para ELITE
+    if (plans[key].legacy) continue; // PREMIUM mapeia para ELITE
     for (const cycle of ["monthly", "annual"] as BillingCycle[]) {
-      const expected = getCheckoutAmount(key, cycle);
+      const expected = getCheckoutAmount(key, cycle, plans);
       if (expected == null) continue;
       const dist = Math.abs(expected - amount);
       if (dist < bestDist) {
