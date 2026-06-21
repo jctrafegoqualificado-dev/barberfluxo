@@ -676,9 +676,9 @@ model PaymentGatewayConfig {
  * Ações rastreadas: agendamentos, assinaturas, planos, barbeiros, clientes.
  */
 model AuditLog {
-  id           String     @id @default(cuid())
-  barbershopId String
-  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  barbershopId String?     // null para ações de plataforma (ex: conceder/revogar acesso admin)
+  barbershop   Barbershop? @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
   userId       String?    // null para ações via API key
   userEmail    String?
   userRole     String?

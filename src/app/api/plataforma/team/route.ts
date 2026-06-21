@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePlatformAdmin } from "@/lib/auth";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 // GET /api/plataforma/team — lista todos com acesso ao /plataforma
 export async function GET(req: NextRequest) {
@@ -27,10 +28,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ admins });
   } catch (e: any) {
-    if (e.message === "UNAUTHORIZED" || e.message === "FORBIDDEN") {
-      return NextResponse.json({ error: e.message }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    const msg = e?.message ?? "Erro interno";
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: status === 500 ? "Erro interno" : msg }, { status });
   }
 }
 
@@ -40,12 +40,13 @@ export async function POST(req: NextRequest) {
     const payload = await requirePlatformAdmin(req);
     const { email } = await req.json();
 
-    if (!email) {
-      return NextResponse.json({ error: "E-mail obrigatório" }, { status: 400 });
+    const normalizedEmail = typeof email === "string" ? email.toLowerCase().trim() : "";
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return NextResponse.json({ error: "E-mail inválido" }, { status: 400 });
     }
 
     const target = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: normalizedEmail },
       select: { id: true, name: true, email: true, role: true, isPlatformAdmin: true },
     });
 
@@ -70,14 +71,24 @@ export async function POST(req: NextRequest) {
       data: { isPlatformAdmin: true },
     });
 
+    void logAudit({
+      userId: payload.id,
+      userEmail: payload.email,
+      userRole: payload.role,
+      action: "GRANT_ACCESS",
+      entity: "User",
+      entityId: target.id,
+      diff: { after: { isPlatformAdmin: true, grantedTo: target.email } },
+      ip: getClientIp(req),
+    });
+
     return NextResponse.json({
       success: true,
       message: `${target.name || target.email} agora tem acesso ao /plataforma.`,
     });
   } catch (e: any) {
-    if (e.message === "UNAUTHORIZED" || e.message === "FORBIDDEN") {
-      return NextResponse.json({ error: e.message }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    const msg = e?.message ?? "Erro interno";
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: status === 500 ? "Erro interno" : msg }, { status });
   }
 }

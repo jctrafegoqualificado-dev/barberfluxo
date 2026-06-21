@@ -21,6 +21,16 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // 1b. Proteger páginas do admin da plataforma (gate de borda).
+  // Só exige presença de sessão; a validação de PLATFORM_ADMIN é feita no
+  // layout (client) e, definitivamente, em requirePlatformAdmin nas APIs.
+  if (pathname.startsWith("/plataforma")) {
+    const token = req.cookies.get("token")?.value;
+    if (!token) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+  }
+
   // 2. Proteção API v1 externa
   const isPublicCancelRoute = /^\/api\/v1\/barbershops\/[^/]+\/appointments\/[^/]+\/cancel$/.test(pathname);
   if (pathname.startsWith("/api/v1/") && pathname !== "/api/v1/openapi" && !isPublicCancelRoute) {
@@ -100,5 +110,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/painel/:path*", "/api/:path*"],
+  matcher: ["/painel/:path*", "/plataforma/:path*", "/api/:path*"],
 };

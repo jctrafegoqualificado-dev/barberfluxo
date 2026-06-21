@@ -27,16 +27,20 @@ export async function GET(req: NextRequest) {
     const activeShops = shops.filter(s => s.active).length;
     const inactiveShops = totalShops - activeShops;
 
-    // Plan distribution
+    // Plan distribution + MRR
+    // MRR só conta receita recorrente real: exclui inadimplente/pausado/cancelado.
+    // (a contagem por plano segue refletindo todos os ativos, para distribuição)
+    const NON_BILLING_STATUSES = ["OVERDUE", "CANCELLED", "PAUSED"];
     let mrr = 0;
     let basicCount = 0;
     let proCount = 0;
     let eliteCount = 0; // inclui PREMIUM legado
     shops.forEach(s => {
       if (s.active) {
+        const billing = !NON_BILLING_STATUSES.includes(s.saasStatus);
         if (s.saasPlan === "BASIC") { basicCount++; }
-        if (s.saasPlan === "PRO") { mrr += 154.9; proCount++; }
-        if (s.saasPlan === "ELITE" || s.saasPlan === "PREMIUM") { mrr += 197.9; eliteCount++; }
+        if (s.saasPlan === "PRO") { proCount++; if (billing) mrr += 154.9; }
+        if (s.saasPlan === "ELITE" || s.saasPlan === "PREMIUM") { eliteCount++; if (billing) mrr += 197.9; }
       }
     });
 

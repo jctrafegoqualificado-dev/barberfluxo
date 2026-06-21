@@ -9,6 +9,7 @@ export default function PlataformaClientes() {
   const [shops, setShops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     loadShops();
@@ -20,50 +21,56 @@ export default function PlataformaClientes() {
       const res = await fetch("/api/plataforma/tenants", {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!res.ok) throw new Error("Falha ao carregar assinantes");
       const data = await res.json();
       setShops(data.shops || []);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setErrorMsg(e.message || "Erro ao carregar assinantes");
     } finally {
       setLoading(false);
     }
   }
 
   async function toggleStatus(id: string, currentStatus: boolean) {
+    setErrorMsg("");
     setActionLoading(`status-${id}`);
     try {
-      await fetch(`/api/plataforma/tenants/${id}`, {
+      const res = await fetch(`/api/plataforma/tenants/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ active: !currentStatus })
       });
+      if (!res.ok) throw new Error("Não foi possível alterar o status");
       await loadShops();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setErrorMsg(e.message || "Erro ao alterar status");
     } finally {
       setActionLoading(null);
     }
   }
 
   async function changePlan(id: string, newPlan: string) {
-    if (!confirm(`Deseja alterar o plano desta barbearia para ${newPlan}?`)) return;
-    
+    if (!confirm(`Deseja alterar o plano desta barbearia para ${newPlan}? Isso reativa a assinatura (saasStatus = ACTIVE).`)) return;
+
+    setErrorMsg("");
     setActionLoading(`plan-${id}`);
     try {
-      await fetch(`/api/plataforma/tenants/${id}`, {
+      const res = await fetch(`/api/plataforma/tenants/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ saasPlan: newPlan })
       });
+      if (!res.ok) throw new Error("Não foi possível alterar o plano");
       await loadShops();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setErrorMsg(e.message || "Erro ao alterar plano");
     } finally {
       setActionLoading(null);
     }
   }
-
-
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>;
 
@@ -73,6 +80,12 @@ export default function PlataformaClientes() {
         <h1 className="text-3xl font-bold tracking-tight text-white">Gestão de Assinantes</h1>
         <p className="text-zinc-400 mt-1">Gerencie as assinaturas das barbearias que utilizam o IaDeBarbearia.</p>
       </div>
+
+      {errorMsg && (
+        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+          <ShieldAlert className="w-4 h-4 shrink-0" /> {errorMsg}
+        </div>
+      )}
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
         <table className="w-full text-left border-collapse">
@@ -105,17 +118,21 @@ export default function PlataformaClientes() {
 
                 <td className="p-4">
                   <select
-                    value={shop.saasPlan}
+                    value={shop.saasPlan === "PREMIUM" ? "ELITE" : shop.saasPlan}
                     onChange={(e) => changePlan(shop.id, e.target.value)}
                     disabled={actionLoading === `plan-${shop.id}`}
+                    aria-label={`Plano de ${shop.name}`}
                     className={`px-3 py-1 text-xs font-bold rounded-xl transition-colors appearance-none cursor-pointer outline-none border-0 ${
-                      shop.saasPlan === "PREMIUM" 
-                        ? "bg-indigo-500/20 text-indigo-400 focus:ring-2 focus:ring-indigo-500/50" 
+                      shop.saasPlan === "ELITE" || shop.saasPlan === "PREMIUM"
+                        ? "bg-violet-500/20 text-violet-400 focus:ring-2 focus:ring-violet-500/50"
+                        : shop.saasPlan === "PRO"
+                        ? "bg-amber-500/20 text-amber-400 focus:ring-2 focus:ring-amber-500/50"
                         : "bg-zinc-800 text-zinc-300 focus:ring-2 focus:ring-zinc-600"
                     }`}
                   >
                     <option value="BASIC">BASIC</option>
-                    <option value="PREMIUM">PREMIUM</option>
+                    <option value="PRO">PRO</option>
+                    <option value="ELITE">ELITE</option>
                   </select>
                 </td>
                 <td className="p-4">

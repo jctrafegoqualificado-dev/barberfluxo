@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePlatformAdmin } from "@/lib/auth";
+import { logAudit, getClientIp } from "@/lib/audit";
 
 // DELETE /api/plataforma/team/[id] — remove acesso ao /plataforma
 export async function DELETE(
@@ -42,14 +43,24 @@ export async function DELETE(
       },
     });
 
+    void logAudit({
+      userId: payload.id,
+      userEmail: payload.email,
+      userRole: payload.role,
+      action: "REVOKE_ACCESS",
+      entity: "User",
+      entityId: target.id,
+      diff: { before: { isPlatformAdmin: true, role: target.role }, after: { isPlatformAdmin: false } },
+      ip: getClientIp(req),
+    });
+
     return NextResponse.json({
       success: true,
       message: `Acesso de ${target.name || target.email} ao /plataforma foi removido.`,
     });
   } catch (e: any) {
-    if (e.message === "UNAUTHORIZED" || e.message === "FORBIDDEN") {
-      return NextResponse.json({ error: e.message }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    const msg = e?.message ?? "Erro interno";
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
+    return NextResponse.json({ error: status === 500 ? "Erro interno" : msg }, { status });
   }
 }
