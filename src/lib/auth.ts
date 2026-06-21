@@ -18,8 +18,8 @@ export function comparePassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
-export function signToken(payload: object) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+export function signToken(payload: object, options?: jwt.SignOptions) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d", ...options });
 }
 
 export function verifyToken(token: string) {
@@ -29,6 +29,7 @@ export function verifyToken(token: string) {
     role: string;
     barbershopId?: string;
     isPlatformAdmin?: boolean;
+    impersonatedBy?: string;
   };
 }
 

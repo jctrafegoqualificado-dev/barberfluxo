@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     const jobs = JOB_NAMES.map((name) => {
       const entry = health[name];
       const schedule = JOB_SCHEDULES[name];
+      const maxAgeHours = schedule?.maxAgeHours ?? 25;
       let statusLabel: "ok" | "error" | "stale" | "never" = "never";
 
       if (!entry) {
@@ -40,12 +41,12 @@ export async function GET(req: NextRequest) {
         statusLabel = "error";
       } else {
         const ageHours = (now - new Date(entry.lastRun).getTime()) / (1000 * 60 * 60);
-        statusLabel = ageHours > schedule.maxAgeHours ? "stale" : "ok";
+        statusLabel = ageHours > maxAgeHours ? "stale" : "ok";
       }
 
       return {
         name,
-        label: schedule.label,
+        label: schedule?.label ?? name,
         status: statusLabel,
         lastRun: entry?.lastRun ?? null,
         durationMs: entry?.durationMs ?? null,

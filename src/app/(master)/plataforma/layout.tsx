@@ -33,7 +33,7 @@ export default function MasterLayout({ children }: { children: ReactNode }) {
         <div className="h-20 flex items-center px-6 border-b border-zinc-800">
           <Code2 className="w-8 h-8 text-indigo-500 mr-2" />
           <div>
-            <h2 className="font-bold text-lg tracking-tight text-white leading-none">Barber<span className="text-indigo-500">Fluxo</span></h2>
+            <h2 className="font-bold text-lg tracking-tight text-white leading-none">IaDe<span className="text-indigo-500">Barbearia</span></h2>
             <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Admin</span>
           </div>
         </div>

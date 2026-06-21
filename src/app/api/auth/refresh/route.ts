@@ -14,6 +14,16 @@ export async function POST(req: NextRequest) {
     // Verifica assinatura e expiração — rejeita token inválido ou já expirado
     const payload = verifyToken(token);
 
+    // Sessão de impersonação NÃO pode ser renovada — o TTL curto (30min) é proposital.
+    // Sem este bloqueio, o refresh transformaria a impersonação em acesso de 7 dias,
+    // perderia o claim impersonatedBy e poderia reescalar isPlatformAdmin do dono real.
+    if (payload.impersonatedBy) {
+      return NextResponse.json(
+        { error: "Sessão de impersonação não pode ser renovada. Faça login novamente." },
+        { status: 403 }
+      );
+    }
+
     // Revalida o usuário no banco (pode ter sido desativado ou ter o role alterado)
     const user = await prisma.user.findUnique({
       where: { id: payload.id },

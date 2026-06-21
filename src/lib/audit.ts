@@ -23,10 +23,16 @@ export type AuditAction =
   | "BLOCK"
   | "UNBLOCK"
   | "DEACTIVATE"
-  | "ACTIVATE";
+  | "ACTIVATE"
+  | "IMPERSONATE"
+  | "GRANT_ACCESS"
+  | "REVOKE_ACCESS"
+  | "PLAN_CHANGE"
+  | "MANUAL_PAYMENT";
 
 export interface AuditParams {
-  barbershopId: string;
+  /** null/omitido para ações de plataforma sem barbearia (ex: gestão de admins) */
+  barbershopId?: string;
   userId?:      string;
   userEmail?:   string;
   userRole?:    string;
@@ -47,7 +53,7 @@ export async function logAudit(params: AuditParams): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (prisma as any).auditLog.create({
       data: {
-        barbershopId: params.barbershopId,
+        barbershopId: params.barbershopId ?? null,
         userId:       params.userId   ?? null,
         userEmail:    params.userEmail ?? null,
         userRole:     params.userRole  ?? null,

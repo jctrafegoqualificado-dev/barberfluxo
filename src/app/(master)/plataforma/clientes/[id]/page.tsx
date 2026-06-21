@@ -24,6 +24,7 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
   const { token } = useAuthStore();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
@@ -42,17 +43,26 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
   useEffect(() => { loadData(); }, [token, id]);
 
   async function loadData() {
+    setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(`/api/plataforma/tenants/${id}/details`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const json = await res.json();
-      if (res.ok) {
-        setData(json);
-        setActivatePlan(json.shop?.saasPlan || "BASIC");
+      if (res.status === 404) {
+        setData(null);
+        setLoadError("NOT_FOUND");
+        return;
       }
-    } catch (e) {
+      if (!res.ok) {
+        throw new Error(`Falha ao carregar (HTTP ${res.status})`);
+      }
+      const json = await res.json();
+      setData(json);
+      setActivatePlan(json.shop?.saasPlan || "BASIC");
+    } catch (e: any) {
       console.error(e);
+      setLoadError(e.message || "Erro ao carregar os dados do assinante");
     } finally {
       setLoading(false);
     }
@@ -173,7 +183,22 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
       <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
-  if (!data) return <div className="text-white p-8">Assinante não encontrado.</div>;
+  if (!data) {
+    const notFound = loadError === "NOT_FOUND";
+    return (
+      <div className="max-w-5xl mx-auto p-8">
+        <Link href="/plataforma" className="inline-block mb-4 text-sm text-zinc-400 hover:text-white transition-colors">← Voltar</Link>
+        <div className={`rounded-2xl border p-8 text-center ${notFound ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-red-500/20 bg-red-500/5 text-red-400"}`}>
+          <p className="font-semibold">{notFound ? "Assinante não encontrado." : (loadError || "Erro ao carregar os dados.")}</p>
+          {!notFound && (
+            <button onClick={loadData} className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm rounded-lg transition-colors">
+              Tentar novamente
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const { shop } = data;
   const payments = shop.saasPayments || [];
