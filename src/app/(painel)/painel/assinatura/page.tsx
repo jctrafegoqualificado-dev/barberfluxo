@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
+import { SAAS_PLANS } from "@/lib/saasPlans";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import Script from "next/script";
@@ -26,26 +27,27 @@ declare global {
 
 type BillingCycle = "monthly" | "annual";
 
-const PLAN_CONFIG = {
-  PRO: {
-    monthlyPrice: 154.9,
-    annualPrice: 139.9, // preço mensal equivalente no plano anual
-    label: "Gestão",
-    tagline: "Gestão profissional completa",
-    dbValue: "PRO" as const,
-    annualSavings: 180, // (154.90 - 139.90) * 12
-  },
-  ELITE: {
-    monthlyPrice: 197.9,
-    annualPrice: 179.9,
-    label: "Gestão + Assistente",
-    tagline: "Inteligência Artificial a seu favor",
-    dbValue: "ELITE" as const,
-    annualSavings: 216, // (197.90 - 179.90) * 12
-  },
-} as const;
+type PaidPlan = "PRO" | "ELITE";
+type PlanCfg = {
+  monthlyPrice: number;
+  annualPrice: number; // preço mensal equivalente no plano anual
+  label: string;
+  tagline: string;
+  dbValue: PaidPlan;
+  annualSavings: number;
+};
 
-type PaidPlan = keyof typeof PLAN_CONFIG;
+function buildPlanCfg(key: PaidPlan, monthlyPrice: number, annualPriceMonthly: number | null, label: string, tagline: string): PlanCfg {
+  const annual = annualPriceMonthly ?? monthlyPrice;
+  return { monthlyPrice, annualPrice: annual, label, tagline, dbValue: key, annualSavings: Math.round((monthlyPrice - annual) * 12) };
+}
+
+// Defaults estáticos (fonte única @/lib/saasPlans); substituídos pelos preços
+// vivos de /api/plans no mount, para refletir edições do CEO sem novo deploy.
+const DEFAULT_PLAN_CONFIG: Record<PaidPlan, PlanCfg> = {
+  PRO: buildPlanCfg("PRO", SAAS_PLANS.PRO.monthlyPrice, SAAS_PLANS.PRO.annualPriceMonthly, SAAS_PLANS.PRO.label, SAAS_PLANS.PRO.tagline),
+  ELITE: buildPlanCfg("ELITE", SAAS_PLANS.ELITE.monthlyPrice, SAAS_PLANS.ELITE.annualPriceMonthly, SAAS_PLANS.ELITE.label, SAAS_PLANS.ELITE.tagline),
+};
 
 export default function AssinaturaSaaSPage() {
   const { token, user } = useAuthStore();
@@ -66,6 +68,25 @@ export default function AssinaturaSaaSPage() {
   const [selectedPlan, setSelectedPlan] = useState<PaidPlan | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [pixData, setPixData] = useState<{ qr_code: string; qr_code_base64: string } | null>(null);
+  const [planConfig, setPlanConfig] = useState<Record<PaidPlan, PlanCfg>>(DEFAULT_PLAN_CONFIG);
+
+  // Preços vivos: reflete edições do CEO na aba "Planos" do /plataforma.
+  // Garante que o valor cobrado bata com a validação do /api/payments/process-saas.
+  useEffect(() => {
+    fetch("/api/plans")
+      .then((r) => r.json())
+      .then((data) => {
+        const rows = data.plans || [];
+        const map: Record<string, any> = Object.fromEntries(rows.map((p: any) => [p.key, p]));
+        if (map.PRO || map.ELITE) {
+          setPlanConfig({
+            PRO: map.PRO ? buildPlanCfg("PRO", map.PRO.monthlyPrice, map.PRO.annualPriceMonthly, map.PRO.label, map.PRO.tagline) : DEFAULT_PLAN_CONFIG.PRO,
+            ELITE: map.ELITE ? buildPlanCfg("ELITE", map.ELITE.monthlyPrice, map.ELITE.annualPriceMonthly, map.ELITE.label, map.ELITE.tagline) : DEFAULT_PLAN_CONFIG.ELITE,
+          });
+        }
+      })
+      .catch(() => { /* mantém defaults */ });
+  }, []);
 
   useEffect(() => {
     fetch("/api/barbershop/financeiro", {
@@ -85,7 +106,7 @@ export default function AssinaturaSaaSPage() {
       mpLoaded &&
       isNew &&
       planParam &&
-      planParam in PLAN_CONFIG &&
+      planParam in planConfig &&
       !autoTriggeredRef.current &&
       currentPlan !== null // aguarda carregar o plano atual
     ) {
@@ -100,7 +121,7 @@ export default function AssinaturaSaaSPage() {
   const isPaidUser = (normalizedPlan === "PRO" || normalizedPlan === "ELITE") && !isOverdue;
 
   const getPrice = (plan: PaidPlan, cycle: BillingCycle) =>
-    cycle === "annual" ? PLAN_CONFIG[plan].annualPrice * 12 : PLAN_CONFIG[plan].monthlyPrice;
+    cycle === "annual" ? planConfig[plan].annualPrice * 12 : planConfig[plan].monthlyPrice;
 
   const handleUpgrade = async (plan: PaidPlan) => {
     if (!window.MercadoPago) return;
@@ -118,7 +139,7 @@ export default function AssinaturaSaaSPage() {
 
     const mp = new window.MercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY);
     const bricksBuilder = mp.bricks();
-    const config = PLAN_CONFIG[plan];
+    const config = planConfig[plan];
     const price = getPrice(plan, billingCycle);
 
     const settings = {
@@ -390,14 +411,14 @@ export default function AssinaturaSaaSPage() {
           <div className="mb-1">
             <span className="text-3xl font-black text-primary">
               R$ {billingCycle === "annual"
-                ? PLAN_CONFIG.PRO.annualPrice.toFixed(2).replace(".", ",")
-                : PLAN_CONFIG.PRO.monthlyPrice.toFixed(2).replace(".", ",")}
+                ? planConfig.PRO.annualPrice.toFixed(2).replace(".", ",")
+                : planConfig.PRO.monthlyPrice.toFixed(2).replace(".", ",")}
             </span>
             <span className="text-sm text-zinc-400 ml-1">/mês</span>
           </div>
           {billingCycle === "annual" && (
             <p className="text-xs text-green-600 font-semibold mb-5">
-              Cobrado anualmente — economize R$ {PLAN_CONFIG.PRO.annualSavings}/ano
+              Cobrado anualmente — economize R$ {planConfig.PRO.annualSavings}/ano
             </p>
           )}
           {billingCycle === "monthly" && <div className="mb-6" />}
@@ -435,14 +456,14 @@ export default function AssinaturaSaaSPage() {
           <div className="mb-1">
             <span className="text-3xl font-black bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
               R$ {billingCycle === "annual"
-                ? PLAN_CONFIG.ELITE.annualPrice.toFixed(2).replace(".", ",")
-                : PLAN_CONFIG.ELITE.monthlyPrice.toFixed(2).replace(".", ",")}
+                ? planConfig.ELITE.annualPrice.toFixed(2).replace(".", ",")
+                : planConfig.ELITE.monthlyPrice.toFixed(2).replace(".", ",")}
             </span>
             <span className="text-sm text-zinc-500 ml-1">/mês</span>
           </div>
           {billingCycle === "annual" && (
             <p className="text-xs text-green-400 font-semibold mb-5">
-              Cobrado anualmente — economize R$ {PLAN_CONFIG.ELITE.annualSavings}/ano
+              Cobrado anualmente — economize R$ {planConfig.ELITE.annualSavings}/ano
             </p>
           )}
           {billingCycle === "monthly" && <div className="mb-6" />}
@@ -495,7 +516,7 @@ export default function AssinaturaSaaSPage() {
                       Você escolheu:
                     </p>
                     <p className="text-lg font-bold text-zinc-900">
-                      {PLAN_CONFIG[selectedPlan].label}
+                      {planConfig[selectedPlan].label}
                     </p>
                     <p className="text-xs text-zinc-500">
                       {billingCycle === "annual" ? "Plano anual" : "Plano mensal"}
@@ -578,7 +599,7 @@ export default function AssinaturaSaaSPage() {
             </div>
             <h2 className="text-2xl font-bold text-zinc-900 mb-2">Sucesso! 🎉</h2>
             <p className="text-zinc-500 mb-8">
-              Plano <strong>{selectedPlan ? PLAN_CONFIG[selectedPlan].label : ""}</strong> ativado.
+              Plano <strong>{selectedPlan ? planConfig[selectedPlan].label : ""}</strong> ativado.
               Explore todas as novas ferramentas agora mesmo.
             </p>
             <Button

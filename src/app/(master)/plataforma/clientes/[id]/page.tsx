@@ -7,13 +7,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import { SAAS_PLANS, formatBRL, type SaasPlanDef } from "@/lib/saasPlans";
 
-const PLANS = [
-  { value: "BASIC",   label: "BASIC",   price: 97.00,   desc: "R$ 97,00/mês" },
-  { value: "PRO",     label: "PRO",     price: 154.90,  desc: "R$ 154,90/mês" },
-  { value: "ELITE",   label: "ELITE",   price: 197.90,  desc: "R$ 197,90/mês" },
-  { value: "PREMIUM", label: "PREMIUM", price: 197.90,  desc: "R$ 197,90/mês (legado)" },
-];
+const PLANS = (Object.values(SAAS_PLANS) as SaasPlanDef[]).map((p) => ({
+  value: p.key,
+  label: p.key,
+  price: p.monthlyPrice,
+  desc: `${formatBRL(p.monthlyPrice)}/mês${p.legacy ? " (legado)" : ""}`,
+}));
 
 function planPrice(plan: string) {
   return PLANS.find(p => p.value === plan)?.desc ?? "—";
