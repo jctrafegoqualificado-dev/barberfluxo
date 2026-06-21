@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { getMonthlyPrice } from "@/lib/saasPlans";
 import MercadoPago, { PreApproval } from "mercadopago";
-
-// Preços dos planos SaaS (em R$)
-const SAAS_PRICES: Record<string, number> = {
-  BASIC:   97,
-  PRO:    147,
-  ELITE:  197,
-  PREMIUM: 197, // legacy
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 });
     }
 
-    const price = SAAS_PRICES[shop.saasPlan] ?? 97;
+    const price = getMonthlyPrice(shop.saasPlan) || 97;
     const baseUrl = process.env.NEXTAUTH_URL ?? "https://iadebarbearia.com.br";
 
     const mpClient = new MercadoPago({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });

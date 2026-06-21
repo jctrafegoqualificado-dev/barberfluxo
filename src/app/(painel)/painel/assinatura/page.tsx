@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
+import { SAAS_PLANS } from "@/lib/saasPlans";
 import Button from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import Script from "next/script";
@@ -26,22 +27,24 @@ declare global {
 
 type BillingCycle = "monthly" | "annual";
 
+// Preços, labels e taglines vêm da fonte única (@/lib/saasPlans); aqui só
+// montamos o shape que esta tela usa e derivamos a economia anual.
 const PLAN_CONFIG = {
   PRO: {
-    monthlyPrice: 154.9,
-    annualPrice: 139.9, // preço mensal equivalente no plano anual
-    label: "Gestão",
-    tagline: "Gestão profissional completa",
+    monthlyPrice: SAAS_PLANS.PRO.monthlyPrice,
+    annualPrice: SAAS_PLANS.PRO.annualPriceMonthly!, // preço mensal equivalente no plano anual
+    label: SAAS_PLANS.PRO.label,
+    tagline: SAAS_PLANS.PRO.tagline,
     dbValue: "PRO" as const,
-    annualSavings: 180, // (154.90 - 139.90) * 12
+    annualSavings: Math.round((SAAS_PLANS.PRO.monthlyPrice - SAAS_PLANS.PRO.annualPriceMonthly!) * 12),
   },
   ELITE: {
-    monthlyPrice: 197.9,
-    annualPrice: 179.9,
-    label: "Gestão + Assistente",
-    tagline: "Inteligência Artificial a seu favor",
+    monthlyPrice: SAAS_PLANS.ELITE.monthlyPrice,
+    annualPrice: SAAS_PLANS.ELITE.annualPriceMonthly!,
+    label: SAAS_PLANS.ELITE.label,
+    tagline: SAAS_PLANS.ELITE.tagline,
     dbValue: "ELITE" as const,
-    annualSavings: 216, // (197.90 - 179.90) * 12
+    annualSavings: Math.round((SAAS_PLANS.ELITE.monthlyPrice - SAAS_PLANS.ELITE.annualPriceMonthly!) * 12),
   },
 } as const;
 

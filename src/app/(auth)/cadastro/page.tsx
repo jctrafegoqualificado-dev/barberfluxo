@@ -4,12 +4,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
+import { SAAS_PLANS, formatBRL } from "@/lib/saasPlans";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
 const PLAN_LABELS: Record<string, string> = {
-  PRO: "Gestão — R$ 154,90/mês",
-  ELITE: "Gestão + Assistente — R$ 197,90/mês",
+  PRO: `${SAAS_PLANS.PRO.label} — ${formatBRL(SAAS_PLANS.PRO.monthlyPrice)}/mês`,
+  ELITE: `${SAAS_PLANS.ELITE.label} — ${formatBRL(SAAS_PLANS.ELITE.monthlyPrice)}/mês`,
 };
 
 function CadastroForm() {

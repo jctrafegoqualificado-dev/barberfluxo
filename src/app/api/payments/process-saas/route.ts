@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { getCheckoutAmount } from "@/lib/saasPlans";
 import MercadoPago, { Payment } from "mercadopago";
 
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const body = await req.json();
-    
+
     // Dados vindos do Mercado Pago Brick
     const { token, issuer_id, payment_method_id, transaction_amount, installments, payer, planType, billingCycle } = body;
 
     if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
       return NextResponse.json({ error: "Mercado Pago não configurado" }, { status: 500 });
+    }
+
+    // Valida o valor contra a fonte única — o transaction_amount vem do frontend
+    // e NÃO pode ser confiado (antes dava para pagar qualquer valor por um plano).
+    const cycle = billingCycle === "annual" ? "annual" : "monthly";
+    const expectedAmount = getCheckoutAmount(planType, cycle);
+    if (expectedAmount == null || Math.abs(Number(transaction_amount) - expectedAmount) > 1) {
+      return NextResponse.json(
+        { error: "Valor do pagamento não confere com o plano selecionado." },
+        { status: 400 }
+      );
     }
 
     const client = new MercadoPago({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN });
