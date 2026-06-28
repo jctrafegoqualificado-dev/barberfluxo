@@ -88,6 +88,14 @@ export async function GET(req: NextRequest) {
     }
 
     // Estado normal — instância já criada, busca QR
+    // Reaplica o webhook sempre que o QR é buscado para garantir que o Evolution
+    // não reverta para o webhook global do servidor (barberfluxo.vercel.app)
+    if (WEBHOOK_URL) {
+      evolution.setWebhook(instanceName, WEBHOOK_URL).catch((err) =>
+        console.error(`[QrCode] Falha ao reaplicar webhook para ${instanceName}:`, err)
+      );
+    }
+
     const qrResult = await evolution.getQrCode(instanceName, 5000);
     if ("error" in qrResult) {
       return NextResponse.json(
