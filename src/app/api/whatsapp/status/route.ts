@@ -84,14 +84,20 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── Auto-Fix de Webhook para Produção ──
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null));
-    if (effectiveStatus === "CONNECTED" && appUrl) {
-      const webhookUrl = `${appUrl}/api/evolution/webhook`;
-      console.log(`🔗 [Webhook Sync] Verificando webhook para: ${webhookUrl}`);
-      // Configuramos o webhook na Evolution para garantir que as mensagens cheguem
-      await evolution.setWebhook(instance.evolutionInstanceName, webhookUrl).catch(err => {
-        console.error("❌ [Webhook Sync] Falha ao configurar webhook:", err);
+    // ── Auto-Fix de Webhook + Settings para Produção ──
+    // O assistente de IA vive no N8N. O webhook da instância DEVE apontar para o N8N,
+    // não para a nossa rota /api/evolution/webhook (que apenas salva a mensagem e tem o
+    // bot desativado). Reaplicamos o webhook do N8N sempre que a instância está conectada
+    // para o Evolution não reverter ao webhook global do servidor — e reaplicamos as
+    // settings (groupsIgnore) para retrofitar instâncias criadas antes desta correção.
+    const n8nWebhookUrl = process.env.N8N_EVOLUTION_WEBHOOK_URL ?? "";
+    if (effectiveStatus === "CONNECTED" && n8nWebhookUrl) {
+      console.log(`🔗 [Webhook Sync] Reaplicando webhook N8N para ${instance.evolutionInstanceName}: ${n8nWebhookUrl}`);
+      await evolution.setWebhook(instance.evolutionInstanceName, n8nWebhookUrl).catch(err => {
+        console.error("❌ [Webhook Sync] Falha ao configurar webhook N8N:", err);
+      });
+      evolution.setInstanceSettings(instance.evolutionInstanceName).catch(err => {
+        console.error("❌ [Settings Sync] Falha ao aplicar settings (groupsIgnore):", err);
       });
     }
 

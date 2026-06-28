@@ -13,6 +13,19 @@ function headers(customApiKey?: string): Record<string, string> {
   };
 }
 
+// Configurações padrão aplicadas a toda instância criada pelo CRM.
+// groupsIgnore: true → o assistente NÃO responde mensagens de grupos (requisito do cliente).
+// Os demais são valores conservadores para não alterar comportamento inesperado.
+const DEFAULT_INSTANCE_SETTINGS = {
+  rejectCall: false,
+  msgCall: "",
+  groupsIgnore: true,
+  alwaysOnline: false,
+  readMessages: false,
+  readStatus: false,
+  syncFullHistory: false,
+} as const;
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
@@ -47,6 +60,9 @@ export async function createInstance(
         instanceName,
         qrcode: false, // QR buscado separadamente via /instance/connect — evita timeout no Vercel Hobby
         integration: "WHATSAPP-BAILEYS",
+        // Configurações da instância (Evolution v2 aceita inline no create).
+        // groupsIgnore: true garante que o bot ignore grupos desde a criação.
+        ...DEFAULT_INSTANCE_SETTINGS,
       }),
     }, timeoutMs);
 
@@ -255,6 +271,42 @@ export async function setWebhook(
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error(`❌ [Evolution] setWebhook failed: ${msg}`);
+    return { error: msg };
+  }
+}
+
+// 5.1. Aplicar configurações na instância (retrofit de instâncias já existentes)
+// Usa o endpoint /settings/set/{instance} do Evolution v2 com os mesmos defaults
+// aplicados na criação — idempotente, seguro para chamar repetidamente.
+export async function setInstanceSettings(
+  instanceName: string,
+  timeoutMs = TIMEOUT_MS
+): Promise<{ success: true } | { error: string }> {
+  try {
+    if (!EVOLUTION_API_URL || !EVOLUTION_GLOBAL_API_KEY) {
+      return { error: "Evolution API environment variables not configured" };
+    }
+
+    const res = await fetchWithTimeout(
+      `${EVOLUTION_API_URL}/settings/set/${instanceName}`,
+      {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(DEFAULT_INSTANCE_SETTINGS),
+      },
+      timeoutMs
+    );
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { message?: string };
+      return { error: data.message || `HTTP ${res.status}` };
+    }
+
+    console.log(`⚙️ [Evolution] Settings aplicadas para ${instanceName} (groupsIgnore=true)`);
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`❌ [Evolution] setInstanceSettings failed: ${msg}`);
     return { error: msg };
   }
 }
