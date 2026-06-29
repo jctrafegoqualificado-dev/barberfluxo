@@ -38,6 +38,8 @@ export async function loadSaasPlans(): Promise<PlansMap> {
         monthlyPrice: r.monthlyPrice,
         annualPriceMonthly: r.annualPriceMonthly ?? null,
         isPaid: r.isPaid,
+        // hasAI é capacidade do produto (não editável pelo CEO) — vem sempre do default estático.
+        hasAI: SAAS_PLANS[key].hasAI,
         legacy: r.legacy || undefined,
       };
     }

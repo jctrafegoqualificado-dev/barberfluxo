@@ -25,6 +25,8 @@ export interface SaasPlanDef {
   annualPriceMonthly: number | null;
   /** Entra no MRR e desbloqueia recursos pagos */
   isPaid: boolean;
+  /** Libera o assistente de IA conversacional (n8n). Só os planos "+ Assistente". */
+  hasAI: boolean;
   /** Não é oferecido a novos clientes (mantido para assinantes existentes) */
   legacy?: boolean;
 }
@@ -37,6 +39,7 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     monthlyPrice: 97,
     annualPriceMonthly: null,
     isPaid: false,
+    hasAI: false,
   },
   PRO: {
     key: "PRO",
@@ -45,6 +48,7 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     monthlyPrice: 154.9,
     annualPriceMonthly: 139.9,
     isPaid: true,
+    hasAI: false,
   },
   ELITE: {
     key: "ELITE",
@@ -53,6 +57,7 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     monthlyPrice: 197.9,
     annualPriceMonthly: 179.9,
     isPaid: true,
+    hasAI: true,
   },
   PREMIUM: {
     key: "PREMIUM",
@@ -61,6 +66,7 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     monthlyPrice: 197.9,
     annualPriceMonthly: 179.9,
     isPaid: true,
+    hasAI: true,
     legacy: true, // equivale a ELITE
   },
 };

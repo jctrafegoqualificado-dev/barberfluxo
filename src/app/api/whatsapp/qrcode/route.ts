@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import * as evolution from "@/lib/evolution/client";
-
-const WEBHOOK_URL = process.env.N8N_EVOLUTION_WEBHOOK_URL ?? "";
+import { resolveWebhookUrl } from "@/lib/evolution/webhook-target";
 
 // Sentinels de estado
 const PENDING_TOKEN  = "__pending__";   // createInstance ainda não foi chamado
@@ -26,6 +25,13 @@ export async function GET(req: NextRequest) {
     }
 
     const instanceName = instance.evolutionInstanceName;
+
+    // Webhook roteado por entitlement de IA (n8n se tem IA; senão CRM save-only).
+    const shop = await prisma.barbershop.findUnique({
+      where: { id: barbershopId },
+      select: { saasPlan: true, saasStatus: true, trialEndsAt: true, saasExpiresAt: true },
+    });
+    const webhookUrl = shop ? resolveWebhookUrl(shop) : "";
 
     if (instance.evolutionToken === PENDING_TOKEN) {
       // Primeira tentativa de criar a instância no Evolution.
@@ -58,8 +64,8 @@ export async function GET(req: NextRequest) {
         .update({ where: { id: instance.id }, data: { evolutionToken: createResult.token } })
         .catch((err) => console.error("[QrCode] Falha ao salvar token:", err));
 
-      if (WEBHOOK_URL) {
-        evolution.setWebhook(instanceName, WEBHOOK_URL).catch(() => {});
+      if (webhookUrl) {
+        evolution.setWebhook(instanceName, webhookUrl).catch(() => {});
       }
 
       console.log(`[QrCode] Instância criada com sucesso, retornando null QR — cliente retentar em 5s`);
@@ -88,10 +94,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Estado normal — instância já criada, busca QR
-    // Reaplica o webhook sempre que o QR é buscado para garantir que o Evolution
-    // não reverta para o webhook global do servidor (barberfluxo.vercel.app)
-    if (WEBHOOK_URL) {
-      evolution.setWebhook(instanceName, WEBHOOK_URL).catch((err) =>
+    // Reaplica o webhook (roteado por entitlement) para o Evolution não reverter
+    // ao webhook global do servidor.
+    if (webhookUrl) {
+      evolution.setWebhook(instanceName, webhookUrl).catch((err) =>
         console.error(`[QrCode] Falha ao reaplicar webhook para ${instanceName}:`, err)
       );
     }

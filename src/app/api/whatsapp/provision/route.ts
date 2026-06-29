@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import * as evolution from "@/lib/evolution/client";
+import { getEntitlements } from "@/lib/entitlements";
 
 export const maxDuration = 30;
 
@@ -43,10 +44,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Barbershop not found" }, { status: 404 });
     }
 
-    const paidPlans = ["PRO", "ELITE", "PREMIUM"];
-    if (!paidPlans.includes(barbershop.saasPlan)) {
+    // Acesso ao WhatsApp: liberado no trial (acesso full por 7 dias) e em planos
+    // pagos ativos. Bloqueado quando o trial vence sem assinatura ou o plano caduca.
+    const { hasAccess } = getEntitlements(barbershop);
+    if (!hasAccess) {
       return NextResponse.json(
-        { error: "WhatsApp requer um plano pago (PRO ou ELITE)" },
+        { error: "Seu acesso expirou. Assine um plano para conectar o WhatsApp." },
         { status: 403 }
       );
     }
