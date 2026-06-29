@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getEntitlements } from "@/lib/entitlements";
 
 /**
  * GET /api/v1/barbershops/{slug}/ai-config
@@ -33,6 +34,10 @@ export async function GET(
         city: true,
         state: true,
         active: true,
+        saasPlan: true,
+        saasStatus: true,
+        trialEndsAt: true,
+        saasExpiresAt: true,
         aiAssistantName: true,
         aiPersonality: true,
         aiGreetingDirective: true,
@@ -69,6 +74,10 @@ export async function GET(
               city: true,
               state: true,
               active: true,
+              saasPlan: true,
+              saasStatus: true,
+              trialEndsAt: true,
+              saasExpiresAt: true,
               aiAssistantName: true,
               aiPersonality: true,
               aiGreetingDirective: true,
@@ -99,6 +108,11 @@ export async function GET(
     if (!shop || !shop.active) {
       return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 });
     }
+
+    // Gate de IA por plano: só responde se o plano libera IA (ELITE/PREMIUM) ou está
+    // em trial, E o dono não desligou o atendimento manualmente.
+    const { hasAI } = getEntitlements(shop);
+    const aiEnabled = hasAI && shop.aiAtendimentoAtivo;
 
     const instanceName = shop.whatsappInstance?.evolutionInstanceName ?? null;
     const bookingUrl = `${process.env.NEXTAUTH_URL}/agendar/${shop.slug}`;
@@ -135,7 +149,10 @@ export async function GET(
         fallbackMessage:
           "Opa, não entendi direito. Você quer agendar um horário, ver nossos serviços ou falar sobre outro assunto?",
         idioma: shop.aiIdioma ?? "pt-BR",
-        atendimentoAtivo: shop.aiAtendimentoAtivo,
+        // aiEnabled: gate de PLANO (n8n deve ignorar a mensagem se false — ver gate B).
+        // atendimentoAtivo: mantém compatibilidade, já incorporando o gate de plano.
+        aiEnabled,
+        atendimentoAtivo: aiEnabled,
         mensagemBoasVindas: shop.aiMensagemBoasVindas ?? null,
         mensagemAusencia: shop.aiMensagemAusencia ?? null,
         mensagemConfirmacaoAgendamento: shop.aiMensagemConfirmacaoAgendamento ?? null,

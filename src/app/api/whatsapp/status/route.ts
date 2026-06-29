@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import * as evolution from "@/lib/evolution/client";
+import { resolveWebhookUrl } from "@/lib/evolution/webhook-target";
 
 function mapEvolutionState(state: string): string {
   switch (state) {
@@ -84,21 +85,27 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── Auto-Fix de Webhook + Settings para Produção ──
-    // O assistente de IA vive no N8N. O webhook da instância DEVE apontar para o N8N,
-    // não para a nossa rota /api/evolution/webhook (que apenas salva a mensagem e tem o
-    // bot desativado). Reaplicamos o webhook do N8N sempre que a instância está conectada
-    // para o Evolution não reverter ao webhook global do servidor — e reaplicamos as
-    // settings (groupsIgnore) para retrofitar instâncias criadas antes desta correção.
-    const n8nWebhookUrl = process.env.N8N_EVOLUTION_WEBHOOK_URL ?? "";
-    if (effectiveStatus === "CONNECTED" && n8nWebhookUrl) {
-      console.log(`🔗 [Webhook Sync] Reaplicando webhook N8N para ${instance.evolutionInstanceName}: ${n8nWebhookUrl}`);
-      await evolution.setWebhook(instance.evolutionInstanceName, n8nWebhookUrl).catch(err => {
-        console.error("❌ [Webhook Sync] Falha ao configurar webhook N8N:", err);
+    // ── Auto-Fix de Webhook + Settings para Produção (gate de IA por plano) ──
+    // O webhook da instância é roteado conforme a entitlement de IA da barbearia:
+    //  - com IA (trial ou plano ELITE) → N8N (assistente responde)
+    //  - sem IA (Gestão/PRO) → nossa rota /api/evolution/webhook (só salva, não responde)
+    // Reaplicamos sempre que conectado para o Evolution não reverter ao webhook global,
+    // e reaplicamos settings (groupsIgnore) para retrofitar instâncias antigas.
+    if (effectiveStatus === "CONNECTED") {
+      const shop = await prisma.barbershop.findUnique({
+        where: { id: barbershopId },
+        select: { saasPlan: true, saasStatus: true, trialEndsAt: true, saasExpiresAt: true },
       });
-      evolution.setInstanceSettings(instance.evolutionInstanceName).catch(err => {
-        console.error("❌ [Settings Sync] Falha ao aplicar settings (groupsIgnore):", err);
-      });
+      const webhookUrl = shop ? resolveWebhookUrl(shop) : "";
+      if (webhookUrl) {
+        console.log(`🔗 [Webhook Sync] ${instance.evolutionInstanceName} → ${webhookUrl}`);
+        await evolution.setWebhook(instance.evolutionInstanceName, webhookUrl).catch(err => {
+          console.error("❌ [Webhook Sync] Falha ao configurar webhook:", err);
+        });
+        evolution.setInstanceSettings(instance.evolutionInstanceName).catch(err => {
+          console.error("❌ [Settings Sync] Falha ao aplicar settings (groupsIgnore):", err);
+        });
+      }
     }
 
     // 6. Retornar
