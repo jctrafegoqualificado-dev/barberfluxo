@@ -61,6 +61,7 @@ export default function AgendarPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [activeSub, setActiveSub] = useState<{ subscriptionId: string; planName: string; allowedBarberIds: string[] } | null>(null);
   const [bookError, setBookError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
 
   // Calendar strip state
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -68,8 +69,16 @@ export default function AgendarPage() {
 
   useEffect(() => {
     fetch(`/api/booking/${slug}`)
-      .then((r) => r.json())
-      .then((d) => setShop(d.shop));
+      .then(async (r) => {
+        // Paywall: barbearia sem plano ativo → agendamento indisponível.
+        if (r.status === 403) {
+          setUnavailable(true);
+          return null;
+        }
+        return r.json();
+      })
+      .then((d) => { if (d?.shop) setShop(d.shop); })
+      .catch(() => {});
   }, [slug]);
 
   function handlePhoneChange(phone: string) {
@@ -185,6 +194,23 @@ export default function AgendarPage() {
   // Semana atual visível no strip (7 dias por vez)
   const weekDays = daySlots.slice(weekOffset * 7, weekOffset * 7 + 7);
   const currentDaySlots = daySlots.find((d) => d.date === selectedDate);
+
+  if (unavailable) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-5">
+            <AlertCircle className="w-8 h-8 text-zinc-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">Agendamento indisponível</h1>
+          <p className="text-zinc-400 text-sm leading-relaxed">
+            Esta barbearia não está aceitando agendamentos online no momento.
+            Entre em contato diretamente com o estabelecimento.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!shop) {
     return (
