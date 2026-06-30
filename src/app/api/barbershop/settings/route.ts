@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { getEntitlements } from "@/lib/entitlements";
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,7 +33,14 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return NextResponse.json(barbershop);
+    if (!barbershop) {
+      return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 });
+    }
+
+    // Entitlements (paywall): fonte única para o front decidir o bloqueio.
+    const { hasAccess, hasAI, reason } = getEntitlements(barbershop);
+
+    return NextResponse.json({ ...barbershop, hasAccess, hasAI, accessReason: reason });
   } catch (e: unknown) {
     console.error("❌ [Settings GET Error]:", e);
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });

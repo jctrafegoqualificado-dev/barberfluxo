@@ -60,7 +60,7 @@ function CadastroForm() {
               ✅ Plano selecionado: {PLAN_LABELS[planParam]}
             </p>
           ) : (
-            <p className="text-zinc-400 text-sm mt-1">7 dias grátis — sem cartão agora</p>
+            <p className="text-zinc-400 text-sm mt-1">Crie sua conta e escolha seu plano</p>
           )}
         </div>
 
@@ -76,7 +76,7 @@ function CadastroForm() {
           <Input label="WhatsApp" type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(41) 99999-9999" className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500" />
           <Input label="Senha" type="password" value={form.password} onChange={(e) => set("password", e.target.value)} placeholder="••••••••" required className="bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500" />
           <Button type="submit" loading={loading} className="w-full" size="lg">
-            Criar conta grátis
+            Criar conta
           </Button>
         </form>
 
