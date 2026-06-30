@@ -1,19 +1,21 @@
 /**
  * entitlements.ts — Fonte ÚNICA do que cada barbearia pode usar AGORA,
- * derivado do estado de assinatura (trial / pago / vencido).
+ * derivado do estado de assinatura.
+ *
+ * Modelo de negócio (PAYWALL — decisão do dono em 2026-06):
+ *  - NÃO existe trial nem tier grátis. Para usar o sistema é preciso um
+ *    plano pago ATIVO.
+ *  - Plano "Gestão" (PRO): acesso full, SEM IA conversacional.
+ *  - Plano "Gestão + Assistente" (ELITE/PREMIUM): acesso full + IA.
+ *  - Carência de GRACE_DAYS dias após o vencimento de um plano pago antes de
+ *    bloquear (para falha temporária de pagamento).
  *
  * Duas regras-mãe:
  *  - hasAccess: pode usar o sistema (painel, agendamento público, WhatsApp).
- *  - hasAI:     assistente conversacional liberado (trial OU plano com IA).
- *
- * Modelo de negócio:
- *  - Trial = acesso FULL (inclui IA) por 7 dias. Depois, bloqueia até assinar.
- *  - Plano "Gestão" (PRO): acesso full, SEM IA conversacional.
- *  - Plano "Gestão + Assistente" (ELITE/PREMIUM): acesso full + IA.
- *  - Carência de GRACE_DAYS dias após o vencimento de plano pago antes de bloquear.
+ *  - hasAI:     assistente conversacional liberado (plano com IA).
  *
  * ⚠️ Para a carência funcionar no vencimento, o cron check-saas-expiry NÃO deve
- *    rebaixar o plano imediatamente (ver fase de enforcement de bloqueio).
+ *    rebaixar o plano imediatamente (ver fase de enforcement de bloqueio / Fase 2).
  */
 import { SAAS_PLANS, type SaasPlanKey } from "./saasPlans";
 
@@ -28,10 +30,8 @@ export interface EntitlementInput {
 }
 
 export type EntitlementReason =
-  | "trial"
   | "active"
   | "grace"
-  | "trial_expired"
   | "overdue"
   | "cancelled"
   | "none";
@@ -56,41 +56,33 @@ export function getEntitlements(
   shop: EntitlementInput,
   now: Date = new Date()
 ): Entitlements {
-  // 1. Trial — acesso full + IA enquanto não vence
-  if (shop.saasStatus === "TRIAL") {
-    if (shop.trialEndsAt && shop.trialEndsAt > now) {
-      return { hasAccess: true, hasAI: true, reason: "trial" };
-    }
-    return { hasAccess: false, hasAI: false, reason: "trial_expired" };
+  const paid = planIsPaid(shop.saasPlan);
+
+  // 1. Plano pago e ATIVO → acesso liberado.
+  //    (O cron check-saas-expiry é quem move ACTIVE → OVERDUE no vencimento;
+  //     enquanto está ACTIVE, confiamos no status.)
+  if (paid && shop.saasStatus === "ACTIVE") {
+    return { hasAccess: true, hasAI: planHasAI(shop.saasPlan), reason: "active" };
   }
 
-  // 2. Plano pago ativo
-  if (shop.saasStatus === "ACTIVE" && planIsPaid(shop.saasPlan)) {
-    if (!shop.saasExpiresAt || shop.saasExpiresAt > now) {
-      return { hasAccess: true, hasAI: planHasAI(shop.saasPlan), reason: "active" };
-    }
-    // Venceu mas o cron ainda não processou → trata como carência
-    if (now.getTime() < shop.saasExpiresAt.getTime() + GRACE_MS) {
-      return { hasAccess: true, hasAI: planHasAI(shop.saasPlan), reason: "grace" };
-    }
-    return { hasAccess: false, hasAI: false, reason: "overdue" };
+  // 2. Plano pago VENCIDO → carência de GRACE_DAYS a partir do vencimento.
+  if (
+    paid &&
+    shop.saasStatus === "OVERDUE" &&
+    shop.saasExpiresAt &&
+    now.getTime() < shop.saasExpiresAt.getTime() + GRACE_MS
+  ) {
+    return { hasAccess: true, hasAI: planHasAI(shop.saasPlan), reason: "grace" };
   }
 
-  // 3. Vencido (OVERDUE) — carência a partir do vencimento
-  if (shop.saasStatus === "OVERDUE") {
-    if (
-      shop.saasExpiresAt &&
-      now.getTime() < shop.saasExpiresAt.getTime() + GRACE_MS
-    ) {
-      return { hasAccess: true, hasAI: planHasAI(shop.saasPlan), reason: "grace" };
-    }
-    return { hasAccess: false, hasAI: false, reason: "overdue" };
-  }
-
-  // 4. CANCELLED / PAUSED / desconhecido → bloqueado
-  return {
-    hasAccess: false,
-    hasAI: false,
-    reason: shop.saasStatus === "CANCELLED" ? "cancelled" : "none",
-  };
+  // 3. Sem plano pago ativo → BLOQUEADO (paywall: sem trial, sem tier grátis).
+  //    Cobre: PENDING (nunca assinou), BASIC, TRIAL legado, OVERDUE fora da
+  //    carência, CANCELLED, PAUSED.
+  const reason: EntitlementReason =
+    shop.saasStatus === "OVERDUE"
+      ? "overdue"
+      : shop.saasStatus === "CANCELLED"
+      ? "cancelled"
+      : "none";
+  return { hasAccess: false, hasAI: false, reason };
 }

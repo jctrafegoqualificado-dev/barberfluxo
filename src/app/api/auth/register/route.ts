@@ -30,7 +30,11 @@ export async function POST(req: NextRequest) {
           name: shopName,
           slug,
           ownerId: user.id,
-          trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          // Paywall: sem trial. A barbearia nasce sem acesso (PENDING) e precisa
+          // assinar um plano pago para usar o sistema.
+          saasStatus: "PENDING",
+          saasPlan: "BASIC",
+          trialEndsAt: null,
           openingHours: {
             create: [1, 2, 3, 4, 5, 6].map((day) => ({
               dayOfWeek: day,

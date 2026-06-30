@@ -52,7 +52,7 @@ const DEFAULT_PLAN_CONFIG: Record<PaidPlan, PlanCfg> = {
 export default function AssinaturaSaaSPage() {
   const { token, user } = useAuthStore();
   const searchParams = useSearchParams();
-  const trialExpired    = searchParams.get("trial")   === "expired";
+  const bloqueado       = searchParams.get("bloqueado") === "true";
   const planExpired     = searchParams.get("expired") === "true";
 
   const planParam = (searchParams.get("plano") ?? "").toUpperCase() as PaidPlan | "";
@@ -64,7 +64,6 @@ export default function AssinaturaSaaSPage() {
   const [paymentStatus, setPaymentStatus] = useState<null | "approved" | "pending" | "rejected">(null);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [saasStatus, setSaasStatus]   = useState<string | null>(null);
-  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PaidPlan | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [pixData, setPixData] = useState<{ qr_code: string; qr_code_base64: string } | null>(null);
@@ -95,8 +94,7 @@ export default function AssinaturaSaaSPage() {
       .then((r) => r.json())
       .then((data) => {
         setCurrentPlan(data.saasPlan   || "BASIC");
-        setSaasStatus(data.saasStatus  || "TRIAL");
-        setTrialEndsAt(data.trialEndsAt || null);
+        setSaasStatus(data.saasStatus  || "PENDING");
       });
   }, [token]);
 
@@ -297,26 +295,26 @@ export default function AssinaturaSaaSPage() {
       <Script src="https://sdk.mercadopago.com/js/v2" onLoad={() => setMpLoaded(true)} />
 
       {/* Banner de plano pago vencido */}
-      {(planExpired || isOverdue) && !trialExpired && (
+      {(planExpired || isOverdue) && (
         <div className="mb-8 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold text-red-800">Seu plano venceu</p>
             <p className="text-sm text-red-600">
-              Sua assinatura expirou e o acesso foi reduzido ao plano Basic.
-              Renove abaixo para recuperar todas as funcionalidades.
+              Sua assinatura expirou e o acesso foi suspenso.
+              Renove abaixo para recuperar o acesso e todas as funcionalidades.
             </p>
           </div>
         </div>
       )}
 
-      {/* Banner de trial expirado */}
-      {trialExpired && (
-        <div className="mb-8 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+      {/* Banner de acesso bloqueado (sem plano ativo) */}
+      {bloqueado && !planExpired && !isOverdue && (
+        <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-red-800">Seu período de teste encerrou</p>
-            <p className="text-sm text-red-600">Escolha um plano abaixo para continuar usando o sistema.</p>
+            <p className="font-semibold text-amber-800">Assine para começar a usar</p>
+            <p className="text-sm text-amber-700">Escolha um plano abaixo para liberar o acesso ao sistema.</p>
           </div>
         </div>
       )}
@@ -353,52 +351,7 @@ export default function AssinaturaSaaSPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 items-start">
-        {/* ─── PLANO BASIC ─── */}
-        <div className="bg-white rounded-2xl border border-zinc-200 p-7 flex flex-col opacity-70 relative">
-          {/* Badge trial */}
-          {trialEndsAt ? (
-            (() => {
-              const daysLeft = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-              return daysLeft > 0 ? (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                  <span className="bg-amber-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow">
-                    🕐 Teste expira em {daysLeft} dia{daysLeft !== 1 ? "s" : ""}
-                  </span>
-                </div>
-              ) : null;
-            })()
-          ) : (
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-              <span className="bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow">
-                ✅ 7 dias grátis
-              </span>
-            </div>
-          )}
-          <div className="mb-6 mt-2">
-            <h3 className="text-lg font-bold text-zinc-900">Basic</h3>
-            <p className="text-sm text-zinc-500">O essencial para começar</p>
-          </div>
-          <div className="mb-1">
-            <span className="text-zinc-400 font-medium text-lg">Grátis</span>
-          </div>
-          <p className="text-xs text-emerald-600 font-semibold mb-5">
-            Teste todas as funcionalidades por 7 dias
-          </p>
-          <ul className="space-y-3.5 flex-1 mb-8">
-            <Feature item="Agendamento Online" />
-            <Feature item="Gestão de Profissionais" />
-            <Feature item="Controle de Comissões" />
-            <Feature disabled item="WhatsApp Automático" />
-            <Feature disabled item="Dashboard de Lucro" />
-            <Feature disabled item="Automações de Retenção" />
-            <Feature disabled item="Inteligência Artificial" />
-          </ul>
-          <Button variant="secondary" className="w-full" disabled>
-            Seu plano atual
-          </Button>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 items-start max-w-3xl mx-auto">
         {/* ─── PLANO GESTÃO (PRO) ─── */}
         <div className="bg-white rounded-2xl border-2 border-primary/60 p-7 flex flex-col relative shadow-lg hover:shadow-xl transition-shadow">
           <div className="mb-6">
