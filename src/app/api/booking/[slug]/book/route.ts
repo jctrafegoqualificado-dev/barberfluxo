@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/auth";
 import { sendAppointmentConfirmation } from "@/lib/email";
 import { sendWhatsApp } from "@/lib/zapi";
 import { bookingRatelimit, getIp } from "@/lib/ratelimit";
+import { getEntitlements } from "@/lib/entitlements";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -27,6 +28,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
     const shop = await prisma.barbershop.findUnique({ where: { slug } });
     if (!shop) return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 });
+
+    // Paywall: barbearia sem plano ativo não recebe agendamento público.
+    if (!getEntitlements(shop).hasAccess) {
+      return NextResponse.json(
+        { error: "Esta barbearia não está aceitando agendamentos no momento." },
+        { status: 403 }
+      );
+    }
 
     // Aceita múltiplos serviços (serviceIds[]) ou um único (serviceId) por compatibilidade
     const ids: string[] = Array.isArray(serviceIds) && serviceIds.length > 0

@@ -4,6 +4,7 @@ import { sendMessage } from "@/lib/evolution/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { setCronHealth } from "@/lib/cron-health";
+import { getEntitlements } from "@/lib/entitlements";
 
 const DEFAULT_MESSAGE = `Olá {{nome}}! 😊
 
@@ -59,6 +60,10 @@ export async function GET(req: NextRequest) {
         name: true,
         reminderMinutes: true,
         reminderMessage: true,
+        saasPlan: true,
+        saasStatus: true,
+        saasExpiresAt: true,
+        trialEndsAt: true,
         whatsappInstance: {
           select: {
             evolutionInstanceName: true,
@@ -75,6 +80,8 @@ export async function GET(req: NextRequest) {
 
     for (const shop of shops) {
       if (!shop.whatsappInstance) continue;
+      // Paywall: não envia lembrete para barbearia sem plano ativo.
+      if (!getEntitlements(shop).hasAccess) continue;
 
       const reminderMinutes = shop.reminderMinutes || 60;
 

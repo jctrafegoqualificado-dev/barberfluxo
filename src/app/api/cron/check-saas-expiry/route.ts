@@ -2,19 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/evolution/client";
 import { setCronHealth } from "@/lib/cron-health";
+import { GRACE_DAYS } from "@/lib/entitlements";
 
 /**
- * check-saas-expiry — Cron de Vencimento de Planos SaaS
+ * check-saas-expiry — Cron de Vencimento de Planos SaaS (paywall)
  *
- * Responsabilidade: encontrar barbearias com plano pago (ACTIVE) cujo
- * saasExpiresAt já passou e marcá-las como OVERDUE.
- * Também envia aviso de vencimento 3 dias antes para o dono via WhatsApp.
+ * Fluxo (carência de GRACE_DAYS dias):
+ *  1. ACTIVE vencido  → OVERDUE (mantém o plano). Inicia a carência.
+ *  2. OVERDUE além da carência → rebaixa para BASIC (bloqueio efetivo).
+ *  3. Avisa quem vence em até 3 dias.
+ *
+ * O acesso em si é decidido por getEntitlements (que já corta no fim da carência
+ * mesmo que o passo 2 ainda não tenha rodado). Este cron cuida das transições de
+ * estado e das notificações.
  *
  * Executa diariamente às 09:00 BRT (12:00 UTC).
  * Proteção: CRON_SECRET obrigatório (Authorization: Bearer <secret>).
  */
 export async function GET(req: NextRequest) {
-  // ── Autenticação ──────────────────────────────────────────────────────────
   const CRON_SECRET = process.env.CRON_SECRET;
   if (!CRON_SECRET) {
     console.error("[check-saas-expiry] CRON_SECRET não configurado");
@@ -32,78 +37,113 @@ export async function GET(req: NextRequest) {
   const startedAt = Date.now();
   const now = new Date();
   const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const graceCutoff = new Date(now.getTime() - GRACE_DAYS * 24 * 60 * 60 * 1000);
+  const APP_URL = process.env.NEXTAUTH_URL;
+
+  const instanceSelect = {
+    evolutionInstanceName: true,
+    evolutionToken: true,
+    status: true,
+  } as const;
 
   let markedOverdue = 0;
-  let warningSent   = 0;
+  let blocked = 0;
+  let warningSent = 0;
 
   try {
-    // ── 1. Marcar como OVERDUE as que já venceram ─────────────────────────
+    // ── 1. ACTIVE vencido → OVERDUE (mantém plano; inicia a carência) ────────
     const expired = await prisma.barbershop.findMany({
-      where: {
-        saasStatus: "ACTIVE",
-        saasExpiresAt: { lt: now },
-      },
+      where: { saasStatus: "ACTIVE", saasExpiresAt: { lt: now } },
       select: {
         id: true,
         name: true,
-        saasExpiresAt: true,
         owner: { select: { name: true, phone: true } },
-        whatsappInstance: {
-          select: { evolutionInstanceName: true, evolutionToken: true, status: true },
-        },
+        whatsappInstance: { select: instanceSelect },
       },
     });
 
     if (expired.length > 0) {
       await prisma.barbershop.updateMany({
-        where: {
-          id: { in: expired.map((b) => b.id) },
-          saasStatus: "ACTIVE", // re-checa para evitar race condition
-        },
-        data: { saasStatus: "OVERDUE", saasPlan: "BASIC" },
+        where: { id: { in: expired.map((b) => b.id) }, saasStatus: "ACTIVE" },
+        data: { saasStatus: "OVERDUE" }, // mantém o plano durante a carência
       });
       markedOverdue = expired.length;
 
-      // Notifica o dono via WhatsApp (best effort)
       for (const shop of expired) {
         const instance = shop.whatsappInstance;
         if (instance?.status !== "CONNECTED" || !shop.owner?.phone) continue;
-
         const msg = [
           `⚠️ *${shop.name}* — Plano vencido`,
           ``,
-          `Olá, ${shop.owner.name?.split(" ")[0] || "parceiro"}! Seu plano de assinatura da *IaDeBarbearia* venceu.`,
+          `Olá, ${shop.owner.name?.split(" ")[0] || "parceiro"}! Seu plano da *IaDeBarbearia* venceu.`,
           ``,
-          `Seu acesso foi reduzido ao plano Basic. Renove agora para não perder funcionalidades:`,
-          `👉 ${process.env.NEXTAUTH_URL}/painel/assinatura`,
+          `Você tem *${GRACE_DAYS} dias* para renovar antes do acesso ser suspenso:`,
+          `👉 ${APP_URL}/painel/assinatura`,
         ].join("\n");
-
         await sendMessage(
           instance.evolutionInstanceName,
           shop.owner.phone,
           msg,
           1200,
           instance.evolutionToken ?? undefined
-        ).catch(() => {}); // best effort
+        ).catch(() => {});
       }
-
-      console.log(`[check-saas-expiry] ${markedOverdue} barbearia(s) marcadas como OVERDUE`);
+      console.log(`[check-saas-expiry] ${markedOverdue} marcada(s) OVERDUE (carência iniciada)`);
     }
 
-    // ── 2. Avisar quem vence em até 3 dias ────────────────────────────────
-    const expiringSoon = await prisma.barbershop.findMany({
+    // ── 2. OVERDUE além da carência → rebaixa para BASIC (bloqueio) ──────────
+    const toBlock = await prisma.barbershop.findMany({
       where: {
-        saasStatus: "ACTIVE",
-        saasExpiresAt: { gte: now, lte: in3Days },
+        saasStatus: "OVERDUE",
+        saasExpiresAt: { lt: graceCutoff },
+        saasPlan: { not: "BASIC" },
       },
+      select: {
+        id: true,
+        name: true,
+        owner: { select: { name: true, phone: true } },
+        whatsappInstance: { select: instanceSelect },
+      },
+    });
+
+    if (toBlock.length > 0) {
+      await prisma.barbershop.updateMany({
+        where: { id: { in: toBlock.map((b) => b.id) }, saasStatus: "OVERDUE" },
+        data: { saasPlan: "BASIC" },
+      });
+      blocked = toBlock.length;
+
+      for (const shop of toBlock) {
+        const instance = shop.whatsappInstance;
+        if (instance?.status !== "CONNECTED" || !shop.owner?.phone) continue;
+        const msg = [
+          `🔒 *${shop.name}* — Acesso suspenso`,
+          ``,
+          `Seu plano da *IaDeBarbearia* não foi renovado e o acesso foi suspenso.`,
+          ``,
+          `Assine novamente para reativar o sistema:`,
+          `👉 ${APP_URL}/painel/assinatura`,
+        ].join("\n");
+        await sendMessage(
+          instance.evolutionInstanceName,
+          shop.owner.phone,
+          msg,
+          1200,
+          instance.evolutionToken ?? undefined
+        ).catch(() => {});
+      }
+      console.log(`[check-saas-expiry] ${blocked} barbearia(s) bloqueada(s) após carência`);
+    }
+
+    // ── 3. Avisar quem vence em até 3 dias ──────────────────────────────────
+    const expiringSoon = await prisma.barbershop.findMany({
+      where: { saasStatus: "ACTIVE", saasExpiresAt: { gte: now, lte: in3Days } },
       select: {
         id: true,
         name: true,
         saasExpiresAt: true,
         owner: { select: { name: true, phone: true } },
-        whatsappInstance: {
-          select: { evolutionInstanceName: true, evolutionToken: true, status: true },
-        },
+        whatsappInstance: { select: instanceSelect },
       },
     });
 
@@ -118,10 +158,10 @@ export async function GET(req: NextRequest) {
       const msg = [
         `🔔 *Aviso de vencimento — ${shop.name}*`,
         ``,
-        `Seu plano de assinatura da *IaDeBarbearia* vence em *${daysLeft} dia${daysLeft !== 1 ? "s" : ""}*.`,
+        `Seu plano da *IaDeBarbearia* vence em *${daysLeft} dia${daysLeft !== 1 ? "s" : ""}*.`,
         ``,
-        `Renove agora para manter todas as funcionalidades ativas:`,
-        `👉 ${process.env.NEXTAUTH_URL}/painel/assinatura`,
+        `Renove para manter o acesso e todas as funcionalidades:`,
+        `👉 ${APP_URL}/painel/assinatura`,
       ].join("\n");
 
       const result = await sendMessage(
@@ -137,7 +177,7 @@ export async function GET(req: NextRequest) {
       await new Promise((r) => setTimeout(r, 1500));
     }
 
-    const result = { markedOverdue, warningSent, expiringSoon: expiringSoon.length };
+    const result = { markedOverdue, blocked, warningSent, expiringSoon: expiringSoon.length };
     await setCronHealth("check-saas-expiry", "ok", Date.now() - startedAt, result);
     return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {
