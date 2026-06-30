@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import Sidebar from "@/components/layout/Sidebar";
 import { useTokenRefresh } from "@/hooks/useTokenRefresh";
@@ -8,6 +8,7 @@ import { useTokenRefresh } from "@/hooks/useTokenRefresh";
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuthStore();
   const router = useRouter();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   useTokenRefresh();
   const [branding, setBranding] = useState<{
@@ -72,7 +73,9 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
         }
       });
     }
-  }, [token]);
+    // pathname nas deps: re-checa o acesso a cada navegação entre páginas do
+    // painel (o layout não remonta, então sem isto o gate rodaria só 1x).
+  }, [token, pathname]);
 
   useEffect(() => {
     if (!mounted) return;

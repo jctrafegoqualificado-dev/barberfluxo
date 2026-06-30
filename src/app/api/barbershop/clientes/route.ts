@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, hashPassword } from "@/lib/auth";
+import { requireAuth, requireActiveSubscription, hashPassword } from "@/lib/auth";
 import { startOfMonth, endOfMonth, differenceInDays } from "date-fns";
 
 export async function GET(req: NextRequest) {
@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
+    await requireActiveSubscription(barbershopId);
     const { name, phone, email } = await req.json();
 
     if (!name || !name.trim()) {
@@ -155,7 +156,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ client }, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
-    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : msg === "SUBSCRIPTION_REQUIRED" ? 402 : 500;
+    const error = msg === "SUBSCRIPTION_REQUIRED" ? "Seu plano não está ativo. Assine para usar esta funcionalidade." : msg;
+    return NextResponse.json({ error }, { status });
   }
 }

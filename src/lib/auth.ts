@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
 import { validateApiKey } from "./api-keys/middleware";
 import { prisma } from "./prisma";
+import { getEntitlements } from "./entitlements";
 
 const _JWT_SECRET = process.env.JWT_SECRET;
 if (!_JWT_SECRET) {
@@ -74,6 +75,23 @@ export function requireAuth(req: NextRequest, allowedRoles?: string[]) {
     throw new Error("FORBIDDEN");
   }
   return payload;
+}
+
+/**
+ * Garante que a barbearia tem acesso ativo (plano pago ou carência) — paywall.
+ * Lança "SUBSCRIPTION_REQUIRED" caso contrário; o handler deve mapear para 402.
+ * Use em rotas operacionais (criar/editar). NÃO use nas rotas necessárias para
+ * assinar (settings, planos, pagamento), senão o bloqueado não consegue pagar.
+ */
+export async function requireActiveSubscription(barbershopId: string | undefined): Promise<void> {
+  if (!barbershopId) throw new Error("SUBSCRIPTION_REQUIRED");
+  const shop = await prisma.barbershop.findUnique({
+    where: { id: barbershopId },
+    select: { saasPlan: true, saasStatus: true, trialEndsAt: true, saasExpiresAt: true },
+  });
+  if (!shop || !getEntitlements(shop).hasAccess) {
+    throw new Error("SUBSCRIPTION_REQUIRED");
+  }
 }
 
 export async function requireAuthWithApiKey(
