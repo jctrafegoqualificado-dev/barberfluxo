@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, hashPassword } from "@/lib/auth";
+import { requireAuth, requireActiveSubscription, hashPassword } from "@/lib/auth";
 import { addMonths } from "date-fns";
 import { sendSubscriptionConfirmation } from "@/lib/email";
 import { subscriptionCreateRatelimit } from "@/lib/ratelimit";
@@ -225,6 +225,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
+    await requireActiveSubscription(payload.barbershopId);
 
     // Rate limiting — 30 criações por barbearia a cada 15 minutos
     const key = `barbershop:${payload.barbershopId ?? "unknown"}`;
@@ -464,7 +465,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ subscription }, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : msg === "SUBSCRIPTION_REQUIRED" ? 402 : 500;
+    const error = msg === "SUBSCRIPTION_REQUIRED" ? "Seu plano não está ativo. Assine para usar esta funcionalidade." : msg;
+    return NextResponse.json({ error }, { status });
   }
 }
 
