@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/evolution/client";
 import { setCronHealth } from "@/lib/cron-health";
+import { getEntitlements } from "@/lib/entitlements";
 
 const DEFAULT_MESSAGE = `Olá, {{nome}}! 😊
 
@@ -58,6 +59,10 @@ export async function GET(req: NextRequest) {
         name: true,
         retentionDays: true,
         retentionMessage: true,
+        saasPlan: true,
+        saasStatus: true,
+        saasExpiresAt: true,
+        trialEndsAt: true,
         whatsappInstance: {
           select: { evolutionInstanceName: true, evolutionToken: true },
         },
@@ -71,6 +76,8 @@ export async function GET(req: NextRequest) {
 
     await Promise.all(shops.map(async (shop) => {
       if (!shop.whatsappInstance) return;
+      // Paywall: não envia retenção para barbearia sem plano ativo.
+      if (!getEntitlements(shop).hasAccess) return;
 
       const inactivityCutoff = new Date(now.getTime() - shop.retentionDays * 24 * 60 * 60 * 1000);
 
