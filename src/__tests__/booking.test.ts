@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 
 const {
   mockBarbershopFindUnique,
-  mockServiceFindUnique,
+  mockServiceFindMany,
   mockBarberFindUnique,
   mockUserFindFirst,
   mockUserFindUnique,
@@ -11,9 +11,11 @@ const {
   mockAppointmentFindFirst,
   mockAppointmentCreate,
   mockSubscriptionFindUnique,
+  mockSubscriptionFindFirst,
+  mockSendWhatsAppNotification,
 } = vi.hoisted(() => ({
   mockBarbershopFindUnique: vi.fn(),
-  mockServiceFindUnique: vi.fn(),
+  mockServiceFindMany: vi.fn(),
   mockBarberFindUnique: vi.fn(),
   mockUserFindFirst: vi.fn(),
   mockUserFindUnique: vi.fn(),
@@ -21,12 +23,14 @@ const {
   mockAppointmentFindFirst: vi.fn(),
   mockAppointmentCreate: vi.fn(),
   mockSubscriptionFindUnique: vi.fn(),
+  mockSubscriptionFindFirst: vi.fn(),
+  mockSendWhatsAppNotification: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     barbershop: { findUnique: mockBarbershopFindUnique },
-    service: { findUnique: mockServiceFindUnique },
+    service: { findMany: mockServiceFindMany },
     barber: { findUnique: mockBarberFindUnique },
     user: {
       findFirst: mockUserFindFirst,
@@ -37,8 +41,19 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: mockAppointmentFindFirst,
       create: mockAppointmentCreate,
     },
-    subscription: { findUnique: mockSubscriptionFindUnique },
+    subscription: {
+      findUnique: mockSubscriptionFindUnique,
+      findFirst: mockSubscriptionFindFirst,
+    },
   },
+}));
+
+// Paywall isolado deste teste: a barbearia sempre tem acesso liberado.
+vi.mock("@/lib/entitlements", () => ({
+  getEntitlements: vi.fn().mockReturnValue({ hasAccess: true, hasAI: false, reason: null }),
+}));
+vi.mock("@/lib/notifications", () => ({
+  sendWhatsAppNotification: mockSendWhatsAppNotification,
 }));
 
 vi.mock("@/lib/zapi", () => ({ sendWhatsApp: vi.fn().mockResolvedValue(undefined) }));
@@ -101,7 +116,7 @@ describe("POST /api/booking/[slug]/book", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockBarbershopFindUnique.mockResolvedValue(SHOP);
-    mockServiceFindUnique.mockResolvedValue(SERVICE);
+    mockServiceFindMany.mockResolvedValue([SERVICE]);
     mockBarberFindUnique.mockResolvedValue(BARBER);
     mockUserFindFirst.mockResolvedValue(null);      // cliente novo
     mockUserFindUnique.mockResolvedValue(null);
@@ -109,6 +124,8 @@ describe("POST /api/booking/[slug]/book", () => {
     mockAppointmentFindFirst.mockResolvedValue(null);
     mockAppointmentCreate.mockResolvedValue(CREATED_APPOINTMENT);
     mockSubscriptionFindUnique.mockResolvedValue(null);
+    mockSubscriptionFindFirst.mockResolvedValue(null);  // sem assinatura em atraso
+    mockSendWhatsAppNotification.mockResolvedValue({ success: true });
   });
 
   it("cria agendamento e novo cliente quando telefone não está no banco", async () => {
@@ -166,6 +183,34 @@ describe("POST /api/booking/[slug]/book", () => {
     expect(res.status).toBe(201);
   });
 
+  it("bloqueia inadimplente com 403 quando blockOverdueEnabled está ligado", async () => {
+    mockBarbershopFindUnique.mockResolvedValue({ ...SHOP, blockOverdueEnabled: true });
+    mockUserFindFirst.mockResolvedValue({ ...NEW_CLIENT, role: "CLIENT" });
+    // cliente possui assinatura em atraso (OVERDUE)
+    mockSubscriptionFindFirst.mockResolvedValue({ id: "sub-overdue", plan: { name: "Plano Ouro" } });
+
+    const res = await POST(makeBookRequest(VALID_BODY), withSlug());
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe("SUBSCRIPTION_OVERDUE");
+    expect(mockAppointmentCreate).not.toHaveBeenCalled();
+    // avisa o cliente por WhatsApp que está em atraso
+    expect(mockSendWhatsAppNotification).toHaveBeenCalledOnce();
+  });
+
+  it("com blockOverdueEnabled desligado, inadimplente ainda agenda (como avulso)", async () => {
+    // flag off (SHOP padrão) — o gate nem consulta a assinatura
+    mockUserFindFirst.mockResolvedValue({ ...NEW_CLIENT, role: "CLIENT" });
+    mockSubscriptionFindFirst.mockResolvedValue({ id: "sub-overdue" });
+
+    const res = await POST(makeBookRequest(VALID_BODY), withSlug());
+
+    expect(res.status).toBe(201);
+    expect(mockSubscriptionFindFirst).not.toHaveBeenCalled();
+    expect(mockAppointmentCreate).toHaveBeenCalledOnce();
+  });
+
   it("retorna 404 quando barbearia não existe", async () => {
     mockBarbershopFindUnique.mockResolvedValue(null);
 
@@ -177,7 +222,7 @@ describe("POST /api/booking/[slug]/book", () => {
   });
 
   it("retorna 404 quando serviço não existe", async () => {
-    mockServiceFindUnique.mockResolvedValue(null);
+    mockServiceFindMany.mockResolvedValue([]);
 
     const res = await POST(makeBookRequest(VALID_BODY), withSlug());
     const data = await res.json();

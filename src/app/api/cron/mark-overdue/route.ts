@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setCronHealth } from "@/lib/cron-health";
+import { sendWhatsAppNotification } from "@/lib/notifications";
 
 /**
  * mark-overdue — Cron de Vencimento de Assinaturas
@@ -9,7 +10,8 @@ import { setCronHealth } from "@/lib/cron-health";
  * já passou e marcá-las como OVERDUE, criando o registro de cobrança pendente.
  *
  * Executa diariamente às 08:00 BRT (11:00 UTC).
- * Não envia notificações (isso é responsabilidade do subscription-renewal).
+ * Ao marcar OVERDUE, avisa o cliente via WhatsApp (número da própria barbearia)
+ * que a assinatura ficou em aberto. O subscription-renewal cuida do aviso PRÉ-vencimento.
  *
  * Proteção: CRON_SECRET obrigatório (Authorization: Bearer <secret>).
  */
@@ -44,7 +46,9 @@ export async function GET(req: NextRequest) {
         id: true,
         nextBillingDate: true,
         barbershopId: true,
-        plan: { select: { price: true } },
+        client: { select: { name: true, phone: true } },
+        plan: { select: { name: true, price: true } },
+        barbershop: { select: { name: true } },
         payments: {
           where: { status: "PENDING" },
           select: { id: true },
@@ -59,6 +63,7 @@ export async function GET(req: NextRequest) {
 
     let markedCount   = 0;
     let paymentCount  = 0;
+    let notifiedCount = 0;
 
     // Processa em lotes para não travar o banco com um único UPDATE grande
     const BATCH = 50;
@@ -72,8 +77,8 @@ export async function GET(req: NextRequest) {
       });
       markedCount += batch.length;
 
-      // Cria cobrança pendente se ainda não existir para este ciclo
       for (const sub of batch) {
+        // Cria cobrança pendente se ainda não existir para este ciclo
         if (sub.payments.length === 0) {
           await prisma.payment.create({
             data: {
@@ -86,11 +91,31 @@ export async function GET(req: NextRequest) {
           });
           paymentCount++;
         }
+
+        // Avisa o cliente via WhatsApp da barbearia que a assinatura ficou em atraso.
+        // Falha de envio não interrompe o cron (sendWhatsAppNotification nunca lança).
+        if (sub.client?.phone) {
+          const firstName = sub.client.name.split(" ")[0];
+          const price = sub.plan.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+          const msg = [
+            `Olá, ${firstName}! 👋`,
+            ``,
+            `Sua assinatura *${sub.plan.name}* no(a) *${sub.barbershop.name}* está *em atraso*.`,
+            ``,
+            `Valor: *${price}*`,
+            ``,
+            `Regularize o pagamento com a barbearia para manter seus benefícios ativos. ✂️`,
+          ].join("\n");
+          const r = await sendWhatsAppNotification(sub.barbershopId, sub.client.phone, msg);
+          if (r.success) notifiedCount++;
+          // pequeno intervalo para não sobrecarregar a instância do WhatsApp
+          await new Promise((res) => setTimeout(res, 1000));
+        }
       }
     }
 
-    console.log(`[mark-overdue] Concluído: ${markedCount} OVERDUE, ${paymentCount} cobranças geradas`);
-    const result = { marked: markedCount, payments: paymentCount };
+    console.log(`[mark-overdue] Concluído: ${markedCount} OVERDUE, ${paymentCount} cobranças, ${notifiedCount} avisos`);
+    const result = { marked: markedCount, payments: paymentCount, notified: notifiedCount };
     await setCronHealth("mark-overdue", "ok", Date.now() - startedAt, result);
     return NextResponse.json({ ok: true, ...result });
   } catch (e: unknown) {

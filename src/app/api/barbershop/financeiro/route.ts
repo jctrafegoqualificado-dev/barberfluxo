@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
     const reminderMinutes = shop?.reminderMinutes ?? 60;
     const cancelByClientEnabled = shop?.cancelByClientEnabled ?? true;
     const minCancelHours = shop?.minCancelHours ?? 0;
+    const blockOverdueEnabled = shop?.blockOverdueEnabled ?? false;
     const autoNoShowEnabled = shop?.autoNoShowEnabled ?? true;
     const autoNoShowHours = shop?.autoNoShowHours ?? 24;
     const discountServicesEnabled = shop?.discountServicesEnabled ?? false;
@@ -101,6 +102,7 @@ export async function GET(req: NextRequest) {
       reminderMinutes,
       cancelByClientEnabled,
       minCancelHours,
+      blockOverdueEnabled,
       autoNoShowEnabled,
       autoNoShowHours,
       discountServicesEnabled,
@@ -139,7 +141,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours, autoNoShowEnabled, autoNoShowHours, discountServicesEnabled, discountServicesMax, discountProductsEnabled, discountProductsMax } = await req.json();
+    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours, blockOverdueEnabled, autoNoShowEnabled, autoNoShowHours, discountServicesEnabled, discountServicesMax, discountProductsEnabled, discountProductsMax } = await req.json();
     if (poeOwnerPct !== undefined && (poeOwnerPct < 0 || poeOwnerPct > 100)) {
       return NextResponse.json({ error: "Percentual inválido" }, { status: 400 });
     }
@@ -152,6 +154,7 @@ export async function PATCH(req: NextRequest) {
         ...(reminderMinutes !== undefined ? { reminderMinutes: Number(reminderMinutes) } : {}),
         ...(cancelByClientEnabled !== undefined ? { cancelByClientEnabled: Boolean(cancelByClientEnabled) } : {}),
         ...(minCancelHours !== undefined ? { minCancelHours: Number(minCancelHours) } : {}),
+        ...(blockOverdueEnabled !== undefined ? { blockOverdueEnabled: Boolean(blockOverdueEnabled) } : {}),
         ...(autoNoShowEnabled !== undefined ? { autoNoShowEnabled: Boolean(autoNoShowEnabled) } : {}),
         ...(autoNoShowHours !== undefined ? { autoNoShowHours: Number(autoNoShowHours) } : {}),
         ...(discountServicesEnabled !== undefined ? { discountServicesEnabled: Boolean(discountServicesEnabled) } : {}),
