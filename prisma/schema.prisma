@@ -85,6 +85,11 @@ model Barbershop {
   // não consegue agendar (nem como avulso) até regularizar. Ver booking/[slug]/book.
   blockOverdueEnabled   Boolean @default(false)
 
+  // Lembrete de pré-vencimento: avisa o assinante MANUAL (não-automático) N dias
+  // antes da cobrança. Ver cron subscription-prebilling. Débito automático (MP) não recebe.
+  prebillingReminderEnabled Boolean @default(true)
+  prebillingReminderDays    Int     @default(5)
+
   // ── Assistente IA (N8N / Evolution) ─────────────────────────────────────────
   aiAssistantName     String?  @db.VarChar(50)  // Ex: "Barba Bot"
   aiPersonality       String?  @db.Text         // Texto livre → vai direto para o system prompt do LLM
@@ -333,6 +338,7 @@ model Subscription {
   authorizationStatus String    @default("MANUAL")
   authorizationLink   String?   // init_point enviado ao cliente
   authorizationSentAt DateTime? // última vez que o link foi enviado
+  paymentMethod       String?   @default("PIX") // PIX | CASH | CARD — forma de pagamento do assinante manual (débito automático MP = authorizationStatus AUTHORIZED)
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

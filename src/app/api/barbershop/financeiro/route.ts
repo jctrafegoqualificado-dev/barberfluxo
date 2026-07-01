@@ -41,6 +41,8 @@ export async function GET(req: NextRequest) {
     const cancelByClientEnabled = shop?.cancelByClientEnabled ?? true;
     const minCancelHours = shop?.minCancelHours ?? 0;
     const blockOverdueEnabled = shop?.blockOverdueEnabled ?? false;
+    const prebillingReminderEnabled = shop?.prebillingReminderEnabled ?? true;
+    const prebillingReminderDays = shop?.prebillingReminderDays ?? 5;
     const autoNoShowEnabled = shop?.autoNoShowEnabled ?? true;
     const autoNoShowHours = shop?.autoNoShowHours ?? 24;
     const discountServicesEnabled = shop?.discountServicesEnabled ?? false;
@@ -103,6 +105,8 @@ export async function GET(req: NextRequest) {
       cancelByClientEnabled,
       minCancelHours,
       blockOverdueEnabled,
+      prebillingReminderEnabled,
+      prebillingReminderDays,
       autoNoShowEnabled,
       autoNoShowHours,
       discountServicesEnabled,
@@ -141,7 +145,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours, blockOverdueEnabled, autoNoShowEnabled, autoNoShowHours, discountServicesEnabled, discountServicesMax, discountProductsEnabled, discountProductsMax } = await req.json();
+    const { poeOwnerPct, debitFee, creditFee, reminderMinutes, cancelByClientEnabled, minCancelHours, blockOverdueEnabled, prebillingReminderEnabled, prebillingReminderDays, autoNoShowEnabled, autoNoShowHours, discountServicesEnabled, discountServicesMax, discountProductsEnabled, discountProductsMax } = await req.json();
     if (poeOwnerPct !== undefined && (poeOwnerPct < 0 || poeOwnerPct > 100)) {
       return NextResponse.json({ error: "Percentual inválido" }, { status: 400 });
     }
@@ -155,6 +159,8 @@ export async function PATCH(req: NextRequest) {
         ...(cancelByClientEnabled !== undefined ? { cancelByClientEnabled: Boolean(cancelByClientEnabled) } : {}),
         ...(minCancelHours !== undefined ? { minCancelHours: Number(minCancelHours) } : {}),
         ...(blockOverdueEnabled !== undefined ? { blockOverdueEnabled: Boolean(blockOverdueEnabled) } : {}),
+        ...(prebillingReminderEnabled !== undefined ? { prebillingReminderEnabled: Boolean(prebillingReminderEnabled) } : {}),
+        ...(prebillingReminderDays !== undefined ? { prebillingReminderDays: Math.min(30, Math.max(1, Number(prebillingReminderDays))) } : {}),
         ...(autoNoShowEnabled !== undefined ? { autoNoShowEnabled: Boolean(autoNoShowEnabled) } : {}),
         ...(autoNoShowHours !== undefined ? { autoNoShowHours: Number(autoNoShowHours) } : {}),
         ...(discountServicesEnabled !== undefined ? { discountServicesEnabled: Boolean(discountServicesEnabled) } : {}),

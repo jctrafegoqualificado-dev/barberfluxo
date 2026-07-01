@@ -17,6 +17,7 @@ interface Subscription {
   beneficiaries?: any;
   mpPreapprovalId?: string | null;
   authorizationStatus?: string | null;
+  paymentMethod?: string | null;
   authorizationLink?: string | null;
   authorizationSentAt?: string | null;
 }
@@ -204,7 +205,7 @@ export default function AssinaturasPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "overdue" | "paused" | "cancelled">("all");
   const [planFilter, setPlanFilter] = useState<string | null>(null);
-  const [form, setForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", planId: "", billingDay: "" });
+  const [form, setForm] = useState({ clientName: "", clientPhone: "", clientEmail: "", planId: "", billingDay: "", paymentMethod: "PIX" });
   const [usageModal, setUsageModal] = useState<Subscription | null>(null);
   const [editSub, setEditSub] = useState<Subscription | null>(null);
 
@@ -418,6 +419,7 @@ export default function AssinaturasPage() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!form.planId) { alert("Selecione um plano"); return; }
+    if (!form.billingDay) { alert("Defina o dia de vencimento"); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/barbershop/subscriptions", {
@@ -428,7 +430,7 @@ export default function AssinaturasPage() {
       const data = await res.json();
       if (!res.ok) { alert(data.error || "Erro ao criar assinatura"); return; }
       setOpen(false);
-      setForm({ clientName: "", clientPhone: "", clientEmail: "", planId: "", billingDay: "" });
+      setForm({ clientName: "", clientPhone: "", clientEmail: "", planId: "", billingDay: "", paymentMethod: "PIX" });
       load();
     } finally {
       setLoading(false);
@@ -1087,6 +1089,13 @@ export default function AssinaturasPage() {
                               {s.billingDay && (
                                 <span className="text-[10px] font-semibold text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-full">
                                   todo dia {s.billingDay}
+                                </span>
+                              )}
+                              {s.authorizationStatus === "AUTHORIZED" ? (
+                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">💳 Automático</span>
+                              ) : (
+                                <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-1.5 py-0.5 rounded-full">
+                                  {s.paymentMethod === "CASH" ? "Dinheiro" : s.paymentMethod === "CARD" ? "Cartão" : "PIX"}
                                 </span>
                               )}
                             </div>
@@ -1791,14 +1800,23 @@ export default function AssinaturasPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Dia de vencimento <span className="text-zinc-400 font-normal">(opcional)</span></label>
-            <select value={form.billingDay} onChange={(e) => setField("billingDay", e.target.value)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-              <option value="">Sem dia fixo</option>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Dia de vencimento <span className="text-red-500">*</span></label>
+            <select value={form.billingDay} onChange={(e) => setField("billingDay", e.target.value)} required className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">Selecione o dia...</option>
               {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>Dia {d}</option>
               ))}
             </select>
-            <p className="text-[11px] text-zinc-400 mt-1">Quando definido, a próxima cobrança sempre cai neste dia do mês.</p>
+            <p className="text-[11px] text-zinc-400 mt-1">A próxima cobrança sempre cai neste dia do mês.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Forma de pagamento</label>
+            <select value={form.paymentMethod} onChange={(e) => setField("paymentMethod", e.target.value)} className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="PIX">PIX</option>
+              <option value="CASH">Dinheiro</option>
+              <option value="CARD">Cartão</option>
+            </select>
+            <p className="text-[11px] text-zinc-400 mt-1">Como o assinante costuma pagar. Quem tem débito automático (Mercado Pago) não recebe o lembrete de pré-vencimento.</p>
           </div>
           <Button type="submit" loading={loading} className="w-full mt-2">Registrar Assinante</Button>
         </form>
