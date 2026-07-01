@@ -203,7 +203,7 @@ export default function BarberAssinaturasPage() {
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [activeFilter, setActiveFilter] = useState<"todos" | "vencidos">("todos");
-  const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "", billingDay: "" });
+  const [form, setForm] = useState({ clientName: "", clientPhone: "", planId: "", billingDay: "", paymentMethod: "PIX" });
 
   const [clientSuggestions, setClientSuggestions] = useState<Client[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -251,6 +251,7 @@ export default function BarberAssinaturasPage() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!form.planId) { alert("Selecione um plano"); return; }
+    if (!form.billingDay) { alert("Defina o dia de vencimento"); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/barbershop/subscriptions", {
@@ -261,7 +262,7 @@ export default function BarberAssinaturasPage() {
       const data = await res.json();
       if (!res.ok) { alert(data.error || "Erro ao criar assinatura"); return; }
       setOpen(false);
-      setForm({ clientName: "", clientPhone: "", planId: "", billingDay: "" });
+      setForm({ clientName: "", clientPhone: "", planId: "", billingDay: "", paymentMethod: "PIX" });
       load();
     } finally {
       setLoading(false);
@@ -686,12 +687,20 @@ export default function BarberAssinaturasPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-zinc-900 mb-1">Dia de vencimento <span className="text-zinc-400 font-normal">(opcional)</span></label>
-            <select value={form.billingDay} onChange={(e) => setField("billingDay", e.target.value)} className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary">
-              <option value="">Sem dia fixo</option>
+            <label className="block text-sm font-medium text-zinc-900 mb-1">Dia de vencimento <span className="text-red-500">*</span></label>
+            <select value={form.billingDay} onChange={(e) => setField("billingDay", e.target.value)} required className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">Selecione o dia...</option>
               {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>Dia {d}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-900 mb-1">Forma de pagamento</label>
+            <select value={form.paymentMethod} onChange={(e) => setField("paymentMethod", e.target.value)} className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="PIX">PIX</option>
+              <option value="CASH">Dinheiro</option>
+              <option value="CARD">Cartão</option>
             </select>
           </div>
           <Button type="submit" loading={loading} className="w-full mt-2">Registrar Assinante</Button>
