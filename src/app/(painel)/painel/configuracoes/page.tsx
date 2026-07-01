@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot, RefreshCw, MessageSquare, Sparkles, HelpCircle } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Ban, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot, RefreshCw, MessageSquare, Sparkles, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
@@ -119,6 +119,9 @@ export default function ConfiguracoesPage() {
   const [minCancelHours, setMinCancelHours] = useState("0");
   const [savingCancel, setSavingCancel] = useState(false);
   const [cancelSaved, setCancelSaved] = useState(false);
+  const [blockOverdueEnabled, setBlockOverdueEnabled] = useState(false);
+  const [savingBlockOverdue, setSavingBlockOverdue] = useState(false);
+  const [blockOverdueSaved, setBlockOverdueSaved] = useState(false);
   const [autoNoShowEnabled, setAutoNoShowEnabled] = useState(true);
   const [autoNoShowHours, setAutoNoShowHours] = useState("24");
   const [savingNoShow, setSavingNoShow] = useState(false);
@@ -150,6 +153,7 @@ export default function ConfiguracoesPage() {
         if (d.reminderMinutes !== undefined) setReminderMinutes(String(d.reminderMinutes));
         if (d.cancelByClientEnabled !== undefined) setCancelByClientEnabled(Boolean(d.cancelByClientEnabled));
         if (d.minCancelHours !== undefined) setMinCancelHours(String(d.minCancelHours));
+        if (d.blockOverdueEnabled !== undefined) setBlockOverdueEnabled(Boolean(d.blockOverdueEnabled));
         if (d.autoNoShowEnabled !== undefined) setAutoNoShowEnabled(Boolean(d.autoNoShowEnabled));
         if (d.autoNoShowHours !== undefined) setAutoNoShowHours(String(d.autoNoShowHours));
         if (d.discountServicesEnabled !== undefined) setDiscountServicesEnabled(Boolean(d.discountServicesEnabled));
@@ -252,6 +256,18 @@ export default function ConfiguracoesPage() {
     setSavingCancel(false);
     setCancelSaved(true);
     setTimeout(() => setCancelSaved(false), 2500);
+  }
+
+  async function saveBlockOverdue() {
+    setSavingBlockOverdue(true);
+    await fetch("/api/barbershop/financeiro", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ blockOverdueEnabled }),
+    });
+    setSavingBlockOverdue(false);
+    setBlockOverdueSaved(true);
+    setTimeout(() => setBlockOverdueSaved(false), 2500);
   }
 
   async function saveReminder() {
@@ -563,6 +579,41 @@ export default function ConfiguracoesPage() {
         <div className="flex justify-end">
           <Button variant="primary" size="sm" onClick={saveCancel} disabled={savingCancel}>
             {cancelSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingCancel ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Bloqueio de Assinante Inadimplente */}
+      <Card>
+        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
+          <Ban className="w-4 h-4 text-primary" /> Bloqueio de Assinante Inadimplente
+        </h2>
+        <p className="text-xs text-zinc-400 mb-4">
+          Controle se um cliente com assinatura <span className="font-medium text-zinc-600">em atraso</span> pode
+          continuar agendando pelo link público.
+        </p>
+
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-800">Bloquear agendamento de inadimplentes</p>
+            <p className="text-xs text-zinc-400">
+              {blockOverdueEnabled
+                ? "Cliente com assinatura em atraso NÃO consegue agendar até regularizar"
+                : "Cliente em atraso agenda normalmente, pagando o valor de avulso (sem o benefício do plano)"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBlockOverdueEnabled((v) => !v)}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${blockOverdueEnabled ? "bg-primary" : "bg-zinc-200"}`}
+          >
+            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${blockOverdueEnabled ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+
+        <div className="flex justify-end">
+          <Button variant="primary" size="sm" onClick={saveBlockOverdue} disabled={savingBlockOverdue}>
+            {blockOverdueSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingBlockOverdue ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
           </Button>
         </div>
       </Card>

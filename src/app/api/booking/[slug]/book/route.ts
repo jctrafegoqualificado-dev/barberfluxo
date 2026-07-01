@@ -5,6 +5,7 @@ import { sendAppointmentConfirmation } from "@/lib/email";
 import { sendWhatsApp } from "@/lib/zapi";
 import { bookingRatelimit, getIp } from "@/lib/ratelimit";
 import { getEntitlements } from "@/lib/entitlements";
+import { sendWhatsAppNotification } from "@/lib/notifications";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -82,6 +83,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberfluxo` } })
       ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberfluxo.com` } })
       ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberapp` } });
+
+    // Bloqueio de inadimplente (opcional, por barbearia): se a barbearia ativou
+    // blockOverdueEnabled, um cliente com assinatura em atraso (OVERDUE) não pode
+    // agendar — nem como avulso — até regularizar. Desligado (padrão) = comportamento
+    // atual: ele agenda normalmente, apenas sem o benefício do plano.
+    if (client && shop.blockOverdueEnabled) {
+      const overdueSub = await prisma.subscription.findFirst({
+        where: { clientId: client.id, barbershopId: shop.id, status: "OVERDUE" },
+        select: { id: true, plan: { select: { name: true } } },
+      });
+      if (overdueSub) {
+        // Avisa o cliente por WhatsApp (número da própria barbearia) que ele está
+        // em atraso e por isso não conseguiu agendar. Não trava a resposta se falhar.
+        if (client.phone) {
+          const firstName = client.name.split(" ")[0];
+          const msg = [
+            `Olá, ${firstName}! 👋`,
+            ``,
+            `Não foi possível concluir seu agendamento no(a) *${shop.name}* porque sua assinatura *${overdueSub.plan.name}* está *em atraso*.`,
+            ``,
+            `Regularize o pagamento com a barbearia para voltar a agendar. ✂️`,
+          ].join("\n");
+          await sendWhatsAppNotification(shop.id, client.phone, msg).catch(() => {});
+        }
+        return NextResponse.json(
+          {
+            error: "Sua assinatura está em atraso. Regularize o pagamento com a barbearia para voltar a agendar.",
+            code: "SUBSCRIPTION_OVERDUE",
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     // Bloqueia double-booking: mesmo telefone + mesmo nome + agendamento futuro ativo
     // Assinantes são isentos pois agendam regularmente
