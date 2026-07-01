@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Ban, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot, RefreshCw, MessageSquare, Sparkles, HelpCircle } from "lucide-react";
+import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Ban, CalendarClock, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot, RefreshCw, MessageSquare, Sparkles, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
@@ -122,6 +122,10 @@ export default function ConfiguracoesPage() {
   const [blockOverdueEnabled, setBlockOverdueEnabled] = useState(false);
   const [savingBlockOverdue, setSavingBlockOverdue] = useState(false);
   const [blockOverdueSaved, setBlockOverdueSaved] = useState(false);
+  const [prebillingEnabled, setPrebillingEnabled] = useState(true);
+  const [prebillingDays, setPrebillingDays] = useState("5");
+  const [savingPrebilling, setSavingPrebilling] = useState(false);
+  const [prebillingSaved, setPrebillingSaved] = useState(false);
   const [autoNoShowEnabled, setAutoNoShowEnabled] = useState(true);
   const [autoNoShowHours, setAutoNoShowHours] = useState("24");
   const [savingNoShow, setSavingNoShow] = useState(false);
@@ -154,6 +158,8 @@ export default function ConfiguracoesPage() {
         if (d.cancelByClientEnabled !== undefined) setCancelByClientEnabled(Boolean(d.cancelByClientEnabled));
         if (d.minCancelHours !== undefined) setMinCancelHours(String(d.minCancelHours));
         if (d.blockOverdueEnabled !== undefined) setBlockOverdueEnabled(Boolean(d.blockOverdueEnabled));
+        if (d.prebillingReminderEnabled !== undefined) setPrebillingEnabled(Boolean(d.prebillingReminderEnabled));
+        if (d.prebillingReminderDays !== undefined) setPrebillingDays(String(d.prebillingReminderDays));
         if (d.autoNoShowEnabled !== undefined) setAutoNoShowEnabled(Boolean(d.autoNoShowEnabled));
         if (d.autoNoShowHours !== undefined) setAutoNoShowHours(String(d.autoNoShowHours));
         if (d.discountServicesEnabled !== undefined) setDiscountServicesEnabled(Boolean(d.discountServicesEnabled));
@@ -268,6 +274,18 @@ export default function ConfiguracoesPage() {
     setSavingBlockOverdue(false);
     setBlockOverdueSaved(true);
     setTimeout(() => setBlockOverdueSaved(false), 2500);
+  }
+
+  async function savePrebilling() {
+    setSavingPrebilling(true);
+    await fetch("/api/barbershop/financeiro", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ prebillingReminderEnabled: prebillingEnabled, prebillingReminderDays: Number(prebillingDays) }),
+    });
+    setSavingPrebilling(false);
+    setPrebillingSaved(true);
+    setTimeout(() => setPrebillingSaved(false), 2500);
   }
 
   async function saveReminder() {
@@ -614,6 +632,57 @@ export default function ConfiguracoesPage() {
         <div className="flex justify-end">
           <Button variant="primary" size="sm" onClick={saveBlockOverdue} disabled={savingBlockOverdue}>
             {blockOverdueSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingBlockOverdue ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Lembrete de Pré-vencimento da Assinatura */}
+      <Card>
+        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
+          <CalendarClock className="w-4 h-4 text-primary" /> Lembrete de Pré-vencimento da Assinatura
+        </h2>
+        <p className="text-xs text-zinc-400 mb-4">
+          Envia um WhatsApp alguns dias antes do vencimento para assinantes que pagam <span className="font-medium text-zinc-600">manualmente</span> (PIX, dinheiro, cartão),
+          reforçando a importância de manter em dia para não perder os benefícios. Quem tem débito automático (Mercado Pago) não recebe.
+        </p>
+
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-800">Ativar lembrete de pré-vencimento</p>
+            <p className="text-xs text-zinc-400">
+              {prebillingEnabled
+                ? `Assinantes manuais recebem um WhatsApp ${prebillingDays} dia(s) antes do vencimento`
+                : "Desativado — nenhum lembrete de pré-vencimento será enviado"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPrebillingEnabled((v) => !v)}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${prebillingEnabled ? "bg-primary" : "bg-zinc-200"}`}
+          >
+            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${prebillingEnabled ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+
+        {prebillingEnabled && (
+          <div className="mb-4">
+            <label className="block text-xs text-zinc-500 mb-1">Quantos dias antes do vencimento?</label>
+            <select
+              value={prebillingDays}
+              onChange={(e) => setPrebillingDays(e.target.value)}
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            >
+              <option value="3">3 dias antes</option>
+              <option value="5">5 dias antes (recomendado)</option>
+              <option value="7">7 dias antes</option>
+              <option value="10">10 dias antes</option>
+            </select>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button variant="primary" size="sm" onClick={savePrebilling} disabled={savingPrebilling}>
+            {prebillingSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingPrebilling ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
           </Button>
         </div>
       </Card>

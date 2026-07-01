@@ -17,6 +17,10 @@
       "schedule": "0 12 * * *"
     },
     {
+      "path": "/api/cron/subscription-prebilling",
+      "schedule": "30 12 * * *"
+    },
+    {
       "path": "/api/cron/mark-noshow",
       "schedule": "0 2 * * *"
     },

@@ -37,6 +37,7 @@ const SUB_SELECT = {
   authorizationStatus: true,
   authorizationLink: true,
   authorizationSentAt: true,
+  paymentMethod: true,
   client: { select: { id: true, name: true, email: true, phone: true } },
   plan: {
     select: {
@@ -82,6 +83,7 @@ const PANEL_SELECT = {
   authorizationStatus: true,
   authorizationLink: true,
   authorizationSentAt: true,
+  paymentMethod: true,
   client: { select: { id: true, name: true, email: true, phone: true } },
   plan: { select: { id: true, name: true, price: true, maxUses: true } },
   payments: {
@@ -237,8 +239,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { clientName, clientPhone, planId, billingDay, clientEmail: clientEmailInput } = await req.json();
-    const billingDayNum = billingDay ? Number(billingDay) : null;
+    const { clientName, clientPhone, planId, billingDay, clientEmail: clientEmailInput, paymentMethod } = await req.json();
+    // Dia de vencimento é sempre fixado — se não vier, usa o dia de hoje (UTC).
+    const billingDayNum = billingDay ? Number(billingDay) : new Date().getUTCDate();
+    // Forma de pagamento do assinante manual: PIX (padrão) | CASH | CARD
+    const subPaymentMethod = ["PIX", "CASH", "CARD"].includes(paymentMethod) ? paymentMethod : "PIX";
+    const pendingPaymentMethod = subPaymentMethod === "CASH" ? "CASH" : subPaymentMethod === "CARD" ? "CREDIT_CARD" : "PIX";
 
     if (!planId) return NextResponse.json({ error: "Selecione um plano" }, { status: 400 });
     if (!clientPhone) return NextResponse.json({ error: "WhatsApp obrigatório" }, { status: 400 });
@@ -323,12 +329,13 @@ export async function POST(req: NextRequest) {
           barbershopId: payload.barbershopId!,
           nextBillingDate: nextBilling,
           billingDay: billingDayNum,
+          paymentMethod: subPaymentMethod,
           beneficiaries,
           // Modo MANUAL: cria cobrança pendente imediatamente (dono dá baixa depois)
           // Modo GATEWAY: sem cobrança pendente — o MP cria via webhook quando confirmar
           ...(!hasGateway && {
             payments: {
-              create: { amount: plan.price, method: "PIX", status: "PENDING" },
+              create: { amount: plan.price, method: pendingPaymentMethod, status: "PENDING" },
             },
           }),
           // authorizationStatus padrão "MANUAL" no schema — gateway sobrescreve abaixo
