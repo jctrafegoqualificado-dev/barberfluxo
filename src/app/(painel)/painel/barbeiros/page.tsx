@@ -7,6 +7,7 @@ import { SkeletonCard } from "@/components/ui/SkeletonCard";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { getInitials, cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Barber {
   id: string;
@@ -136,23 +137,27 @@ export default function BarbeirosPage() {
     e.preventDefault();
     setLoading(true);
 
-    if (mode === "add") {
-      await fetch("/api/barbershop/barbers", {
-        method: "POST",
+    try {
+      const r = await fetch("/api/barbershop/barbers", {
+        method: mode === "add" ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
+        body: JSON.stringify(mode === "add" ? form : { barberId: editingId, ...form }),
       });
-    } else {
-      await fetch("/api/barbershop/barbers", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ barberId: editingId, ...form }),
-      });
-    }
 
-    setLoading(false);
-    setOpen(false);
-    load();
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        toast.error(d.error || "Não foi possível salvar as alterações.");
+        return;
+      }
+
+      toast.success(mode === "edit" ? "Alterações salvas." : "Profissional cadastrado.");
+      setOpen(false);
+      load();
+    } catch {
+      toast.error("Erro de conexão ao salvar.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const [search, setSearch] = useState("");
@@ -399,6 +404,7 @@ export default function BarbeirosPage() {
           <Input
             label={mode === "edit" ? "Nova senha (deixe em branco para manter)" : "Senha de acesso"}
             type="password"
+            autoComplete="new-password"
             value={form.password}
             onChange={(e) => setField("password", e.target.value)}
             placeholder={mode === "edit" ? "••••••••" : "senha123"}

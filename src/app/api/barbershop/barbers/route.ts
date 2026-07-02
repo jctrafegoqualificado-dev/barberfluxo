@@ -110,9 +110,16 @@ export async function PATCH(req: NextRequest) {
     });
     if (!barber) return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
 
-    // Previne que OWNER sobrescreva dados (incluindo senha) de conta com privilégios
-    if (barber.user.role === "PLATFORM_ADMIN" || barber.user.isPlatformAdmin) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    // Uma conta com privilégios (PLATFORM_ADMIN) não pode ter a SENHA redefinida por um
+    // OWNER que não seja o próprio titular — isso permitiria sequestrar a conta. Os demais
+    // dados de perfil/contato (nome, telefone, comissão etc.) continuam editáveis.
+    const isSelf = barber.userId === payload.id;
+    const isPrivileged = barber.user.role === "PLATFORM_ADMIN" || barber.user.isPlatformAdmin;
+    if (password && isPrivileged && !isSelf) {
+      return NextResponse.json(
+        { error: "A senha desta conta só pode ser alterada pelo próprio titular." },
+        { status: 403 }
+      );
     }
 
     await prisma.user.update({
