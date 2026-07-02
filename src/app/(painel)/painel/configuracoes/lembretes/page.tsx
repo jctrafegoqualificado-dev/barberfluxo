@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   Bell, BellOff, Clock, MessageSquare, Save, Loader2,
-  CheckCircle, HelpCircle, Sparkles, AlertTriangle
+  CheckCircle, HelpCircle, Sparkles, AlertTriangle, Scissors
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
@@ -37,6 +37,7 @@ export default function LembretesPage() {
   const [enabled, setEnabled] = useState(false);
   const [minutes, setMinutes] = useState(60);
   const [message, setMessage] = useState("");
+  const [notifyBarber, setNotifyBarber] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -49,6 +50,7 @@ export default function LembretesPage() {
           setEnabled(data.reminderEnabled ?? false);
           setMinutes(data.reminderMinutes ?? 60);
           setMessage(data.reminderMessage || "");
+          setNotifyBarber(data.notifyBarberOnNewAppointment ?? true);
         }
       } catch {
         // silently fail on load
@@ -73,6 +75,7 @@ export default function LembretesPage() {
           reminderEnabled: enabled,
           reminderMinutes: minutes,
           reminderMessage: message || null,
+          notifyBarberOnNewAppointment: notifyBarber,
         }),
       });
       if (res.ok) {
@@ -140,6 +143,29 @@ export default function LembretesPage() {
             className={`relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${enabled ? "bg-green-500 focus:ring-green-400" : "bg-zinc-300 focus:ring-zinc-400"}`}
           >
             <span className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${enabled ? "translate-x-6" : "translate-x-0"}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Aviso ao barbeiro sobre novos agendamentos — independente dos lembretes de cliente */}
+      <div className="bg-white rounded-2xl border border-zinc-200 p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${notifyBarber ? "bg-blue-100" : "bg-zinc-200"}`}>
+              <Scissors className={`w-6 h-6 ${notifyBarber ? "text-blue-600" : "text-zinc-400"}`} />
+            </div>
+            <div>
+              <h2 className="font-bold text-zinc-900 text-lg">Avisar barbeiro sobre novos agendamentos</h2>
+              <p className="text-sm text-zinc-500 max-w-md">
+                O barbeiro recebe um aviso no WhatsApp sempre que marcam com ele — pelo link público, pelo painel ou pelo assistente. Não avisa quando é o próprio barbeiro que registra o horário.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setNotifyBarber(!notifyBarber)}
+            className={`relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 shrink-0 ${notifyBarber ? "bg-green-500 focus:ring-green-400" : "bg-zinc-300 focus:ring-zinc-400"}`}
+          >
+            <span className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${notifyBarber ? "translate-x-6" : "translate-x-0"}`} />
           </button>
         </div>
       </div>

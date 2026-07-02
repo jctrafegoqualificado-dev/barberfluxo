@@ -56,3 +56,52 @@ export async function sendWhatsAppNotification(barbershopId: string, phone: stri
     return { success: false, reason: "INTERNAL_ERROR" };
   }
 }
+
+/**
+ * Notifica o barbeiro, no WhatsApp dele e pela instância da própria barbearia,
+ * sobre um novo agendamento. Fonte única usada por TODOS os fluxos de criação:
+ * link público, painel do dono e bot n8n (API v1).
+ *
+ * Regras:
+ *  - Respeita o toggle `notifyBarberOnNewAppointment` da barbearia (default ON).
+ *  - Não notifica quando quem criou o agendamento é o próprio barbeiro
+ *    (`createdByUserId` === userId do barbeiro) — evita spam no autoagendamento.
+ *  - Sem gate de plano: é higiene operacional, funciona em qualquer plano pago.
+ *  - Fire-and-forget: nunca lança — falha de envio não pode quebrar o agendamento.
+ */
+export async function notifyBarberNewAppointment(opts: {
+  barbershopId: string;
+  barberId: string;
+  clientName: string;
+  dateLabel: string; // já formatado, ex: "17/05/2026"
+  startTime: string;
+  servicesLabel: string;
+  createdByUserId?: string;
+}): Promise<void> {
+  try {
+    const shop = await prisma.barbershop.findUnique({
+      where: { id: opts.barbershopId },
+      select: { name: true, notifyBarberOnNewAppointment: true },
+    });
+    if (!shop?.notifyBarberOnNewAppointment) return;
+
+    const barber = await prisma.barber.findUnique({
+      where: { id: opts.barberId },
+      select: { userId: true, user: { select: { phone: true } } },
+    });
+    if (!barber?.user.phone) return;
+    // Não avisa o próprio barbeiro quando foi ele quem criou o agendamento.
+    if (opts.createdByUserId && barber.userId === opts.createdByUserId) return;
+
+    const msg =
+      `Novo Agendamento - ${shop.name}\n\n` +
+      `Cliente: ${opts.clientName}\n` +
+      `Data: ${opts.dateLabel}\n` +
+      `Horario: ${opts.startTime}\n` +
+      `Servico: ${opts.servicesLabel}`;
+
+    await sendWhatsAppNotification(opts.barbershopId, barber.user.phone, msg);
+  } catch (error) {
+    console.error("❌ [notifyBarberNewAppointment] Erro:", error);
+  }
+}

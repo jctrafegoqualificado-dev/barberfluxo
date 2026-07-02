@@ -5,7 +5,7 @@ import { sendAppointmentConfirmation } from "@/lib/email";
 import { sendWhatsApp } from "@/lib/zapi";
 import { bookingRatelimit, getIp } from "@/lib/ratelimit";
 import { getEntitlements } from "@/lib/entitlements";
-import { sendWhatsAppNotification } from "@/lib/notifications";
+import { sendWhatsAppNotification, notifyBarberNewAppointment } from "@/lib/notifications";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -175,11 +175,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const [ano, mes, dia] = date.split("-");
     const dataFormatada = `${dia}/${mes}/${ano}`;
 
-    // Notificação WhatsApp para o barbeiro
-    if (barber?.user.phone) {
-      const msg = `Novo Agendamento - ${shop.name}\n\nCliente: ${client.name}\nData: ${dataFormatada}\nHorario: ${startTime}\nServico: ${servicesLabel}`;
-      sendWhatsApp(barber.user.phone, msg).catch(console.error);
-    }
+    // Notificação WhatsApp para o barbeiro (fonte única — via instância da barbearia, respeita toggle)
+    void notifyBarberNewAppointment({
+      barbershopId: shop.id,
+      barberId,
+      clientName: client.name,
+      dateLabel: dataFormatada,
+      startTime,
+      servicesLabel,
+    });
 
     // Confirmação WhatsApp para o cliente
     if (client.phone) {

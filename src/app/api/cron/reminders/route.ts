@@ -80,8 +80,9 @@ export async function GET(req: NextRequest) {
 
     for (const shop of shops) {
       if (!shop.whatsappInstance) continue;
-      // Paywall: não envia lembrete para barbearia sem plano ativo.
-      if (!getEntitlements(shop).hasAccess) continue;
+      // Lembrete de agendamento é recurso do plano com Assistente (Gestão + Assistente).
+      // Plano Gestão (sem IA) NÃO dispara lembrete de agendamento.
+      if (!getEntitlements(shop).hasAI) continue;
 
       const reminderMinutes = shop.reminderMinutes || 60;
 

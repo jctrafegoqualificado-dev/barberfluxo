@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
         reminderEnabled: true,
         reminderMinutes: true,
         reminderMessage: true,
+        notifyBarberOnNewAppointment: true,
       }
     });
 
@@ -35,6 +36,11 @@ export async function PATCH(req: NextRequest) {
         reminderEnabled: body.reminderEnabled ?? false,
         reminderMinutes: Number(body.reminderMinutes || 60),
         reminderMessage: body.reminderMessage || null,
+        // Só atualiza se vier no body (não sobrescreve com default em saves parciais)
+        notifyBarberOnNewAppointment:
+          typeof body.notifyBarberOnNewAppointment === "boolean"
+            ? body.notifyBarberOnNewAppointment
+            : undefined,
       }
     });
 
@@ -42,6 +48,7 @@ export async function PATCH(req: NextRequest) {
       reminderEnabled: updated.reminderEnabled,
       reminderMinutes: updated.reminderMinutes,
       reminderMessage: updated.reminderMessage,
+      notifyBarberOnNewAppointment: updated.notifyBarberOnNewAppointment,
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro ao atualizar";

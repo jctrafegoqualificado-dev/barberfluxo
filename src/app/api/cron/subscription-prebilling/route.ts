@@ -3,6 +3,7 @@ import { differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { setCronHealth } from "@/lib/cron-health";
 import { sendWhatsAppNotification } from "@/lib/notifications";
+import { getEntitlements } from "@/lib/entitlements";
 
 /**
  * subscription-prebilling — Lembrete de PRÉ-vencimento da assinatura
@@ -56,7 +57,16 @@ export async function GET(req: NextRequest) {
         client: { select: { name: true, phone: true } },
         plan: { select: { name: true, price: true } },
         barbershop: {
-          select: { name: true, prebillingReminderEnabled: true, prebillingReminderDays: true },
+          select: {
+            name: true,
+            prebillingReminderEnabled: true,
+            prebillingReminderDays: true,
+            // Campos de entitlement para o gate por plano (Gestão + Assistente)
+            saasPlan: true,
+            saasStatus: true,
+            saasExpiresAt: true,
+            trialEndsAt: true,
+          },
         },
       },
     });
@@ -66,6 +76,9 @@ export async function GET(req: NextRequest) {
 
     for (const sub of subs) {
       const shop = sub.barbershop;
+      // Lembrete de pré-vencimento é recurso do plano com Assistente (Gestão + Assistente).
+      // Plano Gestão (sem IA) NÃO dispara este lembrete.
+      if (!getEntitlements(shop).hasAI) { skipped++; continue; }
       if (!shop.prebillingReminderEnabled) { skipped++; continue; }
       if (!sub.client.phone) { skipped++; continue; }
 
