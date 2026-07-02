@@ -81,6 +81,10 @@ model Barbershop {
   cancelByClientEnabled Boolean @default(true)
   minCancelHours        Int     @default(0)
 
+  // Aviso ao barbeiro sobre novos agendamentos (link público, painel e bot n8n).
+  // Não notifica quando quem cria o agendamento é o próprio barbeiro. Sem gate de plano.
+  notifyBarberOnNewAppointment Boolean @default(true)
+
   // Bloqueio de assinante inadimplente: se true, cliente com Subscription OVERDUE
   // não consegue agendar (nem como avulso) até regularizar. Ver booking/[slug]/book.
   blockOverdueEnabled   Boolean @default(false)

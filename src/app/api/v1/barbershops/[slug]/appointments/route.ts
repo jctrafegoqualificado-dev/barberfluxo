@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
+import { notifyBarberNewAppointment } from "@/lib/notifications";
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       }),
       prisma.service.findFirst({
         where: { id: serviceId, barbershopId: shop.id, active: true },
-        select: { id: true, price: true, duration: true },
+        select: { id: true, name: true, price: true, duration: true },
       }),
     ]);
     if (!barber) return NextResponse.json({ error: "Barbeiro não encontrado" }, { status: 404 });
@@ -190,6 +191,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         barber: { select: { id: true, nickname: true, user: { select: { name: true } } } },
         service: { select: { id: true, name: true, price: true, duration: true } },
       },
+    });
+
+    // Aviso ao barbeiro sobre o novo agendamento (feito pelo bot). O cliente é avisado pelo n8n na conversa.
+    const [ano, mes, dia] = date.split("-");
+    void notifyBarberNewAppointment({
+      barbershopId: shop.id,
+      barberId,
+      clientName,
+      dateLabel: `${dia}/${mes}/${ano}`,
+      startTime,
+      servicesLabel: service.name,
     });
 
     return NextResponse.json(

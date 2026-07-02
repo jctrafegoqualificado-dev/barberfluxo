@@ -77,6 +77,7 @@ Evolution API ──► WhatsApp do cliente
 | Confirmação de agendamento | **n8n** (agendou pelo bot) **/ CRM** (agendou pelo painel) | agendamento criado | n8n (via GET) **e** CRM › Assistente IA | `aiMensagemConfirmacaoAgendamento` |
 | Cancelamento | **n8n** (bot) **/ CRM** (painel) | cancelamento | n8n (via GET) **e** CRM › Assistente IA | `aiMensagemCancelamento` |
 | Remarcação | **CRM** | remarcação no painel | fixo no código | [`appointments/route.ts`](../src/app/api/barbershop/appointments/route.ts) |
+| Aviso ao barbeiro (novo agendamento) | **CRM** (helper único `notifyBarberNewAppointment`) — TODOS os fluxos: público, painel e bot | agendamento criado (não avisa se o criador for o próprio barbeiro) | CRM › Lembretes (toggle) | `notifyBarberOnNewAppointment` (default ON, sem gate de plano) |
 | Lembrete de agendamento (X min antes) | **CRM** (cron `reminders`) — **só Gestão + Assistente** (`hasAI`) | horário se aproximando | CRM › Configurações | `reminderEnabled`, `reminderMinutes`, `reminderMessage` |
 | Lembrete de pré-vencimento da assinatura | **CRM** (cron `subscription-prebilling`, diário) — **só Gestão + Assistente** (`hasAI`) | N dias antes do vencimento (pagamento manual) | CRM › Configurações | `prebillingReminderEnabled`, `prebillingReminderDays` |
 

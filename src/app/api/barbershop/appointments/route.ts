@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireActiveSubscription } from "@/lib/auth";
-import { sendWhatsAppNotification } from "@/lib/notifications";
+import { sendWhatsAppNotification, notifyBarberNewAppointment } from "@/lib/notifications";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { logAudit, getClientIp } from "@/lib/audit";
@@ -487,6 +487,17 @@ export async function POST(req: NextRequest) {
     const servicesStr = services.map(s => s.name).join(" + ");
     const defaultConfirmMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${clientName.split(" ")[0]}*, seu horário no *${shopInfo?.name}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${barberInfo?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
     sendWhatsAppNotification(barbershopId, clientPhone, shopInfo?.aiMensagemConfirmacaoAgendamento || defaultConfirmMsg).catch(console.error);
+
+    // ── Automação de WhatsApp: aviso ao barbeiro (não notifica se o criador for o próprio barbeiro) ──
+    void notifyBarberNewAppointment({
+      barbershopId,
+      barberId,
+      clientName,
+      dateLabel: format(appointmentDate, "dd/MM/yyyy", { locale: ptBR }),
+      startTime,
+      servicesLabel: servicesStr,
+      createdByUserId: payload.id,
+    });
 
     return NextResponse.json({ appointment }, { status: 201 });
   } catch (e: unknown) {
