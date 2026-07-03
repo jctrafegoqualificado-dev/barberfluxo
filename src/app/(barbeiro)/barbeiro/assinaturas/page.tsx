@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDay, getInitials } from "@/lib/utils";
 
 interface Subscription {
   id: string; status: string; startDate: string; nextBillingDate: string; billingDay: number | null; usesThisCycle: number;
@@ -456,10 +456,10 @@ export default function BarberAssinaturasPage() {
                           {overdue ? (
                             <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
                               <AlertTriangle className="w-3 h-3" />
-                              {formatDate(s.nextBillingDate)}
+                              {formatDay(s.nextBillingDate)}
                             </span>
                           ) : (
-                            <span className="text-zinc-700 text-xs font-medium whitespace-nowrap">{formatDate(s.nextBillingDate)}</span>
+                            <span className="text-zinc-700 text-xs font-medium whitespace-nowrap">{formatDay(s.nextBillingDate)}</span>
                           )}
                           {s.billingDay && (
                             <span className="text-[10px] text-primary/70 font-medium">dia {s.billingDay}</span>
@@ -606,7 +606,7 @@ export default function BarberAssinaturasPage() {
                     <span className="text-zinc-500">Próx. vencimento</span>
                     <div className="text-right">
                       <span className={`text-xs font-semibold ${overdue ? "text-red-600" : "text-zinc-700"}`}>
-                        {formatDate(s.nextBillingDate)}
+                        {formatDay(s.nextBillingDate)}
                       </span>
                       {s.billingDay && (
                         <p className="text-[10px] text-primary/80 font-semibold">todo dia {s.billingDay}</p>

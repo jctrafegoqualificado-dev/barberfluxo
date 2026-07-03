@@ -7,7 +7,7 @@ import {
   Upload, UserPlus, Loader2, FileText, CheckCircle2
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
-import { formatCurrency, getInitials, formatDate } from "@/lib/utils";
+import { formatCurrency, getInitials, formatDate, formatDay } from "@/lib/utils";
 import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
 import { SkeletonRow } from "@/components/ui/SkeletonCard";
 
@@ -58,7 +58,7 @@ function LastVisitBadge({ days, date }: { days: number | null; date: string | nu
       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border self-end ${color}`}>
         {days}d atrás
       </span>
-      <span className="text-[10px] text-zinc-400 mt-0.5">{formatDate(date)}</span>
+      <span className="text-[10px] text-zinc-400 mt-0.5">{formatDay(date)}</span>
     </div>
   );
 }

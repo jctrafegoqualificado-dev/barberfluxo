@@ -7,7 +7,7 @@ import {
   LineChart, TrendingDown, Minus, Info
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDay } from "@/lib/utils";
 
 interface BillingLog {
   id: string;
@@ -1043,7 +1043,7 @@ export default function IndicadoresPage() {
                           return (
                             <tr key={c.id} className="hover:bg-red-50/10 transition-colors">
                               <td className="px-6 py-3.5 font-semibold text-zinc-900">{c.name}</td>
-                              <td className="px-6 py-3.5 text-zinc-500">{formatDate(c.lastVisit)}</td>
+                              <td className="px-6 py-3.5 text-zinc-500">{formatDay(c.lastVisit)}</td>
                               <td className="px-6 py-3.5 text-center">
                                 <span className="inline-flex items-center bg-red-50 text-red-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">
                                   {c.daysSince} dias
