@@ -381,7 +381,7 @@ async function handleConfirmation(session: any, text: string, instanceName: stri
         serviceId: data.serviceId,
         clientId: clientId!,
         subscriptionId: activeSubscription?.id || null, // Vincula a assinatura se existir
-        date: new Date(data.date + "T12:00:00"),
+        date: new Date(data.date + "T12:00:00Z"), // meio-dia UTC: dia agendado sem "voltar um dia" no fuso (bug fuso)
         startTime: data.startTime,
         endTime: endTime,
         price: activeSubscription ? 0 : service.price, // Se for assinante, o valor "avulso" é 0 (contabiliza no plano)

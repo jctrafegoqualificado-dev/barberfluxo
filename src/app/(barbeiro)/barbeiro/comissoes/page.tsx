@@ -40,9 +40,17 @@ function RateBadge({ type, rate }: { type: string; rate: number }) {
   );
 }
 
+// Instante real (ex.: venda de produto) — exibe no fuso local do navegador.
 function formatDateBR(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+// Data-calendário do agendamento: o campo `date` guarda o DIA (meio-dia UTC),
+// então formatamos em UTC para não "voltar um dia" no fuso do Brasil (UTC-3).
+function formatApptDateBR(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
 }
 
 export default function ComissoesBarberPage() {
@@ -228,7 +236,7 @@ export default function ComissoesBarberPage() {
             ) : itens.avulso.map((a) => (
               <div key={a.id} className="px-5 py-3.5 flex items-center gap-4">
                 <div className="text-center w-14 shrink-0">
-                  <p className="text-xs font-semibold text-zinc-700">{formatDateBR(a.date)}</p>
+                  <p className="text-xs font-semibold text-zinc-700">{formatApptDateBR(a.date)}</p>
                   <p className="text-xs text-zinc-400">{a.time}</p>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -252,7 +260,7 @@ export default function ComissoesBarberPage() {
             ) : itens.assinatura.map((a) => (
               <div key={a.id} className="px-5 py-3.5 flex items-center gap-4">
                 <div className="text-center w-14 shrink-0">
-                  <p className="text-xs font-semibold text-zinc-700">{formatDateBR(a.date)}</p>
+                  <p className="text-xs font-semibold text-zinc-700">{formatApptDateBR(a.date)}</p>
                   <p className="text-xs text-zinc-400">{a.time}</p>
                 </div>
                 <div className="flex-1 min-w-0">

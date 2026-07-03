@@ -415,7 +415,7 @@ function BarberCard({ barber, monthKey, monthOffset, activeTab, onSave, onPay, o
                         <div key={idx} className="flex justify-between items-center text-[10px] text-zinc-600 border-b border-zinc-100 last:border-0 pb-1 last:pb-0">
                           <div>
                             <span className="font-medium">{item.clientName}</span>
-                            <p className="text-zinc-400 text-[9px]">{new Date(item.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} • {item.serviceName}</p>
+                            <p className="text-zinc-400 text-[9px]">{new Date(item.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" })} • {item.serviceName}</p>
                           </div>
                           <span className="font-medium text-zinc-800">{formatCurrency(item.price)}</span>
                         </div>
@@ -461,7 +461,7 @@ function BarberCard({ barber, monthKey, monthOffset, activeTab, onSave, onPay, o
                       <div key={idx} className="flex justify-between items-center text-[10px] text-zinc-600 border-b border-zinc-100 last:border-0 pb-1 last:pb-0">
                         <div>
                           <span className="font-medium text-amber-700">{item.clientName}</span>
-                          <p className="text-zinc-400 text-[9px]">{new Date(item.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} • {item.serviceName}</p>
+                          <p className="text-zinc-400 text-[9px]">{new Date(item.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" })} • {item.serviceName}</p>
                         </div>
                       </div>
                     ))}

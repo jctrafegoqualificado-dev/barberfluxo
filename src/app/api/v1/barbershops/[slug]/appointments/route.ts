@@ -107,6 +107,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     if (isNaN(dayStart.getTime())) {
       return NextResponse.json({ error: "Data inválida (use YYYY-MM-DD)" }, { status: 400 });
     }
+    // Valor gravado no campo `date`: meio-dia UTC, para representar o DIA agendado sem
+    // que o fuso do Brasil (UTC-3) "volte um dia" na exibição (ex.: comissões). (bug fuso)
+    const appointmentDate = new Date(`${date}T12:00:00Z`);
     if (barber.dayOff === dayStart.getDay()) {
       return NextResponse.json({ error: "Barbeiro de folga nesse dia" }, { status: 409 });
     }
@@ -173,7 +176,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
     const appointment = await prisma.appointment.create({
       data: {
-        date: dayStart,
+        date: appointmentDate,
         startTime,
         endTime,
         status: "PENDING",

@@ -156,7 +156,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
     const appointment = await prisma.appointment.create({
       data: {
-        date: new Date(date),
+        // Meio-dia UTC: normaliza o campo `date` para o DIA agendado, evitando que
+        // o fuso do Brasil (UTC-3) "volte um dia" ao exibir (ex.: comissões). (bug fuso)
+        date: new Date(date + "T12:00:00Z"),
         startTime,
         endTime,
         price: totalPrice,
