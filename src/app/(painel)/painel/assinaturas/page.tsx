@@ -7,7 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDay, getInitials } from "@/lib/utils";
 
 interface Subscription {
   id: string; status: string; startDate: string; nextBillingDate: string; billingDay: number | null; usesThisCycle: number;
@@ -269,7 +269,7 @@ export default function AssinaturasPage() {
       alert("Este cliente não possui telefone cadastrado!");
       return;
     }
-    const message = `Olá, ${s.client.name}! Tudo bem? Passando para lembrar que a mensalidade do seu plano *${s.plan.name}* venceu em ${new Date(s.nextBillingDate).toLocaleDateString("pt-BR")}. Se preferir realizar o pagamento via PIX, a nossa chave é a cadastrada na barbearia. Assim que realizar o pagamento, me avise para darmos baixa aqui! Obrigado! 💈`;
+    const message = `Olá, ${s.client.name}! Tudo bem? Passando para lembrar que a mensalidade do seu plano *${s.plan.name}* venceu em ${new Date(s.nextBillingDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}. Se preferir realizar o pagamento via PIX, a nossa chave é a cadastrada na barbearia. Assim que realizar o pagamento, me avise para darmos baixa aqui! Obrigado! 💈`;
     const encodedText = encodeURIComponent(message);
     window.open(`https://wa.me/${phone.startsWith("55") ? phone : "55" + phone}?text=${encodedText}`, "_blank");
   }
@@ -1071,7 +1071,7 @@ export default function AssinaturasPage() {
                             <div className="flex flex-col items-center gap-0.5">
                               <div className="flex items-center justify-center gap-1.5 group">
                                 <span className={`text-xs font-medium ${overdue ? "text-red-600 font-bold" : "text-zinc-600"}`}>
-                                  {formatDate(s.nextBillingDate)}
+                                  {formatDay(s.nextBillingDate)}
                                 </span>
                                 <button
                                   onClick={() => {
@@ -1333,12 +1333,12 @@ export default function AssinaturasPage() {
                     </div>
                     <div className="bg-zinc-50 rounded-xl p-4">
                       <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Início</p>
-                      <p className="text-sm font-bold text-zinc-900 mt-1">{formatDate(extratoSub.startDate)}</p>
+                      <p className="text-sm font-bold text-zinc-900 mt-1">{formatDay(extratoSub.startDate)}</p>
                     </div>
                     <div className={`rounded-xl p-4 ${isOverdue(extratoSub.nextBillingDate) ? "bg-red-50" : "bg-zinc-50"}`}>
                       <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Próx. Cobrança</p>
                       <p className={`text-sm font-bold mt-1 ${isOverdue(extratoSub.nextBillingDate) ? "text-red-600" : "text-zinc-900"}`}>
-                        {formatDate(extratoSub.nextBillingDate)}
+                        {formatDay(extratoSub.nextBillingDate)}
                       </p>
                       {extratoSub.billingDay && (
                         <p className="text-[10px] text-primary font-semibold mt-0.5">vence todo dia {extratoSub.billingDay}</p>
@@ -1556,7 +1556,7 @@ export default function AssinaturasPage() {
                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Timeline de Usos</p>
                     {extratoSub.nextBillingDate && (
                       <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-2.5 py-1 rounded-full">
-                        Fim do ciclo: {formatDate(extratoSub.nextBillingDate)}
+                        Fim do ciclo: {formatDay(extratoSub.nextBillingDate)}
                       </span>
                     )}
                   </div>
@@ -1588,7 +1588,7 @@ export default function AssinaturasPage() {
                                 <div className="text-right shrink-0">
                                   <p className="text-[11px] font-semibold text-zinc-600">{item.barber?.user?.name}</p>
                                   <p className="text-[10px] text-zinc-400">
-                                    {new Date(item.date).toLocaleDateString("pt-BR")} às {item.startTime}
+                                    {new Date(item.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })} às {item.startTime}
                                   </p>
                                 </div>
                               </div>

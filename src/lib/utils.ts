@@ -16,6 +16,14 @@ export function formatDate(date: Date | string) {
   return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
 }
 
+// Formata uma data de "dia-calendário" (vencimento, data de atendimento, última visita)
+// SEM conversão de fuso. Esses valores guardam o DIA (gravado em UTC), então formatar em
+// UTC evita "voltar um dia" no navegador em fuso negativo (Brasil, UTC-3). Para instantes
+// reais (createdAt, "hoje", paidAt) use formatDate/formatDateTime.
+export function formatDay(date: Date | string) {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(date));
+}
+
 export function formatDateTime(date: Date | string) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",

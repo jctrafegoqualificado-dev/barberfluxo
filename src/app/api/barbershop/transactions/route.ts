@@ -13,6 +13,13 @@ const PAYMENT_LABELS: Record<string, string> = {
   DEBIT_CARD: "Cartão de Débito",
 };
 
+// Datas de "dia-calendário" (atendimento, vencimento) sao gravadas como DateTime.
+// Reemite o DIA (em UTC) ao meio-dia UTC para que a exibicao no fuso local do
+// navegador (Brasil, UTC-3) nao "volte um dia". Instantes reais (paidAt) NAO usam isto.
+function calendarDayISO(d: Date): string {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0)).toISOString();
+}
+
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
@@ -111,7 +118,7 @@ export async function GET(req: NextRequest) {
         paymentMethod: method,
         paymentMethodLabel: PAYMENT_LABELS[method] ?? method,
         status: "PAID",
-        date: appt.date.toISOString(),
+        date: calendarDayISO(appt.date), // dia do atendimento (evita voltar 1 dia no fuso)
         category: "ATENDIMENTO",
         clientOrBarber: appt.client?.name ?? "Cliente",
       });
@@ -128,7 +135,7 @@ export async function GET(req: NextRequest) {
         paymentMethod: exp.paymentMethod ?? "PIX",
         paymentMethodLabel: PAYMENT_LABELS[exp.paymentMethod ?? "PIX"] ?? exp.paymentMethod ?? "PIX",
         status: exp.status, // PAID | PENDING | OVERDUE
-        date: exp.dueDate?.toISOString() ?? exp.createdAt.toISOString(),
+        date: exp.dueDate ? calendarDayISO(exp.dueDate) : exp.createdAt.toISOString(),
         category: exp.category,
         clientOrBarber: undefined,
       });
