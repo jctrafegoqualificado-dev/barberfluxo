@@ -5,7 +5,7 @@ import { sendAppointmentConfirmation } from "@/lib/email";
 import { sendWhatsApp } from "@/lib/zapi";
 import { bookingRatelimit, getIp } from "@/lib/ratelimit";
 import { getEntitlements } from "@/lib/entitlements";
-import { sendWhatsAppNotification, notifyBarberNewAppointment } from "@/lib/notifications";
+import { sendWhatsAppNotification, notifyBarberNewAppointment, welcomeMessage } from "@/lib/notifications";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -143,6 +143,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       }
     }
 
+    const isNewClient = !client; // primeiro cadastro deste cliente → recebe boas-vindas
     if (!client) {
       const hashed = await hashPassword(clientPhone || "client123");
       client = await prisma.user.create({
@@ -187,9 +188,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       servicesLabel,
     });
 
-    // Confirmação WhatsApp para o cliente
+    // Confirmação WhatsApp para o cliente (cliente novo recebe boas-vindas junto, no mesmo envio)
     if (client.phone) {
-      const msg = [
+      const confirm = [
         `Agendamento Confirmado - ${shop.name}`,
         ``,
         `Ola, ${client.name.split(" ")[0]}! Seu horario foi confirmado.`,
@@ -201,6 +202,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         ``,
         `Te esperamos la!`,
       ].join("\n");
+      const msg = isNewClient ? `${welcomeMessage(shop.name, client.name)}\n\n${confirm}` : confirm;
       sendWhatsApp(client.phone, msg).catch(console.error);
     }
 

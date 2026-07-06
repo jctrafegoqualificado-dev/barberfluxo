@@ -19,6 +19,16 @@ function normalizeBrPhone(phone: string): string {
 }
 
 /**
+ * Mensagem de boas-vindas para um cliente recém-cadastrado (1ª vez na barbearia).
+ * Texto puro — pode ser enviado por qualquer canal (Evolution/Z-API) ou combinado
+ * com outra mensagem (ex.: atendimento iniciado / reserva) num único envio.
+ */
+export function welcomeMessage(shopName: string, clientName: string): string {
+  const firstName = clientName.split(" ")[0];
+  return `👋 Olá, *${firstName}*! Seja muito bem-vindo(a) à *${shopName}*! Que bom ter você com a gente. Estamos à disposição por aqui sempre que precisar. 💈`;
+}
+
+/**
  * Envia uma mensagem de WhatsApp para um cliente ou barbeiro.
  * Busca automaticamente a instância conectada da barbearia.
  */
