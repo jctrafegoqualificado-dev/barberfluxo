@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireActiveSubscription } from "@/lib/auth";
-import { sendWhatsAppNotification, notifyBarberNewAppointment } from "@/lib/notifications";
+import { sendWhatsAppNotification, notifyBarberNewAppointment, welcomeMessage } from "@/lib/notifications";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { logAudit, getClientIp } from "@/lib/audit";
@@ -342,6 +342,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
+    const isNewClient = !client; // primeiro cadastro deste cliente → recebe boas-vindas
     if (!client) {
       client = await prisma.user.create({
         data: { name: clientName, email: clientEmail, phone: phoneDigits, password: "123456", role: "CLIENT" },
@@ -479,14 +480,39 @@ export async function POST(req: NextRequest) {
       ip: getClientIp(req),
     });
 
-    // ── Automação de WhatsApp: Confirmação de Agendamento ──
+    // ── Automação de WhatsApp: mensagem ao cliente ──
+    // Escolhe entre boas-vindas (cliente novo), atendimento iniciado (walk-in agora)
+    // e reserva (agendamento futuro). Brasil = UTC-3 (padrão São Paulo, sem horário de verão).
     const [shopInfo, barberInfo] = await Promise.all([
       prisma.barbershop.findUnique({ where: { id: barbershopId }, select: { name: true, aiMensagemConfirmacaoAgendamento: true } }),
       prisma.barber.findUnique({ where: { id: barberId }, include: { user: { select: { name: true } } } }),
     ]);
+    const shopName = shopInfo?.name ?? "";
+    const firstName = clientName.split(" ")[0];
     const servicesStr = services.map(s => s.name).join(" + ");
-    const defaultConfirmMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${clientName.split(" ")[0]}*, seu horário no *${shopInfo?.name}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${barberInfo?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
-    sendWhatsAppNotification(barbershopId, clientPhone, shopInfo?.aiMensagemConfirmacaoAgendamento || defaultConfirmMsg).catch(console.error);
+    // Início do atendimento como instante (fuso BR). Até 5 min de folga = "agora" (walk-in).
+    const startInstant = new Date(`${date}T${startTime}:00-03:00`);
+    const isNow = startInstant.getTime() <= Date.now() + 5 * 60_000;
+
+    const defaultConfirmMsg = `📅 *Agendamento Confirmado!*\n\nOlá *${firstName}*, seu horário no *${shopName}* está reservado:\n\n🗓️ *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}*\n⏰ Às *${startTime}*\n👤 Barbeiro: *${barberInfo?.user.name}*\n🛠️ Serviços: ${servicesStr}\n\nEsperamos você! 💈`;
+
+    const parts: string[] = [];
+    if (isNewClient) parts.push(welcomeMessage(shopName, clientName));
+    if (isNow) {
+      // Walk-in em andamento
+      parts.push(
+        isNewClient
+          ? `✂️ Seu atendimento já está começando. Bom corte!`
+          : `✂️ Olá *${firstName}*, seu atendimento no *${shopName}* está começando. Bom corte! 💈`
+      );
+    } else if (isNewClient) {
+      // Cliente novo + agendamento futuro: reserva enxuta (a saudação já veio no boas-vindas)
+      parts.push(`📅 Seu horário está reservado para *${format(appointmentDate, "dd 'de' MMMM", { locale: ptBR })}* às *${startTime}* com *${barberInfo?.user.name}*. Esperamos você!`);
+    } else {
+      // Cliente existente + futuro: mantém o template atual (custom ou padrão)
+      parts.push(shopInfo?.aiMensagemConfirmacaoAgendamento || defaultConfirmMsg);
+    }
+    sendWhatsAppNotification(barbershopId, clientPhone, parts.join("\n\n")).catch(console.error);
 
     // ── Automação de WhatsApp: aviso ao barbeiro (não notifica se o criador for o próprio barbeiro) ──
     void notifyBarberNewAppointment({
