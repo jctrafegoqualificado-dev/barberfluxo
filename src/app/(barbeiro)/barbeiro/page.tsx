@@ -309,6 +309,8 @@ function BarberAgendamentoModal({
   const [beneficiaryName, setBeneficiaryName] = useState("");
   const [clientSuggestions, setClientSuggestions] = useState<{ id: string; name: string; phone: string | null }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [phoneSuggestions, setPhoneSuggestions] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false);
 
   useEffect(() => {
     if (clientName.length < 2) { setClientSuggestions([]); return; }
@@ -318,6 +320,19 @@ function BarberAgendamentoModal({
     }, 200);
     return () => clearTimeout(t);
   }, [clientName, token]);
+
+  // Reconhece o cliente pelo telefone digitado (tolerante a 55/9º dígito no backend).
+  // Sugere cadastros existentes para o barbeiro confirmar — evita duplicar cliente
+  // e garante que a assinatura vinculada ao cadastro certo seja detectada.
+  useEffect(() => {
+    const digits = clientPhone.replace(/\D/g, "");
+    if (digits.length < 4) { setPhoneSuggestions([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/barbershop/clients?q=${encodeURIComponent(digits)}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json()).then(d => setPhoneSuggestions(d.clients || []));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [clientPhone, token]);
 
   function handleSelectBeneficiary(b: any) {
     if (b.uses >= b.maxUses) return;
@@ -433,8 +448,35 @@ function BarberAgendamentoModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-900 mb-1">WhatsApp (com DDD)</label>
-            <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Ex: 11999999999"
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            <div className="relative">
+              <input
+                value={clientPhone}
+                onChange={(e) => { setClientPhone(e.target.value); setShowPhoneSuggestions(true); }}
+                onFocus={() => setShowPhoneSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowPhoneSuggestions(false), 150)}
+                placeholder="Ex: 11999999999"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              {showPhoneSuggestions && phoneSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  {phoneSuggestions.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onMouseDown={() => {
+                        setClientName(c.name);
+                        setClientPhone(c.phone ?? "");
+                        setShowPhoneSuggestions(false);
+                        setShowSuggestions(false);
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-50 flex items-center justify-between gap-2 border-b border-zinc-100 last:border-0"
+                    >
+                      <span className="font-medium text-zinc-900">{c.name}</span>
+                      {c.phone && <span className="text-xs text-zinc-400 shrink-0">{c.phone}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {activeSub?._overdue ? (
@@ -626,8 +668,9 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
       .then(r => r.json())
       .then(d => setAllServices((d.services || []).filter((s: any) => s.active)))
       .finally(() => setLoadingServices(false));
-    // Carrega configurações de desconto e inicializa % se plano tiver extraDiscount
-    fetch("/api/barbershop/financeiro", { headers: { Authorization: `Bearer ${token}` } })
+    // Carrega configurações de desconto e inicializa % se plano tiver extraDiscount.
+    // Usa /settings (acessível a BARBER) em vez de /financeiro (só OWNER) — evita 500.
+    fetch("/api/barbershop/settings", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         setDiscountSettings({
