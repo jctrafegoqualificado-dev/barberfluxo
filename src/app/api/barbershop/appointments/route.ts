@@ -5,6 +5,7 @@ import { sendWhatsAppNotification, notifyBarberNewAppointment, welcomeMessage } 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { logAudit, getClientIp } from "@/lib/audit";
+import { onlyDigits, phoneVariants } from "@/lib/phone";
 
 export async function GET(req: NextRequest) {
   try {
@@ -326,10 +327,13 @@ export async function POST(req: NextRequest) {
     const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
-    // Encontra ou cria o cliente — busca direta, sem full table scan
-    const phoneDigits = clientPhone.replace(/\D/g, "");
+    // Encontra ou cria o cliente — busca direta, sem full table scan.
+    // Casa variações do mesmo número (com/sem DDI 55, com/sem 9º dígito) para não
+    // criar cadastro duplicado — o que faria a assinatura ficar presa em outro
+    // registro e o agendamento fechar como avulso.
+    const phoneDigits = onlyDigits(clientPhone);
     const clientEmail = `${phoneDigits}@cliente.iadebarbearia.com`;
-    let client = await prisma.user.findFirst({ where: { phone: phoneDigits, role: "CLIENT" } })
+    let client = await prisma.user.findFirst({ where: { phone: { in: phoneVariants(clientPhone) }, role: "CLIENT" } })
       ?? await prisma.user.findUnique({ where: { email: clientEmail } })
       ?? await prisma.user.findFirst({
           where: {
@@ -342,12 +346,11 @@ export async function POST(req: NextRequest) {
           },
         });
 
-    const isNewClient = !client; // primeiro cadastro deste cliente → recebe boas-vindas
-    if (!client) {
-      client = await prisma.user.create({
-        data: { name: clientName, email: clientEmail, phone: phoneDigits, password: "123456", role: "CLIENT" },
-      });
-    }
+    // Cliente novo → recebe boas-vindas. A criação do usuário é ADIADA para dentro
+    // da transação do agendamento (mais abaixo), evitando cliente "fantasma" caso
+    // alguma validação/erro aborte o fluxo depois deste ponto (choque de horário,
+    // plano vencido, barbeiro não permitido, falha transitória, etc.).
+    const isNewClient = !client;
 
     // Calcula endTime com base na duração total de todos os serviços
     const [h, m] = startTime.split(":").map(Number);
@@ -359,11 +362,13 @@ export async function POST(req: NextRequest) {
     // Calcula a data (meio-dia para evitar fuso)
     const appointmentDate = new Date(date + "T12:00:00Z");
 
-    // Verifica se o cliente possui assinatura ativa
-    let subscription = await prisma.subscription.findFirst({
-      where: { clientId: client.id, status: "ACTIVE", barbershopId },
-      include: { plan: { include: { allowedBarbers: true } } },
-    });
+    // Verifica se o cliente possui assinatura ativa (cliente novo nunca tem)
+    let subscription = client
+      ? await prisma.subscription.findFirst({
+          where: { clientId: client.id, status: "ACTIVE", barbershopId },
+          include: { plan: { include: { allowedBarbers: true } } },
+        })
+      : null;
 
     // ── Sprint 1: Bloqueia se assinatura vencida ──
     if (subscription && new Date(subscription.nextBillingDate) < new Date()) {
@@ -371,7 +376,7 @@ export async function POST(req: NextRequest) {
       if (beneficiaryName && !force) {
         return NextResponse.json({
           error: "SUBSCRIPTION_OVERDUE",
-          message: `A assinatura de ${client.name} está vencida desde ${new Date(subscription.nextBillingDate).toLocaleDateString("pt-BR")}. Regularize o pagamento para usar o plano.`
+          message: `A assinatura de ${client!.name} está vencida desde ${new Date(subscription.nextBillingDate).toLocaleDateString("pt-BR")}. Regularize o pagamento para usar o plano.`
         }, { status: 403 });
       }
       // Se não escolheu beneficiário, trata como cliente avulso (sem plano)
@@ -436,8 +441,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Cria o agendamento com multi-serviço via transação
+    // Cria cliente (se novo) + agendamento multi-serviço na MESMA transação.
+    // Se a criação do agendamento falhar, o cliente é revertido junto — nunca fica órfão.
     const appointment = await prisma.$transaction(async (tx) => {
+      if (!client) {
+        client = await tx.user.create({
+          data: { name: clientName, email: clientEmail, phone: phoneDigits, password: "123456", role: "CLIENT" },
+        });
+      }
       const appt = await tx.appointment.create({
         data: {
           date: appointmentDate,

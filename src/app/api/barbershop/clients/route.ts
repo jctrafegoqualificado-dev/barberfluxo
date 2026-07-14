@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { phoneVariants } from "@/lib/phone";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,6 +13,10 @@ export async function GET(req: NextRequest) {
     if (q.length < 2) return NextResponse.json({ clients: [] });
 
     const phoneDigits = q.replace(/\D/g, "");
+    // Reconhecimento por telefone tolerante a variações do mesmo número
+    // (com/sem DDI 55, com/sem 9º dígito) — sem isso, digitar "41998276617"
+    // não acha um cadastro salvo como "554198276617".
+    const variants = phoneDigits.length >= 10 ? phoneVariants(q) : [];
     const clients = await prisma.user.findMany({
       where: {
         AND: [
@@ -25,6 +30,7 @@ export async function GET(req: NextRequest) {
             OR: [
               { name: { contains: q, mode: "insensitive" } },
               ...(phoneDigits.length > 0 ? [{ phone: { contains: phoneDigits } }] : []),
+              ...(variants.length > 0 ? [{ phone: { in: variants } }] : []),
             ],
           },
         ],

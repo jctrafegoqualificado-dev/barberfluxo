@@ -8,6 +8,7 @@ import { logAudit, getClientIp } from "@/lib/audit";
 import { decrypt } from "@/lib/encrypt";
 import { createMpPreapproval } from "@/lib/mercadopago";
 import { sendWhatsAppNotification } from "@/lib/notifications";
+import { phoneVariants } from "@/lib/phone";
 
 function clampDay(day: number, year: number, month: number): number {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -273,9 +274,11 @@ export async function POST(req: NextRequest) {
     const syntheticEmail = `${cleanPhone}@cliente.iadebarbearia.com`;
     const finalClientEmail = clientEmailInput?.trim() || syntheticEmail;
 
-    // Busca direta por telefone — evita full table scan
+    // Busca direta por telefone — evita full table scan.
+    // Casa variações do mesmo número (com/sem DDI 55, com/sem 9º dígito) para
+    // reaproveitar o cadastro existente em vez de criar duplicata.
     let client = await prisma.user.findFirst({
-      where: { phone: cleanPhone, role: "CLIENT" },
+      where: { phone: { in: phoneVariants(clientPhone) }, role: "CLIENT" },
     });
 
     if (!client) {

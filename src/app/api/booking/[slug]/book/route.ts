@@ -6,6 +6,7 @@ import { sendWhatsApp } from "@/lib/zapi";
 import { bookingRatelimit, getIp } from "@/lib/ratelimit";
 import { getEntitlements } from "@/lib/entitlements";
 import { sendWhatsAppNotification, notifyBarberNewAppointment, welcomeMessage } from "@/lib/notifications";
+import { phoneVariants } from "@/lib/phone";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -77,8 +78,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       }
     }
 
-    // Busca por telefone primeiro; depois pelos e-mails sintéticos (múltiplos domínios históricos)
-    let client = await prisma.user.findFirst({ where: { phone: cleanPhone, role: "CLIENT" } })
+    // Busca por telefone primeiro (casando variações 55/9º dígito para não duplicar);
+    // depois pelos e-mails sintéticos (múltiplos domínios históricos)
+    let client = await prisma.user.findFirst({ where: { phone: { in: phoneVariants(clientPhone) }, role: "CLIENT" } })
       ?? await prisma.user.findUnique({ where: { email: clientEmail } })
       ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberfluxo` } })
       ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberfluxo.com` } })
