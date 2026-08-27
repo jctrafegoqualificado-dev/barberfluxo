@@ -80,7 +80,20 @@ export async function GET(req: NextRequest) {
       const qrResult = await evolution.getQrCode(instanceName, 5000);
 
       if ("error" in qrResult || !qrResult.base64) {
-        console.warn(`[QrCode] Instância ainda não disponível: ${"error" in qrResult ? qrResult.error : "base64 vazia"}`);
+        const errMsg = "error" in qrResult ? qrResult.error : "base64 vazia";
+        console.warn(`[QrCode] Instância ainda não disponível: ${errMsg}`);
+
+        // "Not Found" = a instância realmente não existe no Evolution (o createInstance
+        // original falhou de verdade, não foi só um timeout do nosso lado). Sem isso,
+        // o fluxo fica preso pra sempre checando uma instância que nunca vai aparecer.
+        // Volta para PENDING_TOKEN para a próxima chamada tentar criar de novo.
+        if ("error" in qrResult && /not found|does not exist/i.test(qrResult.error)) {
+          console.warn(`[QrCode] Instância não existe de fato — voltando a PENDING para recriar: ${instanceName}`);
+          await prisma.whatsAppInstance
+            .update({ where: { id: instance.id }, data: { evolutionToken: PENDING_TOKEN } })
+            .catch(() => {});
+        }
+
         // Retorna null sem erro — frontend retenta em 5s
         return NextResponse.json({ qrcode: null, count: 0 });
       }
