@@ -26,7 +26,15 @@ export async function GET(req: NextRequest) {
         where: { barberId: barber.id, date: { gte: todayStart, lte: todayEnd } },
         include: {
           client: { select: { name: true, phone: true } },
-          service: { select: { name: true, duration: true } },
+          // `service` guarda apenas o primeiro item por compatibilidade com
+          // agendamentos antigos. A tela do barbeiro usa `services` para exibir
+          // e editar corretamente combos como "Cabelo + Barba".
+          service: { select: { id: true, name: true, duration: true } },
+          services: {
+            include: {
+              service: { select: { id: true, name: true, price: true, duration: true } },
+            },
+          },
           subscription: { select: { id: true, status: true, plan: { select: { name: true, extraDiscount: true, planServices: { select: { serviceId: true } } } } } },
         },
         orderBy: { startTime: "asc" },
