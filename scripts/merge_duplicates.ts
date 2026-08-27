@@ -25,6 +25,23 @@ function canonicalPhone(raw: string | null | undefined): string | null {
   return d.slice(0, 2) + d.slice(-8);
 }
 
+const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+
+/**
+ * Nomes "compatíveis" = provavelmente a mesma pessoa: compartilham o primeiro
+ * nome OU um nome é prefixo do outro (ex.: "Breno" vs "Breno Andrade").
+ * Quando NÃO batem, a chave canônica pode ter juntado pessoas diferentes
+ * (número reusado, ou colisão de 8 dígitos) — nesse caso não mesclamos.
+ */
+function namesCompatible(group: { name: string }[]): boolean {
+  const firsts = group.map((c) => norm(c.name).split(" ")[0] ?? "");
+  const allSameFirst = firsts.every((f) => f && f === firsts[0]);
+  const oneIsPrefix = group.some((a) =>
+    group.some((b) => a !== b && (norm(a.name).startsWith(norm(b.name)) || norm(b.name).startsWith(norm(a.name))))
+  );
+  return allSameFirst || oneIsPrefix;
+}
+
 async function main() {
   const apply = process.argv.includes("--apply");
   console.log(`🔍 Buscando clientes duplicados por telefone (canônico: ignora DDI 55 e 9º dígito)...`);
@@ -54,6 +71,8 @@ async function main() {
 
   console.log(`⚠️  Encontrados ${duplicates.length} telefones com duplicatas:\n`);
 
+  const skipped: string[] = [];
+
   for (const [phone, group] of duplicates) {
     // Escolhe o PRINCIPAL pelo registro mais "rico", não pelo mais antigo — evita
     // mesclar um cliente real (com assinatura/agendamentos) dentro de um cadastro
@@ -65,6 +84,18 @@ async function main() {
       subs: await prisma.subscription.count({ where: { clientId: c.id } }),
       appts: await prisma.appointment.count({ where: { clientId: c.id } }),
     })));
+
+    // ── Travas de segurança: pula grupos onde o merge seria arriscado ──
+    const totalActive = scored.filter((s) => s.activeSubs > 0).length;
+    const membersStr = group.map((c) => `"${c.name}"(${c.phone})`).join(" ~ ");
+    if (totalActive >= 2) {
+      skipped.push(`⛔ ${phone}: ${membersStr}  — ${totalActive} assinaturas ATIVAS (merge cancelaria uma; provável pessoas diferentes)`);
+      continue;
+    }
+    if (!namesCompatible(group)) {
+      skipped.push(`⚠️  ${phone}: ${membersStr}  — nomes divergentes (revisar manualmente)`);
+      continue;
+    }
     scored.sort((a, b) =>
       b.activeSubs - a.activeSubs ||
       b.subs - a.subs ||
@@ -140,7 +171,18 @@ async function main() {
     console.log("");
   }
 
-  console.log(apply ? "✅ Merge concluído!" : `\nℹ️  DRY-RUN: nada foi alterado. Rode com --apply para efetivar o merge dos ${duplicates.length} grupos acima.`);
+  if (skipped.length) {
+    console.log(`\n🚧 ${skipped.length} grupo(s) PULADO(S) por segurança (não mesclados automaticamente):`);
+    skipped.forEach((s) => console.log("   " + s));
+    console.log(`   → Revise e, se for a mesma pessoa, mescle manualmente/renomeie.`);
+  }
+
+  const mergeable = duplicates.length - skipped.length;
+  console.log(
+    apply
+      ? `\n✅ Merge concluído! (${mergeable} grupo(s) mesclado(s), ${skipped.length} pulado(s))`
+      : `\nℹ️  DRY-RUN: nada foi alterado. ${mergeable} grupo(s) seriam mesclados e ${skipped.length} pulados. Rode com --apply para efetivar.`
+  );
 }
 
 main()
