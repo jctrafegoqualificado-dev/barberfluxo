@@ -54,6 +54,8 @@ vi.mock("@/lib/entitlements", () => ({
 }));
 vi.mock("@/lib/notifications", () => ({
   sendWhatsAppNotification: mockSendWhatsAppNotification,
+  notifyBarberNewAppointment: vi.fn().mockResolvedValue(undefined),
+  welcomeMessage: vi.fn().mockReturnValue("Bem-vindo!"),
 }));
 
 vi.mock("@/lib/zapi", () => ({ sendWhatsApp: vi.fn().mockResolvedValue(undefined) }));
@@ -73,6 +75,7 @@ import { POST } from "@/app/api/booking/[slug]/book/route";
 
 const SHOP = { id: "shop-1", name: "Barber Master", slug: "barber-master" };
 const SERVICE = { id: "svc-1", name: "Corte", price: 30, duration: 30 };
+const BEARD_SERVICE = { id: "svc-2", name: "Barba", price: 20, duration: 20 };
 const BARBER = {
   id: "barb-1",
   barbershopId: "shop-1",
@@ -137,6 +140,33 @@ describe("POST /api/booking/[slug]/book", () => {
     expect(data.appointment).toBeDefined();
     expect(mockUserCreate).toHaveBeenCalledOnce();
     expect(mockAppointmentCreate).toHaveBeenCalledOnce();
+  });
+
+  it("grava todos os serviços de um combo de assinatura", async () => {
+    mockServiceFindMany.mockResolvedValue([SERVICE, BEARD_SERVICE]);
+
+    const res = await POST(makeBookRequest({
+      ...VALID_BODY,
+      serviceId: undefined,
+      serviceIds: [SERVICE.id, BEARD_SERVICE.id],
+      subscriptionId: "sub-cabelo-barba",
+    }), withSlug());
+
+    expect(res.status).toBe(201);
+    expect(mockAppointmentCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        price: 50,
+        endTime: "10:50",
+        serviceId: SERVICE.id,
+        subscriptionId: "sub-cabelo-barba",
+        services: {
+          create: [
+            { serviceId: SERVICE.id, price: SERVICE.price, duration: SERVICE.duration },
+            { serviceId: BEARD_SERVICE.id, price: BEARD_SERVICE.price, duration: BEARD_SERVICE.duration },
+          ],
+        },
+      }),
+    });
   });
 
   it("reutiliza cliente existente sem criar novo registro", async () => {
