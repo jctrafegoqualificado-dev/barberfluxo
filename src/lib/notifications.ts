@@ -2,15 +2,19 @@ import { prisma } from "./prisma";
 import * as evolution from "./evolution/client";
 
 /**
- * Normaliza número de telefone para formato internacional brasileiro.
- * Remove não-dígitos e adiciona código do país +55 se necessário.
+ * Normaliza número de telefone para formato internacional.
+ * Remove não-dígitos e adiciona código do país +55 se necessário — mas só
+ * quando o número não já vem com código de país explícito (prefixo "+"),
+ * o que permite cadastrar barbeiros com WhatsApp de outros países (ex.: "+7 ...").
  *
  * Exemplos:
  *   "41998861196"      → "5541998861196"   (11 dígitos → adiciona 55)
  *   "5541998861196"    → "5541998861196"   (13 dígitos → já tem 55)
  *   "+55 (41) 99886-1196" → "5541998861196" (formatos com máscara)
+ *   "+7 977 586-70-18" → "79775867018"     ("+" explícito → não mexe no país)
  */
 function normalizeBrPhone(phone: string): string {
+  if (phone.trim().startsWith("+")) return phone.replace(/\D/g, "");
   const digits = phone.replace(/\D/g, "");
   // Já tem código do país 55: 12 dígitos (fixo) ou 13 dígitos (celular)
   if (digits.length >= 12 && digits.startsWith("55")) return digits;
