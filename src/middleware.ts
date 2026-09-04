@@ -103,51 +103,52 @@ export async function middleware(req: NextRequest) {
   // 4. WAF: endpoints públicos de booking — scraping e enumeração de PII
   if (pathname.startsWith("/api/booking/") && req.method === "GET") {
     const ip = getIp(req);
+    const slug = pathname.split("/")[3] || "unknown";
 
-    const { success } = await bookingReadRatelimit.limit(ip);
-    if (!success) {
-      return NextResponse.json(
-        { error: "Muitas requisições. Aguarde um momento." },
-        { status: 429 },
-      );
-    }
-
-    // Limites adicionais nos endpoints que expõem PII por telefone.
-    //
-    // Estas rotas são públicas por necessidade: quem chama é o navegador do cliente
-    // na página de agendamento, antes de qualquer login — exigir API key aqui a
-    // colocaria no bundle JS e abriria todos os endpoints /api/v1/. A defesa possível
-    // é limitar em várias dimensões, para que nenhuma delas sozinha permita varredura.
+    // Rotas que expõem PII por telefone. São públicas por necessidade: quem chama
+    // é o navegador do cliente na página de agendamento, antes de qualquer login —
+    // exigir API key aqui a colocaria no bundle JS e abriria todos os /api/v1/.
+    // A defesa possível é limitar em várias dimensões, para que nenhuma delas
+    // sozinha permita varredura.
     const SENSITIVE_SUFFIX = ["/cliente", "/subscriber", "/meus-agendamentos"];
-    if (SENSITIVE_SUFFIX.some((s) => pathname.endsWith(s))) {
-      const tooMany = NextResponse.json(
-        { error: "Muitas tentativas. Aguarde alguns minutos." },
-        { status: 429 },
-      );
+    const isSensitive = SENSITIVE_SUFFIX.some((suffix) => pathname.endsWith(suffix));
 
-      // a) Por IP — uso normal da página
-      const { success: byIp } = await phoneLookupRatelimit.limit(ip);
-      if (!byIp) return tooMany;
+    // Rodam em paralelo: são chamadas de rede ao Redis e o resultado só interessa
+    // no agregado (basta uma estourar). Em série, somariam latência a cada consulta
+    // de telefone — e a página faz duas por número digitado.
+    const checks = [bookingReadRatelimit.limit(ip)];
 
-      // b) Por barbearia — teto contra enumeração distribuída em IPs rotativos
-      const slug = pathname.split("/")[3] || "unknown";
-      const { success: byShop } = await phoneLookupShopRatelimit.limit(slug);
-      if (!byShop) return tooMany;
+    if (isSensitive) {
+      // Por IP — uso normal da página
+      checks.push(phoneLookupRatelimit.limit(ip));
 
-      // c) Por telefone consultado — corta monitoramento persistente de um cliente
+      // Por barbearia — teto contra enumeração distribuída em IPs rotativos
+      checks.push(phoneLookupShopRatelimit.limit(slug));
+
+      // Por telefone consultado — corta monitoramento persistente de um cliente
       const targetPhone = (req.nextUrl.searchParams.get("phone") ?? "").replace(/\D/g, "");
       if (targetPhone.length >= 10) {
-        const { success: byTarget } = await phoneLookupTargetRatelimit.limit(`${slug}:${targetPhone}`);
-        if (!byTarget) return tooMany;
+        checks.push(phoneLookupTargetRatelimit.limit(`${slug}:${targetPhone}`));
       }
 
-      // d) Fora da página de agendamento (curl, bot, integração de terceiro):
-      //    cota mínima — dá para concluir um agendamento, não para varrer a base.
-      //    Integrações devem usar /api/v1/, protegida por API key.
+      // Fora da página de agendamento (curl, bot, integração de terceiro): cota
+      // mínima — dá para concluir um agendamento, não para varrer a base.
+      // Integrações devem usar /api/v1/, protegida por API key.
       if (!isSameOrigin(req)) {
-        const { success: offOrigin } = await phoneLookupOffOriginRatelimit.limit(ip);
-        if (!offOrigin) return tooMany;
+        checks.push(phoneLookupOffOriginRatelimit.limit(ip));
       }
+    }
+
+    const results = await Promise.all(checks);
+    if (results.some((r) => !r.success)) {
+      return NextResponse.json(
+        {
+          error: isSensitive
+            ? "Muitas tentativas. Aguarde alguns minutos."
+            : "Muitas requisições. Aguarde um momento.",
+        },
+        { status: 429 },
+      );
     }
   }
 
