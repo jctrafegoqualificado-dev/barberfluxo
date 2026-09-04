@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiV1Ratelimit, bookingReadRatelimit, phoneLookupRatelimit, getIp } from "@/lib/ratelimit";
+import {
+  apiV1Ratelimit,
+  bookingReadRatelimit,
+  phoneLookupRatelimit,
+  phoneLookupShopRatelimit,
+  phoneLookupTargetRatelimit,
+  phoneLookupOffOriginRatelimit,
+  getIp,
+} from "@/lib/ratelimit";
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -8,6 +16,29 @@ function timingSafeEqual(a: string, b: string): boolean {
     diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return diff === 0;
+}
+
+/**
+ * A requisição partiu da própria página pública de agendamento?
+ *
+ * Navegador manda Referer em GET de mesma origem; curl e scripts externos não
+ * mandam nada. Não serve como autenticação (header é forjável) e por isso não
+ * bloqueia — apenas separa o tráfego real do automatizado para aplicar cotas
+ * diferentes, sem quebrar quem navega com o Referer removido.
+ */
+function isSameOrigin(req: NextRequest): boolean {
+  const host = req.headers.get("host");
+  if (!host) return false;
+  for (const header of ["origin", "referer"]) {
+    const value = req.headers.get(header);
+    if (!value) continue;
+    try {
+      return new URL(value).host === host;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 export async function middleware(req: NextRequest) {
@@ -72,25 +103,52 @@ export async function middleware(req: NextRequest) {
   // 4. WAF: endpoints públicos de booking — scraping e enumeração de PII
   if (pathname.startsWith("/api/booking/") && req.method === "GET") {
     const ip = getIp(req);
+    const slug = pathname.split("/")[3] || "unknown";
 
-    const { success } = await bookingReadRatelimit.limit(ip);
-    if (!success) {
-      return NextResponse.json(
-        { error: "Muitas requisições. Aguarde um momento." },
-        { status: 429 },
-      );
+    // Rotas que expõem PII por telefone. São públicas por necessidade: quem chama
+    // é o navegador do cliente na página de agendamento, antes de qualquer login —
+    // exigir API key aqui a colocaria no bundle JS e abriria todos os /api/v1/.
+    // A defesa possível é limitar em várias dimensões, para que nenhuma delas
+    // sozinha permita varredura.
+    const SENSITIVE_SUFFIX = ["/cliente", "/subscriber", "/meus-agendamentos"];
+    const isSensitive = SENSITIVE_SUFFIX.some((suffix) => pathname.endsWith(suffix));
+
+    // Rodam em paralelo: são chamadas de rede ao Redis e o resultado só interessa
+    // no agregado (basta uma estourar). Em série, somariam latência a cada consulta
+    // de telefone — e a página faz duas por número digitado.
+    const checks = [bookingReadRatelimit.limit(ip)];
+
+    if (isSensitive) {
+      // Por IP — uso normal da página
+      checks.push(phoneLookupRatelimit.limit(ip));
+
+      // Por barbearia — teto contra enumeração distribuída em IPs rotativos
+      checks.push(phoneLookupShopRatelimit.limit(slug));
+
+      // Por telefone consultado — corta monitoramento persistente de um cliente
+      const targetPhone = (req.nextUrl.searchParams.get("phone") ?? "").replace(/\D/g, "");
+      if (targetPhone.length >= 10) {
+        checks.push(phoneLookupTargetRatelimit.limit(`${slug}:${targetPhone}`));
+      }
+
+      // Fora da página de agendamento (curl, bot, integração de terceiro): cota
+      // mínima — dá para concluir um agendamento, não para varrer a base.
+      // Integrações devem usar /api/v1/, protegida por API key.
+      if (!isSameOrigin(req)) {
+        checks.push(phoneLookupOffOriginRatelimit.limit(ip));
+      }
     }
 
-    // Limite adicional mais agressivo nos endpoints que expõem PII por telefone
-    const SENSITIVE_SUFFIX = ["/cliente", "/subscriber", "/meus-agendamentos"];
-    if (SENSITIVE_SUFFIX.some((s) => pathname.endsWith(s))) {
-      const { success: ok } = await phoneLookupRatelimit.limit(ip);
-      if (!ok) {
-        return NextResponse.json(
-          { error: "Muitas tentativas. Aguarde alguns minutos." },
-          { status: 429 },
-        );
-      }
+    const results = await Promise.all(checks);
+    if (results.some((r) => !r.success)) {
+      return NextResponse.json(
+        {
+          error: isSensitive
+            ? "Muitas tentativas. Aguarde alguns minutos."
+            : "Muitas requisições. Aguarde um momento.",
+        },
+        { status: 429 },
+      );
     }
   }
 

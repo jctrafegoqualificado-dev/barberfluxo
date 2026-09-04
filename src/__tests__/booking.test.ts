@@ -144,6 +144,13 @@ describe("POST /api/booking/[slug]/book", () => {
 
   it("grava todos os serviços de um combo de assinatura", async () => {
     mockServiceFindMany.mockResolvedValue([SERVICE, BEARD_SERVICE]);
+    // O benefício do plano só é aplicado a cliente já cadastrado que seja dono
+    // da assinatura — o servidor resolve isso, não o body da requisição.
+    mockUserFindFirst.mockResolvedValue({ ...NEW_CLIENT, role: "CLIENT" });
+    mockSubscriptionFindFirst.mockResolvedValue({
+      id: "sub-cabelo-barba",
+      plan: { allowedBarbers: [] },
+    });
 
     const res = await POST(makeBookRequest({
       ...VALID_BODY,
@@ -207,10 +214,71 @@ describe("POST /api/booking/[slug]/book", () => {
       startTime: "14:00",
     });
 
+    mockSubscriptionFindFirst.mockResolvedValue({
+      id: "sub-123",
+      plan: { allowedBarbers: [] },
+    });
+
     const bodyComSub = { ...VALID_BODY, subscriptionId: "sub-123" };
     const res = await POST(makeBookRequest(bodyComSub), withSlug());
 
     expect(res.status).toBe(201);
+  });
+
+  it("ignora subscriptionId que não pertence ao cliente", async () => {
+    mockUserFindFirst.mockResolvedValue({ ...NEW_CLIENT, role: "CLIENT" });
+    // A busca é escopada por clientId + barbershopId + status ACTIVE, então a
+    // assinatura de outra pessoa simplesmente não é encontrada.
+    mockSubscriptionFindFirst.mockResolvedValue(null);
+
+    const res = await POST(
+      makeBookRequest({ ...VALID_BODY, subscriptionId: "sub-de-outro-cliente" }),
+      withSlug(),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockSubscriptionFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "sub-de-outro-cliente",
+          clientId: NEW_CLIENT.id,
+          barbershopId: SHOP.id,
+          status: "ACTIVE",
+        }),
+      }),
+    );
+    // Agendamento entra como avulso, sem queimar a cota do plano alheio
+    expect(mockAppointmentCreate.mock.calls[0][0].data.subscriptionId).toBeUndefined();
+  });
+
+  it("cliente novo não recebe benefício de assinatura enviada no body", async () => {
+    // mockUserFindFirst já devolve null no beforeEach → cliente inexistente
+    const res = await POST(
+      makeBookRequest({ ...VALID_BODY, subscriptionId: "sub-123" }),
+      withSlug(),
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockSubscriptionFindFirst).not.toHaveBeenCalled();
+    expect(mockAppointmentCreate.mock.calls[0][0].data.subscriptionId).toBeUndefined();
+  });
+
+  it("recusa barbeiro fora dos autorizados pelo plano", async () => {
+    mockUserFindFirst.mockResolvedValue({ ...NEW_CLIENT, role: "CLIENT" });
+    mockSubscriptionFindFirst.mockResolvedValue({
+      id: "sub-123",
+      plan: { allowedBarbers: [{ id: "barb-outro" }] },
+    });
+
+    const res = await POST(
+      makeBookRequest({ ...VALID_BODY, subscriptionId: "sub-123" }),
+      withSlug(),
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/não está autorizado/);
+    expect(mockAppointmentCreate).not.toHaveBeenCalled();
   });
 
   it("bloqueia inadimplente com 403 quando blockOverdueEnabled está ligado", async () => {

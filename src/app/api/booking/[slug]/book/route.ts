@@ -62,22 +62,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       include: { user: { select: { name: true, phone: true } } },
     });
 
-    if (subscriptionId) {
-      const sub = await prisma.subscription.findUnique({
-        where: { id: subscriptionId },
-        include: { plan: { include: { allowedBarbers: true } } },
-      });
-      if (sub && sub.plan.allowedBarbers.length > 0) {
-        const isAllowed = sub.plan.allowedBarbers.some((b) => b.id === barberId);
-        if (!isAllowed) {
-          return NextResponse.json(
-            { error: "O profissional selecionado não está autorizado a atender por este plano." },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
     // Busca por telefone primeiro (casando variações 55/9º dígito para não duplicar);
     // depois pelos e-mails sintéticos (múltiplos domínios históricos)
     let client = await prisma.user.findFirst({ where: { phone: { in: phoneVariants(clientPhone) }, role: "CLIENT" } })
@@ -85,6 +69,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberfluxo` } })
       ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberfluxo.com` } })
       ?? await prisma.user.findFirst({ where: { email: `${cleanPhone}@cliente.barberapp` } });
+
+    // Assinatura: nunca confiar no subscriptionId vindo do body. Ele é apenas uma
+    // intenção do cliente; a assinatura válida é resolvida no servidor, exigindo que
+    // pertença ao cliente identificado pelo telefone, seja desta barbearia e esteja
+    // ACTIVE. Sem isso qualquer um poderia agendar usando a assinatura de outra pessoa.
+    let validSubscriptionId: string | null = null;
+    if (subscriptionId && client) {
+      const sub = await prisma.subscription.findFirst({
+        where: { id: subscriptionId, clientId: client.id, barbershopId: shop.id, status: "ACTIVE" },
+        include: { plan: { select: { allowedBarbers: { select: { id: true } } } } },
+      });
+      if (sub) {
+        if (sub.plan.allowedBarbers.length > 0 && !sub.plan.allowedBarbers.some((b) => b.id === barberId)) {
+          return NextResponse.json(
+            { error: "O profissional selecionado não está autorizado a atender por este plano." },
+            { status: 400 }
+          );
+        }
+        validSubscriptionId = sub.id;
+      }
+      // Não bateu (assinatura de outro cliente, de outra barbearia ou inativa):
+      // segue como agendamento avulso, sem o benefício do plano.
+    }
 
     // Bloqueio de inadimplente (opcional, por barbearia): se a barbearia ativou
     // blockOverdueEnabled, um cliente com assinatura em atraso (OVERDUE) não pode
@@ -121,7 +128,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
     // Bloqueia double-booking: mesmo telefone + mesmo nome + agendamento futuro ativo
     // Assinantes são isentos pois agendam regularmente
-    if (client && !subscriptionId) {
+    if (client && !validSubscriptionId) {
       const normalize = (s: string) => s.toLowerCase().trim().replace(/\s+/g, " ");
       if (normalize(client.name) === normalize(clientName)) {
         const today = new Date();
@@ -170,7 +177,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         barberId,
         serviceId: services[0].id, // Legado: primeiro serviço para retrocompatibilidade
         status: "CONFIRMED",
-        ...(subscriptionId ? { subscriptionId } : {}),
+        ...(validSubscriptionId ? { subscriptionId: validSubscriptionId } : {}),
         services: {
           create: services.map((s) => ({ serviceId: s.id, price: s.price, duration: s.duration })),
         },
@@ -217,7 +224,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       barberName: barber?.user.name ?? "Barbeiro",
       date,
       time: startTime,
-      isSubscriber: !!subscriptionId,
+      isSubscriber: !!validSubscriptionId,
     }).catch(console.error);
 
     return NextResponse.json({ appointment, message: "Agendamento confirmado!" }, { status: 201 });

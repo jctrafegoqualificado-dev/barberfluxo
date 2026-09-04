@@ -81,6 +81,30 @@ export const phoneLookupRatelimit: Limiter = redis
   ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(15, "5 m"), prefix: "rl:phone-lookup", analytics: false })
   : noopLimiter;
 
+// 200 lookups de PII por barbearia a cada 10 minutos.
+// Complementa o limite por IP: sozinho, aquele não impede enumeração distribuída
+// (botnet / proxies rotativos) contra uma mesma barbearia. Folgado para o uso real
+// da página pública, mas inviabiliza varredura da base de clientes de um slug.
+export const phoneLookupShopRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(200, "10 m"), prefix: "rl:phone-shop", analytics: false })
+  : noopLimiter;
+
+// 20 consultas ao MESMO telefone por hora, somando todos os IPs (a página faz
+// 2 chamadas por consulta: /cliente + /subscriber) — corta o
+// monitoramento persistente de um cliente específico (ex.: descobrir quando
+// fulano agendou) mesmo quando o atacante troca de IP.
+export const phoneLookupTargetRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "1 h"), prefix: "rl:phone-target", analytics: false })
+  : noopLimiter;
+
+// 5 lookups de PII a cada 15 minutos por IP quando a requisição NÃO veio da
+// página pública de agendamento (sem Origin/Referer da própria origem).
+// Suficiente para o caso raro de um navegador com Referer removido concluir um
+// agendamento; inútil para script/scraping. Integrações usam /api/v1/ com API key.
+export const phoneLookupOffOriginRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "rl:phone-offorigin", analytics: false })
+  : noopLimiter;
+
 // Helpers — extrai IP do request de forma segura
 export function getIp(req: { headers: { get(k: string): string | null } }): string {
   const forwarded = req.headers.get("x-forwarded-for");
