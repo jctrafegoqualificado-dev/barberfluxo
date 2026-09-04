@@ -7,7 +7,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     const { searchParams } = new URL(req.url);
     const phone = searchParams.get("phone");
 
-    if (!phone || phone.replace(/\D/g, "").length < 8) {
+    if (!phone || phone.replace(/\D/g, "").length < 10) {
       return NextResponse.json({ error: "Telefone inválido" }, { status: 400 });
     }
 
