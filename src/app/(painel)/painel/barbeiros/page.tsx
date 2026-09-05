@@ -74,6 +74,7 @@ export default function BarbeirosPage() {
   async function load() {
     const r = await fetch("/api/barbershop/barbers?includeInactive=true", {
       headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     });
     const d = await r.json();
     setBarbers(d.barbers || []);
@@ -129,6 +130,8 @@ export default function BarbeirosPage() {
       toast.error(d?.error || "Não foi possível excluir o profissional.");
       return;
     }
+    // Tira da tela na hora; o load() abaixo apenas reconcilia com o servidor.
+    setBarbers(cur => cur.filter(x => x.id !== b.id));
     toast.success(
       d?.mode === "archived"
         ? `${b.user.name} foi excluído. O histórico financeiro foi preservado.`
