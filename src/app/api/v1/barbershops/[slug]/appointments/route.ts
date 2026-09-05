@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { notifyBarberNewAppointment } from "@/lib/notifications";
+import { findClientOverlap, clientOverlapMessage } from "@/lib/appointments";
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -147,6 +148,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     let client = await prisma.user.findFirst({
       where: { phone: { contains: phoneDigits }, role: "CLIENT" },
     });
+
+    // O cliente não pode estar em duas cadeiras ao mesmo tempo. A checagem acima
+    // só olha a agenda deste barbeiro, então sem isto o mesmo cliente reservava
+    // o mesmo horário com dois profissionais diferentes.
+    if (client) {
+      const overlap = await findClientOverlap({
+        clientId: client.id,
+        barbershopId: shop.id,
+        date: appointmentDate,
+        startTime,
+        endTime,
+      });
+      if (overlap) {
+        return NextResponse.json(
+          { error: clientOverlapMessage(overlap), code: "CLIENT_OVERLAP", conflictingAppointmentId: overlap.id },
+          { status: 409 }
+        );
+      }
+    }
     if (!client) {
       const placeholderEmail = `${phoneDigits}-${shop.id.slice(-6)}@whatsapp.local`;
       const tempPassword = await hashPassword(`bot-${phoneDigits}-${Date.now()}`);

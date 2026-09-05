@@ -1297,6 +1297,8 @@ export default function BarbeiroAgendaPage() {
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
   const [myBarberId, setMyBarberId] = useState<string | null>(null);
   const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
+  // Motivo do 409 vindo da API — distingue "barbeiro ocupado" de "cliente já tem horário".
+  const [encaixeMotivo, setEncaixeMotivo] = useState<string | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const colRef = useRef<HTMLDivElement>(null);
   const draggingId = useRef<string | null>(null);
@@ -1386,7 +1388,9 @@ export default function BarbeiroAgendaPage() {
         body: JSON.stringify({ ...data, force: false }),
       });
       if (res.status === 409) {
+        const err = await res.json().catch(() => ({}));
         setEncaixePendingData(data);
+        setEncaixeMotivo(err?.message ?? null);
         return false;
       }
       if (!res.ok) {
@@ -1490,13 +1494,14 @@ export default function BarbeiroAgendaPage() {
             </div>
             <h2 className="text-lg font-bold text-zinc-900 mb-2">Choque de Horário</h2>
             <p className="text-sm text-zinc-500 mb-6">
-              Este horário já está ocupado. Deseja forçar a criação como um <strong>ENCAIXE</strong>?
+              {encaixeMotivo ?? "Este horário já está ocupado. Deseja forçar a criação como um ENCAIXE?"}
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setEncaixePendingData(null)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
+              <button onClick={() => { setEncaixePendingData(null); setEncaixeMotivo(null); }} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
               <button onClick={async () => {
                 const pending = encaixePendingData;
                 setEncaixePendingData(null);
+                setEncaixeMotivo(null);
                 setShowNovoAgendamento(false);
                 const res = await fetch("/api/barbershop/appointments", {
                   method: "POST",

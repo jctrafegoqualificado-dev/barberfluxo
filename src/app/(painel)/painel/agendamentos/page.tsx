@@ -901,6 +901,8 @@ export default function AgendamentosPage() {
   const [showAgendamento, setShowAgendamento] = useState(false);
   const [agendamentoInit, setAgendamentoInit] = useState<{ barberId: string; startTime: string } | null>(null);
   const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
+  // Motivo do 409 vindo da API — distingue "barbeiro ocupado" de "cliente já tem horário".
+  const [encaixeMotivo, setEncaixeMotivo] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void; type?: "danger" | "info" } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string; type?: "info" | "danger" | "success" } | null>(null);
   const [nowPx, setNowPx] = useState<number | null>(null);
@@ -1017,7 +1019,9 @@ export default function AgendamentosPage() {
       });
       
       if (res.status === 409) {
+         const err = await res.json().catch(() => ({}));
          setEncaixePendingData(data);
+         setEncaixeMotivo(err?.message ?? null);
          return false; // Mantém o modal original aberto por baixo
       } else if (res.status === 403) {
         const err = await res.json();
@@ -1146,13 +1150,14 @@ export default function AgendamentosPage() {
             </div>
             <h2 className="text-lg font-bold text-zinc-900 mb-2">Choque de Horário</h2>
             <p className="text-sm text-zinc-500 mb-6">
-              Este profissional já possui um agendamento neste mesmo horário. Deseja forçar a criação como um <strong>ENCAIXE</strong>?
+              {encaixeMotivo ?? "Este profissional já possui um agendamento neste mesmo horário. Deseja forçar a criação como um ENCAIXE?"}
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setEncaixePendingData(null)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
+              <button onClick={() => { setEncaixePendingData(null); setEncaixeMotivo(null); }} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
               <button onClick={async () => {
                 const data = encaixePendingData;
                 setEncaixePendingData(null);
+                setEncaixeMotivo(null);
                 setShowAgendamento(false);
                 const resEncaixe = await fetch("/api/barbershop/appointments", {
                   method: "POST",

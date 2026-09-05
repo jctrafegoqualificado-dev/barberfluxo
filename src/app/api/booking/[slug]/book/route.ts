@@ -7,6 +7,7 @@ import { bookingRatelimit, getIp } from "@/lib/ratelimit";
 import { getEntitlements } from "@/lib/entitlements";
 import { sendWhatsAppNotification, notifyBarberNewAppointment, welcomeMessage } from "@/lib/notifications";
 import { phoneVariants } from "@/lib/phone";
+import { findClientOverlap, clientOverlapMessage } from "@/lib/appointments";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -163,6 +164,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const [h, m] = startTime.split(":").map(Number);
     const endMin = h * 60 + m + totalDuration;
     const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+
+    // A trava acima é mais ampla, mas isenta assinantes e só age quando o nome
+    // digitado bate com o cadastrado. Sobreposição de horário não pode escapar
+    // por nenhuma dessas frestas: ninguém senta em duas cadeiras ao mesmo tempo.
+    const overlap = await findClientOverlap({
+      clientId: client.id,
+      barbershopId: shop.id,
+      date: new Date(date + "T12:00:00Z"),
+      startTime,
+      endTime,
+    });
+    if (overlap) {
+      return NextResponse.json({ error: clientOverlapMessage(overlap) }, { status: 409 });
+    }
 
     const appointment = await prisma.appointment.create({
       data: {
