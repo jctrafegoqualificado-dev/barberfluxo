@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { onlyDigits, phoneVariants } from "@/lib/phone";
+import { findClientOverlap } from "@/lib/appointments";
 
 export async function GET(req: NextRequest) {
   try {
@@ -438,6 +439,29 @@ export async function POST(req: NextRequest) {
 
       if (conflict) {
         return NextResponse.json({ error: "CONFLICT", message: "O barbeiro já possui um agendamento neste horário." }, { status: 409 });
+      }
+
+      // O mesmo cliente não pode ter dois horários sobrepostos, nem com barbeiros
+      // diferentes — a checagem acima só enxerga a agenda de um profissional.
+      // Aqui o barbeiro está com a pessoa na frente dele, então `force` permite
+      // seguir (encaixe, dois serviços em paralelo), mas nunca por acidente.
+      if (client) {
+        const overlap = await findClientOverlap({
+          clientId: client.id,
+          barbershopId,
+          date: appointmentDate,
+          startTime,
+          endTime,
+        });
+        if (overlap) {
+          return NextResponse.json(
+            {
+              error: "CLIENT_OVERLAP",
+              message: `${clientName} já tem um horário às ${overlap.startTime} com ${overlap.barberName}. Deseja agendar mesmo assim?`,
+            },
+            { status: 409 }
+          );
+        }
       }
     }
 

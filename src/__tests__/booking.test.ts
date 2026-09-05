@@ -9,6 +9,7 @@ const {
   mockUserFindUnique,
   mockUserCreate,
   mockAppointmentFindFirst,
+  mockAppointmentFindMany,
   mockAppointmentCreate,
   mockSubscriptionFindUnique,
   mockSubscriptionFindFirst,
@@ -21,6 +22,7 @@ const {
   mockUserFindUnique: vi.fn(),
   mockUserCreate: vi.fn(),
   mockAppointmentFindFirst: vi.fn(),
+  mockAppointmentFindMany: vi.fn(),
   mockAppointmentCreate: vi.fn(),
   mockSubscriptionFindUnique: vi.fn(),
   mockSubscriptionFindFirst: vi.fn(),
@@ -39,6 +41,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     appointment: {
       findFirst: mockAppointmentFindFirst,
+      findMany: mockAppointmentFindMany,
       create: mockAppointmentCreate,
     },
     subscription: {
@@ -125,6 +128,7 @@ describe("POST /api/booking/[slug]/book", () => {
     mockUserFindUnique.mockResolvedValue(null);
     mockUserCreate.mockResolvedValue(NEW_CLIENT);
     mockAppointmentFindFirst.mockResolvedValue(null);
+    mockAppointmentFindMany.mockResolvedValue([]);   // cliente sem horário sobreposto
     mockAppointmentCreate.mockResolvedValue(CREATED_APPOINTMENT);
     mockSubscriptionFindUnique.mockResolvedValue(null);
     mockSubscriptionFindFirst.mockResolvedValue(null);  // sem assinatura em atraso
