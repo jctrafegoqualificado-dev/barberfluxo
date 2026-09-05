@@ -5,7 +5,7 @@
  * Todos os registros ficam em AuditLog com barbershopId para isolamento por tenant.
  *
  * Ações suportadas:
- *   CREATE | UPDATE | DELETE | CANCEL | STATUS_CHANGE | BLOCK | UNBLOCK | DEACTIVATE | ACTIVATE
+ *   CREATE | UPDATE | DELETE | ARCHIVE | CANCEL | STATUS_CHANGE | BLOCK | UNBLOCK | DEACTIVATE | ACTIVATE
  *
  * Entidades rastreadas:
  *   Appointment | Subscription | Plan | Barber | Client
@@ -23,6 +23,7 @@ export type AuditAction =
   | "BLOCK"
   | "UNBLOCK"
   | "DEACTIVATE"
+  | "ARCHIVE"
   | "ACTIVATE"
   | "IMPERSONATE"
   | "GRANT_ACCESS"
