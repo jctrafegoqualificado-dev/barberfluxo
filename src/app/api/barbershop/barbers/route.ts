@@ -32,7 +32,10 @@ export async function GET(req: NextRequest) {
       orderBy: [{ active: "desc" }, { user: { name: "asc" } }],
     });
     const res = NextResponse.json({ barbers });
-    res.headers.set("Cache-Control", "private, max-age=30");
+    // Sem cache: esta lista é editada pelo próprio dono na tela ao lado. Um
+    // max-age aqui fazia o painel reexibir o profissional recém-excluído,
+    // porque o reload pós-DELETE era servido pelo cache do navegador.
+    res.headers.set("Cache-Control", "no-store");
     return res;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
