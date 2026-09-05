@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireActiveSubscription } from "@/lib/auth";
-import { sendWhatsAppNotification, notifyBarberNewAppointment, welcomeMessage } from "@/lib/notifications";
+import { sendWhatsAppNotification, notifyBarberNewAppointment, notifyBarberAppointmentMoved, welcomeMessage } from "@/lib/notifications";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { logAudit, getClientIp } from "@/lib/audit";
@@ -128,9 +128,82 @@ export async function PATCH(req: NextRequest) {
       const duration = (ceh * 60 + cem) - (csh * 60 + csm);
       const endMins = sh * 60 + sm + duration;
       const newEndTime = `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
+
+      // A remarcação não validava nada: dava para soltar um card em cima de outro
+      // e recriar por arrasto exatamente o conflito que a criação já bloqueia.
+      if (!body.force) {
+        const barberBusy = await prisma.appointment.findFirst({
+          where: {
+            id: { not: id },
+            barberId: newBarberId,
+            date: current.date,
+            status: { notIn: ["CANCELLED"] },
+            startTime: { lt: newEndTime },
+            endTime: { gt: body.startTime as string },
+          },
+          select: { id: true },
+        });
+        if (barberBusy) {
+          return NextResponse.json(
+            { error: "CONFLICT", message: "O profissional já possui um agendamento neste horário." },
+            { status: 409 }
+          );
+        }
+
+        const overlap = await findClientOverlap({
+          clientId: current.clientId,
+          barbershopId,
+          date: current.date,
+          startTime: body.startTime as string,
+          endTime: newEndTime,
+          excludeAppointmentId: id,
+        });
+        if (overlap) {
+          return NextResponse.json(
+            {
+              error: "CLIENT_OVERLAP",
+              message: `${current.client.name} já tem um horário às ${overlap.startTime} com ${overlap.barberName}. Deseja mover mesmo assim?`,
+            },
+            { status: 409 }
+          );
+        }
+      }
+
       await prisma.appointment.update({
         where: { id },
         data: { startTime: body.startTime, endTime: newEndTime, barberId: newBarberId },
+      });
+
+      const dateLabel = format(new Date(current.date), "dd/MM/yyyy", { locale: ptBR });
+
+      // Sem este registro não havia como investigar quem moveu um agendamento —
+      // era exatamente a lacuna que impedia responder às reclamações de horário.
+      void logAudit({
+        barbershopId,
+        userId:    payload.id,
+        userEmail: payload.email,
+        userRole:  payload.role,
+        action:    "UPDATE",
+        entity:    "Appointment",
+        entityId:  id,
+        diff: {
+          before: { startTime: current.startTime, endTime: current.endTime, barberId: current.barberId },
+          after:  { startTime: body.startTime, endTime: newEndTime, barberId: newBarberId },
+        },
+        ip: getClientIp(req),
+      });
+
+      // O barbeiro também precisa saber: a mensagem que ele recebeu na criação
+      // continua dizendo o horário antigo.
+      void notifyBarberAppointmentMoved({
+        barbershopId,
+        fromBarberId: current.barberId,
+        toBarberId:   newBarberId,
+        clientName:   current.client.name,
+        dateLabel,
+        fromStartTime: current.startTime,
+        toStartTime:   body.startTime as string,
+        changedByUserId: payload.id,
       });
 
       if (current.client.phone) {

@@ -119,3 +119,67 @@ export async function notifyBarberNewAppointment(opts: {
     console.error("❌ [notifyBarberNewAppointment] Erro:", error);
   }
 }
+
+/**
+ * Notifica o(s) barbeiro(s) quando um agendamento é REMARCADO.
+ *
+ * Até aqui só o cliente era avisado da mudança. O barbeiro ficava com a mensagem
+ * original do agendamento — dizendo o horário antigo — e ao abrir a agenda via
+ * outro horário, concluindo que o sistema havia mudado sozinho. Era a origem do
+ * relato "a confirmação diz 11h, a agenda mostra 13h".
+ *
+ * Quando o agendamento troca de profissional, os dois são avisados: quem perdeu
+ * o horário e quem ganhou.
+ *
+ * Mesmas regras de notifyBarberNewAppointment: respeita o toggle da barbearia,
+ * não avisa quem fez a própria alteração, e nunca lança.
+ */
+export async function notifyBarberAppointmentMoved(opts: {
+  barbershopId: string;
+  fromBarberId: string;
+  toBarberId: string;
+  clientName: string;
+  dateLabel: string;
+  fromStartTime: string;
+  toStartTime: string;
+  changedByUserId?: string;
+}): Promise<void> {
+  try {
+    const shop = await prisma.barbershop.findUnique({
+      where: { id: opts.barbershopId },
+      select: { name: true, notifyBarberOnNewAppointment: true },
+    });
+    if (!shop?.notifyBarberOnNewAppointment) return;
+
+    const trocouDeBarbeiro = opts.fromBarberId !== opts.toBarberId;
+    const alvos = trocouDeBarbeiro ? [opts.fromBarberId, opts.toBarberId] : [opts.toBarberId];
+
+    const barbers = await prisma.barber.findMany({
+      where: { id: { in: alvos } },
+      select: { id: true, userId: true, user: { select: { phone: true } } },
+    });
+
+    await Promise.all(
+      barbers.map(async (barber) => {
+        if (!barber.user.phone) return;
+        // Quem fez a alteração já sabe dela.
+        if (opts.changedByUserId && barber.userId === opts.changedByUserId) return;
+
+        const saiuDaAgenda = trocouDeBarbeiro && barber.id === opts.fromBarberId;
+        const msg = saiuDaAgenda
+          ? `Agendamento Remanejado - ${shop.name}\n\n` +
+            `Cliente: ${opts.clientName}\n` +
+            `Data: ${opts.dateLabel}\n` +
+            `Este atendimento das ${opts.fromStartTime} saiu da sua agenda.`
+          : `Agendamento Remarcado - ${shop.name}\n\n` +
+            `Cliente: ${opts.clientName}\n` +
+            `Data: ${opts.dateLabel}\n` +
+            `Horario: ${opts.fromStartTime} passou para ${opts.toStartTime}`;
+
+        await sendWhatsAppNotification(opts.barbershopId, barber.user.phone, msg);
+      })
+    );
+  } catch (error) {
+    console.error("❌ [notifyBarberAppointmentMoved] Erro:", error);
+  }
+}

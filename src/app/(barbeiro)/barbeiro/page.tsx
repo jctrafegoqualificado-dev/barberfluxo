@@ -1299,6 +1299,10 @@ export default function BarbeiroAgendaPage() {
   const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
   // Motivo do 409 vindo da API — distingue "barbeiro ocupado" de "cliente já tem horário".
   const [encaixeMotivo, setEncaixeMotivo] = useState<string | null>(null);
+  // Remarcação por arrasto fica pendente até confirmar; `conflito` guarda o 409 da API.
+  const [movePending, setMovePending] = useState<{
+    apptId: string; newStartTime: string; clientName: string; fromStartTime: string; conflito?: string;
+  } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const colRef = useRef<HTMLDivElement>(null);
   const draggingId = useRef<string | null>(null);
@@ -1345,23 +1349,41 @@ export default function BarbeiroAgendaPage() {
     calendarRef.current.scrollTop = Math.max(0, top - 80);
   }, [agendaDate]);
 
-  async function moveAppointment(apptId: string, newStartMins: number) {
+  // O arrasto apenas PROPÕE a mudança — ver comentário equivalente no painel.
+  function moveAppointment(apptId: string, newStartMins: number) {
     const appt = agendaAppts.find(a => a.id === apptId);
     if (!appt) return;
     const duration = timeToMin(appt.endTime) - timeToMin(appt.startTime);
     const clamped = Math.max(CAL_START * 60, Math.min(CAL_END * 60 - duration, newStartMins));
     const newStartTime = `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`;
     if (newStartTime === appt.startTime) return;
-    const endMins = clamped + duration;
-    const newEndTime = `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
-    const prev = agendaAppts;
-    setAgendaAppts(cur => cur.map(a => a.id === apptId ? { ...a, startTime: newStartTime, endTime: newEndTime } : a));
+    setMovePending({
+      apptId,
+      newStartTime,
+      clientName: appt.client.name,
+      fromStartTime: appt.startTime,
+    });
+  }
+
+  async function commitMove(force: boolean) {
+    const p = movePending;
+    if (!p) return;
     const res = await fetch("/api/barbershop/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ id: apptId, startTime: newStartTime }),
+      body: JSON.stringify({ id: p.apptId, startTime: p.newStartTime, ...(force ? { force: true } : {}) }),
     });
-    if (!res.ok) setAgendaAppts(prev);
+    if (res.status === 409 && !force) {
+      const err = await res.json().catch(() => ({}));
+      setMovePending({ ...p, conflito: err?.message ?? "Há um conflito neste horário." });
+      return;
+    }
+    setMovePending(null);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert("Erro ao mover: " + (err?.error || "Tente novamente."));
+    }
+    loadAgenda(agendaDate);
   }
 
   function calcDropMins(clientY: number): number {
@@ -1485,6 +1507,35 @@ export default function BarbeiroAgendaPage() {
           initialStartTime={agendamentoInitTime}
           onClose={() => { setShowNovoAgendamento(false); setAgendamentoInitTime(undefined); }}
         />
+      )}
+      {movePending && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center">
+            <div className={`w-12 h-12 rounded-full ${movePending.conflito ? "bg-amber-100" : "bg-primary/20"} flex items-center justify-center mx-auto mb-4`}>
+              <AlertTriangle className={`w-6 h-6 ${movePending.conflito ? "text-amber-600" : "text-primary/90"}`} />
+            </div>
+            <h2 className="text-lg font-bold text-zinc-900 mb-2">
+              {movePending.conflito ? "Conflito de Horário" : "Confirmar remarcação"}
+            </h2>
+            <p className="text-sm text-zinc-500 mb-6">
+              {movePending.conflito ?? (
+                <>
+                  Mover <strong>{movePending.clientName}</strong> das{" "}
+                  <strong>{movePending.fromStartTime}</strong> para as{" "}
+                  <strong>{movePending.newStartTime}</strong>?
+                  <br />
+                  <span className="text-xs text-zinc-400">O cliente será avisado por WhatsApp.</span>
+                </>
+              )}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => { setMovePending(null); loadAgenda(agendaDate); }} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 font-medium hover:bg-zinc-50 transition-colors">Cancelar</button>
+              <button onClick={() => commitMove(!!movePending.conflito)} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors">
+                {movePending.conflito ? "Mover assim mesmo" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {encaixePendingData && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
