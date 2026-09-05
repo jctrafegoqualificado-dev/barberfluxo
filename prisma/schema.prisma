@@ -182,6 +182,12 @@ model Barber {
   photoUrl  String?
   cpf       String?
   active    Boolean  @default(true)
+  // Férias é um estado próprio: quem está de férias fica inativo, mas nem todo
+  // inativo está de férias (ex.: desativado manualmente pelo dono).
+  onVacation Boolean @default(false)
+  // Preenchido quando o profissional é excluído mas tem histórico que não pode
+  // ser apagado. Arquivado some do painel e de todas as listagens.
+  archivedAt DateTime?
   createdAt DateTime @default(now())
 
   dayOff Int? // 0=Dom 1=Seg 2=Ter 3=Qua 4=Qui 5=Sex 6=Sáb — null = sem folga fixa
@@ -211,6 +217,7 @@ model Barber {
 
   @@index([barbershopId])
   @@index([barbershopId, active])
+  @@index([barbershopId, archivedAt])
 }
 
 model Service {

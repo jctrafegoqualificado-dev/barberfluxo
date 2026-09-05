@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Users, Plus, Percent, Edit2, Trash2, Camera, Search } from "lucide-react";
+import { Users, Plus, Percent, Edit2, Trash2, Camera, Search, Sun } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
@@ -14,6 +14,7 @@ interface Barber {
   commission: number;
   nickname: string | null;
   active: boolean;
+  onVacation: boolean;
   dayOff: number | null;
   photoUrl: string | null;
   cpf: string | null;
@@ -88,21 +89,51 @@ export default function BarbeirosPage() {
 
   async function handleToggleActive(b: Barber) {
     const next = !b.active;
-    setBarbers(cur => cur.map(x => x.id === b.id ? { ...x, active: next } : x));
-    await fetch("/api/barbershop/barbers", {
+    setBarbers(cur => cur.map(x => x.id === b.id ? { ...x, active: next, onVacation: next ? false : x.onVacation } : x));
+    const r = await fetch("/api/barbershop/barbers", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ barberId: b.id, active: next }),
     });
+    if (!r.ok) {
+      toast.error("Não foi possível alterar o status.");
+      load();
+    }
+  }
+
+  async function handleToggleVacation(b: Barber) {
+    const next = !b.onVacation;
+    setBarbers(cur => cur.map(x => x.id === b.id ? { ...x, onVacation: next, active: !next } : x));
+    const r = await fetch("/api/barbershop/barbers", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ barberId: b.id, onVacation: next }),
+    });
+    if (!r.ok) {
+      toast.error("Não foi possível alterar as férias.");
+      load();
+      return;
+    }
+    toast.success(next ? `${b.user.name} entrou de férias.` : `${b.user.name} voltou das férias.`);
   }
 
   async function handleDelete(b: Barber) {
-    if (!confirm(`Excluir ${b.user.name}? O histórico de atendimentos será mantido.`)) return;
-    await fetch("/api/barbershop/barbers", {
+    if (!confirm(`Excluir ${b.user.name}? Se houver histórico de atendimentos, ele será mantido nos relatórios.`)) return;
+    const r = await fetch("/api/barbershop/barbers", {
       method: "DELETE",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ barberId: b.id }),
     });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      toast.error(d?.error || "Não foi possível excluir o profissional.");
+      return;
+    }
+    toast.success(
+      d?.mode === "archived"
+        ? `${b.user.name} foi excluído. O histórico financeiro foi preservado.`
+        : `${b.user.name} foi excluído.`
+    );
     load();
   }
 
@@ -161,7 +192,7 @@ export default function BarbeirosPage() {
   }
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "vacation">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "vacation" | "inactive">("all");
 
   const filtered = barbers.filter((b) => {
     const matchSearch = !search ||
@@ -170,7 +201,8 @@ export default function BarbeirosPage() {
     const matchStatus =
       statusFilter === "all" ||
       (statusFilter === "active" && b.active) ||
-      (statusFilter === "vacation" && !b.active);
+      (statusFilter === "vacation" && b.onVacation) ||
+      (statusFilter === "inactive" && !b.active && !b.onVacation);
     return matchSearch && matchStatus;
   });
 
@@ -194,10 +226,11 @@ export default function BarbeirosPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: "Ativos", count: barbers.filter(b => b.active).length, color: "text-green-700", bg: "bg-green-100", border: "border-green-200" },
-              { label: "Em Férias", count: barbers.filter(b => !b.active).length, color: "text-amber-700", bg: "bg-amber-100", border: "border-amber-200" },
+              { label: "Em Férias", count: barbers.filter(b => b.onVacation).length, color: "text-amber-700", bg: "bg-amber-100", border: "border-amber-200" },
+              { label: "Inativos", count: barbers.filter(b => !b.active && !b.onVacation).length, color: "text-zinc-500", bg: "bg-zinc-100", border: "border-zinc-200" },
               { label: "Total", count: barbers.length, color: "text-zinc-700", bg: "bg-white", border: "border-zinc-200" },
             ].map(({ label, count, color, bg, border }) => (
               <div key={label} className={`${bg} rounded-xl border ${border} shadow-sm px-4 py-3 flex items-center gap-3`}>
@@ -218,7 +251,7 @@ export default function BarbeirosPage() {
               />
             </div>
             <div className="flex gap-1">
-              {(["all", "active", "vacation"] as const).map((f) => (
+              {(["all", "active", "vacation", "inactive"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setStatusFilter(f)}
@@ -227,7 +260,7 @@ export default function BarbeirosPage() {
                     statusFilter === f ? "bg-primary text-white" : "bg-white border border-zinc-200 text-zinc-600 hover:border-zinc-300"
                   )}
                 >
-                  {f === "all" ? "Todos" : f === "active" ? "Ativos" : "Em Férias"}
+                  {f === "all" ? "Todos" : f === "active" ? "Ativos" : f === "vacation" ? "Em Férias" : "Inativos"}
                 </button>
               ))}
             </div>
@@ -260,9 +293,13 @@ export default function BarbeirosPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-zinc-900">{b.user.name}</p>
-                    {!b.active && (
-                      <span className="text-[10px] bg-zinc-100 text-zinc-500 border border-zinc-200 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">
+                    {b.onVacation ? (
+                      <span className="text-[10px] bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">
                         Em Férias
+                      </span>
+                    ) : !b.active && (
+                      <span className="text-[10px] bg-zinc-100 text-zinc-500 border border-zinc-200 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">
+                        Inativo
                       </span>
                     )}
                   </div>
@@ -273,10 +310,22 @@ export default function BarbeirosPage() {
                   {/* Toggle ativo */}
                   <button
                     onClick={() => handleToggleActive(b)}
-                    title={b.active ? "Desativar (colocar em férias)" : "Reativar barbeiro"}
+                    title={b.active ? "Desativar profissional" : "Reativar profissional"}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${b.active ? "bg-green-400" : "bg-zinc-300"}`}
                   >
                     <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${b.active ? "translate-x-4" : "translate-x-1"}`} />
+                  </button>
+                  <button
+                    onClick={() => handleToggleVacation(b)}
+                    title={b.onVacation ? "Encerrar férias" : "Colocar em férias"}
+                    className={cn(
+                      "p-2 rounded-lg border transition-colors",
+                      b.onVacation
+                        ? "border-amber-200 bg-amber-50 hover:bg-amber-100"
+                        : "border-zinc-200 hover:bg-zinc-50"
+                    )}
+                  >
+                    <Sun className={cn("w-4 h-4", b.onVacation ? "text-amber-500" : "text-zinc-400")} />
                   </button>
                   <button
                     onClick={() => openEdit(b)}
