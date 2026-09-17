@@ -13,8 +13,38 @@
   --color-foreground: var(--foreground);
   --color-primary: rgb(var(--primary));
   --color-secondary: rgb(var(--secondary));
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-face), var(--font-body), ui-sans-serif, sans-serif;
   --font-mono: var(--font-geist-mono);
+}
+
+/* Paleta do redesign (canvas "Barber Fluxo — Redesign") */
+@theme {
+  --color-ground: #f5f3ee;
+  --color-ink: #1b1916;
+  --color-ink-2: #57524a;
+  --color-ink-3: #6f685d;
+  --color-ink-4: #8a8378;
+  --color-line: #e7e2d8;
+  --color-line-2: #efebe3;
+  --color-line-3: #f1ede6;
+  --color-track: #eae6dd;
+  --color-bar: #cfc6b7;
+  --color-bar-soft: #d8d0c2;
+  --color-night: #171512;
+  --color-night-2: #221f1b;
+  --color-night-3: #2a2723;
+  --color-night-line: #2e2a25;
+  --color-night-text: #c9c2b6;
+  --color-night-muted: #a8a196;
+  --color-positive: #1d6b40;
+  --color-positive-strong: #1f9d5a;
+  --color-positive-soft: #e8f4ec;
+  --color-warning: #6e5210;
+  --color-warning-soft: #f5eedc;
+  --color-danger: #b42318;
+  --color-danger-strong: #c2362b;
+  --color-danger-soft: #fbecea;
 }
 
 body {

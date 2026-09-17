@@ -248,6 +248,62 @@ export async function GET(req: NextRequest) {
       computeNoshowRisks(todayClientIds, barbershopId),
     ]);
 
+    // --- PHASE B2: assinaturas do dia e meta de faturamento ---
+    const [
+      subsDueTodayOpen,
+      subPaymentsToday,
+      overdueSubs,
+      periodNewSubs,
+      prevPeriodNewSubsCount,
+      monthlyRevenueGoal,
+    ] = await Promise.all([
+      // Vencem hoje e ainda não foram pagas (o pagamento avança nextBillingDate)
+      prisma.subscription.findMany({
+        where: { barbershopId, status: "ACTIVE", nextBillingDate: { gte: todayStart, lte: todayEnd } },
+        select: {
+          id: true,
+          authorizationStatus: true,
+          paymentMethod: true,
+          client: { select: { name: true, phone: true } },
+          plan: { select: { name: true, price: true } },
+        },
+        orderBy: { nextBillingDate: "asc" },
+      }),
+      // Já pagas hoje
+      prisma.payment.findMany({
+        where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: todayStart, lte: todayEnd } },
+        select: {
+          id: true,
+          amount: true,
+          method: true,
+          gatewayType: true,
+          subscription: {
+            select: { id: true, client: { select: { name: true, phone: true } }, plan: { select: { name: true, price: true } } },
+          },
+        },
+        orderBy: { paidAt: "asc" },
+      }),
+      // Vencidas antes de hoje
+      prisma.subscription.findMany({
+        where: {
+          barbershopId,
+          OR: [{ status: "OVERDUE" }, { status: "ACTIVE", nextBillingDate: { lt: todayStart } }],
+        },
+        select: { plan: { select: { price: true } } },
+      }),
+      prisma.subscription.findMany({
+        where: { barbershopId, startDate: { gte: periodStart, lte: periodEnd } },
+        select: { plan: { select: { price: true } } },
+      }),
+      prisma.subscription.count({
+        where: { barbershopId, startDate: { gte: prevPeriodStart, lte: prevPeriodEnd } },
+      }),
+      prisma.meta.findFirst({
+        where: { barbershopId, active: true, tipo: "RECEITA", periodo: "MONTHLY", barberId: null },
+        select: { valorAlvo: true },
+      }),
+    ]);
+
     // --- PHASE C: in-memory calculations + response ---
 
     const dailyRevenue = Array.from(dailyRevenueMap, ([date, revenue]) => ({ date, revenue }));
@@ -348,6 +404,85 @@ export async function GET(req: NextRequest) {
       return h * 60 + m >= nowMinutes;
     }) || null;
 
+    // Previsão de faturamento de hoje — só avulsos (assinatura não gera caixa no dia)
+    const cashValue = (a: (typeof todayAppointmentsWithRisk)[number]) => (a.subscription ? 0 : a.price);
+    const sumBy = (list: typeof todayAppointmentsWithRisk) => list.reduce((s, a) => s + cashValue(a), 0);
+    const todayConfirmed = todayAppointmentsWithRisk.filter((a) => a.status === "CONFIRMED");
+    const todayUnconfirmed = todayAppointmentsWithRisk.filter((a) => a.status === "PENDING");
+    const todayNoShows = todayAppointmentsWithRisk.filter((a) => a.status === "NO_SHOW");
+    const confirmedValue = sumBy(todayConfirmed);
+    const unconfirmedValue = sumBy(todayUnconfirmed);
+    // Sem confirmação: pondera pelo risco de falta do histórico de cada cliente
+    const unconfirmedExpected = todayUnconfirmed.reduce(
+      (s, a) => s + cashValue(a) * (1 - (a.noshowRisk?.score ?? 0) / 100),
+      0,
+    );
+    const todayDow = new Date(Date.UTC(brYear, brMonth - 1, brDay)).getUTCDay();
+    const todayHours = openingHours.find((h) => h.dayOfWeek === todayDow);
+    const firstHour = todayHours ? Number(todayHours.openTime.split(":")[0]) : 8;
+    const lastHour = todayHours ? Math.max(firstHour, Math.ceil(Number(todayHours.closeTime.replace(":", ".")) ) - 1) : 19;
+    const byHour: Array<{ hour: number; done: number; confirmed: number; unconfirmed: number }> = [];
+    for (let h = firstHour; h <= lastHour; h++) byHour.push({ hour: h, done: 0, confirmed: 0, unconfirmed: 0 });
+    for (const a of todayAppointmentsWithRisk) {
+      const slot = byHour.find((b) => b.hour === Number(a.startTime.split(":")[0]));
+      if (!slot) continue;
+      if (a.status === "DONE") slot.done += cashValue(a);
+      else if (a.status === "CONFIRMED") slot.confirmed += cashValue(a);
+      else if (a.status === "PENDING") slot.unconfirmed += cashValue(a);
+    }
+    const forecast = {
+      done: { count: todayDone.length, value: todayRevenue },
+      confirmed: { count: todayConfirmed.length, value: confirmedValue },
+      unconfirmed: { count: todayUnconfirmed.length, value: unconfirmedValue },
+      noShow: { count: todayNoShows.length, value: sumBy(todayNoShows) },
+      best: todayRevenue + confirmedValue + unconfirmedValue,
+      realistic: Math.round(todayRevenue + confirmedValue + unconfirmedExpected),
+      dailyGoal: monthlyRevenueGoal ? Math.round(monthlyRevenueGoal.valorAlvo / diasNoMes) : null,
+      byHour,
+      nowHour: brNowH,
+    };
+
+    // Assinaturas que vencem hoje
+    const subscriptionsToday = [
+      ...subPaymentsToday
+        .filter((p) => p.subscription)
+        .map((p) => ({
+          id: p.subscription!.id,
+          clientName: p.subscription!.client.name,
+          clientPhone: p.subscription!.client.phone,
+          planName: p.subscription!.plan.name,
+          amount: p.amount,
+          status: "PAID" as const,
+          method: p.gatewayType === "mercadopago" ? "AUTO" : p.method,
+        })),
+      ...subsDueTodayOpen.map((s) => ({
+        id: s.id,
+        clientName: s.client.name,
+        clientPhone: s.client.phone,
+        planName: s.plan.name,
+        amount: s.plan.price,
+        status: (s.authorizationStatus === "FAILED" ? "FAILED" : "WAITING") as "FAILED" | "WAITING",
+        method: s.authorizationStatus === "AUTHORIZED" ? "AUTO" : s.paymentMethod,
+      })),
+    ];
+    const subscriptionsDueToday = {
+      total: subscriptionsToday.reduce((s, x) => s + x.amount, 0),
+      paid: subscriptionsToday.filter((x) => x.status === "PAID").reduce((s, x) => s + x.amount, 0),
+      waiting: subscriptionsToday.filter((x) => x.status === "WAITING").reduce((s, x) => s + x.amount, 0),
+      failed: subscriptionsToday.filter((x) => x.status === "FAILED").reduce((s, x) => s + x.amount, 0),
+      items: subscriptionsToday,
+      overdue: { count: overdueSubs.length, total: overdueSubs.reduce((s, x) => s + x.plan.price, 0) },
+    };
+
+    const newSubscriptions = {
+      count: periodNewSubs.length,
+      mrrAdded: periodNewSubs.reduce((s, x) => s + x.plan.price, 0),
+      prevCount: prevPeriodNewSubsCount,
+      change: prevPeriodNewSubsCount > 0
+        ? Math.round(((periodNewSubs.length - prevPeriodNewSubsCount) / prevPeriodNewSubsCount) * 100)
+        : null,
+    };
+
     const totalComissaoPaga = commissionPayments.reduce((s, p) => s + p.amount, 0);
     const totalVales = commissionVales.reduce((s, v) => s + v.amount, 0);
 
@@ -424,6 +559,9 @@ export async function GET(req: NextRequest) {
         expectedRevenue: todayExpectedRevenue,
         nextAppointment,
       },
+      forecast,
+      subscriptionsDueToday,
+      newSubscriptions,
       whatsapp: {
         status: whatsappInstance?.status || "DISCONNECTED",
         lastConnectedAt: whatsappInstance?.lastConnectedAt || null,
