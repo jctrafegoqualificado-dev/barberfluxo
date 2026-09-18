@@ -65,10 +65,19 @@ export async function PATCH(req: NextRequest) {
       const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
       const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
 
-      const current = await prisma.appointment.findUnique({ where: { id } });
+      const current = await prisma.appointment.findUnique({
+        where: { id },
+        include: {
+          service: { select: { id: true, name: true } },
+          services: { select: { service: { select: { id: true, name: true } } } },
+        },
+      });
       if (!current || current.barbershopId !== barbershopId) {
         return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
       }
+      const beforeServices = current.services.length > 0
+        ? current.services.map((s) => s.service)
+        : current.service ? [current.service] : [];
 
       const [h, m] = current.startTime.split(":").map(Number);
       const endMin = h * 60 + m + totalDuration;
@@ -95,6 +104,27 @@ export async function PATCH(req: NextRequest) {
           })),
         });
       });
+
+      // ── Audit: troca de serviços da comanda ──
+      // Os serviços de assinante entram na divisão do pool (cada serviço do plano conta 1),
+      // então toda troca fica registrada com quem fez, quando e o que era antes.
+      const idsKey = (list: { id: string }[]) => list.map((s) => s.id).sort().join(",");
+      if (idsKey(beforeServices) !== idsKey(services)) {
+        void logAudit({
+          barbershopId,
+          userId:    payload.id,
+          userEmail: payload.email,
+          userRole:  payload.role,
+          action:    "SERVICES_CHANGE",
+          entity:    "Appointment",
+          entityId:  id,
+          diff: {
+            before: { services: beforeServices.map((s) => s.name), price: current.price, status: current.status },
+            after:  { services: services.map((s) => s.name), price: totalPrice, status: status ?? current.status },
+          },
+          ip: getClientIp(req),
+        });
+      }
 
       const updated = await prisma.appointment.findUnique({
         where: { id },
@@ -262,7 +292,13 @@ export async function PATCH(req: NextRequest) {
     const appointment = await prisma.appointment.update({
       where: { id },
       data: updateData,
-      include: { subscription: true, client: true, barbershop: true },
+      include: {
+        subscription: true,
+        client: true,
+        barbershop: true,
+        service: { select: { name: true } },
+        services: { select: { service: { select: { name: true } } } },
+      },
     });
 
     // ── DONE: Abate uso do plano (só se não era DONE antes — previne double-click) ──
@@ -354,7 +390,16 @@ export async function PATCH(req: NextRequest) {
       const protocol = host.includes("localhost") ? "http" : "https";
       const appUrl = `${protocol}://${host}`;
 
-      const defaultDoneMsg = `✅ *Atendimento Concluído!*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu atendimento no *${appointment.barbershop.name}* foi finalizado. Obrigado pela preferência! 🙏\n\n⭐ *O que achou do seu atendimento?* Avalie em 10 segundos e ganhe *+10 pontos* de fidelidade:\n🔗 ${appUrl}/avaliar/${appointment.id}`;
+      // Lista o que foi feito para o próprio cliente conferir — é quem sabe se fez
+      // Corte + Barba ou só o Corte (os serviços contam na divisão do pool de assinaturas).
+      const servicosFeitos = appointment.services.length > 0
+        ? appointment.services.map((s) => s.service.name).join(" + ")
+        : appointment.service?.name;
+      const servicosLinha = servicosFeitos
+        ? `\n\n✂️ *Serviços realizados:* ${servicosFeitos}\nAlgo não confere? É só avisar a barbearia.`
+        : "";
+
+      const defaultDoneMsg = `✅ *Atendimento Concluído!*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu atendimento no *${appointment.barbershop.name}* foi finalizado. Obrigado pela preferência! 🙏${servicosLinha}\n\n⭐ *O que achou do seu atendimento?* Avalie em 10 segundos e ganhe *+10 pontos* de fidelidade:\n🔗 ${appUrl}/avaliar/${appointment.id}`;
       const defaultCancelledMsg = `⚠️ *Agendamento Cancelado*\n\nOlá *${appointment.client.name.split(" ")[0]}*, seu agendamento para o dia ${format(new Date(appointment.date), "dd/MM")} às ${appointment.startTime} foi cancelado. Se houver dúvidas, entre em contato.`;
 
       const msg = status === "DONE"
