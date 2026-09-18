@@ -75,7 +75,7 @@ export default function ReciboPage() {
           <div className="flex justify-around text-center">
             <div>
               <p className="text-3xl font-black">{totalAtendimentos}</p>
-              <p className="text-xs text-zinc-500 uppercase">Clientes Atendidos</p>
+              <p className="text-xs text-zinc-500 uppercase">{isSub ? "Serviços do Plano" : "Clientes Atendidos"}</p>
             </div>
             <div>
               <p className="text-3xl font-black">{nps !== null ? nps : "--"}</p>

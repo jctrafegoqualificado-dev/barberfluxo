@@ -342,7 +342,7 @@ function BarberCard({ barber, monthKey, monthOffset, activeTab, onSave, onPay, o
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">💳 Clube de Assinaturas</p>
               <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">
-                {barber.assinatura.servicos} atendimentos
+                {barber.assinatura.servicos} serviços
               </span>
             </div>
             {barber.subPaid ? (
