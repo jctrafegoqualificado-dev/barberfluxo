@@ -3,6 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  SUBSCRIPTION_APPT_INCLUDE,
+  baseSubscriptionPrice,
+  planServicesLabel,
+  subscriptionCommission,
+  totalPlanServices,
+} from "@/lib/subscriptionServices";
 
 function calcComissao(valor: number, type: string, rate: number): number {
   if (type === "FIXED") return rate;
@@ -37,15 +44,18 @@ export async function GET(req: NextRequest) {
     const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
     const poolBarbeiros = totalSubRevenue * 0.5;
 
-    const allSubAppointmentsCount = await prisma.appointment.count({
+    const allSubAppointments = await prisma.appointment.findMany({
       where: {
         barbershopId: barber.barbershopId,
         subscriptionId: { not: null },
         status: "DONE",
         date: { gte: start, lte: end },
-      }
+      },
+      select: { price: true, extraPrice: true, ...SUBSCRIPTION_APPT_INCLUDE },
     });
-    const ticketMedioSub = allSubAppointmentsCount > 0 ? poolBarbeiros / allSubAppointmentsCount : 0;
+    // Cada serviço do plano realizado conta 1 (Corte + Barba = 2 serviços)
+    const totalSubServicos = totalPlanServices(allSubAppointments);
+    const ticketMedioSub = totalSubServicos > 0 ? poolBarbeiros / totalSubServicos : 0;
 
     const [avulsos, subAppointments, productSales] = await Promise.all([
       prisma.appointment.findMany({
@@ -69,9 +79,8 @@ export async function GET(req: NextRequest) {
           date: { gte: start, lte: end },
         },
         include: {
+          ...SUBSCRIPTION_APPT_INCLUDE,
           client: { select: { name: true } },
-          service: { select: { name: true, materialCost: true } },
-          subscription: { include: { plan: { select: { name: true, commissionPercentage: true } } } },
         },
         orderBy: { date: "desc" },
       }),
@@ -128,29 +137,18 @@ export async function GET(req: NextRequest) {
     const totalAvulsoComissao = avulsoItemsAll.reduce((s, i) => s + i.comissao, 0);
 
     // Assinatura — desconta o extraPrice, que já é contabilizado como avulso acima
-    const assinaturaItems = subAppointments.map((a) => {
-      const baseSubPrice = Math.max(0, a.price - (a.extraPrice ?? 0));
-      let comissao = ticketMedioSub;
-      const customPlanCommission = a.subscription?.plan?.commissionPercentage;
-      if (customPlanCommission != null) {
-        const materialCost = a.service?.materialCost || 0;
-        const netValue = Math.max(0, baseSubPrice - materialCost);
-        comissao = calcComissao(netValue, "PERCENTAGE", customPlanCommission);
-      }
-
-      return {
-        id: a.id,
-        date: a.date,
-        time: a.startTime,
-        client: a.client.name,
-        service: a.service?.name ?? "Serviço",
-        plano: a.subscription?.plan.name ?? "Assinatura",
-        valor: baseSubPrice,
-        comissao,
-        tipo: "assinatura" as const,
-      };
-    });
-    const totalAssinaturaFaturado = subAppointments.reduce((s, a) => s + Math.max(0, a.price - (a.extraPrice ?? 0)), 0);
+    const assinaturaItems = subAppointments.map((a) => ({
+      id: a.id,
+      date: a.date,
+      time: a.startTime,
+      client: a.client.name,
+      service: planServicesLabel(a),
+      plano: a.subscription?.plan?.name ?? "Assinatura",
+      valor: baseSubscriptionPrice(a),
+      comissao: subscriptionCommission(a, ticketMedioSub),
+      tipo: "assinatura" as const,
+    }));
+    const totalAssinaturaFaturado = subAppointments.reduce((s, a) => s + baseSubscriptionPrice(a), 0);
     const totalAssinaturaComissao = assinaturaItems.reduce((s, i) => s + i.comissao, 0);
 
     // Produtos
@@ -190,7 +188,12 @@ export async function GET(req: NextRequest) {
       monthOffset,
       resumo: {
         avulso: { atendimentos: avulsos.length, faturado: totalAvulsoFaturado, comissao: totalAvulsoComissao },
-        assinatura: { atendimentos: subAppointments.length, faturado: totalAssinaturaFaturado, comissao: totalAssinaturaComissao },
+        assinatura: {
+          atendimentos: subAppointments.length,
+          servicos: totalPlanServices(subAppointments),
+          faturado: totalAssinaturaFaturado,
+          comissao: totalAssinaturaComissao,
+        },
         produtos: { vendas: productSales.length, faturado: totalProdutoFaturado, comissao: totalProdutoComissao },
         totalComissao,
       },

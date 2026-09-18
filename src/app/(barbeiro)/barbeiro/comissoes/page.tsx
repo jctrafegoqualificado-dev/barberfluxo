@@ -18,7 +18,7 @@ interface ProdutoItem {
 }
 interface Resumo {
   avulso: { atendimentos: number; faturado: number; comissao: number };
-  assinatura: { atendimentos: number; faturado: number; comissao: number };
+  assinatura: { atendimentos: number; servicos: number; faturado: number; comissao: number };
   produtos: { vendas: number; faturado: number; comissao: number };
   totalComissao: number;
 }
@@ -162,7 +162,7 @@ export default function ComissoesBarberPage() {
           </div>
           <p className="text-3xl font-black">{formatCurrency(resumo.assinatura.comissao)}</p>
           <p className="text-xs opacity-70 mt-1">
-            {resumo.assinatura.atendimentos} atend. · pago no fechamento do ciclo
+            {resumo.assinatura.servicos} serviços · pago no fechamento do ciclo
           </p>
         </div>
       </div>
@@ -193,7 +193,7 @@ export default function ComissoesBarberPage() {
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "Avulsos", icon: <Scissors className="w-4 h-4" />, comissao: resumo.avulso.comissao, subtitle: `${resumo.avulso.atendimentos} atend. · ${formatCurrency(resumo.avulso.faturado)} fat.` },
-          { label: "Assinaturas", icon: <CreditCard className="w-4 h-4" />, comissao: resumo.assinatura.comissao, subtitle: `${resumo.assinatura.atendimentos} atend. no plano` },
+          { label: "Assinaturas", icon: <CreditCard className="w-4 h-4" />, comissao: resumo.assinatura.comissao, subtitle: `${resumo.assinatura.servicos} serviços no plano` },
           { label: "Produtos", icon: <Package className="w-4 h-4" />, comissao: resumo.produtos.comissao, subtitle: `${resumo.produtos.vendas} vendas · ${formatCurrency(resumo.produtos.faturado)} fat.` },
         ].map((c) => (
           <div key={c.label} className="bg-white rounded-xl border border-zinc-100 p-4">

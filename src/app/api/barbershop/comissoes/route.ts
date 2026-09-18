@@ -3,6 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  SUBSCRIPTION_APPT_INCLUDE,
+  baseSubscriptionPrice,
+  countPlanServices,
+  planServicesLabel,
+  subscriptionCommission,
+  totalPlanServices,
+} from "@/lib/subscriptionServices";
 
 function calcComissao(valor: number, type: string, rate: number): number {
   if (type === "FIXED") return rate;
@@ -51,7 +59,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: start, lte: end } },
-        include: { service: true, client: { select: { name: true } }, subscription: { include: { plan: true } } },
+        include: { ...SUBSCRIPTION_APPT_INCLUDE, client: { select: { name: true } } },
       }),
       prisma.productSale.findMany({
         where: { barbershopId, createdAt: { gte: start, lte: end } },
@@ -72,7 +80,9 @@ export async function GET(req: NextRequest) {
     // ── Pool de assinaturas (calculado globalmente) ──
     const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
     const poolBarbeiros = totalSubRevenue * 0.5;
-    const ticketMedioSub = allSubAppointments.length > 0 ? poolBarbeiros / allSubAppointments.length : 0;
+    // Cada serviço do plano realizado conta 1 (Corte + Barba = 2 serviços)
+    const totalSubServicos = totalPlanServices(allSubAppointments);
+    const ticketMedioSub = totalSubServicos > 0 ? poolBarbeiros / totalSubServicos : 0;
 
     // ── Agrupamento em memória por barbeiro ──
     const result = barbers.map((b) => {
@@ -108,16 +118,7 @@ export async function GET(req: NextRequest) {
       }, 0);
       const comissaoAvulso = comissaoAvulsoBase + comissaoExtra;
 
-      const comissaoAssinatura = subAppointments.reduce((s, a) => {
-        const baseSubPrice = Math.max(0, a.price - (a.extraPrice ?? 0));
-        const customPlanCommission = a.subscription?.plan?.commissionPercentage;
-        if (customPlanCommission != null) {
-          const materialCost = a.service?.materialCost || 0;
-          const netValue = Math.max(0, baseSubPrice - materialCost);
-          return s + calcComissao(netValue, "PERCENTAGE", customPlanCommission);
-        }
-        return s + ticketMedioSub;
-      }, 0);
+      const comissaoAssinatura = subAppointments.reduce((s, a) => s + subscriptionCommission(a, ticketMedioSub), 0);
 
       const totalProdutos = productSales.reduce((s, p) => s + p.total, 0);
       const comissaoProdutos = productSales.reduce((s, p) => {
@@ -174,14 +175,14 @@ export async function GET(req: NextRequest) {
           ],
         },
         assinatura: {
-          servicos: subAppointments.length,
+          servicos: subAppointments.reduce((s, a) => s + countPlanServices(a), 0),
           ticketMedio: ticketMedioSub,
           comissao: comissaoAssinatura,
           items: subAppointments.map((a) => ({
             date: a.date.toISOString(),
             clientName: a.client?.name ?? "—",
-            serviceName: a.service?.name ?? "—",
-            price: Math.max(0, a.price - (a.extraPrice ?? 0)),
+            serviceName: planServicesLabel(a),
+            price: baseSubscriptionPrice(a),
           })),
         },
         produtos: {

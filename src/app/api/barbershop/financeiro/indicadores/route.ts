@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { startOfMonth, endOfMonth, parseISO, differenceInDays } from "date-fns";
+import { SUBSCRIPTION_APPT_INCLUDE, countPlanServices, totalPlanServices } from "@/lib/subscriptionServices";
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", date: { gte: from, lte: to } },
         include: {
+          ...SUBSCRIPTION_APPT_INCLUDE,
           service: true,
           barber: { include: { user: { select: { name: true } } } },
           client: { select: { id: true, name: true } },
@@ -194,16 +196,18 @@ export async function GET(req: NextRequest) {
     const poolBarbeiros = poeTotal * (poeBarberPct / 100);
 
     const poeAppts = appts.filter(a => a.subscriptionId !== null);
-    const totalServicosPoe = poeAppts.length;
+    // Cada serviço do plano realizado conta 1 (Corte + Barba = 2 serviços)
+    const totalServicosPoe = totalPlanServices(poeAppts);
     const ticketPorServicoPoe = totalServicosPoe > 0 ? poolBarbeiros / totalServicosPoe : 0;
 
     const partilhaMap: Record<string, { name: string; servicos: number; recebe: number }> = {};
     for (const appt of poeAppts) {
       const id = appt.barberId;
       const name = appt.barber.user.name;
+      const servicos = countPlanServices(appt);
       if (!partilhaMap[id]) partilhaMap[id] = { name, servicos: 0, recebe: 0 };
-      partilhaMap[id].servicos += 1;
-      partilhaMap[id].recebe += ticketPorServicoPoe;
+      partilhaMap[id].servicos += servicos;
+      partilhaMap[id].recebe += ticketPorServicoPoe * servicos;
     }
     const partilhaBarbeiros = Object.entries(partilhaMap)
       .map(([id, b]) => ({ id, ...b }))

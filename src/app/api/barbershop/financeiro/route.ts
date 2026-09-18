@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { startOfMonth, endOfMonth } from "date-fns";
+import { SUBSCRIPTION_APPT_INCLUDE, countPlanServices, totalPlanServices } from "@/lib/subscriptionServices";
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,6 +24,9 @@ export async function GET(req: NextRequest) {
         where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: monthStart, lte: monthEnd } },
         select: {
           barberId: true,
+          price: true,
+          extraPrice: true,
+          ...SUBSCRIPTION_APPT_INCLUDE,
           barber: { select: { id: true, user: { select: { name: true } } } },
         },
       }),
@@ -55,17 +59,18 @@ export async function GET(req: NextRequest) {
     const poeBarbearia = poeTotal * (poeOwnerPct / 100);
     const poolBarbeiros = poeTotal * (poeBarberPct / 100);
 
-    const allAppointments = subAppointments;
-    const totalServicos = allAppointments.length;
+    // Cada serviço do plano realizado conta 1 (Corte + Barba = 2 serviços)
+    const totalServicos = totalPlanServices(subAppointments);
     const ticketPorServico = totalServicos > 0 ? poolBarbeiros / totalServicos : 0;
 
     const barberMap: Record<string, { name: string; servicos: number; recebe: number }> = {};
-    for (const appt of allAppointments) {
+    for (const appt of subAppointments) {
       const id = appt.barber.id;
       const name = appt.barber.user.name;
+      const servicos = countPlanServices(appt);
       if (!barberMap[id]) barberMap[id] = { name, servicos: 0, recebe: 0 };
-      barberMap[id].servicos += 1;
-      barberMap[id].recebe += ticketPorServico;
+      barberMap[id].servicos += servicos;
+      barberMap[id].recebe += ticketPorServico * servicos;
     }
 
     const planMap: Record<string, { name: string; price: number; assinantes: number; receita: number }> = {};

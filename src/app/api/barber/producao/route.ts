@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { startOfMonth, endOfMonth, subMonths, eachDayOfInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  SUBSCRIPTION_APPT_INCLUDE,
+  subscriptionCommission,
+  totalPlanServices,
+} from "@/lib/subscriptionServices";
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,12 +29,13 @@ export async function GET(req: NextRequest) {
       return type === "FIXED" ? rate : valor * (rate / 100);
     }
 
-    const [appointments, productSales, subPaymentsMonth, allSubApptsCount] = await Promise.all([
+    const [appointments, productSales, subPaymentsMonth, allSubAppts] = await Promise.all([
       prisma.appointment.findMany({
         where: { barberId: barber.id, date: { gte: start, lte: end } },
         include: {
-          service: { select: { name: true, materialCost: true, commission: true } },
-          subscription: { include: { plan: { select: { commissionPercentage: true } } } },
+          ...SUBSCRIPTION_APPT_INCLUDE,
+          service: { select: { id: true, name: true, materialCost: true, commission: true } },
+          services: { select: { price: true, service: { select: { id: true, name: true, materialCost: true } } } },
         },
         orderBy: { date: "asc" },
       }),
@@ -41,14 +47,16 @@ export async function GET(req: NextRequest) {
         where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end } },
         select: { amount: true },
       }),
-      prisma.appointment.count({
+      prisma.appointment.findMany({
         where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "DONE", date: { gte: start, lte: end } },
+        select: { price: true, extraPrice: true, ...SUBSCRIPTION_APPT_INCLUDE },
       }),
     ]);
 
-    // Pool de assinatura (mesma lógica do relatório de comissões)
+    // Pool de assinatura (mesma lógica do relatório de comissões) — cada serviço do plano conta 1
     const totalSubRevenue = subPaymentsMonth.reduce((s, p) => s + p.amount, 0);
-    const ticketMedioSub = allSubApptsCount > 0 ? (totalSubRevenue * 0.5) / allSubApptsCount : 0;
+    const totalSubServicos = totalPlanServices(allSubAppts);
+    const ticketMedioSub = totalSubServicos > 0 ? (totalSubRevenue * 0.5) / totalSubServicos : 0;
 
     const done = appointments.filter((a) => a.status === "DONE");
     const noShow = appointments.filter((a) => a.status === "NO_SHOW").length;
@@ -60,16 +68,9 @@ export async function GET(req: NextRequest) {
         ? calcComissao(a.extraPrice ?? 0, barber.commissionType, barber.commission)
         : 0;
 
-      // Assinante: comissão pelo pool (ticket médio), descontando o extra do preço base
+      // Assinante: comissão pelo pool (ticket × serviços do plano), descontando o extra do preço base
       if (a.subscriptionId) {
-        const customPlanCommission = a.subscription?.plan?.commissionPercentage;
-        if (customPlanCommission != null) {
-          const materialCost = a.service?.materialCost || 0;
-          const baseSubPrice = Math.max(0, a.price - (a.extraPrice ?? 0));
-          const netValue = Math.max(0, baseSubPrice - materialCost);
-          return s + calcComissao(netValue, "PERCENTAGE", customPlanCommission) + extraComm;
-        }
-        return s + ticketMedioSub + extraComm;
+        return s + subscriptionCommission(a, ticketMedioSub) + extraComm;
       }
 
       // Avulso: comissão normal sobre o preço do serviço
@@ -95,14 +96,19 @@ export async function GET(req: NextRequest) {
     }, 0);
     const totalComissao = comissaoServicos + comissaoProdutos;
 
-    // Ranking de serviços
+    // Ranking de serviços — cada item da comanda conta (Corte + Barba soma 1 em cada)
     const serviceMap: Record<string, { name: string; count: number; faturado: number }> = {};
     for (const a of done) {
-      const sid = a.serviceId ?? "unknown";
-      const sname = a.service?.name ?? "Serviço removido";
-      if (!serviceMap[sid]) serviceMap[sid] = { name: sname, count: 0, faturado: 0 };
-      serviceMap[sid].count++;
-      serviceMap[sid].faturado += a.price;
+      const items = a.services.length > 0
+        ? a.services.map((s) => ({ id: s.service.id, name: s.service.name, price: s.price }))
+        : [{ id: a.serviceId ?? "unknown", name: a.service?.name ?? "Serviço removido", price: a.price }];
+      // Rateia o valor cobrado (já com desconto) pelo peso de cada item na tabela de preços
+      const listTotal = items.reduce((s, i) => s + i.price, 0);
+      for (const item of items) {
+        if (!serviceMap[item.id]) serviceMap[item.id] = { name: item.name, count: 0, faturado: 0 };
+        serviceMap[item.id].count++;
+        serviceMap[item.id].faturado += listTotal > 0 ? a.price * (item.price / listTotal) : a.price / items.length;
+      }
     }
     const servicosRanking = Object.values(serviceMap).sort((a, b) => b.count - a.count);
 

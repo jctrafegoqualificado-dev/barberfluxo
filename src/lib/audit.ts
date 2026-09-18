@@ -20,6 +20,7 @@ export type AuditAction =
   | "DELETE"
   | "CANCEL"
   | "STATUS_CHANGE"
+  | "SERVICES_CHANGE" // troca dos serviços da comanda (afeta a divisão do pool de assinaturas)
   | "BLOCK"
   | "UNBLOCK"
   | "DEACTIVATE"
