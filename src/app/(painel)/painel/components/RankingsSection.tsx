@@ -1,152 +1,96 @@
 "use client";
-import React from "react";
-import { Crown, Users } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import Link from "next/link";
+import { formatCurrency, getInitials } from "@/lib/utils";
 
 interface RankingsSectionProps {
-  topBarbers: Array<{
-    id: string;
-    name: string;
-    revenue: number;
-    appointments: number;
-  }>;
-  topClients: Array<{
-    id: string;
-    name: string;
-    totalSpent: number;
-    visits: number;
-  }>;
-  periodLabel: string;
+  topBarbers: Array<{ id: string; name: string; revenue: number; appointments: number }>;
+  topClients: Array<{ id: string; name: string; totalSpent: number; visits: number }>;
+  newClients: number;
+  returningClients: number;
 }
 
-export function RankingsSection({
-  topBarbers,
-  topClients,
-  periodLabel,
-}: RankingsSectionProps) {
-  const maxBarberRevenue = topBarbers?.[0]?.revenue || 1;
-  const maxClientSpent = topClients?.[0]?.totalSpent || 1;
+export function RankingsSection({ topBarbers, topClients, newClients, returningClients }: RankingsSectionProps) {
+  const maxRevenue = Math.max(1, ...topBarbers.map((b) => b.revenue));
+  const clientsTotal = newClients + returningClients;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Top Profissionais */}
-      <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Crown className="w-4 h-4 text-amber-500" />
-            <h3 className="font-bold text-zinc-900 text-sm">Top Profissionais</h3>
-          </div>
-          <span className="text-[10px] text-zinc-400 font-medium uppercase">
-            {periodLabel}
-          </span>
+    <div className="grid gap-4 md:grid-cols-2">
+      <section aria-labelledby="barbers-title" className="bg-white border border-line rounded-2xl px-[22px] py-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 id="barbers-title" className="text-[15px] font-semibold text-ink">Profissionais</h2>
+          <Link href="/painel/comissoes" className="text-[13px] font-semibold text-ink-2 underline underline-offset-2">
+            Ver comissões
+          </Link>
         </div>
         {topBarbers.length === 0 ? (
-          <div className="py-10 text-center text-zinc-400 text-sm">
-            Sem dados no período
-          </div>
+          <p className="py-6 text-sm text-ink-3">Nenhum atendimento concluído no período.</p>
         ) : (
-          <div className="divide-y divide-zinc-50 max-h-96 overflow-y-auto">
-            {topBarbers.map((b, i) => (
-              <div
-                key={b.id}
-                className="px-5 py-3.5 flex items-center gap-4 hover:bg-zinc-50/50 transition-colors"
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
-                    i === 0
-                      ? "bg-amber-100 text-amber-700"
-                      : i === 1
-                      ? "bg-zinc-200 text-zinc-600"
-                      : i === 2
-                      ? "bg-orange-100 text-orange-600"
-                      : "bg-zinc-100 text-zinc-500"
-                  }`}
-                >
-                  {i + 1}º
+          topBarbers.map((b, i) => (
+            <div key={b.id} className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2.5">
+                <span className="w-[18px] text-[13px] font-bold text-ink-4">{i + 1}</span>
+                <div className="w-[30px] h-[30px] rounded-full bg-line-2 text-ink-2 text-xs font-bold flex items-center justify-center">
+                  {getInitials(b.name)}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-zinc-900 truncate">{b.name}</p>
-                  <p className="text-[10px] text-zinc-400">
-                    {b.appointments} atendimentos
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-zinc-900">
-                    {formatCurrency(b.revenue)}
-                  </p>
-                  <div className="w-24 h-1.5 rounded-full bg-zinc-100 mt-1 overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all"
-                      style={{
-                        width: `${Math.round((b.revenue / maxBarberRevenue) * 100)}%`,
-                      }}
-                    />
-                  </div>
+                <span className="flex-1 min-w-0 truncate text-sm font-semibold text-ink">{b.name}</span>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-ink tabular-nums">{formatCurrency(b.revenue)}</p>
+                  <p className="text-xs text-ink-3 tabular-nums">{b.appointments} atendimentos</p>
                 </div>
               </div>
-            ))}
-          </div>
+              <div className="ml-[68px] h-1 rounded-full bg-line-3" aria-hidden="true">
+                <div
+                  className={`h-full rounded-full ${i === 0 ? "bg-primary" : "bg-ink"}`}
+                  style={{ width: `${(b.revenue / maxRevenue) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))
         )}
-      </div>
+      </section>
 
-      {/* Top Clientes */}
-      <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-blue-500" />
-            <h3 className="font-bold text-zinc-900 text-sm">Top Clientes</h3>
-          </div>
-          <span className="text-[10px] text-zinc-400 font-medium uppercase">
-            {periodLabel}
-          </span>
+      <section aria-labelledby="clients-title" className="bg-white border border-line rounded-2xl px-[22px] py-5 flex flex-col gap-3.5">
+        <div className="flex items-center justify-between">
+          <h2 id="clients-title" className="text-[15px] font-semibold text-ink">Clientes que mais gastaram</h2>
+          <Link href="/painel/clientes" className="text-[13px] font-semibold text-ink-2 underline underline-offset-2">
+            Ver todos
+          </Link>
         </div>
         {topClients.length === 0 ? (
-          <div className="py-10 text-center text-zinc-400 text-sm">
-            Sem dados no período
-          </div>
+          <p className="py-6 text-sm text-ink-3">Nenhum cliente atendido no período.</p>
         ) : (
-          <div className="divide-y divide-zinc-50 max-h-96 overflow-y-auto">
-            {topClients.map((c, i) => (
-              <div
-                key={c.id}
-                className="px-5 py-3.5 flex items-center gap-4 hover:bg-zinc-50/50 transition-colors"
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black shrink-0 ${
-                    i === 0 ? "bg-blue-100 text-blue-700" : "bg-zinc-100 text-zinc-500"
-                  }`}
-                >
-                  {c.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-zinc-900 truncate">{c.name}</p>
-                  <p className="text-[10px] text-zinc-400">{c.visits} visitas</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-zinc-900">
-                    {formatCurrency(c.totalSpent)}
-                  </p>
-                  <div className="w-24 h-1.5 rounded-full bg-zinc-100 mt-1 overflow-hidden">
-                    <div
-                      className="h-full bg-blue-400 rounded-full transition-all"
-                      style={{
-                        width: `${Math.round(
-                          (c.totalSpent / maxClientSpent) * 100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+          topClients.map((c) => (
+            <div key={c.id} className="flex items-center gap-2.5 min-h-[38px]">
+              <div className="w-[30px] h-[30px] rounded-full bg-line-2 text-ink-2 text-xs font-bold flex items-center justify-center">
+                {getInitials(c.name)}
               </div>
-            ))}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-ink truncate">{c.name}</p>
+                <p className="text-xs text-ink-3">
+                  {c.visits} visita{c.visits !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <span className="text-sm font-semibold text-ink tabular-nums">{formatCurrency(c.totalSpent)}</span>
+            </div>
+          ))
+        )}
+        {clientsTotal > 0 && (
+          <div className="flex flex-col gap-2 pt-3 border-t border-line-2 mt-auto">
+            <div className="flex h-2 gap-0.5 rounded-full overflow-hidden" aria-hidden="true">
+              <div className="bg-primary" style={{ width: `${(newClients / clientsTotal) * 100}%` }} />
+              <div className="bg-ink" style={{ width: `${(returningClients / clientsTotal) * 100}%` }} />
+            </div>
+            <div className="flex justify-between text-[13px] text-ink-2 tabular-nums">
+              <span>
+                <strong className="text-ink">{newClients}</strong> clientes novos
+              </span>
+              <span>
+                <strong className="text-ink">{returningClients}</strong> voltaram
+              </span>
+            </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

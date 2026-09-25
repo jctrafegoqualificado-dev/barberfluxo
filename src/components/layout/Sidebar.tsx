@@ -7,65 +7,85 @@ import NotificationBell from "@/components/layout/NotificationBell";
 import CashWidget from "@/components/financeiro/CashWidget";
 import {
   LayoutDashboard, Calendar, Users, UserCheck, Scissors, CreditCard,
-  Package, Settings, LogOut, ChevronRight, ChevronDown, ChevronLeft,
-  Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X,
-  Crown, MessageSquare, Sparkles, Bell, Banknote, BarChart3, Wallet,
-  Building2, Award, BookOpen, Activity
+  Package, Settings, LogOut, ChevronRight, ChevronLeft,
+  Layers, TrendingUp, Clock, Target, KanbanSquare, Menu, X,
+  Crown, MessageSquare, Bell, Banknote, BarChart3, Wallet,
+  Building2, Award, Bot,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ElementType } from "react";
 
-// Acesso rápido — bloco acima de Cadastros
-const ownerTopNavA = [
-  { href: "/painel", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/painel/agendamentos", label: "Agendamentos", icon: Calendar },
+type NavItem = { href: string; label: string; icon: ElementType; exact?: boolean };
+type NavGroup = { label?: string; items: NavItem[] };
+
+// Menu do dono — grupos sempre visíveis (sem sanfona), como no redesign
+const ownerGroups: NavGroup[] = [
+  {
+    items: [
+      { href: "/painel", label: "Início", icon: LayoutDashboard, exact: true },
+      { href: "/painel/agendamentos", label: "Agenda", icon: Calendar },
+      { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Clientes",
+    items: [
+      { href: "/painel/clientes", label: "Clientes", icon: Users },
+      { href: "/painel/assinaturas", label: "Assinantes", icon: Crown },
+      { href: "/painel/fidelidade", label: "Fidelidade", icon: Award },
+    ],
+  },
+  {
+    label: "Catálogo",
+    items: [
+      { href: "/painel/barbeiros", label: "Profissionais", icon: UserCheck },
+      { href: "/painel/servicos", label: "Serviços", icon: Scissors },
+      { href: "/painel/produtos", label: "Produtos", icon: Package },
+      { href: "/painel/planos", label: "Planos", icon: Layers },
+    ],
+  },
+  {
+    label: "Financeiro",
+    items: [
+      { href: "/painel/fluxo-caixa", label: "Fluxo de caixa", icon: Banknote },
+      { href: "/painel/financeiro", label: "Resultado do mês", icon: Wallet, exact: true },
+      { href: "/painel/comissoes", label: "Comissões", icon: CreditCard },
+      { href: "/painel/financeiro/indicadores", label: "Indicadores", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Análises",
+    items: [
+      { href: "/painel/ocupacao", label: "Ocupação", icon: Clock },
+      { href: "/painel/metas", label: "Metas", icon: Target },
+      { href: "/painel/kanban", label: "Tarefas", icon: KanbanSquare },
+    ],
+  },
 ];
 
-// Análises — pouco acessados, agrupados
-const ownerAnalisesNav = [
-  { href: "/painel/ocupacao", label: "Ocupação", icon: Clock },
-  { href: "/painel/metas", label: "Metas", icon: Target },
-  { href: "/painel/kanban", label: "Kanban", icon: KanbanSquare },
+const ownerFooter: NavItem[] = [
+  { href: "/painel/meu-negocio", label: "Meu negócio", icon: Building2 },
+  { href: "/painel/configuracoes", label: "Configurações", icon: Settings, exact: true },
 ];
 
-// Links diretos abaixo de Análises
-const ownerTopNavB = [
-  { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare },
-  { href: "/painel/fidelidade", label: "Fidelidade", icon: Award },
-];
-
-// Cadastros — dados mestre / catálogo
-const ownerCadastrosNav = [
-  { href: "/painel/clientes", label: "Clientes", icon: Users },
-  { href: "/painel/barbeiros", label: "Profissionais", icon: UserCheck },
-  { href: "/painel/servicos", label: "Serviços", icon: Sparkles },
-  { href: "/painel/produtos", label: "Produtos", icon: Package },
-  { href: "/painel/planos", label: "Planos", icon: Layers },
-];
-
-// Gestão Financeira
-const ownerFinanceNav = [
-  { href: "/painel/financeiro", label: "Fluxo & POE", icon: TrendingUp },
-  { href: "/painel/financeiro/indicadores", label: "Indicadores (BI)", icon: BarChart3 },
-  { href: "/painel/assinaturas", label: "Assinantes", icon: CreditCard },
-  { href: "/painel/comissoes", label: "Comissões", icon: DollarSign },
-  { href: "/painel/fluxo-caixa", label: "Fluxo de Caixa", icon: Banknote },
-];
-
-// Configurações — sub-itens
-const ownerConfigNav = [
-  { href: "/painel/configuracoes", label: "Geral", icon: Settings },
+// Sub-páginas de Configurações continuam acessíveis enquanto a área não é redesenhada
+const ownerConfigSubnav: NavItem[] = [
   { href: "/painel/configuracoes/pagamentos", label: "Pagamentos", icon: CreditCard },
   { href: "/painel/configuracoes/lembretes", label: "Lembretes", icon: Bell },
+  { href: "/painel/configuracoes/assistente-ia", label: "Atendente de IA", icon: Bot },
 ];
 
-const barberNav = [
-  { href: "/barbeiro", label: "Minha Agenda", icon: Calendar },
+const barberNav: NavItem[] = [
+  { href: "/barbeiro", label: "Minha agenda", icon: Calendar, exact: true },
   { href: "/barbeiro/producao", label: "Produção", icon: TrendingUp },
   { href: "/barbeiro/comissoes", label: "Comissões", icon: CreditCard },
   { href: "/barbeiro/assinaturas", label: "Assinantes", icon: Layers },
   { href: "/barbeiro/clientes", label: "Clientes", icon: Users },
   { href: "/barbeiro/tarefas", label: "Tarefas", icon: KanbanSquare },
 ];
+
+function isActive(pathname: string, item: NavItem) {
+  return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + "/");
+}
 
 export default function Sidebar({ branding }: {
   branding?: {
@@ -80,51 +100,7 @@ export default function Sidebar({ branding }: {
   const { user, clearAuth } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-
-  const cadastrosActive =
-    pathname.startsWith("/painel/clientes") ||
-    pathname.startsWith("/painel/barbeiros") ||
-    pathname.startsWith("/painel/servicos") ||
-    pathname.startsWith("/painel/produtos") ||
-    pathname.startsWith("/painel/planos");
-
-  const financeActive =
-    pathname.startsWith("/painel/financeiro") ||
-    pathname.startsWith("/painel/assinaturas") ||
-    pathname.startsWith("/painel/comissoes") ||
-    pathname.startsWith("/painel/fluxo-caixa");
-
-  const analisesActive =
-    pathname.startsWith("/painel/ocupacao") ||
-    pathname.startsWith("/painel/metas") ||
-    pathname.startsWith("/painel/kanban");
-
-  const configActive = pathname.startsWith("/painel/configuracoes");
-
-  const [analisesOpen, setAnalisesOpen] = useState(() =>
-    pathname.startsWith("/painel/ocupacao") ||
-    pathname.startsWith("/painel/metas") ||
-    pathname.startsWith("/painel/kanban")
-  );
-
-  const [cadastrosOpen, setCadastrosOpen] = useState(() =>
-    pathname.startsWith("/painel/clientes") ||
-    pathname.startsWith("/painel/barbeiros") ||
-    pathname.startsWith("/painel/servicos") ||
-    pathname.startsWith("/painel/produtos") ||
-    pathname.startsWith("/painel/planos")
-  );
-
-  const [financeOpen, setFinanceOpen] = useState(() =>
-    pathname.startsWith("/painel/financeiro") ||
-    pathname.startsWith("/painel/assinaturas") ||
-    pathname.startsWith("/painel/comissoes") ||
-    pathname.startsWith("/painel/fluxo-caixa")
-  );
-
-  const [configOpen, setConfigOpen] = useState(() =>
-    pathname.startsWith("/painel/configuracoes")
-  );
+  const isOwner = user?.role !== "BARBER";
 
   useEffect(() => {
     const stored = localStorage.getItem("sidebar-collapsed");
@@ -143,448 +119,188 @@ export default function Sidebar({ branding }: {
     router.push("/login");
   }
 
-  function navClick() {
-    setMobileOpen(false);
-  }
+  const sidebarContent = (isDesktop: boolean) => {
+    const compact = isDesktop && collapsed;
 
-  const sidebarContent = (isDesktop: boolean) => (
-    <aside className={cn(
-      "flex flex-col h-full bg-zinc-900 text-white transition-all duration-300 ease-in-out",
-      isDesktop && collapsed ? "w-16" : "w-64"
-    )}>
-      {/* Header */}
-      <div
-        className={cn(
-          "flex items-center border-b border-zinc-800 min-h-[72px]",
-          isDesktop && collapsed ? "px-0 py-5 justify-center cursor-pointer hover:bg-zinc-800 transition-colors" : "gap-3 px-4 py-5"
-        )}
-        onClick={isDesktop && collapsed ? toggleCollapsed : undefined}
-        title={isDesktop && collapsed ? "Expandir menu" : undefined}
-      >
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0 overflow-hidden">
-          {branding?.logoUrl ? (
-            <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-          ) : (
-            <Scissors className="w-5 h-5 text-white" />
-          )}
-        </div>
-        {(!isDesktop || !collapsed) && (
-          <>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold truncate">{branding?.name || "IaDeBarbearia"}</p>
-              <p className="text-xs text-zinc-400 truncate">{user?.name}</p>
-            </div>
-            <div className="flex items-center gap-1">
-              {user?.role === "OWNER" && <NotificationBell />}
-              <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors md:hidden">
-                <X className="w-4 h-4 text-zinc-400" />
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Cash Widget — só quando expandido */}
-      {(!isDesktop || !collapsed) && <CashWidget />}
-
-      {/* Nav */}
-      <nav className={cn("flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden", isDesktop && collapsed ? "px-2" : "px-3")}>
-        {user?.role === "BARBER" ? (
-          barberNav.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || (href !== "/barbeiro" && pathname.startsWith(href));
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={navClick}
-                title={isDesktop && collapsed ? label : undefined}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  isDesktop && collapsed && "justify-center px-0",
-                  active
-                    ? "bg-amber-500 text-white"
-                    : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                )}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                {(!isDesktop || !collapsed) && <span className="flex-1">{label}</span>}
-                {(!isDesktop || !collapsed) && active && <ChevronRight className="w-4 h-4" />}
-              </Link>
-            );
-          })
-        ) : (
-          <>
-            {/* Dashboard + Agendamentos */}
-            {ownerTopNavA.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || (href !== "/painel" && pathname.startsWith(href));
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={navClick}
-                  title={isDesktop && collapsed ? label : undefined}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                    isDesktop && collapsed && "justify-center px-0",
-                    active
-                      ? "bg-primary text-white"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                  )}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {(!isDesktop || !collapsed) && <span className="flex-1">{label}</span>}
-                  {(!isDesktop || !collapsed) && active && <ChevronRight className="w-4 h-4" />}
-                </Link>
-              );
-            })}
-
-            {/* Cadastros */}
-            {isDesktop && collapsed ? (
-              <Link
-                href="/painel/clientes"
-                title="Cadastros"
-                className={cn(
-                  "flex justify-center items-center px-0 py-2.5 rounded-lg transition-colors",
-                  cadastrosActive ? "text-amber-400 bg-zinc-800/50" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                )}
-              >
-                <BookOpen className="w-4 h-4" />
-              </Link>
-            ) : (
-              <div>
-                <button
-                  onClick={() => setCadastrosOpen(!cadastrosOpen)}
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-zinc-400 hover:text-white hover:bg-zinc-800",
-                    cadastrosActive && "text-amber-400 font-semibold bg-zinc-800/30"
-                  )}
-                >
-                  <BookOpen className="w-4 h-4 shrink-0" />
-                  <span className="flex-1 text-left">Cadastros</span>
-                  {cadastrosOpen ? (
-                    <ChevronDown className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 shrink-0" />
-                  )}
-                </button>
-                {cadastrosOpen && (
-                  <div className="mt-1 pl-4 space-y-1 border-l border-zinc-800 ml-5">
-                    {ownerCadastrosNav.map(({ href, label, icon: Icon }) => {
-                      const active = pathname === href || pathname.startsWith(href + "/");
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          onClick={navClick}
-                          className={cn(
-                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                            active
-                              ? "bg-primary/10 text-primary font-semibold"
-                              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                          )}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="flex-1 text-left">{label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Análises */}
-            {isDesktop && collapsed ? (
-              <Link
-                href="/painel/ocupacao"
-                title="Análises"
-                className={cn(
-                  "flex justify-center items-center px-0 py-2.5 rounded-lg transition-colors",
-                  analisesActive ? "text-amber-400 bg-zinc-800/50" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                )}
-              >
-                <Activity className="w-4 h-4" />
-              </Link>
-            ) : (
-              <div>
-                <button
-                  onClick={() => setAnalisesOpen(!analisesOpen)}
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-zinc-400 hover:text-white hover:bg-zinc-800",
-                    analisesActive && "text-amber-400 font-semibold bg-zinc-800/30"
-                  )}
-                >
-                  <Activity className="w-4 h-4 shrink-0" />
-                  <span className="flex-1 text-left">Análises</span>
-                  {analisesOpen ? (
-                    <ChevronDown className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 shrink-0" />
-                  )}
-                </button>
-                {analisesOpen && (
-                  <div className="mt-1 pl-4 space-y-1 border-l border-zinc-800 ml-5">
-                    {ownerAnalisesNav.map(({ href, label, icon: Icon }) => {
-                      const active = pathname === href || pathname.startsWith(href + "/");
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          onClick={navClick}
-                          className={cn(
-                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                            active
-                              ? "bg-primary/10 text-primary font-semibold"
-                              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                          )}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="flex-1 text-left">{label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* WhatsApp + Fidelidade */}
-            {ownerTopNavB.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || pathname.startsWith(href + "/");
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={navClick}
-                  title={isDesktop && collapsed ? label : undefined}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                    isDesktop && collapsed && "justify-center px-0",
-                    active
-                      ? "bg-primary text-white"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                  )}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {(!isDesktop || !collapsed) && <span className="flex-1">{label}</span>}
-                  {(!isDesktop || !collapsed) && active && <ChevronRight className="w-4 h-4" />}
-                </Link>
-              );
-            })}
-
-            {/* Gestão Financeira */}
-            {isDesktop && collapsed ? (
-              <Link
-                href="/painel/financeiro"
-                title="Gestão Financeira"
-                className={cn(
-                  "flex justify-center items-center px-0 py-2.5 rounded-lg transition-colors",
-                  financeActive ? "text-amber-400 bg-zinc-800/50" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                )}
-              >
-                <Wallet className="w-4 h-4" />
-              </Link>
-            ) : (
-              <div>
-                <button
-                  onClick={() => setFinanceOpen(!financeOpen)}
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-zinc-400 hover:text-white hover:bg-zinc-800",
-                    financeActive && "text-amber-400 font-semibold bg-zinc-800/30"
-                  )}
-                >
-                  <Wallet className="w-4 h-4 shrink-0" />
-                  <span className="flex-1 text-left">Gestão Financeira</span>
-                  {financeOpen ? (
-                    <ChevronDown className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 shrink-0" />
-                  )}
-                </button>
-                {financeOpen && (
-                  <div className="mt-1 pl-4 space-y-1 border-l border-zinc-800 ml-5">
-                    {ownerFinanceNav.map(({ href, label, icon: Icon }) => {
-                      const active = pathname === href || (href !== "/painel/financeiro" && pathname.startsWith(href));
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          onClick={navClick}
-                          className={cn(
-                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                            active
-                              ? "bg-primary/10 text-primary font-semibold"
-                              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                          )}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="flex-1 text-left">{label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Meu Negócio */}
-            <Link
-              href="/painel/meu-negocio"
-              onClick={navClick}
-              title={isDesktop && collapsed ? "Meu Negócio" : undefined}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                isDesktop && collapsed && "justify-center px-0",
-                pathname === "/painel/meu-negocio"
-                  ? "bg-primary text-white"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-              )}
-            >
-              <Building2 className="w-4 h-4 shrink-0" />
-              {(!isDesktop || !collapsed) && <span className="flex-1">Meu Negócio</span>}
-              {(!isDesktop || !collapsed) && pathname === "/painel/meu-negocio" && <ChevronRight className="w-4 h-4" />}
-            </Link>
-
-            {/* Configurações */}
-            {isDesktop && collapsed ? (
-              <Link
-                href="/painel/configuracoes"
-                title="Configurações"
-                className={cn(
-                  "flex justify-center items-center px-0 py-2.5 rounded-lg transition-colors",
-                  configActive ? "text-amber-400 bg-zinc-800/50" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                )}
-              >
-                <Settings className="w-4 h-4" />
-              </Link>
-            ) : (
-              <div>
-                <button
-                  onClick={() => setConfigOpen(!configOpen)}
-                  className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-zinc-400 hover:text-white hover:bg-zinc-800",
-                    configActive && "text-amber-400 font-semibold bg-zinc-800/30"
-                  )}
-                >
-                  <Settings className="w-4 h-4 shrink-0" />
-                  <span className="flex-1 text-left">Configurações</span>
-                  {configOpen ? (
-                    <ChevronDown className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 shrink-0" />
-                  )}
-                </button>
-                {configOpen && (
-                  <div className="mt-1 pl-4 space-y-1 border-l border-zinc-800 ml-5">
-                    {ownerConfigNav.map(({ href, label, icon: Icon }) => {
-                      const active = pathname === href;
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          onClick={navClick}
-                          className={cn(
-                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                            active
-                              ? "bg-primary/10 text-primary font-semibold"
-                              : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                          )}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="flex-1 text-left">{label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Minha Assinatura */}
-            <Link
-              href="/painel/assinatura"
-              onClick={navClick}
-              title={isDesktop && collapsed ? "Minha Assinatura" : undefined}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                isDesktop && collapsed && "justify-center px-0",
-                pathname === "/painel/assinatura"
-                  ? "bg-primary text-white"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-              )}
-            >
-              <Crown className="w-4 h-4 shrink-0" />
-              {(!isDesktop || !collapsed) && <span className="flex-1">Minha Assinatura</span>}
-              {(!isDesktop || !collapsed) && pathname === "/painel/assinatura" && <ChevronRight className="w-4 h-4" />}
-            </Link>
-          </>
-        )}
-      </nav>
-
-      {/* Footer: recolher (desktop) + sair */}
-      <div className={cn("py-3 border-t border-zinc-800 space-y-1", isDesktop && collapsed ? "px-2" : "px-3")}>
-        {isDesktop && (
-          <button
-            onClick={toggleCollapsed}
-            title={collapsed ? "Expandir menu" : "Recolher menu"}
-            className={cn(
-              "hidden md:flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors",
-              collapsed && "justify-center px-0"
-            )}
-          >
-            {collapsed ? (
-              <ChevronRight className="w-4 h-4 shrink-0" />
-            ) : (
-              <>
-                <ChevronLeft className="w-4 h-4 shrink-0" />
-                <span>Recolher menu</span>
-              </>
-            )}
-          </button>
-        )}
-        <button
-          onClick={logout}
-          title={isDesktop && collapsed ? "Sair" : undefined}
+    const renderItem = (item: NavItem, small = false) => {
+      const active = isActive(pathname, item);
+      const Icon = item.icon;
+      return (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={() => setMobileOpen(false)}
+          title={compact ? item.label : undefined}
+          aria-current={active ? "page" : undefined}
           className={cn(
-            "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors",
-            isDesktop && collapsed && "justify-center px-0"
+            "flex items-center gap-3 rounded-lg text-sm transition-colors",
+            small ? "h-8 px-2.5 text-[13px]" : "h-9 px-2.5",
+            compact && "justify-center px-0",
+            active
+              ? "bg-night-3 text-white font-semibold"
+              : "text-night-text font-medium hover:bg-night-2 hover:text-white"
           )}
         >
-          <LogOut className="w-4 h-4 shrink-0" />
-          {(!isDesktop || !collapsed) && <span>Sair</span>}
-        </button>
-      </div>
-    </aside>
-  );
+          <Icon className={cn("shrink-0", small ? "w-4 h-4" : "w-[18px] h-[18px]", active && "text-primary")} />
+          {!compact && <span className="flex-1 truncate">{item.label}</span>}
+        </Link>
+      );
+    };
+
+    return (
+      <aside
+        className={cn(
+          "flex flex-col h-full bg-night text-night-muted transition-all duration-300 ease-in-out",
+          compact ? "w-16" : "w-64"
+        )}
+      >
+        {/* Marca */}
+        <div
+          className={cn(
+            "flex items-center min-h-[72px]",
+            compact ? "justify-center px-0 cursor-pointer hover:bg-night-2" : "gap-3 px-4"
+          )}
+          onClick={compact ? toggleCollapsed : undefined}
+          title={compact ? "Expandir menu" : undefined}
+        >
+          <div className="w-10 h-10 rounded-[10px] bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+            {branding?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+            ) : (
+              <Scissors className="w-5 h-5 text-white" />
+            )}
+          </div>
+          {!compact && (
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="font-display text-base font-bold text-white truncate">
+                  {branding?.name || "IA de Barbearia"}
+                </p>
+                {isOwner ? (
+                  <Link href="/painel/assinatura" className="block text-xs text-night-muted hover:text-white truncate">
+                    Minha assinatura
+                  </Link>
+                ) : (
+                  <p className="text-xs text-night-muted truncate">Área do profissional</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {user?.role === "OWNER" && <NotificationBell />}
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  aria-label="Fechar menu"
+                  className="p-1.5 rounded-lg hover:bg-night-2 transition-colors md:hidden"
+                >
+                  <X className="w-4 h-4 text-night-muted" />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Caixa — só expandido */}
+        {!compact && <CashWidget />}
+
+        {/* Navegação */}
+        <nav
+          aria-label="Menu principal"
+          className={cn("flex-1 py-3 flex flex-col gap-4 overflow-y-auto overflow-x-hidden", compact ? "px-2" : "px-3")}
+        >
+          {isOwner ? (
+            ownerGroups.map((group, gi) => (
+              <div key={gi} className="flex flex-col gap-0.5">
+                {group.label && !compact && (
+                  <span className="px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-4">
+                    {group.label}
+                  </span>
+                )}
+                {group.label && compact && gi > 0 && <div className="mx-2 my-1 border-t border-night-line" />}
+                {group.items.map((item) => renderItem(item))}
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col gap-0.5">{barberNav.map((item) => renderItem(item))}</div>
+          )}
+        </nav>
+
+        {/* Rodapé */}
+        <div className={cn("py-3 border-t border-night-line flex flex-col gap-0.5", compact ? "px-2" : "px-3")}>
+          {isOwner && (
+            <>
+              {ownerFooter.map((item) => renderItem(item))}
+              {!compact && pathname.startsWith("/painel/configuracoes") && (
+                <div className="ml-5 pl-3 border-l border-night-line flex flex-col gap-0.5">
+                  {ownerConfigSubnav.map((item) => renderItem(item, true))}
+                </div>
+              )}
+            </>
+          )}
+
+          <div className={cn("mt-2 flex items-center gap-2.5 rounded-[10px] bg-night-2", compact ? "flex-col p-1.5" : "p-2.5")}>
+            {!compact && (
+              <>
+                <div className="w-8 h-8 rounded-full bg-night-3 text-white text-xs font-semibold flex items-center justify-center shrink-0">
+                  {(user?.name || "?").split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-white truncate">{user?.name}</p>
+                  <p className="text-xs text-night-muted">{isOwner ? "Dono" : "Profissional"}</p>
+                </div>
+              </>
+            )}
+            {isDesktop && (
+              <button
+                onClick={toggleCollapsed}
+                aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+                title={collapsed ? "Expandir menu" : "Recolher menu"}
+                className="hidden md:flex w-9 h-9 items-center justify-center rounded-lg text-night-muted hover:bg-night-3 hover:text-white transition-colors"
+              >
+                {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              </button>
+            )}
+            <button
+              onClick={logout}
+              aria-label="Sair"
+              title="Sair"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-night-muted hover:bg-night-3 hover:text-white transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+    );
+  };
 
   return (
     <>
-      {/* Hamburguer — mobile */}
+      {/* Hambúrguer — mobile */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-40 p-2.5 rounded-xl bg-zinc-900 text-white shadow-lg"
+        aria-label="Abrir menu"
+        className="md:hidden fixed top-4 left-4 z-40 w-11 h-11 flex items-center justify-center rounded-xl bg-night text-white shadow-lg"
       >
         <Menu className="w-5 h-5" />
       </button>
 
       {/* Overlay — mobile */}
       {mobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 z-40 bg-black/60"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="md:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMobileOpen(false)} />
       )}
 
-      {/* Sidebar mobile (drawer — sempre w-64) */}
-      <div className={cn(
-        "md:hidden fixed inset-y-0 left-0 z-50 transition-transform duration-300",
-        mobileOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
+      {/* Sidebar mobile (drawer) */}
+      <div
+        className={cn(
+          "md:hidden fixed inset-y-0 left-0 z-50 transition-transform duration-300",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
         {sidebarContent(false)}
       </div>
 
       {/* Sidebar desktop (fixa, colapsável) */}
-      <div className="hidden md:flex min-h-screen">
+      <div className="hidden md:flex sticky top-0 h-screen shrink-0">
         {sidebarContent(true)}
       </div>
     </>

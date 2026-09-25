@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Bricolage_Grotesque, Schibsted_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"] });
+const bodyFont = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-body" });
+const displayFont = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-display-face" });
 
 export const metadata: Metadata = {
   title: "IA de Barbearia — Gestão Completa + Agente de IA",
@@ -13,9 +14,9 @@ import { Toaster } from 'sonner';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="h-full">
+    <html lang="pt-BR" className={`h-full ${bodyFont.variable} ${displayFont.variable}`}>
       <body
-        className={`${plusJakartaSans.className} min-h-full antialiased`}
+        className={`${bodyFont.className} min-h-full antialiased`}
         suppressHydrationWarning
       >
         {children}
