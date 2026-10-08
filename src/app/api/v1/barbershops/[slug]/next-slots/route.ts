@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { barberWorkWindow } from "@/lib/barberHours";
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -77,7 +78,7 @@ export async function GET(
         active: true,
         ...(barberIdFilter ? { id: barberIdFilter } : {}),
       },
-      select: { id: true, dayOff: true, user: { select: { name: true } }, nickname: true },
+      select: { id: true, dayOff: true, workStart: true, workEnd: true, user: { select: { name: true } }, nickname: true },
     });
 
     if (barbers.length === 0) {
@@ -159,8 +160,9 @@ export async function GET(
 
         const busy = busyMap[`${barber.id}:${dateStr}`] ?? [];
         const slots: string[] = [];
+        const work = barberWorkWindow(openMin, closeMin, barber);
 
-        for (let start = openMin; start + service.duration <= closeMin; start += 15) {
+        for (let start = work.start; start + service.duration <= work.end; start += 15) {
           // Para hoje, ignora slots que já passaram (+ 30min de margem)
           if (isToday && start <= currentMinutesBRT + 30) continue;
 

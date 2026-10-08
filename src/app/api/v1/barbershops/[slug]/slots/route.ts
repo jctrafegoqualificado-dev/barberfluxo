@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { barberWorkWindow } from "@/lib/barberHours";
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     const [barber, service] = await Promise.all([
       prisma.barber.findFirst({
         where: { id: barberId, barbershopId: shop.id, active: true },
-        select: { id: true, dayOff: true },
+        select: { id: true, dayOff: true, workStart: true, workEnd: true },
       }),
       prisma.service.findFirst({
         where: { id: serviceId, barbershopId: shop.id, active: true },
@@ -81,8 +82,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       end: toMinutes(b.endTime),
     }));
 
-    const openMin = toMinutes(opening.openTime);
-    const closeMin = toMinutes(opening.closeTime);
+    const { start: openMin, end: closeMin } = barberWorkWindow(
+      toMinutes(opening.openTime), toMinutes(opening.closeTime), barber,
+    );
     const duration = service.duration;
     const step = 15;
 

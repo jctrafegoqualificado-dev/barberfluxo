@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { barberWorkWindow } from "@/lib/barberHours";
 import * as evolution from "@/lib/evolution/client";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -424,8 +425,8 @@ async function getAvailableSlots(barberId: string, serviceId: string, date: stri
 
   const [openH, openM] = openingHour.openTime.split(":").map(Number);
   const [closeH, closeM] = openingHour.closeTime.split(":").map(Number);
-  const openMinutes = openH * 60 + openM;
-  const closeMinutes = closeH * 60 + closeM;
+  // Dentro do horário da barbearia, só o horário de atendimento do barbeiro
+  const { start: openMinutes, end: closeMinutes } = barberWorkWindow(openH * 60 + openM, closeH * 60 + closeM, barber);
 
   const brNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
   const todayBR = `${brNow.getFullYear()}-${String(brNow.getMonth() + 1).padStart(2, "0")}-${String(brNow.getDate()).padStart(2, "0")}`;

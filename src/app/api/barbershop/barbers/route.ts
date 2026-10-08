@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, hashPassword } from "@/lib/auth";
 import { z } from "zod";
 import { logAudit, getClientIp } from "@/lib/audit";
+import { parseBarberHours } from "@/lib/barberHours";
 
 const BarberCreateSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
@@ -187,7 +188,7 @@ export async function PATCH(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER"]);
     const {
       barberId, name, phone, nickname, commission, password, dayOff, active, onVacation,
-      photoUrl, cpf, birthday,
+      photoUrl, cpf, birthday, workStart, workEnd,
     } = await req.json();
 
     // ── Férias — estado próprio; sempre deixa o profissional inativo na agenda ──
@@ -257,6 +258,10 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    // Só mexe no horário quando o formulário o envia (clientes antigos não mandam)
+    const hours = workStart !== undefined || workEnd !== undefined ? parseBarberHours(workStart, workEnd) : null;
+    if (hours && !hours.ok) return NextResponse.json({ error: hours.error }, { status: 400 });
+
     await prisma.user.update({
       where: { id: barber.userId },
       data: {
@@ -273,6 +278,7 @@ export async function PATCH(req: NextRequest) {
         commission: Number(commission),
         nickname: nickname || null,
         dayOff: dayOff !== undefined && dayOff !== "" ? Number(dayOff) : null,
+        ...(hours?.ok ? { workStart: hours.workStart, workEnd: hours.workEnd } : {}),
         ...(photoUrl !== undefined ? { photoUrl: photoUrl || null } : {}),
         ...(cpf !== undefined ? { cpf: cpf || null } : {}),
       },
@@ -300,6 +306,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
     const { name, email, phone, password, commission, nickname, dayOff, cpf, birthday, photoUrl } = parsed.data;
+    const hours = parseBarberHours(body.workStart, body.workEnd);
+    if (!hours.ok) return NextResponse.json({ error: hours.error }, { status: 400 });
+    const { workStart, workEnd } = hours;
 
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -333,6 +342,8 @@ export async function POST(req: NextRequest) {
           commission: commission ?? 50,
           nickname: nickname ?? null,
           dayOff: dayOff ?? null,
+          workStart,
+          workEnd,
           ...(cpf ? { cpf } : {}),
           ...(photoUrl ? { photoUrl } : {}),
         },
@@ -360,6 +371,8 @@ export async function POST(req: NextRequest) {
         commission: commission ?? 50,
         nickname,
         dayOff: dayOff ?? null,
+        workStart,
+        workEnd,
         ...(cpf ? { cpf } : {}),
         ...(photoUrl ? { photoUrl } : {}),
       },

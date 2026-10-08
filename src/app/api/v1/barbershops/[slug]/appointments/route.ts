@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { notifyBarberNewAppointment } from "@/lib/notifications";
 import { findClientOverlap, clientOverlapMessage } from "@/lib/appointments";
+import { barberWorkWindow } from "@/lib/barberHours";
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const [barber, service] = await Promise.all([
       prisma.barber.findFirst({
         where: { id: barberId, barbershopId: shop.id, active: true },
-        select: { id: true, dayOff: true },
+        select: { id: true, dayOff: true, workStart: true, workEnd: true },
       }),
       prisma.service.findFirst({
         where: { id: serviceId, barbershopId: shop.id, active: true },
@@ -127,6 +128,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     }
     if (startMin < toMinutes(opening.openTime) || endMin > toMinutes(opening.closeTime)) {
       return NextResponse.json({ error: "Horário fora do funcionamento" }, { status: 409 });
+    }
+    const work = barberWorkWindow(toMinutes(opening.openTime), toMinutes(opening.closeTime), barber);
+    if (startMin < work.start || endMin > work.end) {
+      return NextResponse.json({ error: "Horário fora do atendimento do barbeiro" }, { status: 409 });
     }
 
     const dayEnd = new Date(dayStart);

@@ -7,6 +7,7 @@ import { SkeletonCard } from "@/components/ui/SkeletonCard";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { getInitials, cn } from "@/lib/utils";
+import { barberHoursLabel } from "@/lib/barberHours";
 import { toast } from "sonner";
 
 interface Barber {
@@ -16,6 +17,8 @@ interface Barber {
   active: boolean;
   onVacation: boolean;
   dayOff: number | null;
+  workStart: string | null;
+  workEnd: string | null;
   photoUrl: string | null;
   cpf: string | null;
   user: { id: string; name: string; email: string; phone: string | null; birthday: string | null };
@@ -26,7 +29,7 @@ type FormMode = "add" | "edit";
 const DAYS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 const emptyForm = {
   name: "", email: "", phone: "", password: "", commission: "50",
-  nickname: "", dayOff: "", photoUrl: "", cpf: "", birthday: "",
+  nickname: "", dayOff: "", workStart: "", workEnd: "", photoUrl: "", cpf: "", birthday: "",
 };
 
 function maskCpf(v: string) {
@@ -160,6 +163,8 @@ export default function BarbeirosPage() {
       commission: String(b.commission),
       nickname: b.nickname ?? "",
       dayOff: b.dayOff !== null && b.dayOff !== undefined ? String(b.dayOff) : "",
+      workStart: b.workStart ?? "",
+      workEnd: b.workEnd ?? "",
       photoUrl: b.photoUrl ?? "",
       cpf: b.cpf ?? "",
       birthday: b.user.birthday ? b.user.birthday.split("T")[0] : "",
@@ -359,6 +364,9 @@ export default function BarbeirosPage() {
                     <Percent className="w-3 h-3" /> {b.commission}% comissão
                   </span>
                 </div>
+                <p className="text-xs text-zinc-400 mt-1">
+                  🕒 Atende: {barberHoursLabel(b) ?? "horário da barbearia"}
+                </p>
                 {b.dayOff !== null && b.dayOff !== undefined && (
                   <p className="text-xs text-zinc-400 mt-1">🗓 Folga: {DAYS[b.dayOff]}</p>
                 )}
@@ -481,6 +489,41 @@ export default function BarbeirosPage() {
               <option value="">Sem folga fixa</option>
               {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
+              Horário de atendimento <span className="text-zinc-400 font-normal">(opcional)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                step={900}
+                value={form.workStart}
+                onChange={(e) => setField("workStart", e.target.value)}
+                className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-sm text-zinc-500">às</span>
+              <input
+                type="time"
+                step={900}
+                value={form.workEnd}
+                onChange={(e) => setField("workEnd", e.target.value)}
+                className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              {(form.workStart || form.workEnd) && (
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, workStart: "", workEnd: "" }))}
+                  className="text-xs text-zinc-500 hover:text-zinc-700 underline shrink-0"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-zinc-400 mt-1">
+              Vale para todos os dias. Em branco, segue o horário da barbearia. Imprevistos do dia: use &quot;Bloquear&quot; na agenda.
+            </p>
           </div>
 
           <Button type="submit" loading={loading} className="w-full mt-2">
