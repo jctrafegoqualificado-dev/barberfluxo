@@ -25,7 +25,7 @@ interface Bloqueio {
   id: string; startTime: string; endTime: string; reason: string | null;
   barber: { id: string; user: { name: string } };
 }
-interface Barber { id: string; nickname?: string | null; photoUrl?: string | null; user: { name: string; phone?: string } }
+interface Barber { id: string; nickname?: string | null; photoUrl?: string | null; workStart?: string | null; workEnd?: string | null; user: { name: string; phone?: string } }
 
 /* ─── Constantes da grade ─── */
 const ROW_H = 12;        // px por 5 minutos
@@ -1398,6 +1398,16 @@ export default function AgendamentosPage() {
                     {gridLines.map((top, i) => (
                       <div key={i} className={`absolute left-0 right-0 border-t ${i % 2 === 0 ? "border-zinc-100" : "border-zinc-50"}`}
                         style={{ top }} />
+                    ))}
+
+                    {/* Fora do horário de atendimento do barbeiro: só sinaliza — encaixe manual continua possível */}
+                    {b.workStart && b.workEnd && [
+                      { key: "antes", top: 0, height: minToTop(b.workStart) },
+                      { key: "depois", top: minToTop(b.workEnd), height: (TOTAL_MINS / 5) * ROW_H - minToTop(b.workEnd) },
+                    ].filter(z => z.height > 0).map(z => (
+                      <div key={z.key} className="absolute left-0 right-0 bg-zinc-200/60 pointer-events-none"
+                        style={{ top: z.top, height: z.height, zIndex: 0 }}
+                        title="Fora do horário de atendimento" />
                     ))}
 
                     {/* Bloqueios */}

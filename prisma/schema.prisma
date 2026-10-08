@@ -192,6 +192,11 @@ model Barber {
 
   dayOff Int? // 0=Dom 1=Seg 2=Ter 3=Qua 4=Qui 5=Sex 6=Sáb — null = sem folga fixa
 
+  // Horário de atendimento próprio, igual para a semana toda ("11:00" / "20:00").
+  // null = segue o horário de funcionamento da barbearia. Ver src/lib/barberHours.ts
+  workStart String?
+  workEnd   String?
+
   // Comissão em serviços avulsos
   commissionType String @default("PERCENTAGE") // PERCENTAGE | FIXED
   commission     Float  @default(50) // % ou R$ dependendo do tipo

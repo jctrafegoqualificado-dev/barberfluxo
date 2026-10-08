@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { barberWorkWindow } from "@/lib/barberHours";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -55,8 +56,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
     const [openH, openM] = openingHour.openTime.split(":").map(Number);
     const [closeH, closeM] = openingHour.closeTime.split(":").map(Number);
-    const openMinutes = openH * 60 + openM;
-    const closeMinutes = closeH * 60 + closeM;
+    // Dentro do horário da barbearia, só o horário de atendimento do barbeiro
+    const { start: openMinutes, end: closeMinutes } = barberWorkWindow(openH * 60 + openM, closeH * 60 + closeM, barber);
 
     // Horário mínimo baseado no fuso do Brasil (UTC-3)
     const barberMode = req.nextUrl.searchParams.get("barber") === "true";
