@@ -125,10 +125,10 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
           <a href="/painel/assinatura" className="underline font-bold hover:text-orange-100">Renovar agora</a>
         </div>
       )}
-      <div className={`flex min-h-screen bg-zinc-50${saasExpiresInDays !== null ? " pt-9" : ""}`}>
+      <div className={`flex min-h-screen bg-ground text-ink${saasExpiresInDays !== null ? " pt-9" : ""}`}>
         <Sidebar branding={branding || undefined} />
         <main className="flex-1 overflow-auto">
-          <div className="p-4 pt-16 md:pt-6 md:p-6 max-w-7xl mx-auto">{children}</div>
+          <div className="p-4 pt-16 md:px-8 md:pt-7 md:pb-8 max-w-[1400px] mx-auto">{children}</div>
         </main>
       </div>
     </>
