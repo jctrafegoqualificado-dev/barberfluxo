@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { setCronHealth } from "@/lib/cron-health";
 import { getEntitlements } from "@/lib/entitlements";
+import { appointmentStartsAt } from "@/lib/appointmentTime";
 
 const DEFAULT_MESSAGE = `Olá {{nome}}! 😊
 
@@ -90,15 +91,17 @@ export async function GET(req: NextRequest) {
       const windowStart = new Date(now.getTime() + (reminderMinutes - 7.5) * 60 * 1000);
       const windowEnd = new Date(now.getTime() + (reminderMinutes + 7.5) * 60 * 1000);
 
-      // Busca agendamentos elegíveis
+      // Busca agendamentos elegíveis. A faixa de dias é folgada (±1 dia): o dia em UTC
+      // não bate com o de SP perto da meia-noite; o filtro exato vem logo abaixo.
+      const DAY_MS = 24 * 60 * 60 * 1000;
       const appointments = await prisma.appointment.findMany({
         where: {
           barbershopId: shop.id,
           reminderSent: false,
           status: { in: ["PENDING", "CONFIRMED"] },
           date: {
-            gte: new Date(windowStart.toISOString().slice(0, 10) + "T00:00:00"),
-            lte: new Date(windowEnd.toISOString().slice(0, 10) + "T23:59:59"),
+            gte: new Date(new Date(windowStart.getTime() - DAY_MS).toISOString().slice(0, 10) + "T00:00:00Z"),
+            lte: new Date(new Date(windowEnd.getTime() + DAY_MS).toISOString().slice(0, 10) + "T23:59:59Z"),
           },
         },
         include: {
@@ -108,11 +111,9 @@ export async function GET(req: NextRequest) {
         },
       });
 
-      // Filtra pela janela exata (usando startTime do agendamento)
+      // Filtra pela janela exata (horário do agendamento no fuso de São Paulo)
       const eligible = appointments.filter((appt) => {
-        const [h, m] = appt.startTime.split(":").map(Number);
-        const apptDateTime = new Date(appt.date);
-        apptDateTime.setHours(h, m, 0, 0);
+        const apptDateTime = appointmentStartsAt(appt.date, appt.startTime);
         return apptDateTime >= windowStart && apptDateTime <= windowEnd;
       });
 

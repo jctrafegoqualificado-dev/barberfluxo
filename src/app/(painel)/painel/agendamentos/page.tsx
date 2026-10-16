@@ -14,6 +14,7 @@ interface AppointmentServiceItem {
 interface Appointment {
   id: string; startTime: string; endTime: string; status: string; price: number; date: string;
   paymentMethod: string | null;
+  discountPercent?: number;
   client: { name: string; phone: string };
   service: { id: string; name: string; duration: number } | null;
   services: AppointmentServiceItem[];
@@ -113,7 +114,8 @@ function PaymentModal({
   const [discountPercent, setDiscountPercent] = useState<number>(
     (appt.subscription?.status === "ACTIVE" && (appt.subscription?.plan as any)?.extraDiscount > 0)
       ? (appt.subscription?.plan as any).extraDiscount
-      : 0
+      // Reabrindo uma comanda já fechada, mantém o desconto dado (senão salvar volta ao preço cheio).
+      : appt.status === "DONE" ? (appt.discountPercent ?? 0) : 0
   );
 
   function toggleService(id: string) {
@@ -133,6 +135,9 @@ function PaymentModal({
   const discountedExtraPrice = calculatedExtraPrice * (1 - discountPercent / 100);
   const totalExtraToCharge = discountedExtraPrice + tipAmount;
   const discountedTotalPrice = totalPrice * (1 - discountPercent / 100);
+  // Avulso: o preço gravado já vai com desconto. A API só desconta quando o preço não vem,
+  // então mandar o preço cheio fazia o desconto da comanda não valer.
+  const chargedPrice = Math.round(discountedTotalPrice * 100) / 100;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -446,7 +451,7 @@ function PaymentModal({
                       if (isActiveSub) {
                         await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? (sel ?? "CASH") : undefined, discountPercent > 0 ? discountPercent : undefined);
                       } else {
-                        await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", totalPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined);
+                        await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", chargedPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined);
                       }
                       setSaving(false);
                       onClose();
@@ -478,7 +483,7 @@ function PaymentModal({
                       if (isActiveSub) {
                         await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? sel! : undefined, discountPercent > 0 ? discountPercent : undefined);
                       } else {
-                        await onConfirm(appt.id, sel!, totalPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined);
+                        await onConfirm(appt.id, sel!, chargedPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined);
                       }
                       setSaving(false);
                       onClose();
