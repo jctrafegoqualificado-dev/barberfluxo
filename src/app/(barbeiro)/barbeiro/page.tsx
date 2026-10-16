@@ -341,7 +341,7 @@ function BarberAgendamentoModal({
     if (b.uses >= b.maxUses) return;
     setBeneficiaryName(b.name);
     if (activeSub?.plan?.planServices) {
-      const planServiceIds = activeSub.plan.planServices.map((ps: any) => ps.serviceId);
+      const planServiceIds = activeSub.plan.planServices.map((ps: any) => ps.serviceId ?? ps.service?.id);
       setSelectedServiceIds(prev => {
         const newIds = [...prev];
         planServiceIds.forEach((id: string) => { if (!newIds.includes(id)) newIds.push(id); });
@@ -396,7 +396,7 @@ function BarberAgendamentoModal({
 
   let discount = 0;
   if (activeSub && beneficiaryName && !activeSub._overdue && activeSub.plan?.planServices?.length > 0) {
-    const planSvcIds = activeSub.plan.planServices.map((ps: any) => ps.serviceId);
+    const planSvcIds = activeSub.plan.planServices.map((ps: any) => ps.serviceId ?? ps.service?.id);
     discount = services
       .filter(s => selectedServiceIds.includes(s.id) && planSvcIds.includes(s.id))
       .reduce((sum, s) => sum + s.price, 0);

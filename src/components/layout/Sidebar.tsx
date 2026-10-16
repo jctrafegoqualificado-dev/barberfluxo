@@ -289,7 +289,8 @@ export default function Sidebar({ branding }: {
           "md:hidden fixed inset-y-0 left-0 z-50 transition-transform duration-300",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
-        aria-hidden={!mobileOpen}
+        // inert (e não aria-hidden): fechado, nada lá dentro recebe foco nem toque
+        inert={!mobileOpen}
       >
         {sidebarContent(false)}
       </div>

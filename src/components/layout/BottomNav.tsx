@@ -38,7 +38,7 @@ export default function BottomNav({ isOwner, onOpenMenu }: { isOwner: boolean; o
         href={t.href}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "w-16 min-h-11 flex flex-col items-center justify-center gap-1 text-[11px]",
+          "w-16 min-h-11 flex flex-col items-center justify-center gap-1 text-[11px] rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary",
           active ? "font-semibold text-ink" : "font-medium text-ink-3"
         )}
       >
@@ -58,7 +58,7 @@ export default function BottomNav({ isOwner, onOpenMenu }: { isOwner: boolean; o
       <Link
         href={newHref}
         aria-label="Novo agendamento"
-        className="w-[52px] h-[52px] rounded-2xl bg-primary text-white flex items-center justify-center shadow-md active:scale-95 transition-transform"
+        className="w-[52px] h-[52px] rounded-2xl bg-primary text-white flex items-center justify-center shadow-md active:scale-95 transition-transform outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
       >
         <Plus className="w-6 h-6" aria-hidden />
       </Link>
@@ -66,7 +66,7 @@ export default function BottomNav({ isOwner, onOpenMenu }: { isOwner: boolean; o
       <button
         type="button"
         onClick={onOpenMenu}
-        className="w-16 min-h-11 flex flex-col items-center justify-center gap-1 text-[11px] font-medium text-ink-3"
+        className="w-16 min-h-11 flex flex-col items-center justify-center gap-1 text-[11px] font-medium text-ink-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Menu className="w-[22px] h-[22px]" aria-hidden />
         Menu

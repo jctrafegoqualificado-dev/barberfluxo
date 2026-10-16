@@ -682,7 +682,10 @@ export async function POST(req: NextRequest) {
       // Cliente existente + futuro: mantém o template atual (custom ou padrão)
       parts.push(shopInfo?.aiMensagemConfirmacaoAgendamento || defaultConfirmMsg);
     }
-    sendWhatsAppNotification(barbershopId, clientPhone, parts.join("\n\n")).catch(console.error);
+    // "Enviar confirmação pelo WhatsApp" desmarcado no painel → não manda (padrão: manda).
+    if (body.notifyClient !== false) {
+      sendWhatsAppNotification(barbershopId, clientPhone, parts.join("\n\n")).catch(console.error);
+    }
 
     // ── Automação de WhatsApp: aviso ao barbeiro (não notifica se o criador for o próprio barbeiro) ──
     void notifyBarberNewAppointment({

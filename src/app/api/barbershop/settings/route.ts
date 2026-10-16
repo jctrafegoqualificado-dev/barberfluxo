@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         name: true,
+        slug: true,
         description: true,
         primaryColor: true,
         secondaryColor: true,
