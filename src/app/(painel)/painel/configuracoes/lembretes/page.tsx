@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   Bell, BellOff, Clock, MessageSquare, Save, Loader2,
-  CheckCircle, HelpCircle, Sparkles, AlertTriangle, Scissors
+  CheckCircle, HelpCircle, Sparkles, AlertTriangle, Scissors, MessageCircleQuestion
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import Button from "@/components/ui/Button";
@@ -38,6 +38,8 @@ export default function LembretesPage() {
   const [minutes, setMinutes] = useState(60);
   const [message, setMessage] = useState("");
   const [notifyBarber, setNotifyBarber] = useState(true);
+  const [askConfirmation, setAskConfirmation] = useState(true);
+  const [stats, setStats] = useState<{ sent: number; confirmed: number; cancelledByReply: number; noShows: number; total: number } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -51,6 +53,8 @@ export default function LembretesPage() {
           setMinutes(data.reminderMinutes ?? 60);
           setMessage(data.reminderMessage || "");
           setNotifyBarber(data.notifyBarberOnNewAppointment ?? true);
+          setAskConfirmation(data.reminderAskConfirmation ?? true);
+          setStats(data.stats ?? null);
         }
       } catch {
         // silently fail on load
@@ -76,6 +80,7 @@ export default function LembretesPage() {
           reminderMinutes: minutes,
           reminderMessage: message || null,
           notifyBarberOnNewAppointment: notifyBarber,
+          reminderAskConfirmation: askConfirmation,
         }),
       });
       if (res.ok) {
@@ -172,6 +177,50 @@ export default function LembretesPage() {
 
       {enabled && (
         <>
+          {/* Números do mês */}
+          {stats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Lembretes enviados no mês", value: String(stats.sent) },
+                { label: "Confirmaram pela mensagem", value: stats.sent > 0 ? `${Math.round((stats.confirmed / stats.sent) * 100)}%` : "—", sub: `${stats.confirmed} clientes` },
+                { label: "Cancelaram respondendo NÃO", value: String(stats.cancelledByReply), sub: "vagas liberadas" },
+                { label: "Faltas no mês", value: String(stats.noShows), sub: stats.total > 0 ? `${Math.round((stats.noShows / stats.total) * 100)}% dos atendimentos` : undefined },
+              ].map((k) => (
+                <div key={k.label} className="bg-white rounded-2xl border border-zinc-200 p-4">
+                  <p className="text-xs text-zinc-500">{k.label}</p>
+                  <p className="text-2xl font-bold text-zinc-900 mt-1">{k.value}</p>
+                  {k.sub && <p className="text-[11px] text-zinc-400">{k.sub}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pedir confirmação SIM/NÃO */}
+          <div className="bg-white rounded-2xl border border-zinc-200 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${askConfirmation ? "bg-green-100" : "bg-zinc-200"}`}>
+                  <MessageCircleQuestion className={`w-6 h-6 ${askConfirmation ? "text-green-600" : "text-zinc-400"}`} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-zinc-900">Pedir confirmação (SIM ou NÃO)</h3>
+                  <p className="text-sm text-zinc-500 max-w-md">
+                    O cliente responde SIM e o horário fica confirmado. Se responder NÃO, o horário é cancelado,
+                    a vaga é liberada na agenda e quem está na lista de espera é avisado. Se o cancelamento não for
+                    permitido pelas suas regras, a conversa vai para &quot;Precisam de você&quot;.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAskConfirmation(!askConfirmation)}
+                role="switch" aria-checked={askConfirmation} aria-label="Pedir confirmação"
+                className={`relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 shrink-0 ${askConfirmation ? "bg-green-500 focus:ring-green-400" : "bg-zinc-300 focus:ring-zinc-400"}`}
+              >
+                <span className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${askConfirmation ? "translate-x-6" : "translate-x-0"}`} />
+              </button>
+            </div>
+          </div>
+
           {/* Timing */}
           <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
             <div className="flex items-center gap-3">

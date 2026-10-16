@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import WhatsAppManager from "@/components/whatsapp/WhatsAppManager";
+import PrecisamDeVoce from "@/components/whatsapp/PrecisamDeVoce";
 
 export const metadata: Metadata = {
   title: "WhatsApp — IaDeBarbearia",
@@ -12,7 +13,8 @@ export default function WhatsAppConfigPage() {
         <h1 className="text-2xl font-bold text-zinc-900">Configuração do WhatsApp</h1>
         <p className="text-zinc-500">Gerencie a conexão do robô de agendamentos.</p>
       </div>
-      
+
+      <PrecisamDeVoce />
       <WhatsAppManager />
     </div>
   );

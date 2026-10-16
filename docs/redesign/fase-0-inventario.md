@@ -156,7 +156,17 @@ traz um recurso a mais · ⛔ falta dado — precisa de campo/tabela nova (migra
   - **Vaga abre** quando um horário futuro é cancelado no painel, excluído, ou cancelado pelo cliente/robô (`/api/v1/.../cancel`): os 3 primeiros da fila do dia (mesmo profissional ou "qualquer um") recebem WhatsApp com o link e viram "Avisado". Quem agendar primeiro leva; quem foi avisado e não pegou continua na fila, atrás de quem nunca foi avisado.
   - **Baixa automática**: quem agenda aquele dia (pelo link ou pelo painel) sai da fila como "Agendou".
   - **Painel**: botão "Lista de espera (N)" na agenda do dia, com a fila, chamar no WhatsApp e tirar da fila. `GET/DELETE /api/barbershop/lista-espera`.
-- 6, 7: próximos (dependem do n8n).
+- **6 e 7. Atendimento humano e confirmação SIM/NÃO**: ✅ lado do sistema (16/10/2026, migration `20261016150000_confirmacao_e_atendimento_humano`). ⏳ Falta o n8n plugar, com guia em `docs/redesign/n8n-integracao.md`.
+  - Lógica em `src/lib/whatsapp/atendimento.ts`, com testes em `src/__tests__/reminder-answer.test.ts`.
+  - Rotas v1 (n8n): `reminder-reply`, `handoff`, `ai-status` (também na `/api-docs`).
+  - SIM confirma (`Appointment.confirmedAt/confirmedVia`). NÃO cancela e avisa a lista de espera, seguindo as regras do cancelamento pelo link; se a regra impede, passa a conversa para a barbearia.
+  - Painel: "Precisam de você" na tela do WhatsApp (devolver para a IA), opção "Pedir confirmação" e números do mês em Lembretes, selo "Confirmou no WhatsApp" na agenda.
+  - Lembrete (cron): com "Pedir confirmação" ligado, garante a pergunta SIM/NÃO no fim da mensagem.
+
+## Bugs encontrados em produção (corrigir na `main`, fora do redesign)
+
+1. **Desconto em avulso não é aplicado no preço** (comanda do painel do dono): a comanda manda o preço cheio junto, e a API só aplica o desconto quando o preço não vem.
+2. **Lembrete sai ~3h antes do configurado**: `cron/reminders` monta o horário do agendamento com `setHours` no fuso do servidor (UTC na Vercel), e não no de São Paulo.
 
 ## Decisões de produto
 

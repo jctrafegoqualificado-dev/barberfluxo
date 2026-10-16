@@ -420,6 +420,10 @@ async function main() {
           subscriptionId: useSub ? sub!.id : null,
           beneficiaryName: useSub && sub!.family ? (chance(0.5) ? `${client.name.split(" ")[0]} (Titular)` : "Miguel (Filho)") : null,
           reminderSent: offset < 0 || (offset === 0 && status !== "PENDING"),
+          // Parte dos clientes de hoje respondeu SIM ao lembrete.
+          ...(offset === 0 && status === "CONFIRMED" && chance(0.7)
+            ? { confirmedAt: at(d, toHHMM(Math.max(0, t - 60))), confirmedVia: "WHATSAPP" }
+            : {}),
           notes: chance(0.06) ? pick(["Prefere máquina 2 nas laterais", "Alergia a pomada com álcool", "Chega sempre 10 min antes"]) : null,
           createdAt: at(day(offset - int(0, 6)), toHHMM(int(8 * 60, 21 * 60))),
         });
@@ -622,7 +626,14 @@ async function main() {
     [17, [[false, "Quanto tá a barba?"], [true, "A barba sai R$ 35, e o combo corte + barba R$ 70. Quer agendar?"]]],
     [18, [[false, "Preciso desmarcar o de sábado"], [true, "Sem problema! Cancelei seu horário de sábado às 10h. Quer remarcar?"], [false, "Semana que vem eu vejo"]]],
     [19, [[true, "Fala Kaique! Já faz 52 dias desde seu último corte na Barbearia Demo. Bora agendar?"]]],
+    [20, [[false, "vcs fazem um desconto se eu levar meus 2 filhos?"], [true, "Boa pergunta! Desconto quem decide é o João, o dono. Já chamei ele aqui e ele te responde em instantes."]]],
+    [21, [[false, "tem horário domingo de manhã?"], [true, "No domingo a barbearia fica fechada, mas vou pedir para a equipe ver se rola um encaixe. Já te respondem!"]]],
   ];
+  // Conversas que a IA passou para a barbearia ("Precisam de você").
+  const handoffs: Record<number, string> = {
+    20: "Pediu desconto para levar os 2 filhos",
+    21: "Quer horário no domingo (barbearia fechada)",
+  };
   for (const [ci, msgs] of conversations) {
     const c = clients[ci];
     const contact = await prisma.whatsAppContact.create({
@@ -640,6 +651,12 @@ async function main() {
           rawPayload: { homolog: true }, timestamp: at(day(-1), toHHMM(minute)),
           contactId: contact.id, barbershopId: shop.id, instanceId,
         },
+      });
+    }
+    if (handoffs[ci]) {
+      await prisma.whatsAppContact.update({
+        where: { id: contact.id },
+        data: { handoffAt: at(day(0), toHHMM(Math.max(0, NOW_MIN - 20))), handoffReason: handoffs[ci], aiPausedUntil: new Date(now.getTime() + 12 * 3600_000) },
       });
     }
   }

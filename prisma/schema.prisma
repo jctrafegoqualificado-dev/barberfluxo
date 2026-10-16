@@ -78,6 +78,9 @@ model Barbershop {
   reminderMinutes Int     @default(60)
   reminderEnabled Boolean @default(false)
   reminderMessage String? // Template: "Olá {{nome}}, seu horário de {{servico}} é amanhã às {{hora}}!"
+  // Lembrete pede SIM/NÃO: SIM confirma, NÃO cancela e libera a vaga (lista de espera).
+  // A resposta chega pelo n8n em /api/v1/barbershops/[slug]/reminder-reply.
+  reminderAskConfirmation Boolean @default(true)
 
   cancelByClientEnabled Boolean @default(true)
   minCancelHours        Int     @default(0)
@@ -272,6 +275,9 @@ model Appointment {
   tipPaymentMethod   String?
   // Check-in: quando o cliente chegou na barbearia (botão "Chegou" da agenda).
   arrivedAt          DateTime?
+  // Quando o próprio cliente confirmou presença (ex.: respondeu SIM ao lembrete).
+  confirmedAt        DateTime?
+  confirmedVia       String?   // WHATSAPP
   notes              String?
   price              Float
   reminderSent  Boolean  @default(false)
@@ -574,6 +580,12 @@ model WhatsAppContact {
   isBlocked   Boolean  @default(false)
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
+
+  // Atendimento humano: a IA passou a conversa para a barbearia (ou o dono pausou).
+  // Enquanto aiPausedUntil estiver no futuro, o n8n não responde esse contato.
+  aiPausedUntil   DateTime?
+  handoffAt       DateTime?
+  handoffReason   String?
 
   barbershopId String
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)

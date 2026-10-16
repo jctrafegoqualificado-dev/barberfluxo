@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Calendar, CreditCard, Phone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package, ExternalLink, UserCheck } from "lucide-react";
+import { Calendar, CreditCard, Phone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package, ExternalLink, UserCheck, CheckCheck } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
@@ -17,6 +17,7 @@ interface Appointment {
   paymentMethod: string | null;
   tipAmount?: number;
   arrivedAt?: string | null;
+  confirmedVia?: string | null;
   client: { name: string; phone: string };
   service: { id: string; name: string; duration: number } | null;
   services: AppointmentServiceItem[];
@@ -1539,6 +1540,11 @@ export default function AgendamentosPage() {
                           {height > ROW_H * 5 && (
                             <p className={`text-[10px] opacity-60 mt-0.5 ${s.text}`}>{a.startTime} – {a.endTime}</p>
                           )}
+                          {a.confirmedVia === "WHATSAPP" && (a.status === "CONFIRMED" || a.status === "PENDING") && height > ROW_H * 4 && (
+                            <p className="text-[10px] font-semibold text-blue-700 flex items-center gap-0.5">
+                              <CheckCheck className="w-3 h-3" /> confirmou no WhatsApp
+                            </p>
+                          )}
                           {(a.status === "CONFIRMED" || a.status === "PENDING") && height > ROW_H * 6 && (
                             <div className="mt-1 flex gap-1">
                               {!a.arrivedAt && (
@@ -1630,6 +1636,11 @@ export default function AgendamentosPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-zinc-900">{a.client.name}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
+                        {a.confirmedVia === "WHATSAPP" && (a.status === "CONFIRMED" || a.status === "PENDING") && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                            <CheckCheck className="w-3 h-3" />Confirmou no WhatsApp
+                          </span>
+                        )}
                         {a.arrivedAt && (a.status === "CONFIRMED" || a.status === "PENDING") && (
                           <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                             <UserCheck className="w-3 h-3" />Chegou {arrivedLabel(a.arrivedAt)}
