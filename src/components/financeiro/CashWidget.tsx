@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/auth";
-import { DollarSign, X, Check, ArrowDownCircle, ArrowUpCircle, AlertCircle, Plus, Loader2 } from "lucide-react";
+import { X, Check, ArrowDownCircle, ArrowUpCircle, AlertCircle, Plus, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 export default function CashWidget() {
@@ -106,20 +106,25 @@ export default function CashWidget() {
   return (
     <>
       {/* Botão no Sidebar */}
-      <div className="px-3 pb-2 pt-1 border-b border-zinc-800">
-        <button 
+      <div className="px-3.5 pb-1">
+        <button
           onClick={() => setOpenDrawer(true)}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
-            isOpen 
-              ? "bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20" 
-              : "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
-          }`}
+          className="w-full flex items-center justify-between gap-2.5 p-3 rounded-[10px] bg-night-2 border border-night-line hover:border-night-muted/40 transition-colors text-left"
         >
-          <DollarSign className="w-4 h-4 shrink-0" />
-          <div className="flex-1 text-left">
-            <span className="block">{isOpen ? "Caixa Aberto" : "Caixa Fechado"}</span>
-            {isOpen && <span className="block text-[10px] opacity-70">Saldo: R$ {expectedBalance.toFixed(2).replace(".", ",")}</span>}
-          </div>
+          <span className="flex flex-col gap-0.5 min-w-0">
+            <span className="flex items-center gap-1.5 text-xs text-night-muted">
+              <span className={`w-[7px] h-[7px] rounded-full ${isOpen ? "bg-[#4CC38A]" : "bg-danger-strong"}`} aria-hidden />
+              {isOpen ? "Caixa aberto" : "Caixa fechado"}
+            </span>
+            {isOpen && (
+              <span className="text-[17px] font-semibold text-white truncate">
+                R$ {expectedBalance.toFixed(2).replace(".", ",")}
+              </span>
+            )}
+          </span>
+          <span className="shrink-0 h-8 px-2.5 inline-flex items-center rounded-lg border border-[#3A352F] text-xs font-semibold text-[#E9E4DA]">
+            {isOpen ? "Fechar" : "Abrir"}
+          </span>
         </button>
       </div>
 

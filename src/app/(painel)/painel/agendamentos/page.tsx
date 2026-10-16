@@ -928,6 +928,17 @@ export default function AgendamentosPage() {
   const [modalAppt, setModalAppt] = useState<Appointment | null>(null);
   const [showBloqueio, setShowBloqueio] = useState(false);
   const [showAgendamento, setShowAgendamento] = useState(false);
+
+  // ?novo=1 (botão "+" da barra inferior do celular) já abre o novo agendamento
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("novo") === "1") {
+      setShowAgendamento(true);
+      params.delete("novo");
+      const qs = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, []);
   const [agendamentoInit, setAgendamentoInit] = useState<{ barberId: string; startTime: string } | null>(null);
   const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
   // Motivo do 409 vindo da API — distingue "barbeiro ocupado" de "cliente já tem horário".

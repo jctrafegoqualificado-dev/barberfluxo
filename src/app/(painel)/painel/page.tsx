@@ -549,8 +549,8 @@ export default function DashboardPage() {
 
       {/* === FLOATING ACTION BUTTON === */}
       <a
-        href="/painel/agendamentos"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-white font-bold text-sm shadow-xl shadow-primary/30 hover:shadow-primary/50 hover:scale-105 active:scale-95 transition-all"
+        href="/painel/agendamentos?novo=1"
+        className="hidden md:flex fixed bottom-6 right-6 z-50 items-center gap-2 px-5 py-3.5 rounded-2xl bg-primary text-white font-bold text-sm shadow-xl shadow-primary/30 hover:shadow-primary/50 hover:scale-105 active:scale-95 transition-all"
       >
         <Calendar className="w-4 h-4" />
         Novo Agendamento

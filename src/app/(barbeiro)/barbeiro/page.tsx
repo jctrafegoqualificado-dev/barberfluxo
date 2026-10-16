@@ -1320,6 +1320,17 @@ export default function BarbeiroAgendaPage() {
   const [loading, setLoading] = useState(true);
   const [agendaDate, setAgendaDate] = useState(getTodayBR);
   const [showNovoAgendamento, setShowNovoAgendamento] = useState(false);
+
+  // ?novo=1 (botão "+" da barra inferior do celular) já abre o novo agendamento
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("novo") === "1") {
+      setShowNovoAgendamento(true);
+      params.delete("novo");
+      const qs = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, []);
   const [agendamentoInitTime, setAgendamentoInitTime] = useState<string | undefined>(undefined);
   const [showBloquear, setShowBloquear] = useState(false);
   const [showVenderProduto, setShowVenderProduto] = useState(false);
@@ -1963,7 +1974,7 @@ export default function BarbeiroAgendaPage() {
       {/* FAB */}
       <button
         onClick={() => setShowNovoAgendamento(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-primary hover:bg-primary/90 active:scale-95 text-white font-bold px-5 py-3.5 rounded-2xl shadow-xl transition-all text-sm">
+        className="hidden md:flex fixed bottom-6 right-6 z-40 items-center gap-2 bg-primary hover:bg-primary/90 active:scale-95 text-white font-bold px-5 py-3.5 rounded-2xl shadow-xl transition-all text-sm">
         <Plus className="w-5 h-5" />
         <span className="hidden sm:inline">Novo Agendamento</span>
       </button>

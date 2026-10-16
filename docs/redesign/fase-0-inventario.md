@@ -177,7 +177,7 @@ traz um recurso a mais · ⛔ falta dado — precisa de campo/tabela nova (migra
 ## Ordem das fases
 
 0. ✅ Inventário (este documento)
-1. Fundação: tokens de cor, fontes, componentes base, sidebar e menu inferior do celular
+1. ✅ Fundação (16/10/2026): paleta em `globals.css` (`bg-ground`, `text-ink`, `border-line`, `bg-positive-soft`…), fontes Bricolage/Schibsted, menu lateral novo (com Recados; Marca em Configurações), barra inferior no celular, componentes base `Button`, `Card`, `Badge`/`Pill`, `Input`, `Modal`, `Chip`, `Table`. A tela de marca agora mora em `/painel/configuracoes/marca`, e `/painel/meu-negocio` redireciona para lá. Base aproveitada da branch antiga `redesign/dashboard`.
 2. Agendamentos (+ pendências 1 e 2)
 3. Dashboard
 4. Agendamento online (+ pendência 8)

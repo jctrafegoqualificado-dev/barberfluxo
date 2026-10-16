@@ -57,14 +57,15 @@ export default function BarbeiroLayout({ children }: { children: React.ReactNode
     <>
       <style dangerouslySetInnerHTML={{ __html: `
         :root {
-          --primary: ${branding?.primaryColor ? hexToRgb(branding.primaryColor) : "245, 158, 11"};
-          --secondary: ${branding?.secondaryColor ? hexToRgb(branding.secondaryColor) : "251, 191, 36"};
+          --primary: ${branding?.primaryColor ? hexToRgb(branding.primaryColor) : "201, 79, 12"};
+          --secondary: ${branding?.secondaryColor ? hexToRgb(branding.secondaryColor) : "161, 98, 7"};
         }
       `}} />
-      <div className="flex min-h-screen bg-zinc-50">
+      <div className="flex min-h-screen bg-ground">
         <Sidebar branding={branding || undefined} />
-        <main className="flex-1 overflow-auto">
-          <div className="p-6 max-w-5xl mx-auto">{children}</div>
+        <main className="flex-1 min-w-0 overflow-auto">
+          {/* pb-28 no celular: espaço para a barra inferior */}
+          <div className="px-4 pt-5 pb-28 md:p-6 max-w-5xl mx-auto">{children}</div>
         </main>
       </div>
     </>

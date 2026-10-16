@@ -1709,7 +1709,7 @@ export default function AssinaturasPage() {
 
       {/* Barra flutuante — seleção em lote */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-zinc-700">
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-zinc-700">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold shrink-0">
               {selectedIds.length}

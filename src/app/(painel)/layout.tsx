@@ -115,8 +115,8 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
     <>
       <style dangerouslySetInnerHTML={{ __html: `
         :root {
-          --primary: ${branding?.primaryColor ? hexToRgb(branding.primaryColor) : "245, 158, 11"};
-          --secondary: ${branding?.secondaryColor ? hexToRgb(branding.secondaryColor) : "251, 191, 36"};
+          --primary: ${branding?.primaryColor ? hexToRgb(branding.primaryColor) : "201, 79, 12"};
+          --secondary: ${branding?.secondaryColor ? hexToRgb(branding.secondaryColor) : "161, 98, 7"};
         }
       `}} />
       {saasExpiresInDays !== null && (
@@ -125,10 +125,11 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
           <a href="/painel/assinatura" className="underline font-bold hover:text-orange-100">Renovar agora</a>
         </div>
       )}
-      <div className={`flex min-h-screen bg-zinc-50${saasExpiresInDays !== null ? " pt-9" : ""}`}>
+      <div className={`flex min-h-screen bg-ground${saasExpiresInDays !== null ? " pt-9" : ""}`}>
         <Sidebar branding={branding || undefined} />
-        <main className="flex-1 overflow-auto">
-          <div className="p-4 pt-16 md:pt-6 md:p-6 max-w-7xl mx-auto">{children}</div>
+        <main className="flex-1 min-w-0 overflow-auto">
+          {/* pb-28 no celular: espaço para a barra inferior */}
+          <div className="px-4 pt-5 pb-28 md:p-6 max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
     </>

@@ -60,13 +60,14 @@ export const STATUS_LABELS: Record<string, string> = {
   PAUSED: "Pausado",
 };
 
+// Cores de estado do redesign (mesmos tons do <Badge>/<Pill> em components/ui/Badge.tsx)
 export const STATUS_COLORS: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  CONFIRMED: "bg-blue-100 text-blue-800",
-  DONE: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
-  NO_SHOW: "bg-gray-100 text-gray-800",
-  ACTIVE: "bg-green-100 text-green-800",
-  OVERDUE: "bg-red-100 text-red-800",
-  PAUSED: "bg-orange-100 text-orange-800",
+  PENDING: "bg-warning-soft text-warning",
+  CONFIRMED: "bg-[#E8EEF7] text-[#1F4E8C]",
+  DONE: "bg-positive-soft text-positive",
+  CANCELLED: "bg-surface-2 text-ink-2",
+  NO_SHOW: "bg-danger-soft text-danger",
+  ACTIVE: "bg-positive-soft text-positive",
+  OVERDUE: "bg-danger-soft text-danger",
+  PAUSED: "bg-warning-soft text-warning",
 };
