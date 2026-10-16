@@ -176,6 +176,10 @@ export async function GET(req: NextRequest) {
 
     const totalComissao = totalAvulsoComissao + totalAssinaturaComissao + totalProdutoComissao;
 
+    // Gorjetas: 100% do barbeiro, recebidas no acerto avulso.
+    const gorjetaAppts = [...avulsos, ...subAppointments].filter((a) => (a.tipAmount ?? 0) > 0);
+    const totalGorjetas = gorjetaAppts.reduce((s, a) => s + a.tipAmount, 0);
+
     return NextResponse.json({
       barber: {
         name: barber.user.name,
@@ -195,6 +199,7 @@ export async function GET(req: NextRequest) {
           comissao: totalAssinaturaComissao,
         },
         produtos: { vendas: productSales.length, faturado: totalProdutoFaturado, comissao: totalProdutoComissao },
+        gorjetas: { quantidade: gorjetaAppts.length, total: totalGorjetas },
         totalComissao,
       },
       itens: {

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #D9D4CB; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 640px; height: 1060px; box-sizing: border-box; padding: 20px; background: #D9D4CB; display: flex;">
+  <div role="dialog" aria-labelledby="novo-t" style="flex-grow: 1; background: #FFFFFF; border-radius: 18px; box-shadow: 0 20px 50px rgba(27,25,22,0.18); display: flex; flex-direction: column; overflow: hidden;">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #EFEBE3;">
+      <h2 id="novo-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Novo agendamento</h2>
+      <a href="Agenda-desktop.dc.html" aria-label="Fechar" style="width: 40px; height: 40px; border-radius: 10px; color: #57524A; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 22px; padding: 20px 24px; flex-grow: 1;">
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 13px; font-weight: 600;">Cliente</span>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid #E2DCD1; background: #F9F7F3;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: #EFEBE3; color: #57524A; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;">CM</div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 15px; font-weight: 600;">Caio Mendes</span>
+              <span style="height: 22px; padding: 0 8px; border-radius: 11px; background: {{accentSoft}}; color: {{accentText}}; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"></path></svg>Assinante</span>
+            </div>
+            <span style="font-size: 12px; color: #6F685D;">Plano Corte ilimitado · 12 visitas · última há 9 dias</span>
+          </div>
+          <button type="button" style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 12px; font-weight: 600; cursor: pointer;">Trocar</button>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <span style="font-size: 13px; font-weight: 600;">Serviços</span>
+          <span style="font-size: 12px; color: #6F685D;">escolha um ou mais</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{services}}" as="s" hint-placeholder-count="6">
+            <button type="button" onClick="{{s.toggle}}" aria-pressed="{{s.on}}" style="min-height: 64px; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: {{s.border}}; background: {{s.bg}}; color: #1B1916; text-align: left; display: flex; flex-direction: column; gap: 3px; cursor: pointer;">
+              <span style="font-size: 14px; font-weight: 600;">{{s.name}}</span>
+              <span style="font-size: 12px; color: {{s.metaColor}};">{{s.meta}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 13px; font-weight: 600;">Profissional</span>
+        <div role="radiogroup" aria-label="Profissional" style="display: flex; gap: 8px;">
+          <sc-for list="{{barbers}}" as="b" hint-placeholder-count="5">
+            <button type="button" role="radio" aria-checked="{{b.on}}" onClick="{{b.pick}}" style="flex-grow: 1; flex-basis: 0; height: 76px; border-radius: 10px; border: {{b.border}}; background: {{b.bg}}; color: #1B1916; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; cursor: pointer;">
+              <span style="width: 32px; height: 32px; border-radius: 50%; background: {{b.avatarBg}}; color: {{b.avatarFg}}; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{b.initials}}</span>
+              <span style="font-size: 12px; font-weight: 600;">{{b.name}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <span style="font-size: 13px; font-weight: 600;">Dia e horário</span>
+          <button type="button" style="border: 0; background: transparent; padding: 0; font-size: 13px; font-weight: 600; color: #57524A; text-decoration: underline; cursor: pointer;">Outra data</button>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <sc-for list="{{days}}" as="d" hint-placeholder-count="6">
+            <button type="button" aria-pressed="{{d.on}}" style="flex-grow: 1; flex-basis: 0; height: 52px; border-radius: 10px; border: 1px solid {{d.border}}; background: {{d.bg}}; color: {{d.fg}}; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer;">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; opacity: 0.8;">{{d.dow}}</span>
+              <span style="font-size: 15px; font-weight: 700;">{{d.day}}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div role="radiogroup" aria-label="Horário" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 4px;">
+          <sc-for list="{{slots}}" as="t" hint-placeholder-count="21">
+            <button type="button" role="radio" aria-checked="{{t.on}}" disabled="{{t.disabled}}" onClick="{{t.pick}}" style="height: 38px; border-radius: 8px; border: {{t.border}}; background: {{t.bg}}; color: {{t.fg}}; font-size: 13px; font-weight: 600; text-decoration: {{t.strike}}; cursor: {{t.cursor}};">{{t.label}}</button>
+          </sc-for>
+        </div>
+        <span style="font-size: 13px; color: #57524A;">{{hint}}</span>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px; padding: 18px 24px 22px; border-top: 1px solid #EFEBE3; background: #FBFAF7;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <span style="font-size: 15px; font-weight: 600;">{{summary}}</span>
+          <span style="font-size: 13px; color: #6F685D;">{{duration}}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+          <span style="font-size: 12px; color: #6F685D;">A pagar no dia</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 24px; font-weight: 700;">{{total}}</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <label style="display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer;">
+          <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: #1B1916;">
+          Enviar confirmação pelo WhatsApp
+        </label>
+        <div style="display: flex; gap: 8px;">
+          <a href="Agenda-desktop.dc.html" style="height: 46px; padding: 0 18px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Cancelar</a>
+          <a href="Agenda-desktop.dc.html" style="height: 46px; padding: 0 22px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Agendar</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":640,"height":1060}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: ['corte', 'sobrancelha'], barber: 'AS', slot: '17:45' };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const accentSoft = mix(accent, 255, 0.88);
+    const accentText = mix(accent, 0, 0.35);
+    const brl = (v) => 'R$ ' + v.toFixed(2).replace('.', ',');
+
+    const catalog = [
+      ['corte', 'Corte', 30, 50, true], ['barba', 'Barba', 30, 40, false], ['sobrancelha', 'Sobrancelha', 15, 15, false],
+      ['degrade', 'Corte degradê', 45, 55, false], ['pigmentacao', 'Pigmentação', 60, 90, false], ['hidratacao', 'Hidratação', 20, 35, false]
+    ];
+    const picked = this.state.picked;
+    const services = catalog.map(([id, name, dur, price, inPlan]) => {
+      const on = picked.includes(id);
+      return {
+        name, on,
+        meta: inPlan ? dur + ' min · incluso no plano' : dur + ' min · ' + brl(price),
+        metaColor: inPlan ? accentText : '#6F685D',
+        border: on ? '2px solid #1B1916' : '1px solid #E2DCD1',
+        bg: on ? '#F5F3EE' : '#FFFFFF',
+        toggle: () => this.setState({ picked: on ? picked.filter((p) => p !== id) : [...picked, id] })
+      };
+    });
+    const chosen = catalog.filter(([id]) => picked.includes(id));
+    const minutes = chosen.reduce((a, c) => a + c[2], 0);
+    const toPay = chosen.reduce((a, c) => a + (c[4] ? 0 : c[3]), 0);
+    const included = chosen.some((c) => c[4]);
+
+    const free = {
+      ANY: ['14:30', '14:45', '15:00', '15:15', '15:30', '15:45', '16:00', '16:15', '17:45', '18:00', '18:15', '18:30', '18:45', '19:00', '19:15'],
+      DR: ['15:45', '16:00', '16:15', '18:30', '18:45', '19:00', '19:15'],
+      AS: ['17:45', '19:15'],
+      MT: ['14:30', '14:45', '16:00', '17:45', '18:00', '18:15'],
+      VP: ['14:30', '14:45', '15:00', '15:15', '15:30', '15:45']
+    };
+    const names = { ANY: 'Qualquer um', DR: 'Diego', AS: 'Anderson', MT: 'Marcos', VP: 'Vinícius' };
+    const full = { ANY: 'o primeiro livre', DR: 'Diego Ramos', AS: 'Anderson Silva', MT: 'Marcos Teixeira', VP: 'Vinícius Prado' };
+    const barbers = ['ANY', 'DR', 'AS', 'MT', 'VP'].map((id) => {
+      const on = this.state.barber === id;
+      return {
+        name: names[id], initials: id === 'ANY' ? '?' : id, on,
+        border: on ? '2px solid #1B1916' : '1px solid #E2DCD1',
+        bg: on ? '#F5F3EE' : '#FFFFFF',
+        avatarBg: on ? '#1B1916' : '#EFEBE3', avatarFg: on ? '#FFFFFF' : '#57524A',
+        pick: () => this.setState({ barber: id, slot: free[id][0] })
+      };
+    });
+
+    const days = [['Qua', '16'], ['Qui', '17'], ['Sex', '18'], ['Sáb', '19'], ['Seg', '21'], ['Ter', '22']].map(([dow, day]) => {
+      const on = day === '16';
+      return { dow, day, on, bg: on ? '#1B1916' : '#FFFFFF', fg: on ? '#FFFFFF' : '#1B1916', border: on ? '#1B1916' : '#E2DCD1' };
+    });
+
+    const avail = free[this.state.barber];
+    const slots = [];
+    for (let m = 14 * 60 + 30; m <= 19 * 60 + 30; m += 15) {
+      const label = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+      const ok = avail.includes(label);
+      const on = ok && this.state.slot === label;
+      slots.push({
+        label, on, disabled: !ok,
+        border: on ? '2px solid ' + accent : (ok ? '1px solid #B9B0A1' : '1px solid #EFEBE3'),
+        bg: on ? accent : (ok ? '#FFFFFF' : '#F7F5F0'),
+        fg: on ? '#FFFFFF' : (ok ? '#1B1916' : '#A39B8E'),
+        strike: ok ? 'none' : 'line-through',
+        cursor: ok ? 'pointer' : 'not-allowed',
+        pick: () => { if (ok) this.setState({ slot: label }); }
+      });
+    }
+
+    const start = this.state.slot;
+    const [sh, sm] = start.split(':').map(Number);
+    const endMin = sh * 60 + sm + minutes;
+    const end = String(Math.floor(endMin / 60)).padStart(2, '0') + ':' + String(endMin % 60).padStart(2, '0');
+    const hint = this.state.barber === 'AS'
+      ? 'Anderson tem só 2 horários livres para ' + minutes + ' min hoje. Vinícius tem 6.'
+      : avail.length + ' horários livres para ' + minutes + ' min hoje.';
+
+    return {
+      accent, accentSoft, accentText,
+      services, barbers, days, slots, hint,
+      summary: 'Qua, 16 set · ' + start + ' – ' + end + ' · ' + full[this.state.barber],
+      duration: chosen.map((c) => c[1]).join(' + ') + ' · ' + minutes + ' min',
+      total: brl(toPay) + (included ? '' : '')
+    };
+  }
+}
+</script>
+</body>
+</html>

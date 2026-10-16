@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Calendar, CheckCircle, XCircle, UserX, Clock, DollarSign, TrendingUp, Phone, ChevronLeft, ChevronRight, Scissors, Plus, Minus, Package, X, AlertTriangle, Lock, Trash2 } from "lucide-react";
+import { Calendar, CheckCircle, XCircle, UserX, Clock, DollarSign, TrendingUp, Phone, ChevronLeft, ChevronRight, Scissors, Plus, Minus, Package, X, AlertTriangle, Lock, Trash2, UserCheck } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
+import RecadosEquipeCard from "@/components/recados/RecadosEquipeCard";
 
 interface Appointment {
   id: string; startTime: string; endTime: string; status: string; price: number;
+  tipAmount?: number;
+  arrivedAt?: string | null;
   client: { name: string; phone: string | null };
   service: { id: string; name: string; duration: number } | null;
   services: { service: { id: string; name: string; price: number; duration: number } }[];
@@ -626,7 +629,7 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
   const [paymentMethod, setPaymentMethod] = useState(
     appt.subscription?.status === "ACTIVE" ? "SUBSCRIPTION" : "CASH"
   );
-  const [tip, setTip] = useState("");
+  const [tip, setTip] = useState(appt.tipAmount ? String(appt.tipAmount) : "");
   const [extraPaymentMethod, setExtraPaymentMethod] = useState("CASH");
   const [overrideSub, setOverrideSub] = useState<any | null>(null);
   const [applyOverride, setApplyOverride] = useState(false);
@@ -653,10 +656,14 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
   const extraServiceIds = effectiveIsActiveSub ? selectedServiceIds.filter(id => !planServiceIds.includes(id)) : [];
   const extraServices = allServices.filter(s => extraServiceIds.includes(s.id));
   const calculatedExtraPrice = extraServices.reduce((sum, s) => sum + s.price, 0);
-  const tipAmount = Number(tip) || 0;
+  // Gorjeta vai 100% para o barbeiro: é gravada à parte (tipAmount), nunca somada ao
+  // preço do serviço — senão entraria no faturamento e na base de comissão.
+  const tipAmount = Math.max(0, Number(tip) || 0);
   // Preço com desconto aplicado (para extras de assinante ou preço total de avulso)
   const discountedExtraPrice = calculatedExtraPrice * (1 - discountPercent / 100);
-  const totalExtraToCharge = discountedExtraPrice + tipAmount;
+  const totalExtraToCharge = discountedExtraPrice;
+  // Assinante sem extra só escolhe forma de pagamento se deixou gorjeta.
+  const subNeedsMethod = totalExtraToCharge > 0 || tipAmount > 0;
   // Preço avulso descontado (usado para exibição no modal de não-assinante)
   const baseAppointmentPrice = appt.price;
   const discountedAppointmentPrice = baseAppointmentPrice * (1 - discountPercent / 100);
@@ -716,6 +723,18 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
     setPaymentMethod("SUBSCRIPTION");
     const d = overrideSub?.plan?.extraDiscount ?? 0;
     if (d > 0) setDiscountPercent(d);
+  }
+
+  // Check-in ("Chegou"): marca/desmarca a hora em que o cliente chegou.
+  async function toggleArrived() {
+    setSaving(true);
+    await fetch("/api/barbershop/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: appt.id, arrived: !appt.arrivedAt }),
+    });
+    setSaving(false);
+    onSaved(); // fecha modal e recarrega a agenda
   }
 
   async function saveServices() {
@@ -791,6 +810,8 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
         ...(effectiveIsActiveSub && totalExtraToCharge > 0
           ? { extraPrice: totalExtraToCharge, extraPaymentMethod }
           : {}),
+        tipAmount,
+        tipPaymentMethod: effectiveIsActiveSub ? extraPaymentMethod : paymentMethod,
         ...(applyOverride && overrideSub ? { subscriptionId: overrideSub.id } : {}),
       }),
     });
@@ -826,6 +847,15 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
         <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
           {isActive && !showPayment && !showServices && (
             <>
+              <button
+                onClick={toggleArrived}
+                disabled={saving}
+                className={`w-full flex items-center justify-center gap-2 p-3 rounded-xl border font-semibold transition-colors disabled:opacity-60 ${
+                  appt.arrivedAt ? "bg-green-50 border-green-200 text-green-700" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"
+                }`}>
+                <UserCheck className="w-5 h-5 shrink-0" />
+                <span>{appt.arrivedAt ? `Chegou às ${new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(new Date(appt.arrivedAt))} · desfazer` : "Cliente chegou"}</span>
+              </button>
               <button
                 onClick={() => setShowPayment(true)}
                 className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-green-500 border border-green-600 text-white font-bold hover:bg-green-600 active:bg-green-700 transition-colors shadow-lg shadow-green-500/20 text-lg">
@@ -968,25 +998,10 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
                     </div>
                   )}
 
-                  {/* Gorgeta (único campo manual) */}
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-700 mb-1.5">Gorgeta <span className="font-normal text-zinc-400">(opcional)</span></p>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm font-semibold">R$</span>
-                      <input
-                        type="number" min="0" step="0.01"
-                        value={tip}
-                        onChange={(e) => setTip(e.target.value)}
-                        placeholder="0,00"
-                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Forma de pagamento — só aparece se houver algo a cobrar */}
-                  {totalExtraToCharge > 0 && (
+                  {/* Forma de pagamento — só aparece se houver algo a cobrar (extra ou gorjeta) */}
+                  {subNeedsMethod && (
                     <div>
-                      <p className="text-sm font-semibold text-zinc-700 mb-1.5">Como pagou {formatCurrency(totalExtraToCharge)}?</p>
+                      <p className="text-sm font-semibold text-zinc-700 mb-1.5">Como pagou {formatCurrency(totalExtraToCharge + tipAmount)}?</p>
                       <div className="grid grid-cols-2 gap-2">
                         {[
                           { id: "CASH", label: "Dinheiro" },
@@ -1064,6 +1079,22 @@ function ApptActionModal({ appt, onClose, onUpdate, onDone, onSaved, onDelete }:
                   </div>
                 </>
               )}
+
+              {/* Gorjeta — 100% sua, fora do faturamento e da comissão */}
+              <div className="pt-3 border-t border-zinc-100">
+                <p className="text-sm font-semibold text-zinc-700 mb-1.5">Gorjeta <span className="font-normal text-zinc-400">(opcional)</span></p>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm font-semibold">R$</span>
+                  <input
+                    type="number" min="0" step="0.01" inputMode="decimal"
+                    value={tip}
+                    onChange={(e) => setTip(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                </div>
+                {tipAmount > 0 && <p className="text-xs text-zinc-500 mt-1">Vai inteira para você, no acerto das comissões.</p>}
+              </div>
 
               {/* Produtos vendidos */}
               <div className="pt-3 border-t border-zinc-100">
@@ -1629,6 +1660,9 @@ export default function BarbeiroAgendaPage() {
         </div>
       </div>
 
+      {/* Recados do dono para a equipe */}
+      <RecadosEquipeCard />
+
       {/* Próximo agendamento */}
       {d.proximoAgendamento && (
         <div className="bg-primary rounded-xl p-4 text-white flex items-center gap-4">
@@ -1847,9 +1881,15 @@ export default function BarbeiroAgendaPage() {
                   >
                     <div className="flex items-start gap-1 h-full">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-white truncate leading-tight">{a.client.name}</p>
+                        <p className="text-xs font-bold text-white truncate leading-tight flex items-center gap-1">
+                          {a.arrivedAt && isActive && <UserCheck className="w-3 h-3 shrink-0" aria-label="Cliente chegou" />}
+                          <span className="truncate">{a.client.name}</span>
+                        </p>
                         {height >= 42 && (
                           <p className="text-[11px] text-white/85 truncate leading-tight">{a.service?.name ?? "Serviço"}</p>
+                        )}
+                        {(a.tipAmount ?? 0) > 0 && height >= 42 && (
+                          <p className="text-[10px] font-bold text-white truncate leading-tight">+ {formatCurrency(a.tipAmount!)} gorjeta</p>
                         )}
                         {height >= 58 && a.client.phone && (
                           <p className="text-[10px] text-white/70 flex items-center gap-0.5 leading-tight truncate">

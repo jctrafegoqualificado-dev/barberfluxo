@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Sparkles, Plus, Clock, DollarSign, Edit, Percent, HelpCircle, Trash2 } from "lucide-react";
+import { Sparkles, Plus, Clock, DollarSign, Edit, Percent, HelpCircle, Trash2, Globe, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Modal } from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -17,6 +17,7 @@ interface Service {
   imageUrl: string | null;
   commission: number | null;
   materialCost: number;
+  onlineBooking: boolean;
 }
 
 export default function ServicosPage() {
@@ -34,10 +35,11 @@ export default function ServicosPage() {
     duration: "30",
     imageUrl: "",
     commission: "",
-    materialCost: "0"
+    materialCost: "0",
+    onlineBooking: true,
   });
 
-  function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  function setField(k: string, v: string | boolean) { setForm((f) => ({ ...f, [k]: v })); }
 
   function openNew() {
     setEditingId(null);
@@ -48,7 +50,8 @@ export default function ServicosPage() {
       duration: "30",
       imageUrl: "",
       commission: "",
-      materialCost: "0"
+      materialCost: "0",
+      onlineBooking: true,
     });
     setOpen(true);
   }
@@ -62,7 +65,8 @@ export default function ServicosPage() {
       duration: s.duration.toString(),
       imageUrl: s.imageUrl || "",
       commission: s.commission !== null && s.commission !== undefined ? s.commission.toString() : "",
-      materialCost: s.materialCost.toString()
+      materialCost: s.materialCost.toString(),
+      onlineBooking: s.onlineBooking,
     });
     setOpen(true);
   }
@@ -86,7 +90,8 @@ export default function ServicosPage() {
       duration: parseInt(form.duration),
       imageUrl: form.imageUrl || null,
       commission: form.commission !== "" ? parseFloat(form.commission) : null,
-      materialCost: parseFloat(form.materialCost || "0")
+      materialCost: parseFloat(form.materialCost || "0"),
+      onlineBooking: form.onlineBooking,
     };
 
     if (editingId) {
@@ -189,6 +194,11 @@ export default function ServicosPage() {
               </div>
               
               <p className="font-bold text-zinc-950 text-base mb-1">{s.name}</p>
+              {!s.onlineBooking && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 mb-2">
+                  <EyeOff className="w-3 h-3" /> Fora do agendamento online
+                </span>
+              )}
               {s.description && <p className="text-xs text-zinc-400 mb-3 line-clamp-2">{s.description}</p>}
             </div>
 
@@ -243,6 +253,19 @@ export default function ServicosPage() {
             <Input label="Preço de Venda (R$)" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setField("price", e.target.value)} placeholder="150.00" required />
             <Input label="Duração (minutos)" type="number" min="5" step="5" value={form.duration} onChange={(e) => setField("duration", e.target.value)} required />
           </div>
+
+          <label className="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.onlineBooking}
+              onChange={(e) => setField("onlineBooking", e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-[var(--color-primary)]"
+            />
+            <span>
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-800"><Globe className="w-4 h-4 text-primary" /> Aparece no agendamento online</span>
+              <span className="block text-xs text-zinc-500 mt-0.5">Desmarque para o cliente não conseguir marcar este serviço pelo link. Pelo painel continua agendável.</span>
+            </span>
+          </label>
 
           <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-150 space-y-4">
             <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">

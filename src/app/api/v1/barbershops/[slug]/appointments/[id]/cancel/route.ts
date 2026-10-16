@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { notifyWaitlistSlotOpened } from "@/lib/waitlist";
 
 export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ slug: string; id: string }> }) {
   try {
@@ -21,7 +22,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ s
 
     const existing = await prisma.appointment.findFirst({
       where: { id, barbershopId: shop.id },
-      select: { id: true, status: true, date: true, startTime: true },
+      select: { id: true, status: true, date: true, startTime: true, barberId: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
@@ -52,6 +53,9 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ s
       data: { status: "CANCELLED" },
       select: { id: true, status: true },
     });
+
+    // Lista de espera: a vaga liberada é avisada para quem está na fila do dia.
+    void notifyWaitlistSlotOpened({ barbershopId: shop.id, date: existing.date, barberId: existing.barberId, startTime: existing.startTime });
 
     return NextResponse.json({ appointment });
   } catch (e: unknown) {

@@ -151,6 +151,7 @@ export async function GET(req: NextRequest) {
         comissaoServicos,
         comissaoProdutos,
         totalComissao,
+        gorjetas: done.reduce((s, a) => s + (a.tipAmount ?? 0), 0),
         avulso: done.filter((a) => !a.subscriptionId).length,
         assinatura: done.filter((a) => a.subscriptionId).length,
         produtos: productSales.length,

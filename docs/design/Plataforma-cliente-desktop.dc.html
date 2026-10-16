@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input, select { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1540px; box-sizing: border-box; display: flex; background: #F5F3EE;">
+
+  <!-- ============ SIDEBAR DA PLATAFORMA ============ -->
+  <aside style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #171512; color: #A8A196; display: flex; flex-direction: column; padding: 20px 14px; gap: 18px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 6px;">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+      </div>
+      <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF; white-space: nowrap;">IA de Barbearia</span>
+        <span style="font-size: 12px; color: #A8A196;">Plataforma · administração</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: 10px; background: #221F1B; border: 1px solid #2E2A25;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A8A196;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #E0A93B;"></span>Automações</span>
+        <span style="font-size: 15px; font-weight: 600; color: #FFFFFF;">6 de 7 em dia</span>
+      </div>
+      <a href="#" style="height: 32px; padding: 0 10px; box-sizing: border-box; border-radius: 8px; border: 1px solid #3A352F; color: #E9E4DA; font-size: 12px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Ver</a>
+    </div>
+
+    <nav aria-label="Menu da plataforma" style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <a href="Plataforma-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>
+          <span style="flex-grow: 1;">Painel</span>
+        </a>
+        <a href="Plataforma-desktop.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; background: #2A2723; color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;">
+          <svg style="color: {{accentOnDark}};" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"></path><path d="M3 9h18v1.5a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"></path><path d="M5 13.5V21h14v-7.5"></path><path d="M10 21v-5h4v5"></path></svg>
+          <span style="flex-grow: 1;">Barbearias</span>
+          <span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #2E2A25; color: #E9E4DA; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">142</span>
+        </a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Dinheiro</span>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg><span style="flex-grow: 1;">Pagamentos</span><span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #4A2A17; color: #F6C9A8; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">9</span></a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path></svg>Planos e preços</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Sistema</span>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Equipe</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg><span style="flex-grow: 1;">Automações</span><span style="width: 7px; height: 7px; border-radius: 50%; background: #E0A93B;"></span></a>
+      </div>
+    </nav>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 14px; border-top: 1px solid #2E2A25;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: #221F1B;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #3A352F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0;">AD</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-size: 13px; font-weight: 600; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">[NOME DO ADMIN]</span>
+          <span style="font-size: 12px; color: #A8A196;">Administrador</span>
+        </div>
+        <button type="button" aria-label="Sair" style="width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: #A8A196; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 24px 32px 32px; display: flex; flex-direction: column; gap: 18px;">
+
+    <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+        <div style="width: 56px; height: 56px; border-radius: 14px; background: {{accent}}; color: #FFFFFF; font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">BM</div>
+        <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+          <a href="Plataforma-desktop.dc.html" style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: #57524A; text-decoration: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>Barbearias</a>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap;">Barbearia Modelo</h1>
+            <span style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; background: {{statusBg}}; color: {{statusFg}};"><span style="width: 7px; height: 7px; border-radius: 50%; background: currentColor;"></span>{{statusLabel}}</span>
+          </div>
+          <span style="font-size: 14px; color: #6F685D;">Carlos Almeida · cliente desde 29/03/2025 · último pagamento em 12/09/2026</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+        <button type="button" onClick="{{toggleLink}}" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Gerar link de pagamento</button>
+        <button type="button" onClick="{{togglePay}}" aria-expanded="{{showPay}}" style="height: 42px; padding: 0 16px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Registrar pagamento</button>
+      </div>
+    </header>
+
+    <sc-if value="{{showLink}}" hint-placeholder-val="{{false}}">
+      <section aria-label="Link de pagamento gerado" style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E7E2D8;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: {{accentSoft}}; color: {{accentText}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg></div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 600;">Link de débito automático gerado</span>
+          <span style="font-size: 13px; color: #6F685D;">Mande para o Carlos. Ele autoriza uma vez e o Mercado Pago cobra todo mês sozinho.</span>
+        </div>
+        <span style="height: 40px; padding: 0 12px; box-sizing: border-box; border-radius: 9px; background: #F5F3EE; border: 1px solid #EFEBE3; font-size: 13px; color: #57524A; display: flex; align-items: center; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">[LINK DE PAGAMENTO DO MERCADO PAGO]</span>
+        <button type="button" onClick="{{copyLink}}" style="height: 40px; padding: 0 14px; border-radius: 9px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;">{{copyLabel}}</button>
+        <a href="#" style="height: 40px; padding: 0 12px; box-sizing: border-box; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; font-size: 13px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Abrir</a>
+        <button type="button" onClick="{{toggleLink}}" aria-label="Fechar link de pagamento" style="width: 36px; height: 36px; border-radius: 9px; border: 0; background: transparent; color: #57524A; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </section>
+    </sc-if>
+
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="5">
+        <div style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 13px; font-weight: 600; color: #57524A;">{{k.label}}</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 25px; font-weight: 700; letter-spacing: -0.02em;">{{k.value}}</span>
+          <span style="font-size: 12px; color: #6F685D;">{{k.sub}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 20px; align-items: start;">
+
+      <!-- ===== Coluna esquerda ===== -->
+      <div style="display: flex; flex-direction: column; gap: 20px; min-width: 0;">
+
+        <section aria-labelledby="pag-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <h2 id="pag-t" style="margin: 0; font-size: 15px; font-weight: 600;">Pagamentos da mensalidade</h2>
+              <span style="font-size: 13px; color: #6F685D;">19 registros · 18 pagos · 1 cartão recusado</span>
+            </div>
+            <button type="button" onClick="{{togglePay}}" aria-expanded="{{showPay}}" style="height: 38px; padding: 0 12px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Pagamento feito por fora</button>
+          </div>
+
+          <sc-if value="{{showPay}}" hint-placeholder-val="{{true}}">
+            <form aria-label="Registrar pagamento manual" style="margin: 0 20px 16px; padding: 16px; border-radius: 12px; background: #F9F7F3; border: 1px solid #EFEBE3; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px;">
+                <span style="font-size: 14px; font-weight: 600;">Registrar pagamento feito por fora</span>
+                <span style="font-size: 12px; color: #6F685D;">Pix direto, transferência ou dinheiro · a assinatura fica em dia na hora</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 150px minmax(0, 1.3fr) minmax(0, 1.2fr); gap: 12px;">
+                <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #57524A;">
+                  Valor recebido
+                  <span style="display: flex; align-items: center; gap: 6px; height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; background: #FFFFFF;"><span style="font-size: 14px; color: #6F685D; font-weight: 400;">R$</span><input type="text" inputmode="decimal" value="265,70" style="width: 100%; border: 0; outline: none; background: transparent; font-size: 15px; font-weight: 600; color: #1B1916;"></span>
+                </label>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <span id="forma-l" style="font-size: 13px; font-weight: 600; color: #57524A;">Forma de pagamento</span>
+                  <div role="radiogroup" aria-labelledby="forma-l" style="display: flex; padding: 4px; gap: 2px; height: 42px; box-sizing: border-box; border-radius: 10px; background: #EAE6DD;">
+                    <sc-for list="{{methods}}" as="m" hint-placeholder-count="3">
+                      <button type="button" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="flex: 1 1 0; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{m.bg}}; color: {{m.fg}}; box-shadow: {{m.shadow}}; cursor: pointer; white-space: nowrap;">{{m.label}}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #57524A;">
+                  Plano que ele pagou
+                  <select style="height: 42px; padding: 0 10px; border-radius: 10px; border: 1px solid #D8D0C2; background: #FFFFFF; font-size: 14px; font-weight: 400; color: #1B1916;">
+                    <option>Gestão + Atendente de IA — R$ 197,90/mês</option>
+                    <option>Gestão — R$ 154,90/mês</option>
+                    <option>Básico (antigo) — R$ 97,00/mês</option>
+                  </select>
+                </label>
+              </div>
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: end;">
+                <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #57524A;">
+                  Observação (opcional)
+                  <input type="text" placeholder="Ex.: pagou por Pix, chave CNPJ" style="height: 42px; padding: 0 12px; box-sizing: border-box; border-radius: 10px; border: 1px solid #D8D0C2; background: #FFFFFF; font-size: 14px; font-weight: 400; outline: none;">
+                </label>
+                <button type="button" onClick="{{togglePay}}" style="height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; cursor: pointer;">Cancelar</button>
+                <button type="button" style="height: 42px; padding: 0 16px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;">Registrar e deixar em dia</button>
+              </div>
+            </form>
+          </sc-if>
+
+          <div style="display: grid; grid-template-columns: 120px 100px 120px minmax(0, 1.4fr) 120px 100px; gap: 14px; padding: 10px 20px; font-size: 12px; font-weight: 600; color: #6F685D; border-top: 1px solid #EFEBE3; border-bottom: 1px solid #EFEBE3;">
+            <span>Data</span><span style="text-align: right;">Valor</span><span>Forma</span><span>Observação</span><span>Origem</span><span>Situação</span>
+          </div>
+          <sc-for list="{{payments}}" as="p" hint-placeholder-count="8">
+            <div style="display: grid; grid-template-columns: 120px 100px 120px minmax(0, 1.4fr) 120px 100px; gap: 14px; align-items: center; min-height: 50px; padding: 0 20px; border-bottom: 1px solid #F1EDE6;">
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-size: 13px; font-weight: 600;">{{p.date}}</span>
+                <span style="font-size: 12px; color: #8A8378;">{{p.time}}</span>
+              </div>
+              <span style="font-size: 14px; font-weight: 700; text-align: right; color: {{p.valueColor}};">{{p.value}}</span>
+              <span style="font-size: 13px; color: #57524A;">{{p.method}}</span>
+              <span style="font-size: 13px; color: #6F685D; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{p.note}}</span>
+              <span style="justify-self: start; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 12px; font-weight: 600; display: flex; align-items: center; background: {{p.originBg}}; color: {{p.originFg}};">{{p.origin}}</span>
+              <span style="justify-self: start; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 12px; font-weight: 600; display: flex; align-items: center; background: {{p.stBg}}; color: {{p.stFg}};">{{p.status}}</span>
+            </div>
+          </sc-for>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; font-size: 13px; color: #57524A;">
+            <span>Mostrando os 8 mais recentes</span>
+            <a href="#" style="font-weight: 600; color: #57524A;">Ver os 19 registros</a>
+          </div>
+        </section>
+
+        <section aria-labelledby="uso-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <h2 id="uso-t" style="margin: 0; font-size: 15px; font-weight: 600;">Como a barbearia usa o sistema</h2>
+            <span style="font-size: 13px; color: #6F685D;">atualizado hoje às 14:18</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+            <div style="padding: 12px 14px; border-radius: 12px; background: #F9F7F3; border: 1px solid #EFEBE3; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1F9D5A;"></span>WhatsApp conectado</span>
+              <span style="font-size: 12px; color: #6F685D;">[TELEFONE DA BARBEARIA] · desde 03/08/2026</span>
+            </div>
+            <div style="padding: 12px 14px; border-radius: 12px; background: #F9F7F3; border: 1px solid #EFEBE3; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1F9D5A;"></span>Atendente de IA ligado</span>
+              <span style="font-size: 12px; color: #6F685D;">486 conversas · 171 agendamentos em setembro</span>
+            </div>
+            <div style="padding: 12px 14px; border-radius: 12px; background: #F9F7F3; border: 1px solid #EFEBE3; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1F9D5A;"></span>Lembretes ligados</span>
+              <span style="font-size: 12px; color: #6F685D;">540 enviados em setembro · 1 h antes</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px;">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <span style="font-size: 13px; font-weight: 600; color: #57524A;">Atendimentos por mês</span>
+              <div style="display: flex; align-items: flex-end; gap: 10px; height: 150px;">
+                <sc-for list="{{usage}}" as="u" hint-placeholder-count="6">
+                  <div style="flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; height: 100%;">
+                    <span style="font-size: 11px; font-weight: 600; color: #57524A;">{{u.value}}</span>
+                    <div style="width: 100%; height: {{u.h}}; border-radius: 5px 5px 0 0; background: {{u.bg}};"></div>
+                    <span style="font-size: 11px; color: {{u.fg}}; font-weight: 600;">{{u.label}}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-size: 12px; color: #6F685D;">Setembro até o dia 16 · no mesmo ritmo de agosto</span>
+            </div>
+            <div style="display: flex; flex-direction: column;">
+              <sc-for list="{{counts}}" as="c" hint-placeholder-count="6">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 36px; font-size: 14px; border-bottom: 1px solid #F1EDE6;">
+                  <span style="color: #6F685D;">{{c.label}}</span>
+                  <span style="font-weight: 600; text-align: right;">{{c.value}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== Coluna direita ===== -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        <section aria-labelledby="ass-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="padding: 18px 20px 14px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h2 id="ass-t" style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Assinatura</h2>
+              <span style="height: 24px; padding: 0 9px; border-radius: 12px; font-size: 12px; font-weight: 600; display: flex; align-items: center; background: {{subBg}}; color: {{subFg}};">{{subLabel}}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">{{planName}}</span>
+              <span style="font-size: 13px; color: #6F685D;">mensal · débito automático no cartão (Mercado Pago)</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: #F5F3EE;">
+              <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #57524A;">{{planLine}}</span><span>{{planPrice}}</span></div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="color: #57524A;">2 barbeiros extras (3º e 4º)</span><span>2 × R$ 33,90</span></div>
+              <div style="display: flex; justify-content: space-between; font-size: 14px; padding-top: 6px; border-top: 1px solid #E7E2D8;"><strong>Total por mês</strong><strong>{{planTotal}}</strong></div>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; padding: 0 20px;">
+            <div style="display: flex; justify-content: space-between; min-height: 36px; align-items: center; font-size: 14px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Próxima cobrança</span><span style="font-weight: 600;">{{nextCharge}}</span></div>
+            <div style="display: flex; justify-content: space-between; min-height: 36px; align-items: center; font-size: 14px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Acesso pago até</span><span style="font-weight: 600;">12/10/2026</span></div>
+            <div style="display: flex; justify-content: space-between; min-height: 36px; align-items: center; font-size: 14px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Teste grátis</span><span style="font-weight: 600;">usado em 03/2025</span></div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 20px 18px; margin-top: 6px; border-top: 1px solid #EFEBE3;">
+            <span id="troca-l" style="font-size: 13px; font-weight: 600; color: #57524A;">Trocar plano</span>
+            <div role="radiogroup" aria-labelledby="troca-l" style="display: flex; flex-direction: column; gap: 8px;">
+              <sc-for list="{{plans}}" as="pl" hint-placeholder-count="2">
+                <button type="button" role="radio" aria-checked="{{pl.on}}" onClick="{{pl.pick}}" style="min-height: 52px; padding: 8px 12px; border-radius: 10px; border: {{pl.border}}; background: {{pl.bg}}; display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;">
+                  <span style="width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: {{pl.ring}}; background: #FFFFFF; flex-shrink: 0;"></span>
+                  <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+                    <span style="font-size: 14px; font-weight: 600; color: #1B1916;">{{pl.name}}</span>
+                    <span style="font-size: 12px; color: #6F685D;">{{pl.sub}}</span>
+                  </span>
+                  <span style="font-size: 13px; font-weight: 600; color: #1B1916;">{{pl.price}}</span>
+                </button>
+              </sc-for>
+            </div>
+            <sc-if value="{{planChanged}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #F5EEDC;">
+                <span style="font-size: 13px; color: #6E5210;">{{changeNote}}</span>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" onClick="{{resetPlan}}" style="flex: 1 1 0; height: 38px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Manter atual</button>
+                  <button type="button" style="flex: 1 1 0; height: 38px; border-radius: 9px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer;">Salvar troca</button>
+                </div>
+              </div>
+            </sc-if>
+            <span style="font-size: 12px; color: #6F685D;">Trocar o plano deixa a assinatura em dia na hora.</span>
+          </div>
+        </section>
+
+        <section aria-labelledby="dono-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 18px 20px 10px; display: flex; flex-direction: column;">
+          <h2 id="dono-t" style="margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Dono e conta</h2>
+          <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 10px;">
+            <div style="width: 38px; height: 38px; border-radius: 50%; background: #EFEBE3; color: #57524A; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;">CA</div>
+            <div style="display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 15px; font-weight: 600;">Carlos Almeida</span>
+              <span style="font-size: 12px; color: #6F685D;">último acesso hoje às 13:52</span>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; gap: 10px; min-height: 36px; align-items: center; font-size: 14px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">E-mail</span><span style="font-weight: 600;">[E-MAIL DO DONO]</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 10px; min-height: 36px; align-items: center; font-size: 14px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Telefone</span><span style="font-weight: 600;">[TELEFONE DO DONO]</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 10px; min-height: 36px; align-items: center; font-size: 14px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Link de agendamento</span><a href="Online-1-servico.dc.html" style="font-weight: 600; color: {{accentText}};">/barbearia-modelo</a></div>
+          <div style="display: flex; justify-content: space-between; gap: 10px; min-height: 36px; align-items: center; font-size: 14px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Endereço</span><span style="font-weight: 600;">[ENDEREÇO DA BARBEARIA]</span></div>
+          <div style="display: flex; justify-content: space-between; gap: 10px; min-height: 36px; align-items: center; font-size: 14px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Conta criada</span><span style="font-weight: 600;">29/03/2025 · configuração concluída</span></div>
+        </section>
+
+        <section aria-labelledby="acoes-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+          <h2 id="acoes-t" style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Ações</h2>
+
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: 600;">Entrar como o dono</span>
+              <span style="font-size: 12px; color: #6F685D;">Abre o painel dele por 30 min para dar suporte. Fica registrado.</span>
+            </div>
+            <button type="button" style="height: 38px; padding: 0 12px; flex-shrink: 0; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Entrar</button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid #F1EDE6;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: 600;">Dar mais prazo</span>
+              <span style="font-size: 12px; color: #6F685D;">Empurra o vencimento sem cobrar. Bom para quem pediu uns dias.</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <label style="flex-grow: 1; display: flex;">
+                <select aria-label="Quantos dias a mais" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 9px; border: 1px solid #D8D0C2; background: #FFFFFF; font-size: 13px; color: #1B1916;">
+                  <option>+7 dias · vence 19/10/2026</option><option>+15 dias · vence 27/10/2026</option><option>+30 dias · vence 11/11/2026</option>
+                </select>
+              </label>
+              <button type="button" style="height: 38px; padding: 0 12px; flex-shrink: 0; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Aplicar</button>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid #F1EDE6;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 14px; font-weight: 600; color: {{lockTitleColor}};">{{lockTitle}}</span>
+                <span style="font-size: 12px; color: #6F685D;">{{lockSub}}</span>
+              </div>
+              <button type="button" onClick="{{askLock}}" aria-expanded="{{confirmLock}}" style="height: 38px; padding: 0 12px; flex-shrink: 0; border-radius: 9px; border: {{lockBtnBorder}}; background: {{lockBtnBg}}; color: {{lockBtnFg}}; font-size: 13px; font-weight: 600; cursor: pointer;">{{lockBtn}}</button>
+            </div>
+            <sc-if value="{{confirmLock}}" hint-placeholder-val="{{false}}">
+              <div role="alertdialog" aria-label="Confirmar" style="display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 12px; background: {{confirmBg}}; border: {{confirmBorder}};">
+                <span style="font-size: 13px; color: {{confirmFg}};">{{confirmText}}</span>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" onClick="{{cancelLock}}" style="flex: 1 1 0; height: 38px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Cancelar</button>
+                  <button type="button" onClick="{{doLock}}" style="flex: 1 1 0; height: 38px; border-radius: 9px; border: 0; background: {{confirmBtnBg}}; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer;">{{confirmBtn}}</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":1440,"height":1540}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { plan: 'ELITE', method: 'pix', showPay: true, showLink: false, copied: false, confirmLock: false, blocked: false };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const accentSoft = mix(accent, 255, 0.9);
+    const accentText = mix(accent, 0, 0.35);
+    const accentOnDark = mix(accent, 255, 0.35);
+    const brl = (v) => 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    const blocked = this.state.blocked;
+
+    const kpis = [
+      { label: 'Mensalidade', value: 'R$ 265,70', sub: 'plano com IA · 4 barbeiros' },
+      { label: 'Já pagou no total', value: 'R$ 4.016,10', sub: '18 pagamentos · média R$ 223,12' },
+      { label: 'Atendimentos em setembro', value: '612', sub: 'R$ 34.370 em serviços' },
+      { label: 'Conversas da IA', value: '486', sub: '171 viraram agendamento' },
+      { label: 'Último acesso', value: 'Hoje, 13:52', sub: 'Carlos Almeida · dono' }
+    ];
+
+    const methodDefs = [['pix', 'Pix'], ['cartao', 'Cartão'], ['dinheiro', 'Dinheiro ou TED']];
+    const methods = methodDefs.map(([id, label]) => {
+      const on = this.state.method === id;
+      return {
+        label, on,
+        bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A',
+        shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none',
+        pick: () => this.setState({ method: id })
+      };
+    });
+
+    const origins = { mp: ['Mercado Pago', accentSoft, accentText], manual: ['Manual', '#EFEBE3', '#57524A'] };
+    const sts = { pago: ['Pago', '#E8F4EC', '#1D6B40'], recusado: ['Recusado', '#FBECEA', '#9B2C22'] };
+    const payments = [
+      ['12/09/2026', '09:02', 265.70, 'Cartão', '—', 'mp', 'pago'],
+      ['12/08/2026', '09:01', 265.70, 'Cartão', '—', 'mp', 'pago'],
+      ['12/07/2026', '09:03', 265.70, 'Cartão', '—', 'mp', 'pago'],
+      ['13/06/2026', '10:47', 231.80, 'Pix', 'Cartão recusado, pagou por Pix', 'manual', 'pago'],
+      ['12/06/2026', '09:02', 231.80, 'Cartão', 'Saldo insuficiente', 'mp', 'recusado'],
+      ['12/05/2026', '09:01', 231.80, 'Cartão', '—', 'mp', 'pago'],
+      ['12/04/2026', '09:02', 231.80, 'Cartão', '—', 'mp', 'pago'],
+      ['12/03/2026', '09:00', 231.80, 'Cartão', '—', 'mp', 'pago']
+    ].map(([date, time, v, method, note, origin, st]) => ({
+      date, time, method, note,
+      value: brl(v),
+      valueColor: st === 'recusado' ? '#8A8378' : '#1B1916',
+      origin: origins[origin][0], originBg: origins[origin][1], originFg: origins[origin][2],
+      status: sts[st][0], stBg: sts[st][1], stFg: sts[st][2]
+    }));
+
+    const usageRaw = [['abr', 1020], ['mai', 1064], ['jun', 1041], ['jul', 1108], ['ago', 1152], ['set', 612]];
+    const usage = usageRaw.map(([label, v], i) => ({
+      label,
+      value: v.toLocaleString('pt-BR'),
+      h: Math.round((v / 1152) * 104) + 'px',
+      bg: i === usageRaw.length - 1 ? accent : '#1B1916',
+      fg: i === usageRaw.length - 1 ? accentText : '#8A8378'
+    }));
+
+    const counts = [
+      { label: 'Barbeiros', value: '4 · 2 inclusos + 2 extras' },
+      { label: 'Serviços cadastrados', value: '7' },
+      { label: 'Produtos', value: '12' },
+      { label: 'Clientes', value: '1.284' },
+      { label: 'Assinantes do clube', value: '57 · R$ 6.840/mês' },
+      { label: 'Agendamentos desde o início', value: '17.862' }
+    ];
+
+    const extras = 67.80;
+    const planDefs = [
+      ['ELITE', 'Gestão + Atendente de IA', 197.90, 'IA atende no WhatsApp e agenda'],
+      ['PRO', 'Gestão', 154.90, 'sem atendente de IA']
+    ];
+    const current = 'ELITE';
+    const sel = planDefs.find((p) => p[0] === this.state.plan);
+    const plans = planDefs.map(([key, name, price, sub]) => {
+      const on = this.state.plan === key;
+      return {
+        name, on,
+        sub: key === current ? sub + ' · plano atual' : sub,
+        price: brl(price + extras),
+        bg: on ? accentSoft : '#FFFFFF',
+        border: on ? '1px solid ' + accent : '1px solid #E2DCD1',
+        ring: on ? '5px solid ' + accent : '1.5px solid #B9B0A1',
+        pick: () => this.setState({ plan: key })
+      };
+    });
+    const planChanged = this.state.plan !== current;
+    const currentDef = planDefs[0];
+
+    return {
+      accent, accentSoft, accentText, accentOnDark,
+      showPay: this.state.showPay,
+      showLink: this.state.showLink,
+      togglePay: () => this.setState({ showPay: !this.state.showPay }),
+      toggleLink: () => this.setState({ showLink: !this.state.showLink, copied: false }),
+      copyLink: () => this.setState({ copied: true }),
+      copyLabel: this.state.copied ? 'Copiado' : 'Copiar link',
+
+      statusLabel: blocked ? 'Bloqueada' : 'Em dia',
+      statusBg: blocked ? '#FBECEA' : '#E8F4EC',
+      statusFg: blocked ? '#9B2C22' : '#1D6B40',
+
+      kpis, methods, payments, usage, counts,
+
+      subLabel: blocked ? 'Cancelada' : 'Em dia',
+      subBg: blocked ? '#FBECEA' : '#E8F4EC',
+      subFg: blocked ? '#9B2C22' : '#1D6B40',
+      planName: currentDef[1],
+      planLine: 'Plano ' + currentDef[1],
+      planPrice: brl(currentDef[2]),
+      planTotal: brl(currentDef[2] + extras),
+      nextCharge: blocked ? 'suspensa' : '12/10/2026 · ' + brl(currentDef[2] + extras),
+      plans, planChanged,
+      changeNote: 'Passa para ' + sel[1] + ': ' + brl(sel[2] + extras) + ' por mês a partir da próxima cobrança. ' + (sel[0] === 'PRO' ? 'O atendente de IA para de responder no WhatsApp.' : ''),
+      resetPlan: () => this.setState({ plan: current }),
+
+      lockTitle: blocked ? 'Reativar acesso' : 'Bloquear acesso',
+      lockTitleColor: blocked ? '#1B1916' : '#9B2C22',
+      lockSub: blocked ? 'Barbearia sem acesso desde hoje, 14:18.' : 'Ninguém da barbearia entra mais no sistema.',
+      lockBtn: blocked ? 'Reativar' : 'Bloquear',
+      lockBtnBorder: blocked ? '1px solid #E2DCD1' : '1px solid #F0C8C2',
+      lockBtnBg: blocked ? '#FFFFFF' : '#FBECEA',
+      lockBtnFg: blocked ? '#1B1916' : '#9B2C22',
+      confirmLock: this.state.confirmLock,
+      askLock: () => this.setState({ confirmLock: !this.state.confirmLock }),
+      cancelLock: () => this.setState({ confirmLock: false }),
+      doLock: () => this.setState({ blocked: !blocked, confirmLock: false }),
+      confirmText: blocked
+        ? 'Reativar a Barbearia Modelo? O acesso volta na hora e a assinatura fica em dia.'
+        : 'Bloquear a Barbearia Modelo? Carlos e os 4 barbeiros perdem o acesso e a assinatura é marcada como cancelada. Agendamento online e IA param.',
+      confirmBg: blocked ? '#E8F4EC' : '#FBECEA',
+      confirmBorder: blocked ? '1px solid #CBE5D4' : '1px solid #F0C8C2',
+      confirmFg: blocked ? '#1D6B40' : '#9B2C22',
+      confirmBtn: blocked ? 'Sim, reativar' : 'Sim, bloquear',
+      confirmBtnBg: blocked ? '#1D6B40' : '#B42318'
+    };
+  }
+}
+</script>
+</body>
+</html>

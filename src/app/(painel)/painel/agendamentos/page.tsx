@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Calendar, CreditCard, Phone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package, ExternalLink } from "lucide-react";
+import { Calendar, CreditCard, Phone, X, Lock, Trash2, Plus, Minus, List, LayoutGrid, ChevronLeft, ChevronRight, AlertTriangle, Edit3, Package, ExternalLink, UserCheck } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 import { ConfirmDialog, AlertDialog } from "@/components/ui/ConfirmDialog";
+import WaitlistPanelButton from "@/components/booking/WaitlistPanelButton";
 
 /* ─── Tipos ─── */
 interface AppointmentServiceItem {
@@ -14,6 +15,8 @@ interface AppointmentServiceItem {
 interface Appointment {
   id: string; startTime: string; endTime: string; status: string; price: number; date: string;
   paymentMethod: string | null;
+  tipAmount?: number;
+  arrivedAt?: string | null;
   client: { name: string; phone: string };
   service: { id: string; name: string; duration: number } | null;
   services: AppointmentServiceItem[];
@@ -64,20 +67,24 @@ function durationHeight(start: string, end: string) { return ((toMin(end) - toMi
 function localDateStr(d = new Date()) {
   return new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(d);
 }
+function arrivedLabel(iso: string) {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+}
 function getInitials(name: string) { return name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase(); }
 
 /* ─── Modal de pagamento (com edição de serviços) ─── */
 function PaymentModal({
-  appt, services, products, discountSettings, onConfirm, onUpdateServices, onDelete, onReopen, onClose
+  appt, services, products, discountSettings, onConfirm, onUpdateServices, onDelete, onReopen, onToggleArrived, onClose
 }: {
   appt: Appointment;
   services: any[];
   products: { id: string; name: string; price: number; stock: number }[];
   discountSettings: { servicesEnabled: boolean; servicesMax: number };
-  onConfirm: (id: string, m: string, p: number, extraPrice?: number, extraPaymentMethod?: string, discountPercent?: number) => Promise<void>;
+  onConfirm: (id: string, m: string, p: number, extraPrice?: number, extraPaymentMethod?: string, discountPercent?: number, tipAmount?: number) => Promise<void>;
   onUpdateServices: (id: string, sids: string[]) => Promise<void>;
   onDelete: (id: string) => void;
   onReopen: (id: string) => Promise<void>;
+  onToggleArrived: (appt: Appointment) => Promise<void>;
   onClose: () => void
 }) {
   const { token } = useAuthStore();
@@ -109,7 +116,7 @@ function PaymentModal({
   const [planServiceIds] = useState<string[]>(() =>
     appt.subscription?.plan?.planServices?.map((ps: any) => ps.serviceId) ?? []
   );
-  const [tip, setTip] = useState("");
+  const [tip, setTip] = useState(appt.tipAmount ? String(appt.tipAmount) : "");
   const [discountPercent, setDiscountPercent] = useState<number>(
     (appt.subscription?.status === "ACTIVE" && (appt.subscription?.plan as any)?.extraDiscount > 0)
       ? (appt.subscription?.plan as any).extraDiscount
@@ -129,9 +136,13 @@ function PaymentModal({
   const extraServiceIds = isActiveSub ? selectedServiceIds.filter(id => !planServiceIds.includes(id)) : [];
   const extraServices = services.filter(s => extraServiceIds.includes(s.id));
   const calculatedExtraPrice = extraServices.reduce((sum, s) => sum + s.price, 0);
-  const tipAmount = Number(tip) || 0;
+  // Gorjeta vai 100% para o barbeiro: é gravada à parte (tipAmount), nunca somada ao
+  // preço do serviço — senão entraria no faturamento e na base de comissão.
+  const tipAmount = Math.max(0, Number(tip) || 0);
   const discountedExtraPrice = calculatedExtraPrice * (1 - discountPercent / 100);
-  const totalExtraToCharge = discountedExtraPrice + tipAmount;
+  const totalExtraToCharge = discountedExtraPrice;
+  // Assinante sem extra só precisa escolher a forma de pagamento se deixou gorjeta.
+  const subNeedsMethod = totalExtraToCharge > 0 || tipAmount > 0;
   const discountedTotalPrice = totalPrice * (1 - discountPercent / 100);
 
   return (
@@ -167,6 +178,16 @@ function PaymentModal({
         <div className="px-5 py-4 overflow-y-auto">
           {mode === "payment" ? (
             <>
+              {(appt.status === "CONFIRMED" || appt.status === "PENDING") && (
+                <button
+                  onClick={() => onToggleArrived(appt)}
+                  className={`w-full mb-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
+                    appt.arrivedAt ? "bg-green-50 border-green-200 text-green-700" : "bg-white border-zinc-200 text-zinc-700 hover:border-green-300"
+                  }`}>
+                  <UserCheck className="w-4 h-4" />
+                  {appt.arrivedAt ? `Chegou às ${arrivedLabel(appt.arrivedAt)} · desfazer` : "Cliente chegou"}
+                </button>
+              )}
               <div className="bg-zinc-50 rounded-xl p-3 mb-4 text-sm relative group">
                 <p className="font-semibold text-zinc-900">{appt.client.name}</p>
                 <p className="text-zinc-500 pr-8">
@@ -241,22 +262,9 @@ function PaymentModal({
                       </div>
                     </div>
                   )}
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-700 mb-1.5">Gorgeta <span className="font-normal text-zinc-400">(opcional)</span></p>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">R$</span>
-                      <input
-                        type="number" min="0" step="0.01"
-                        value={tip}
-                        onChange={(e) => setTip(e.target.value)}
-                        placeholder="0,00"
-                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-                      />
-                    </div>
-                  </div>
-                  {totalExtraToCharge > 0 && (
+                  {subNeedsMethod && (
                     <>
-                      <h3 className="font-semibold text-zinc-900 text-center">Como pagou {formatCurrency(totalExtraToCharge)}?</h3>
+                      <h3 className="font-semibold text-zinc-900 text-center">Como pagou {formatCurrency(totalExtraToCharge + tipAmount)}?</h3>
                       <div className="grid grid-cols-2 gap-2">
                         {PAYMENT_OPTIONS.filter(o => o.value !== "SUBSCRIPTION").map(({ value, label }) => (
                           <button key={value} onClick={() => setSel(value)}
@@ -314,6 +322,26 @@ function PaymentModal({
                   </div>
                 </>
               )}
+
+              {/* Gorjeta — 100% do barbeiro, fora do faturamento e da comissão */}
+              <div className="pt-3 border-t border-zinc-100 mt-3">
+                <p className="text-sm font-semibold text-zinc-700 mb-1.5">
+                  Gorjeta para {appt.barber.user.name.split(" ")[0]} <span className="font-normal text-zinc-400">(opcional)</span>
+                </p>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">R$</span>
+                  <input
+                    type="number" min="0" step="0.01" inputMode="decimal"
+                    value={tip}
+                    onChange={(e) => setTip(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                </div>
+                {tipAmount > 0 && (
+                  <p className="text-xs text-zinc-500 mt-1">Vai inteira para o profissional, no acerto das comissões.</p>
+                )}
+              </div>
 
               {/* Produtos vendidos */}
               {products.length > 0 && (
@@ -444,9 +472,9 @@ function PaymentModal({
                         ));
                       }
                       if (isActiveSub) {
-                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? (sel ?? "CASH") : undefined, discountPercent > 0 ? discountPercent : undefined);
+                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, subNeedsMethod ? (sel ?? "CASH") : undefined, discountPercent > 0 ? discountPercent : undefined, tipAmount);
                       } else {
-                        await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", totalPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined);
+                        await onConfirm(appt.id, sel ?? appt.paymentMethod ?? "CASH", totalPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined, tipAmount);
                       }
                       setSaving(false);
                       onClose();
@@ -463,7 +491,7 @@ function PaymentModal({
                   <button
                     onClick={async () => {
                       if (!isActiveSub && !sel) return;
-                      if (isActiveSub && totalExtraToCharge > 0 && !sel) return;
+                      if (isActiveSub && subNeedsMethod && !sel) return;
                       setSaving(true);
                       const toSell = Object.entries(qtys).filter(([, q]) => q > 0);
                       if (toSell.length > 0) {
@@ -476,14 +504,14 @@ function PaymentModal({
                         ));
                       }
                       if (isActiveSub) {
-                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, totalExtraToCharge > 0 ? sel! : undefined, discountPercent > 0 ? discountPercent : undefined);
+                        await onConfirm(appt.id, "SUBSCRIPTION", 0, totalExtraToCharge > 0 ? totalExtraToCharge : undefined, subNeedsMethod ? sel! : undefined, discountPercent > 0 ? discountPercent : undefined, tipAmount);
                       } else {
-                        await onConfirm(appt.id, sel!, totalPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined);
+                        await onConfirm(appt.id, sel!, totalPrice, undefined, undefined, discountPercent > 0 ? discountPercent : undefined, tipAmount);
                       }
                       setSaving(false);
                       onClose();
                     }}
-                    disabled={((!isActiveSub && !sel) || (isActiveSub && totalExtraToCharge > 0 && !sel) || saving)}
+                    disabled={((!isActiveSub && !sel) || (isActiveSub && subNeedsMethod && !sel) || saving)}
                     className="flex-[1.5] py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-bold active:scale-95 transition-all shadow-md disabled:opacity-40"
                   >
                     {saving ? "Salvando..." : "Confirmar"}
@@ -974,7 +1002,7 @@ export default function AgendamentosPage() {
   }
 
   /* Ações */
-  async function updateStatus(id: string, status: string, paymentMethod?: string, price?: number, extraPrice?: number, extraPaymentMethod?: string, discountPercent?: number) {
+  async function updateStatus(id: string, status: string, paymentMethod?: string, price?: number, extraPrice?: number, extraPaymentMethod?: string, discountPercent?: number, tipAmount?: number) {
     // Optimistic update: muda o card imediatamente sem esperar a API
     const prev = appointments;
     setAppointments(cur =>
@@ -995,6 +1023,8 @@ export default function AgendamentosPage() {
         ...(extraPrice !== undefined ? { extraPrice } : {}),
         ...(extraPaymentMethod ? { extraPaymentMethod } : {}),
         ...(discountPercent !== undefined && discountPercent > 0 ? { discountPercent } : {}),
+        // Assinante paga a gorjeta pela forma escolhida na comanda (extraPaymentMethod)
+        ...(tipAmount !== undefined ? { tipAmount, tipPaymentMethod: extraPaymentMethod ?? paymentMethod } : {}),
       }),
     });
 
@@ -1005,6 +1035,20 @@ export default function AgendamentosPage() {
       alert(err?.error ?? "Erro ao atualizar agendamento. Verifique sua conexão e tente novamente.");
       load();
     }
+  }
+
+  // Check-in ("Chegou"): marca/desmarca a hora em que o cliente chegou.
+  async function toggleArrived(appt: Appointment) {
+    const arrived = !appt.arrivedAt;
+    const optimistic = arrived ? new Date().toISOString() : null;
+    setAppointments(cur => cur.map(a => a.id === appt.id ? { ...a, arrivedAt: optimistic } : a));
+    setModalAppt(m => m && m.id === appt.id ? { ...m, arrivedAt: optimistic } : m);
+    const res = await fetch("/api/barbershop/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: appt.id, arrived }),
+    });
+    if (!res.ok) load();
   }
 
   async function handleBloqueio(data: { barberId: string; startTime: string; endTime: string; reason: string }) {
@@ -1139,7 +1183,8 @@ export default function AgendamentosPage() {
       {/* Modais */}
       {modalAppt && (
         <PaymentModal appt={modalAppt} services={services} products={products} discountSettings={discountSettings}
-          onConfirm={async (id, m, p, extraPrice, extraPaymentMethod, discountPercent) => { await updateStatus(id, "DONE", m, p, extraPrice, extraPaymentMethod, discountPercent); }}
+          onConfirm={async (id, m, p, extraPrice, extraPaymentMethod, discountPercent, tipAmount) => { await updateStatus(id, "DONE", m, p, extraPrice, extraPaymentMethod, discountPercent, tipAmount); }}
+          onToggleArrived={toggleArrived}
           onUpdateServices={async (id, sids) => {
             const res = await fetch("/api/barbershop/appointments", {
               method: "PATCH",
@@ -1284,6 +1329,7 @@ export default function AgendamentosPage() {
               <LayoutGrid className="w-4 h-4" />
             </button>
           </div>
+          <WaitlistPanelButton key={date} date={date} />
           <button onClick={() => setShowBloqueio(true)}
             className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100">
             <Lock className="w-3.5 h-3.5" />
@@ -1470,13 +1516,21 @@ export default function AgendamentosPage() {
                             width: `calc(${widthPct}% - 8px)`
                           }}
                           onClick={() => { if (didDrag.current) return; setModalAppt(a); }}>
-                          <p className={`text-xs font-bold truncate ${s.text}`}>{a.client.name}</p>
+                          <p className={`text-xs font-bold truncate ${s.text} flex items-center gap-1`}>
+                            {a.arrivedAt && (a.status === "CONFIRMED" || a.status === "PENDING") && (
+                              <UserCheck className="w-3 h-3 shrink-0 text-green-600" aria-label="Cliente chegou" />
+                            )}
+                            <span className="truncate">{a.client.name}</span>
+                          </p>
                           <div className="flex items-center justify-between gap-1">
                             <p className={`text-[10px] truncate opacity-80 flex-1 ${s.text}`}>
                               {a.services.length > 0 ? a.services.map(x => x.service.name).join(" + ") : a.service?.name}
                             </p>
                             <p className={`text-xs font-black shrink-0 ${s.text}`}>{formatCurrency(a.price)}</p>
                           </div>
+                          {(a.tipAmount ?? 0) > 0 && (
+                            <p className="text-[10px] font-bold text-green-700 truncate">+ {formatCurrency(a.tipAmount!)} gorjeta</p>
+                          )}
                           {a.beneficiaryName && (
                             <div className={`mt-0.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider ${s.text} opacity-70`}>
                               <CreditCard className="w-2.5 h-2.5" /> {a.beneficiaryName}
@@ -1486,11 +1540,20 @@ export default function AgendamentosPage() {
                             <p className={`text-[10px] opacity-60 mt-0.5 ${s.text}`}>{a.startTime} – {a.endTime}</p>
                           )}
                           {(a.status === "CONFIRMED" || a.status === "PENDING") && height > ROW_H * 6 && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setModalAppt(a); }}
-                              className="mt-1 text-xs bg-green-500 text-white px-2 py-0.5 rounded font-medium hover:bg-green-600">
-                              Concluir
-                            </button>
+                            <div className="mt-1 flex gap-1">
+                              {!a.arrivedAt && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleArrived(a); }}
+                                  className="text-xs bg-white border border-green-500 text-green-700 px-2 py-0.5 rounded font-medium hover:bg-green-50">
+                                  Chegou
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setModalAppt(a); }}
+                                className="text-xs bg-green-500 text-white px-2 py-0.5 rounded font-medium hover:bg-green-600">
+                                Concluir
+                              </button>
+                            </div>
                           )}
                           {a.status === "NO_SHOW" && height > ROW_H * 6 && (
                             <button
@@ -1567,6 +1630,11 @@ export default function AgendamentosPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-zinc-900">{a.client.name}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.bg} ${s.text}`}>{s.label}</span>
+                        {a.arrivedAt && (a.status === "CONFIRMED" || a.status === "PENDING") && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                            <UserCheck className="w-3 h-3" />Chegou {arrivedLabel(a.arrivedAt)}
+                          </span>
+                        )}
                         {a.subscription && (
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                             <CreditCard className="w-3 h-3" />{a.subscription.plan.name}
@@ -1577,13 +1645,22 @@ export default function AgendamentosPage() {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-sm font-bold text-zinc-900">{formatCurrency(a.price)}</p>
+                      {(a.tipAmount ?? 0) > 0 && <p className="text-xs font-semibold text-green-700">+ {formatCurrency(a.tipAmount!)} gorjeta</p>}
                       {a.paymentMethod && <p className="text-xs text-zinc-400">{METHOD_LABELS[a.paymentMethod]}</p>}
                       {(a.status === "CONFIRMED" || a.status === "PENDING") && (
                         <div className="flex flex-col items-end gap-1 mt-1">
-                          <button onClick={() => setModalAppt(a)}
-                            className="text-xs bg-green-500 text-white px-2.5 py-1 rounded-lg font-medium hover:bg-green-600">
-                            Concluir
-                          </button>
+                          <div className="flex gap-1">
+                            {!a.arrivedAt && (
+                              <button onClick={() => toggleArrived(a)}
+                                className="text-xs border border-green-500 text-green-700 px-2.5 py-1 rounded-lg font-medium hover:bg-green-50">
+                                Chegou
+                              </button>
+                            )}
+                            <button onClick={() => setModalAppt(a)}
+                              className="text-xs bg-green-500 text-white px-2.5 py-1 rounded-lg font-medium hover:bg-green-600">
+                              Concluir
+                            </button>
+                          </div>
                           <button onClick={() => updateStatus(a.id, "NO_SHOW")}
                             className="text-xs text-red-500 hover:text-red-700 underline underline-offset-2">
                             Faltou

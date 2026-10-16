@@ -8,6 +8,7 @@ import { getEntitlements } from "@/lib/entitlements";
 import { sendWhatsAppNotification, notifyBarberNewAppointment, welcomeMessage } from "@/lib/notifications";
 import { phoneVariants } from "@/lib/phone";
 import { findClientOverlap, clientOverlapMessage } from "@/lib/appointments";
+import { markWaitlistBooked } from "@/lib/waitlist";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     if (ids.length === 0) return NextResponse.json({ error: "Serviço inválido" }, { status: 404 });
 
     const foundServices = await prisma.service.findMany({
-      where: { id: { in: ids }, barbershopId: shop.id, active: true },
+      where: { id: { in: ids }, barbershopId: shop.id, active: true, onlineBooking: true },
     });
     if (foundServices.length !== ids.length) {
       return NextResponse.json({ error: "Serviço inválido" }, { status: 404 });
@@ -241,6 +242,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       time: startTime,
       isSubscriber: !!validSubscriptionId,
     }).catch(console.error);
+
+    // Quem estava na lista de espera desse dia e conseguiu a vaga sai da fila.
+    void markWaitlistBooked({ barbershopId: shop.id, phone: clientPhone, date });
 
     return NextResponse.json({ appointment, message: "Agendamento confirmado!" }, { status: 201 });
   } catch (e) {

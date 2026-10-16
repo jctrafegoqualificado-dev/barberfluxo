@@ -11,6 +11,7 @@ const ServiceSchema = z.object({
   imageUrl: z.string().url("URL inválida").optional().nullable(),
   commission: z.number().min(0).max(100).optional().nullable(),
   materialCost: z.number().min(0).optional(),
+  onlineBooking: z.boolean().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       const msg = parsed.error.errors[0]?.message ?? "Dados inválidos";
       return NextResponse.json({ error: msg }, { status: 400 });
     }
-    const { name, description, price, duration, imageUrl, commission, materialCost } = parsed.data;
+    const { name, description, price, duration, imageUrl, commission, materialCost, onlineBooking } = parsed.data;
     const service = await prisma.service.create({
       data: {
         name,
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
         imageUrl: imageUrl ?? null,
         commission: commission ?? null,
         materialCost: materialCost ?? 0,
+        onlineBooking: onlineBooking ?? true,
         barbershopId,
       },
     });

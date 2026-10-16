@@ -133,7 +133,10 @@ export async function GET(req: NextRequest) {
 
       const totalComissao = comissaoAvulso + comissaoAssinatura + comissaoProdutos;
       const totalVales = vales.reduce((s, v) => s + v.amount, 0);
-      const liquidoAPagar = Math.max(0, comissaoAvulso + comissaoProdutos - totalVales);
+      // Gorjeta é 100% do barbeiro (avulsos e assinantes) e vai junto no acerto avulso.
+      const gorjetaAppts = [...avulsos, ...subAppointments].filter((a) => (a.tipAmount ?? 0) > 0);
+      const totalGorjetas = gorjetaAppts.reduce((s, a) => s + a.tipAmount, 0);
+      const liquidoAPagar = Math.max(0, comissaoAvulso + comissaoProdutos + totalGorjetas - totalVales);
       const liquidoAssinatura = comissaoAssinatura;
 
       let promoters = 0;
@@ -189,6 +192,10 @@ export async function GET(req: NextRequest) {
           vendas: productSales.length,
           faturado: totalProdutos,
           comissao: comissaoProdutos,
+        },
+        gorjetas: {
+          quantidade: gorjetaAppts.length,
+          total: totalGorjetas,
         },
         totalComissao,
         totalVales,

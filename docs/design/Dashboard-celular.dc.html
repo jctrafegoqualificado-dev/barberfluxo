@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button { font-family: inherit; }
+  </style>
+</helmet>
+<div style="position: relative; width: 390px; height: 2400px; box-sizing: border-box; background: #F5F3EE; overflow: hidden;">
+  <div style="box-sizing: border-box; padding: 16px 16px 110px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; align-items: center; gap: 10px; height: 48px;">
+      <div style="width: 36px; height: 36px; border-radius: 9px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+      </div>
+      <span style="flex-grow: 1; font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; font-weight: 700;">Barbearia Modelo</span>
+      <button type="button" aria-label="Notificações, 3 novas" style="position: relative; width: 44px; height: 44px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; display: flex; align-items: center; justify-content: center;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+        <span style="position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: {{accent}}; border: 2px solid #FFFFFF;"></span>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <span style="font-size: 14px; color: #6F685D;">Quarta, 16 de setembro</span>
+      <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em;">Bom dia, Carlos</h1>
+    </div>
+
+    <section aria-label="Próximo cliente" style="background: #1B1916; color: #FFFFFF; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #C9C2B6;">Próximo cliente</span>
+        <span style="height: 24px; padding: 0 9px; border-radius: 12px; background: {{accent}}; color: #FFFFFF; font-size: 12px; font-weight: 600; display: flex; align-items: center;">em 12 min</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700;">14:30</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 600;">Rafael Moura</span>
+      </div>
+      <span style="font-size: 14px; color: #C9C2B6;">Corte + barba · com Diego · R$ 75,00</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 6px;">
+        <button type="button" style="height: 44px; border-radius: 10px; border: 0; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Chegou</button>
+        <button type="button" style="height: 44px; border-radius: 10px; border: 1px solid #3A352F; background: transparent; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Mensagem</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="m-prev-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 id="m-prev-t" style="margin: 0; font-size: 15px; font-weight: 600;">Previsão de hoje</h2>
+        <span style="font-size: 12px; color: #57524A;">Meta <strong style="color: #1B1916;">R$ 2.300</strong></span>
+      </div>
+      <div style="display: flex; align-items: flex-end; gap: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 12px; color: #57524A;">Se todos vierem</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;">R$ 2.100</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 3px;">
+          <span style="font-size: 12px; color: #57524A;">Realista</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 700; color: {{accentText}};">R$ 1.980</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; height: 12px; gap: 2px; border-radius: 6px; overflow: hidden; background: #EFEBE3;">
+          <div style="width: 49.6%; background: #1B1916;"></div>
+          <div style="width: 28.9%; background: {{accent}};"></div>
+          <div style="width: 12.8%; background: {{accentLight}};"></div>
+        </div>
+        <span style="font-size: 12px; color: #6F685D;">91% da meta · faltam R$ 200</span>
+      </div>
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 34px; border-top: 1px solid #F1EDE6;">
+          <span style="width: 10px; height: 10px; border-radius: 3px; background: #1B1916;"></span>
+          <span style="flex-grow: 1; font-size: 13px;">Já faturado <span style="color: #6F685D;">· 21</span></span>
+          <span style="font-size: 13px; font-weight: 600;">R$ 1.140</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 34px; border-top: 1px solid #F1EDE6;">
+          <span style="width: 10px; height: 10px; border-radius: 3px; background: {{accent}};"></span>
+          <span style="flex-grow: 1; font-size: 13px;">Confirmados <span style="color: #6F685D;">· 11</span></span>
+          <span style="font-size: 13px; font-weight: 600;">R$ 665</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 34px; border-top: 1px solid #F1EDE6;">
+          <span style="width: 10px; height: 10px; border-radius: 3px; background: {{accentLight}};"></span>
+          <span style="flex-grow: 1; font-size: 13px;">Sem confirmação <span style="color: #6F685D;">· 5</span></span>
+          <span style="font-size: 13px; font-weight: 600;">R$ 295</span>
+        </div>
+      </div>
+      <button type="button" style="height: 44px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Pedir confirmação aos 5 clientes</button>
+    </section>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600;">Resultados</h2>
+    </div>
+    <div role="group" aria-label="Período" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+      <sc-for list="{{periods}}" as="p" hint-placeholder-count="4">
+        <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="flex-grow: 1; flex-basis: 0; height: 36px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{p.bg}}; color: {{p.fg}}; box-shadow: {{p.shadow}};">{{p.label}}</button>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="5">
+        <div style="grid-column: {{k.span}}; background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 13px; color: #57524A;">{{k.label}}</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 700; white-space: nowrap;">{{k.value}}</span>
+          <span style="font-size: 12px; font-weight: 700; color: {{k.deltaColor}};">{{k.delta}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <section aria-label="Faturamento por dia" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 600;">Faturamento por dia</span>
+          <span style="font-size: 12px; color: #6F685D;">1 a 16 de setembro</span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+          <span style="font-size: 12px; color: #6F685D;">Projeção</span>
+          <span style="font-size: 15px; font-weight: 700;">R$ 64.400</span>
+        </div>
+      </div>
+      <div style="height: 120px; display: flex; align-items: flex-end; gap: 5px; border-bottom: 1px solid #D8D0C2;">
+        <sc-for list="{{days}}" as="d" hint-placeholder-count="16">
+          <div style="flex-grow: 1; flex-basis: 0; height: {{d.h}}; background: {{d.fill}}; border-radius: 3px 3px 0 0;"></div>
+        </sc-for>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8A8378;">
+        <span>1</span><span>5</span><span>10</span><span>15</span><span style="color: #1B1916; font-weight: 700;">hoje</span>
+      </div>
+    </section>
+
+    <section aria-labelledby="m-ag-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px;">
+        <h2 id="m-ag-t" style="margin: 0; font-size: 15px; font-weight: 600;">Próximos horários</h2>
+        <a href="#" style="font-size: 13px; font-weight: 600; color: #57524A;">Agenda</a>
+      </div>
+      <sc-for list="{{agenda}}" as="a" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid #F1EDE6; background: {{a.rowBg}};">
+          <span style="width: 42px; font-size: 14px; font-weight: 700; color: {{a.timeColor}};">{{a.time}}</span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 600;">{{a.client}}</span>
+            <span style="font-size: 12px; color: #6F685D;">{{a.detail}}</span>
+          </div>
+          <span style="height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 600; display: flex; align-items: center; white-space: nowrap; background: {{a.chipBg}}; color: {{a.chipFg}};">{{a.status}}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <section aria-labelledby="m-ass-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 4px;">
+        <h2 id="m-ass-t" style="margin: 0; font-size: 15px; font-weight: 600;">Assinaturas que vencem hoje</h2>
+        <a href="#" style="font-size: 13px; font-weight: 600; color: #57524A;">Ver</a>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 6px 16px 14px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">R$ 734</span>
+          <span style="font-size: 13px; color: #57524A;">em 6 assinaturas</span>
+        </div>
+        <div style="display: flex; height: 6px; gap: 2px; border-radius: 3px; overflow: hidden;">
+          <div style="width: 50%; background: #1F9D5A;"></div>
+          <div style="width: 32.4%; background: #D8D0C2;"></div>
+          <div style="width: 17.6%; background: #C2362B;"></div>
+        </div>
+        <span style="font-size: 12px; color: #57524A;">3 pagas · 2 aguardando · 1 recusada</span>
+      </div>
+      <sc-for list="{{subs}}" as="s" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid #F1EDE6; min-height: 44px;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 600;">{{s.name}}</span>
+            <span style="font-size: 12px; color: #6F685D;">{{s.plan}} · <span style="color: {{s.noteColor}}; font-weight: 600;">{{s.note}}</span></span>
+          </div>
+          <button type="button" aria-label="{{s.aria}}" style="height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; white-space: nowrap;">{{s.action}}</button>
+        </div>
+      </sc-for>
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; border-top: 1px solid #EFEBE3;">
+        <button type="button" style="height: 44px; border-radius: 10px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Cobrar as 3 pelo WhatsApp</button>
+        <a href="#" style="font-size: 13px; font-weight: 600; color: #B42318; text-align: center;">3 já pagas · + 4 vencidas antes de hoje</a>
+      </div>
+    </section>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+      <div style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 13px; color: #57524A;">Assinaturas</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 700;">R$ 6.840</span>
+        <span style="font-size: 12px; color: #6F685D;">57 assinantes</span>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 13px; color: #57524A;">Ocupação</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 700;">72%</span>
+        <div style="height: 6px; border-radius: 3px; background: #EFEBE3; overflow: hidden;"><div style="width: 72%; height: 100%; background: #1B1916;"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <nav aria-label="Navegação principal" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 8px 12px 20px; background: #FFFFFF; border-top: 1px solid #E7E2D8; display: flex; align-items: center; justify-content: space-around;">
+    <a href="#" aria-current="page" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #1B1916; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Início
+    </a>
+    <a href="#" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>Agenda
+    </a>
+    <a href="#" aria-label="Novo agendamento" style="width: 52px; height: 52px; border-radius: 16px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; text-decoration: none;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+    </a>
+    <a href="#" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Caixa
+    </a>
+    <a href="#" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>Menu
+    </a>
+  </nav>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":390,"height":2400}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { period: 'month' };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+
+    const periods = [['today', 'Hoje'], ['7d', '7 dias'], ['30d', '30 dias'], ['month', 'Mês']].map(([key, label]) => {
+      const on = this.state.period === key;
+      return {
+        label, pressed: on,
+        bg: on ? '#FFFFFF' : 'transparent',
+        fg: on ? '#1B1916' : '#57524A',
+        shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none',
+        pick: () => this.setState({ period: key })
+      };
+    });
+
+    const values = [1980, 2410, 2150, 2890, 3960, 0, 1860, 2040, 2260, 2380, 3380, 3890, 0, 1720, 2310, 1140];
+    const days = values.map((v, i) => ({
+      h: (v === 0 ? 3 : Math.round(v / 4000 * 116)) + 'px',
+      fill: i === values.length - 1 ? accent : (v === 0 ? '#EAE5DC' : '#CFC6B7')
+    }));
+
+    const up = '#1D6B40', down = '#B42318';
+    const kpis = [
+      { label: 'Faturamento', value: 'R$ 34.370', delta: '↑ 12% vs agosto', deltaColor: up },
+      { label: 'Atendimentos', value: '612', delta: '↑ 8% vs agosto', deltaColor: up },
+      { label: 'Ticket médio', value: 'R$ 56,16', delta: '↑ 4% vs agosto', deltaColor: up },
+      { label: 'Clientes únicos', value: '398', delta: '↓ 3% vs agosto', deltaColor: down },
+      { label: 'Novas assinaturas', value: '+5 · R$ 645/mês', delta: '↑ 25% vs agosto (4 novas)', deltaColor: up, span: '1 / -1' }
+    ].map((k) => ({ span: 'auto', ...k }));
+
+    const st = {
+      now: { status: 'Agora', chipBg: accent, chipFg: '#FFFFFF' },
+      ok: { status: 'Confirmado', chipBg: '#E8F4EC', chipFg: '#1D6B40' },
+      wait: { status: 'Sem confirmação', chipBg: '#F5EEDC', chipFg: '#7A5A12' }
+    };
+    const agenda = [
+      ['14:30', 'Rafael Moura', 'Corte + barba · Diego', 'now'],
+      ['14:45', 'Lucas Pereira', 'Corte degradê · Anderson', 'ok'],
+      ['15:15', 'Bruno Santos', 'Barba · Diego', 'wait'],
+      ['15:30', 'Thiago Rocha', 'Corte + sobrancelha · Marcos', 'ok'],
+      ['16:00', 'João Vitor', 'Pigmentação · Anderson', 'wait']
+    ].map(([time, client, detail, s]) => ({
+      time, client, detail, ...st[s],
+      rowBg: s === 'now' ? mix(accent, 255, 0.92) : '#FFFFFF',
+      timeColor: s === 'now' ? mix(accent, 0, 0.25) : '#1B1916'
+    }));
+
+    const subs = [
+      ['Gabriel Torres', 'Corte + barba · R$ 149', 'Pix pendente', 'wait'],
+      ['Ricardo Alves', 'Corte mensal · R$ 89', 'paga no balcão', 'wait'],
+      ['Samuel Braga', 'Corte ilimitado · R$ 129', 'cartão recusado', 'failed']
+    ].map(([name, plan, note, st]) => ({
+      name, plan, note,
+      action: st === 'failed' ? 'Novo link' : 'Cobrar',
+      aria: (st === 'failed' ? 'Enviar novo link de pagamento para ' : 'Enviar cobrança para ') + name,
+      noteColor: st === 'failed' ? '#B42318' : '#7A5A12'
+    }));
+
+    return { accent, subs, accentLight: mix(accent, 255, 0.62), accentText: mix(accent, 0, 0.35), periods, days, kpis, agenda };
+  }
+}
+</script>
+</body>
+</html>

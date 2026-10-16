@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { onlyDigits, phoneVariants } from "@/lib/phone";
 import { findClientOverlap } from "@/lib/appointments";
+import { notifyWaitlistSlotOpened, markWaitlistBooked } from "@/lib/waitlist";
 
 export async function GET(req: NextRequest) {
   try {
@@ -252,6 +253,17 @@ export async function PATCH(req: NextRequest) {
     if (body.price !== undefined) updateData.price = body.price;
     if (extraPaymentMethod) updateData.extraPaymentMethod = extraPaymentMethod;
 
+    // Check-in ("Chegou"): true marca a hora de chegada, false desfaz.
+    if (typeof body.arrived === "boolean") updateData.arrivedAt = body.arrived ? new Date() : null;
+
+    // Gorjeta: 100% do barbeiro, fora do faturamento e da base de comissão.
+    if (body.tipAmount !== undefined) {
+      const tip = Math.max(0, Math.round(Number(body.tipAmount) * 100) / 100);
+      if (!Number.isFinite(tip)) return NextResponse.json({ error: "Gorjeta inválida" }, { status: 400 });
+      updateData.tipAmount = tip;
+      updateData.tipPaymentMethod = tip > 0 ? (body.tipPaymentMethod || paymentMethod || null) : null;
+    }
+
     // Aplica desconto se informado:
     // - Para assinante: o front já envia extraPrice descontado; aqui só salvamos discountPercent
     // - Para não-assinante: aplicamos o desconto sobre o price atual do appointment
@@ -364,6 +376,11 @@ export async function PATCH(req: NextRequest) {
           });
         }
       }
+    }
+
+    // ── Lista de espera: cancelamento abre vaga ──
+    if (status === "CANCELLED" && previousState.status !== "CANCELLED" && previousState.status !== "DONE") {
+      void notifyWaitlistSlotOpened({ barbershopId, date: appointment.date, barberId: appointment.barberId, startTime: appointment.startTime });
     }
 
     // ── Audit: mudança de status ──
@@ -678,6 +695,9 @@ export async function POST(req: NextRequest) {
       createdByUserId: payload.id,
     });
 
+    // Quem estava na lista de espera desse dia e foi encaixado sai da fila.
+    void markWaitlistBooked({ barbershopId, phone: clientPhone, date });
+
     return NextResponse.json({ appointment }, { status: 201 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
@@ -735,6 +755,11 @@ export async function DELETE(req: NextRequest) {
     await prisma.appointment.delete({
       where: { id },
     });
+
+    // Excluir um horário que ainda ia acontecer também abre vaga para a lista de espera.
+    if (appt.status === "CONFIRMED" || appt.status === "PENDING") {
+      void notifyWaitlistSlotOpened({ barbershopId: appt.barbershopId, date: appt.date, barberId: appt.barberId, startTime: appt.startTime });
+    }
 
     // ── Audit: exclusão de agendamento ──
     void logAudit({

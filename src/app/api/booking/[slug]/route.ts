@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     const shop = await prisma.barbershop.findUnique({
       where: { slug, active: true },
       include: {
-        services: { where: { active: true }, orderBy: { name: "asc" } },
+        services: { where: { active: true, onlineBooking: true }, orderBy: { name: "asc" } },
         barbers: { where: { active: true }, include: { user: { select: { name: true } } } },
         openingHours: { orderBy: { dayOfWeek: "asc" } },
       },

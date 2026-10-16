@@ -17,6 +17,7 @@ interface BarberComissao {
   avulso: { atendimentos: number; faturado: number; comissao: number; items: { date: string; clientName: string; serviceName: string; price: number }[] };
   assinatura: { servicos: number; ticketMedio: number; comissao: number; items: { date: string; clientName: string; serviceName: string; price: number }[] };
   produtos: { vendas: number; faturado: number; comissao: number };
+  gorjetas: { quantidade: number; total: number };
   totalComissao: number;
   totalVales: number;
   liquidoAPagar: number;
@@ -312,13 +313,18 @@ function BarberCard({ barber, monthKey, monthOffset, activeTab, onSave, onPay, o
                     <p className="text-base font-black text-zinc-800">{formatCurrency(barber.liquidoAPagar)}</p>
                     {barber.assinatura.comissao > 0 && (
                       <p className="text-[10px] text-zinc-400 mt-0.5">
-                        Total c/ assinaturas: <span className="font-semibold text-zinc-600">{formatCurrency(barber.totalComissao - barber.totalVales)}</span>
+                        Total c/ assinaturas: <span className="font-semibold text-zinc-600">{formatCurrency(barber.totalComissao + barber.gorjetas.total - barber.totalVales)}</span>
                       </p>
                     )}
                   </div>
-                  {barber.totalVales > 0 && (
-                    <p className="text-[10px] text-red-500 font-bold">− {formatCurrency(barber.totalVales)} Vales</p>
-                  )}
+                  <div className="text-right space-y-0.5">
+                    {barber.gorjetas.total > 0 && (
+                      <p className="text-[10px] text-green-600 font-bold">+ {formatCurrency(barber.gorjetas.total)} Gorjetas</p>
+                    )}
+                    {barber.totalVales > 0 && (
+                      <p className="text-[10px] text-red-500 font-bold">− {formatCurrency(barber.totalVales)} Vales</p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setShowValeForm(true)} disabled={showValeForm}
@@ -595,12 +601,12 @@ export default function ComissoesPage() {
     : barbers.reduce((s, b) => s + (b.subPaid ? b.subPaid.amount : 0), 0);
 
   async function exportCSV() {
-    let csv = "Barbeiro,Total Recebido,Total Vales,Liquido Pago\n";
+    let csv = "Barbeiro,Total Recebido,Gorjetas,Total Vales,Liquido Pago\n";
     barbers.forEach(b => {
       const recebido = b.avulso.comissao + b.produtos.comissao + b.assinatura.comissao;
       const vales = b.totalVales;
       const pago = b.liquidoAPagar + b.liquidoAssinatura;
-      csv += `${b.name},${recebido.toFixed(2)},${vales.toFixed(2)},${pago.toFixed(2)}\n`;
+      csv += `${b.name},${recebido.toFixed(2)},${b.gorjetas.total.toFixed(2)},${vales.toFixed(2)},${pago.toFixed(2)}\n`;
     });
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);

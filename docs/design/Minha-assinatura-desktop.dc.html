@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input, select { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1380px; box-sizing: border-box; display: flex; background: #F5F3EE;">
+  <!-- ============ SIDEBAR ============ -->
+  <aside style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #171512; color: #A8A196; display: flex; flex-direction: column; padding: 20px 14px; gap: 18px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 6px;">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+      </div>
+      <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF; white-space: nowrap;">Barbearia Modelo</span>
+        <span style="font-size: 12px; color: #A8A196;">Plano Pro · ativo</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: 10px; background: #221F1B; border: 1px solid #2E2A25;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A8A196;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>Caixa aberto</span>
+        <span style="font-size: 17px; font-weight: 600; color: #FFFFFF;">R$ 1.140,00</span>
+      </div>
+      <button type="button" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #3A352F; background: transparent; color: #E9E4DA; font-size: 12px; font-weight: 600; cursor: pointer;">Fechar</button>
+    </div>
+
+    <nav aria-label="Menu principal" style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <a href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <span style="display: flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg></span>
+          <span style="flex-grow: 1;">Início</span>
+        </a>
+        <a href="Agenda-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span style="flex-grow: 1;">Agenda</span>
+          <span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #2E2A25; color: #E9E4DA; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">38</span>
+        </a>
+        <a href="WhatsApp-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+          <span style="flex-grow: 1;">WhatsApp</span>
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>
+        </a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Clientes</span>
+        <a href="Clientes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Clientes</a>
+        <a href="Assinantes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"></path><path d="M5 21h14"></path></svg>Assinantes</a>
+        <a href="Fidelidade-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"></circle><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"></path></svg>Fidelidade</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Catálogo</span>
+        <a href="Profissionais-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"></path></svg>Profissionais</a>
+        <a href="Servicos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>Serviços</a>
+        <a href="Produtos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.29 7 12 12l8.71-5"></path><path d="M12 22V12"></path></svg>Produtos</a>
+        <a href="Planos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path></svg>Planos</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Financeiro</span>
+        <a href="Caixa-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Fluxo de caixa</a>
+        <a href="Financeiro-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"></path><path d="M16 7h6v6"></path></svg>Fluxo &amp; POE</a>
+        <a href="Comissoes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>Comissões</a>
+        <a href="Indicadores-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>Indicadores</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Análises</span>
+        <a href="Ocupacao-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Ocupação</a>
+        <a href="Metas-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Metas</a>
+        <a href="Kanban-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7"></path><path d="M12 7v4"></path><path d="M16 7v9"></path></svg>Kanban</a>
+      </div>
+    </nav>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 14px; border-top: 1px solid #2E2A25;">
+      <a href="Meu-negocio-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"></path></svg>Meu negócio</a>
+      <a href="Config-geral-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"></path></svg>Configurações</a>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; border-radius: 10px; background: #221F1B;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #3A352F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0;">CA</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-size: 13px; font-weight: 600; color: #FFFFFF;">Carlos Almeida</span>
+          <span style="font-size: 12px; color: #A8A196;">Dono</span>
+        </div>
+        <button type="button" aria-label="Sair" style="width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: #A8A196; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></button>
+      </div>
+    </div>
+  </aside>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 18px;">
+
+    <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;">Minha assinatura</h1>
+        <span style="font-size: 14px; color: #6F685D;">O que a Barbearia Modelo paga pelo IA de Barbearia · sem fidelidade</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 3px 3px 3px 12px; border-radius: 12px; border: 1px dashed #B9B0A1;">
+          <span id="prev-l" style="font-size: 12px; color: #6F685D;">Prévia</span>
+          <div role="group" aria-labelledby="prev-l" style="display: flex; padding: 3px; gap: 2px; border-radius: 9px; background: #EAE6DD;">
+            <sc-for list="{{statuses}}" as="s" hint-placeholder-count="2">
+              <button type="button" onClick="{{s.pick}}" aria-pressed="{{s.on}}" style="height: 34px; padding: 0 12px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{s.bg}}; color: {{s.fg}}; box-shadow: {{s.shadow}}; cursor: pointer;">{{s.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <button type="button" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Falar com o suporte</button>
+      </div>
+    </header>
+
+    <!-- ============ BLOQUEADO ============ -->
+    <sc-if value="{{late}}" hint-placeholder-val="{{false}}">
+      <section role="alert" aria-labelledby="block-t" style="display: flex; align-items: center; gap: 18px; padding: 18px 20px; border-radius: 16px; background: #FBECEA; border: 1px solid #F1C9C4;">
+        <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: #B42318; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px;">
+          <h2 id="block-t" style="margin: 0; font-size: 17px; font-weight: 700; color: #9B2C22;">Acesso pausado: a mensalidade de 10 de setembro não foi paga</h2>
+          <span style="font-size: 14px; line-height: 1.5; color: #9B2C22;">Agenda, caixa e atendente de IA ficam pausados até o pagamento. Seus clientes e dados continuam guardados. Pagou, liberou na hora.</span>
+        </div>
+        <div style="display: flex; gap: 8px; flex-shrink: 0;">
+          <button type="button" style="height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; cursor: pointer;">Usar outro cartão</button>
+          <button type="button" style="height: 46px; padding: 0 18px; border-radius: 10px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;">Pagar R$ 265,70 com Pix</button>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- ============ RESUMO ============ -->
+    <div style="display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px;">
+
+      <section aria-labelledby="plano-t" style="border-radius: 16px; background: #1B1916; color: #FFFFFF; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #C9C2B6;">Seu plano</span>
+            <h2 id="plano-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Gestão + Atendente de IA</h2>
+          </div>
+          <span style="height: 26px; padding: 0 10px; border-radius: 13px; background: {{statusBg}}; color: {{statusFg}}; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap;"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{statusDot}};"></span>{{statusLabel}}</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 6px;">
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 40px; font-weight: 700; letter-spacing: -0.02em;">R$ 265,70</span>
+          <span style="font-size: 14px; color: #C9C2B6;">por mês · mensal</span>
+        </div>
+        <div style="display: flex; flex-direction: column; font-size: 14px;">
+          <div style="display: flex; justify-content: space-between; min-height: 32px; align-items: center; border-top: 1px solid #2E2A25;"><span style="color: #C9C2B6;">Plano com 2 barbeiros</span><span>R$ 197,90</span></div>
+          <div style="display: flex; justify-content: space-between; min-height: 32px; align-items: center; border-top: 1px solid #2E2A25;"><span style="color: #C9C2B6;">2 barbeiros extras × R$ 33,90</span><span>R$ 67,80</span></div>
+        </div>
+        <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #2A2723; font-size: 14px;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{chargeIcon}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span>{{chargeLine}}</span>
+        </div>
+      </section>
+
+      <section aria-labelledby="barb-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <h2 id="barb-t" style="margin: 0; font-size: 15px; font-weight: 600;">Barbeiros na conta</h2>
+          <span style="font-size: 13px; color: #6F685D;">2 inclusos · 2 extras</span>
+        </div>
+        <div style="display: flex; flex-direction: column;">
+          <sc-for list="{{barbers}}" as="b" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 42px; border-top: {{b.divider}};">
+              <span style="width: 30px; height: 30px; border-radius: 50%; background: #EFEBE3; color: #57524A; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">{{b.initials}}</span>
+              <span style="flex-grow: 1; font-size: 14px; font-weight: 600;">{{b.name}}</span>
+              <span style="height: 22px; padding: 0 8px; border-radius: 11px; background: {{b.tagBg}}; color: {{b.tagFg}}; font-size: 12px; font-weight: 600; display: flex; align-items: center;">{{b.tag}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <span style="margin-top: auto; font-size: 13px; line-height: 1.45; color: #57524A;">Entrou mais um? + R$ 33,90/mês. Saiu alguém? O valor cai na próxima cobrança.</span>
+        <a href="Profissional-desktop.dc.html" style="font-size: 13px; font-weight: 600; color: #57524A;">Ver profissionais</a>
+      </section>
+
+      <section aria-labelledby="pag-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+        <h2 id="pag-t" style="margin: 0; font-size: 15px; font-weight: 600;">Forma de pagamento</h2>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid {{cardBorder}}; background: {{cardBg}};">
+          <span style="width: 44px; height: 30px; border-radius: 6px; background: #1B1916; color: #FFFFFF; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">VISA</span>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 1px;">
+            <span style="font-size: 14px; font-weight: 600;">Cartão final 4412</span>
+            <span style="font-size: 12px; color: {{cardNoteColor}};">{{cardNote}}</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; font-size: 13px; color: #57524A;">
+          <div style="display: flex; justify-content: space-between; min-height: 34px; align-items: center; border-bottom: 1px solid #F1EDE6;"><span>Cobrança</span><span style="font-weight: 600; color: #1B1916;">automática, todo dia 10</span></div>
+          <div style="display: flex; justify-content: space-between; min-height: 34px; align-items: center;"><span>Também aceita</span><span style="font-weight: 600; color: #1B1916;">Pix e boleto</span></div>
+        </div>
+        <div style="margin-top: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <button type="button" style="height: 42px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Trocar cartão</button>
+          <button type="button" style="height: 42px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Pagar com Pix</button>
+        </div>
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6F685D;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>Pagamento processado pelo Mercado Pago</span>
+      </section>
+    </div>
+
+    <!-- ============ PLANOS + COBRANÇAS ============ -->
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 16px; align-items: start;">
+
+      <section aria-labelledby="troca-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; border-bottom: 1px solid #EFEBE3;">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <h2 id="troca-t" style="margin: 0; font-size: 17px; font-weight: 600;">Mudar de plano</h2>
+            <span style="font-size: 13px; color: #6F685D;">Sem multa e sem taxa. A mudança vale na próxima cobrança.</span>
+          </div>
+          <div role="group" aria-label="Forma de cobrança" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+            <sc-for list="{{cycles}}" as="c" hint-placeholder-count="2">
+              <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="height: 36px; padding: 0 14px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{c.bg}}; color: {{c.fg}}; box-shadow: {{c.shadow}}; display: flex; align-items: center; gap: 6px; cursor: pointer;">{{c.label}}<sc-if value="{{c.hasTag}}" hint-placeholder-val="{{false}}"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: #E8F4EC; color: #1D6B40; font-size: 11px; font-weight: 700; display: flex; align-items: center;">-10%</span></sc-if></button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 18px 22px;">
+          <sc-for list="{{plans}}" as="p" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 14px; border: {{p.border}}; background: {{p.bg}};">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 26px;">
+                <span style="font-size: 16px; font-weight: 700;">{{p.name}}</span>
+                <sc-if value="{{p.isCurrent}}" hint-placeholder-val="{{false}}"><span style="height: 24px; padding: 0 9px; border-radius: 12px; background: #1B1916; color: #FFFFFF; font-size: 12px; font-weight: 600; display: flex; align-items: center;">Seu plano</span></sc-if>
+              </div>
+              <span style="font-size: 13px; line-height: 1.45; color: #6F685D; min-height: 38px;">{{p.desc}}</span>
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="display: flex; align-items: baseline; gap: 6px;"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700;">{{p.price}}</span><span style="font-size: 13px; color: #6F685D;">/mês</span></span>
+                <span style="font-size: 12px; color: #57524A;">{{p.period}}</span>
+                <span style="font-size: 12px; font-weight: 600; color: {{p.extraColor}};">{{p.extra}}</span>
+              </div>
+              <ul style="margin: 0; padding: 12px 0 0; list-style: none; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #F1EDE6;">
+                <sc-for list="{{p.items}}" as="i" hint-placeholder-count="5">
+                  <li style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: {{i.fg}};"><svg style="flex-shrink: 0; color: {{i.icon}};" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>{{i.text}}</li>
+                </sc-for>
+              </ul>
+              <button type="button" onClick="{{p.choose}}" aria-disabled="{{p.isCurrent}}" style="margin-top: 4px; height: 44px; border-radius: 10px; border: {{p.ctaBorder}}; background: {{p.ctaBg}}; color: {{p.ctaFg}}; font-size: 14px; font-weight: 600; cursor: {{p.cursor}};">{{p.cta}}</button>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{hasChange}}" hint-placeholder-val="{{false}}">
+          <div aria-live="polite" style="margin: 0 22px 20px; padding: 16px 18px; border-radius: 14px; background: #F9F7F3; border: 1px solid #E7E2D8; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 3px;">
+                <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Resumo da mudança</span>
+                <span style="font-size: 15px; font-weight: 600;">{{chgTitle}}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                <span style="font-size: 13px; color: #6F685D; text-decoration: line-through;">R$ 265,70/mês</span>
+                <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">{{chgPrice}}</span>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.5; color: #57524A;">
+              <span>{{chgWhen}}</span>
+              <span style="font-weight: 600; color: {{chgNoteColor}};">{{chgNote}}</span>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+              <button type="button" onClick="{{clearChange}}" style="height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; cursor: pointer;">Manter como está</button>
+              <button type="button" style="height: 42px; padding: 0 18px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;">Confirmar mudança</button>
+            </div>
+          </div>
+        </sc-if>
+      </section>
+
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <section aria-labelledby="fat-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 18px 20px 10px;">
+            <h2 id="fat-t" style="margin: 0; font-size: 15px; font-weight: 600;">Cobranças</h2>
+            <span style="font-size: 12px; color: #6F685D;">últimos 6 meses</span>
+          </div>
+          <sc-for list="{{invoices}}" as="f" hint-placeholder-count="6">
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 0 12px 0 20px; border-top: 1px solid #F1EDE6;">
+              <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 14px; font-weight: 600;">{{f.date}}</span>
+                <span style="font-size: 12px; color: #6F685D; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{f.desc}}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px;">
+                <span style="font-size: 14px; font-weight: 600;">{{f.value}}</span>
+                <span style="height: 20px; padding: 0 7px; border-radius: 10px; background: {{f.tagBg}}; color: {{f.tagFg}}; font-size: 11px; font-weight: 600; display: flex; align-items: center;">{{f.status}}</span>
+              </div>
+              <button type="button" aria-label="{{f.aria}}" style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg></button>
+            </div>
+          </sc-for>
+        </section>
+
+        <section aria-labelledby="canc-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 6px;">
+          <h2 id="canc-t" style="margin: 0; font-size: 15px; font-weight: 600;">Cancelar assinatura</h2>
+          <span style="font-size: 13px; line-height: 1.5; color: #57524A;">Sem multa. Você continua usando até 9 de outubro e seus dados ficam guardados, caso queira voltar.</span>
+          <button type="button" style="align-self: flex-start; height: 40px; padding: 0; border: 0; background: transparent; color: #B42318; font-size: 14px; font-weight: 600; cursor: pointer;">Cancelar assinatura</button>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":1440,"height":1380}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { status: 'ok', cycle: 'mensal', target: 'gestao' };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const brl = (v) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const seg = (on) => ({ bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A', shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none' });
+    const st = this.state;
+    const late = st.status === 'late';
+    const annual = st.cycle === 'anual';
+    const EXTRAS = 2;
+    const CURRENT = 265.70;
+
+    const statuses = [['ok', 'Em dia'], ['late', 'Pagamento atrasado']].map(([id, label]) => {
+      const on = st.status === id;
+      return { label, on, ...seg(on), pick: () => this.setState({ status: id }) };
+    });
+    const cycles = [['mensal', 'Mensal', false], ['anual', 'Anual', true]].map(([id, label, hasTag]) => {
+      const on = st.cycle === id;
+      return { label, on, hasTag, ...seg(on), pick: () => this.setState({ cycle: id }) };
+    });
+
+    const barbers = [['Diego Ramos', 'DR', true], ['Anderson Silva', 'AS', true], ['Marcos Teixeira', 'MT', false], ['Vinícius Prado', 'VP', false]]
+      .map(([name, initials, incl], i) => ({
+        name, initials,
+        divider: i === 0 ? '0' : '1px solid #F1EDE6',
+        tag: incl ? 'incluso' : '+ R$ 33,90',
+        tagBg: incl ? '#E8F4EC' : '#F5EEDC', tagFg: incl ? '#1D6B40' : '#6E5210'
+      }));
+
+    const P = {
+      gestao: {
+        name: 'Gestão', desc: 'Agenda, equipe, financeiro e clientes, sem o atendente de IA.',
+        month: 154.90, year: 139.90, extraM: 0, extraY: 0,
+        items: [['Agendamentos ilimitados', true], ['Comissões, vales e recibos', true], ['Caixa e fluxo de caixa', true], ['Planos de assinatura para clientes', true], ['Atendente de IA no WhatsApp', false]]
+      },
+      ia: {
+        name: 'Gestão + Atendente de IA', desc: 'Tudo do Gestão, mais a IA atendendo e agendando no seu WhatsApp.',
+        month: 197.90, year: 179.90, extraM: 33.90, extraY: 29.90,
+        items: [['Tudo do plano Gestão', true], ['Atendente de IA no WhatsApp, 24 horas', true], ['Agendamento pela conversa', true], ['Lembretes e confirmações automáticas', true], ['Venda de planos e produtos pela IA', true]]
+      }
+    };
+    const totalFor = (id, isAnnual) => {
+      const p = P[id];
+      return isAnnual ? p.year + EXTRAS * p.extraY : p.month + EXTRAS * p.extraM;
+    };
+
+    const plans = Object.entries(P).map(([id, p]) => {
+      const isCurrent = id === 'ia' && !annual;
+      const chosen = st.target === id && !isCurrent;
+      const base = annual ? p.year : p.month;
+      const extra = annual ? p.extraY : p.extraM;
+      return {
+        name: p.name, desc: p.desc, isCurrent,
+        price: brl(base),
+        period: annual ? 'cobrado uma vez por ano: ' + brl(base * 12) : 'cobrado todo mês',
+        extra: extra ? 'Do 3º barbeiro em diante: + ' + brl(extra) + ' cada' : 'Sem valor extra por barbeiro',
+        extraColor: extra ? '#6E5210' : '#1D6B40',
+        border: chosen ? '2px solid ' + accent : isCurrent ? '2px solid #1B1916' : '1px solid #E7E2D8',
+        bg: chosen ? mix(accent, 255, 0.95) : '#FFFFFF',
+        items: p.items.map(([text, ok]) => ({ text, fg: ok ? '#1B1916' : '#8A8378', icon: ok ? '#1D6B40' : '#D8D0C2' })),
+        cta: isCurrent ? 'Plano atual' : chosen ? 'Selecionado' : id === 'ia' ? 'Mudar para anual' : 'Mudar para Gestão',
+        ctaBg: isCurrent ? '#F5F3EE' : chosen ? '#1B1916' : '#FFFFFF',
+        ctaFg: isCurrent ? '#8A8378' : chosen ? '#FFFFFF' : '#1B1916',
+        ctaBorder: isCurrent ? '1px solid #EFEBE3' : chosen ? '1px solid #1B1916' : '1px solid #D8D0C2',
+        cursor: isCurrent ? 'default' : 'pointer',
+        choose: () => { if (!isCurrent) this.setState({ target: id }); }
+      };
+    });
+
+    const tgt = st.target;
+    const hasChange = !!tgt && !(tgt === 'ia' && !annual);
+    let chgTitle = '', chgPrice = '', chgWhen = '', chgNote = '', chgNoteColor = '#1D6B40';
+    if (hasChange) {
+      const perMonth = totalFor(tgt, annual);
+      chgTitle = 'Gestão + Atendente de IA → ' + P[tgt].name + (annual ? ' · anual' : ' · mensal');
+      chgPrice = brl(perMonth) + '/mês';
+      chgWhen = annual
+        ? 'Em 10 de outubro cobramos ' + brl(perMonth * 12) + ' de uma vez, cobrindo 12 meses.'
+        : 'A partir de 10 de outubro a mensalidade passa a ser ' + brl(perMonth) + '.';
+      const saving = (CURRENT - perMonth) * 12;
+      if (tgt === 'gestao') {
+        chgNote = 'Atenção: a partir de 10/10 o atendente de IA para de responder no WhatsApp e os lembretes automáticos param.';
+        chgNoteColor = '#9B2C22';
+      } else {
+        chgNote = 'Você economiza ' + brl(saving) + ' por ano, mantendo tudo que tem hoje.';
+      }
+    }
+
+    const invoices = [
+      ['10 set 2026', 'Gestão + IA · 4 barbeiros', 265.70, late ? 'late' : 'paid'],
+      ['10 ago 2026', 'Gestão + IA · 4 barbeiros', 265.70, 'paid'],
+      ['10 jul 2026', 'Gestão + IA · 3 barbeiros', 231.80, 'paid'],
+      ['10 jun 2026', 'Gestão', 154.90, 'paid'],
+      ['10 mai 2026', 'Gestão', 154.90, 'paid'],
+      ['10 abr 2026', 'Gestão', 154.90, 'paid']
+    ].map(([date, desc, v, s]) => ({
+      date, desc: desc + (s === 'paid' ? ' · cartão final 4412' : ' · cartão recusado'),
+      value: brl(v),
+      status: s === 'paid' ? 'Paga' : 'Vencida',
+      tagBg: s === 'paid' ? '#E8F4EC' : '#FBECEA', tagFg: s === 'paid' ? '#1D6B40' : '#9B2C22',
+      aria: (s === 'paid' ? 'Baixar recibo de ' : 'Baixar boleto de ') + date
+    }));
+
+    return {
+      accent,
+      accentOnDark: mix(accent, 255, 0.35),
+      statuses, late, cycles, barbers, plans, invoices,
+      statusLabel: late ? 'Pagamento atrasado' : 'Em dia',
+      statusBg: late ? '#4A1F1A' : '#23372B', statusFg: late ? '#F6C7C1' : '#BFE3CC', statusDot: late ? '#F0776B' : '#4CC38A',
+      chargeIcon: late ? '#F0776B' : '#C9C2B6',
+      chargeLine: late ? 'Venceu em 10 de setembro · 6 dias em atraso' : 'Próxima cobrança em 10 de outubro',
+      cardBorder: late ? '#F1C9C4' : '#E7E2D8', cardBg: late ? '#FBECEA' : '#F9F7F3',
+      cardNote: late ? 'Recusado em 10/09 e 13/09' : 'Visa · vence em 08/29',
+      cardNoteColor: late ? '#9B2C22' : '#6F685D',
+      hasChange, chgTitle, chgPrice, chgWhen, chgNote, chgNoteColor,
+      clearChange: () => this.setState({ target: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

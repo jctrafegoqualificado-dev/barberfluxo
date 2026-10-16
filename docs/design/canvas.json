@@ -1,0 +1,717 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Agenda-celular.dc.html": {
+      "h": 1480,
+      "is_interactive": true,
+      "page": "agendamentos",
+      "title": "Agenda · celular",
+      "w": 390,
+      "x": 2920,
+      "y": 0
+    },
+    "Agenda-desktop.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "agendamentos",
+      "title": "Agenda do dia · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Assinantes-celular.dc.html": {
+      "h": 1400,
+      "is_interactive": true,
+      "page": "planos",
+      "title": "Assinantes · celular",
+      "w": 390,
+      "x": 3040,
+      "y": 0
+    },
+    "Assinantes-desktop.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "planos",
+      "title": "Assinantes · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Atendente-IA-desktop.dc.html": {
+      "h": 1300,
+      "is_interactive": true,
+      "page": "whatsapp",
+      "title": "Atendente de IA · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Caixa-desktop.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "financeiro",
+      "title": "Caixa de hoje · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 1760
+    },
+    "Cancelar-agendamento-celular.dc.html": {
+      "h": 1260,
+      "is_interactive": true,
+      "page": "conta",
+      "title": "Cliente · remarcar ou cancelar · celular",
+      "w": 390,
+      "x": 4560,
+      "y": 0
+    },
+    "Clientes-celular.dc.html": {
+      "h": 1320,
+      "is_interactive": true,
+      "page": "clientes",
+      "title": "Clientes · celular",
+      "w": 390,
+      "x": 1520,
+      "y": 0
+    },
+    "Clientes-desktop.dc.html": {
+      "h": 1120,
+      "is_interactive": true,
+      "page": "clientes",
+      "title": "Clientes · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Comissoes-desktop.dc.html": {
+      "h": 1080,
+      "is_interactive": true,
+      "page": "financeiro",
+      "title": "Comissões · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 1760
+    },
+    "Concluir-atendimento.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "page": "agendamentos",
+      "title": "Concluir atendimento",
+      "w": 600,
+      "x": 2240,
+      "y": 0
+    },
+    "Config-geral-desktop.dc.html": {
+      "h": 3000,
+      "is_interactive": true,
+      "page": "configuracoes",
+      "title": "Configurações gerais · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Config-marca-desktop.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "configuracoes",
+      "title": "Marca · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Config-pagamentos-desktop.dc.html": {
+      "h": 1480,
+      "is_interactive": true,
+      "page": "configuracoes",
+      "title": "Pagamentos · desktop",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Dashboard-celular.dc.html": {
+      "h": 2400,
+      "is_interactive": true,
+      "page": "dashboard",
+      "title": "Dashboard · celular",
+      "w": 390,
+      "x": 1520,
+      "y": 0
+    },
+    "Ficha-cliente-celular.dc.html": {
+      "h": 1500,
+      "is_interactive": true,
+      "page": "clientes",
+      "title": "Ficha do cliente · celular",
+      "w": 390,
+      "x": 1990,
+      "y": 0
+    },
+    "Fidelidade-desktop.dc.html": {
+      "h": 1460,
+      "is_interactive": true,
+      "page": "crescimento",
+      "title": "Programa de fidelidade · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Financeiro-celular.dc.html": {
+      "h": 1640,
+      "is_interactive": true,
+      "page": "financeiro",
+      "title": "Financeiro · celular",
+      "w": 390,
+      "x": 1520,
+      "y": 0
+    },
+    "Financeiro-desktop.dc.html": {
+      "h": 1420,
+      "is_interactive": true,
+      "page": "financeiro",
+      "title": "Resultado do mês · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Indicadores-desktop.dc.html": {
+      "h": 1700,
+      "is_interactive": true,
+      "page": "gestao",
+      "title": "Indicadores · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Inicio-profissional-celular.dc.html": {
+      "h": 1760,
+      "is_interactive": true,
+      "page": "profissional",
+      "title": "Início · celular",
+      "w": 390,
+      "x": 1520,
+      "y": 0
+    },
+    "Inicio-profissional-desktop.dc.html": {
+      "h": 1160,
+      "is_interactive": true,
+      "page": "profissional",
+      "title": "Início · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Kanban-desktop.dc.html": {
+      "h": 1360,
+      "is_interactive": true,
+      "page": "gestao",
+      "title": "Tarefas da equipe · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Landing-celular.dc.html": {
+      "h": 5000,
+      "is_interactive": true,
+      "page": "landing",
+      "title": "Landing · celular",
+      "w": 390,
+      "x": 1520,
+      "y": 0
+    },
+    "Landing-desktop.dc.html": {
+      "h": 5800,
+      "is_interactive": true,
+      "page": "landing",
+      "title": "Landing · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Lembretes-desktop.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "page": "whatsapp",
+      "title": "Lembretes · desktop",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Login-desktop.dc.html": {
+      "h": 920,
+      "is_interactive": true,
+      "page": "conta",
+      "title": "Entrar · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 2290,
+      "is_interactive": true,
+      "page": "dashboard",
+      "title": "Dashboard · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Metas-desktop.dc.html": {
+      "h": 1540,
+      "is_interactive": true,
+      "page": "crescimento",
+      "title": "Metas do mês · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Meu-negocio-desktop.dc.html": {
+      "h": 1480,
+      "is_interactive": true,
+      "page": "gestao",
+      "title": "Meu negócio · desktop",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Minha-assinatura-desktop.dc.html": {
+      "h": 1380,
+      "is_interactive": true,
+      "page": "conta",
+      "title": "Minha assinatura (plano do sistema) · desktop",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Novo-agendamento.dc.html": {
+      "h": 1060,
+      "is_interactive": true,
+      "page": "agendamentos",
+      "title": "Novo agendamento",
+      "w": 640,
+      "x": 1520,
+      "y": 0
+    },
+    "Ocupacao-desktop.dc.html": {
+      "h": 1720,
+      "is_interactive": true,
+      "page": "crescimento",
+      "title": "Ocupação da agenda · desktop",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Onboarding-desktop.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "page": "conta",
+      "title": "Configuração inicial · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Online-1-servico.dc.html": {
+      "h": 1240,
+      "is_interactive": true,
+      "page": "online",
+      "title": "1 · Serviço",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "Online-2-profissional.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "online",
+      "title": "2 · Profissional",
+      "w": 390,
+      "x": 470,
+      "y": 0
+    },
+    "Online-3-horario.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "online",
+      "title": "3 · Dia e horário",
+      "w": 390,
+      "x": 940,
+      "y": 0
+    },
+    "Online-4-dados.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "online",
+      "title": "4 · Seus dados",
+      "w": 390,
+      "x": 1410,
+      "y": 0
+    },
+    "Online-5-confirmado.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "online",
+      "title": "5 · Confirmado",
+      "w": 390,
+      "x": 1880,
+      "y": 0
+    },
+    "Planos-desktop.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "planos",
+      "title": "Planos · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Plataforma-cliente-desktop.dc.html": {
+      "h": 1540,
+      "is_interactive": true,
+      "page": "plataforma",
+      "title": "Barbearia na plataforma · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Plataforma-desktop.dc.html": {
+      "h": 1620,
+      "is_interactive": true,
+      "page": "plataforma",
+      "title": "Painel da plataforma · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Producao-celular.dc.html": {
+      "h": 1500,
+      "is_interactive": true,
+      "page": "profissional",
+      "title": "Ganhos e comissões · celular",
+      "w": 390,
+      "x": 3980,
+      "y": 0
+    },
+    "Produtos-desktop.dc.html": {
+      "h": 1640,
+      "is_interactive": true,
+      "page": "catalogo",
+      "title": "Produtos · desktop",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Profissionais-desktop.dc.html": {
+      "h": 1480,
+      "is_interactive": true,
+      "page": "catalogo",
+      "title": "Profissionais · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Profissional-celular.dc.html": {
+      "h": 1500,
+      "is_interactive": true,
+      "page": "profissional",
+      "title": "Minha agenda · celular",
+      "w": 390,
+      "x": 3510,
+      "y": 0
+    },
+    "Profissional-desktop.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "profissional",
+      "title": "Minha agenda · desktop",
+      "w": 1440,
+      "x": 1990,
+      "y": 0
+    },
+    "Servicos-desktop.dc.html": {
+      "h": 1400,
+      "is_interactive": true,
+      "page": "catalogo",
+      "title": "Serviços · desktop",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "WhatsApp-celular.dc.html": {
+      "h": 1300,
+      "is_interactive": true,
+      "page": "whatsapp",
+      "title": "WhatsApp · celular",
+      "w": 390,
+      "x": 4560,
+      "y": 0
+    },
+    "WhatsApp-desktop.dc.html": {
+      "h": 1120,
+      "is_interactive": true,
+      "page": "whatsapp",
+      "title": "Visão geral · desktop",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-16T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "page": "configuracoes",
+    "view": "canvas"
+  },
+  "notes": {
+    "t_agendamentos": {
+      "kind": "title1",
+      "maxW": 3310,
+      "page": "agendamentos",
+      "text": "02 · Agendamentos",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_catalogo": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "catalogo",
+      "text": "11 · Catálogo (profissionais, serviços e produtos)",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_clientes": {
+      "kind": "title1",
+      "maxW": 2380,
+      "page": "clientes",
+      "text": "04 · Clientes",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_configuracoes": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "configuracoes",
+      "text": "10 · Configurações",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_conta": {
+      "kind": "title1",
+      "maxW": 4950,
+      "page": "conta",
+      "text": "14 · Conta e acesso",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_crescimento": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "crescimento",
+      "text": "12 · Fidelidade, metas e ocupação",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_dashboard": {
+      "kind": "title1",
+      "maxW": 1910,
+      "page": "dashboard",
+      "text": "01 · Dashboard do dono",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_financeiro": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "financeiro",
+      "text": "05 · Financeiro",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_gestao": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "gestao",
+      "text": "13 · Indicadores, tarefas e meu negócio",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_landing": {
+      "kind": "title1",
+      "maxW": 1910,
+      "page": "landing",
+      "text": "07 · Landing page de vendas",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_online": {
+      "kind": "title1",
+      "maxW": 2270,
+      "page": "online",
+      "text": "06 · Agendamento online (cliente)",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_planos": {
+      "kind": "title1",
+      "maxW": 3430,
+      "page": "planos",
+      "text": "08 · Planos e assinantes",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_plataforma": {
+      "kind": "title1",
+      "maxW": 2960,
+      "page": "plataforma",
+      "text": "15 · Plataforma (administração do SaaS)",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_profissional": {
+      "kind": "title1",
+      "maxW": 4370,
+      "page": "profissional",
+      "text": "03 · Área do profissional",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    },
+    "t_whatsapp": {
+      "kind": "title1",
+      "maxW": 4950,
+      "page": "whatsapp",
+      "text": "09 · WhatsApp e atendente de IA",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Dashboard-celular.dc.html",
+    "Agenda-desktop.dc.html",
+    "Novo-agendamento.dc.html",
+    "Concluir-atendimento.dc.html",
+    "Agenda-celular.dc.html",
+    "Profissional-desktop.dc.html",
+    "Profissional-celular.dc.html",
+    "Producao-celular.dc.html",
+    "Inicio-profissional-desktop.dc.html",
+    "Inicio-profissional-celular.dc.html",
+    "Clientes-desktop.dc.html",
+    "Clientes-celular.dc.html",
+    "Ficha-cliente-celular.dc.html",
+    "Financeiro-desktop.dc.html",
+    "Financeiro-celular.dc.html",
+    "Caixa-desktop.dc.html",
+    "Comissoes-desktop.dc.html",
+    "Online-1-servico.dc.html",
+    "Online-2-profissional.dc.html",
+    "Online-3-horario.dc.html",
+    "Online-4-dados.dc.html",
+    "Online-5-confirmado.dc.html",
+    "Landing-desktop.dc.html",
+    "Landing-celular.dc.html",
+    "Assinantes-desktop.dc.html",
+    "Planos-desktop.dc.html",
+    "WhatsApp-desktop.dc.html",
+    "Atendente-IA-desktop.dc.html",
+    "Lembretes-desktop.dc.html",
+    "Assinantes-celular.dc.html",
+    "WhatsApp-celular.dc.html",
+    "Config-geral-desktop.dc.html",
+    "Config-marca-desktop.dc.html",
+    "Config-pagamentos-desktop.dc.html",
+    "Profissionais-desktop.dc.html",
+    "Servicos-desktop.dc.html",
+    "Produtos-desktop.dc.html",
+    "Fidelidade-desktop.dc.html",
+    "Metas-desktop.dc.html",
+    "Ocupacao-desktop.dc.html",
+    "Indicadores-desktop.dc.html",
+    "Kanban-desktop.dc.html",
+    "Meu-negocio-desktop.dc.html",
+    "Login-desktop.dc.html",
+    "Onboarding-desktop.dc.html",
+    "Minha-assinatura-desktop.dc.html",
+    "Cancelar-agendamento-celular.dc.html",
+    "Plataforma-desktop.dc.html",
+    "Plataforma-cliente-desktop.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "dashboard",
+      "name": "01 · Dashboard do dono"
+    },
+    {
+      "id": "agendamentos",
+      "name": "02 · Agendamentos"
+    },
+    {
+      "id": "profissional",
+      "name": "03 · Área do profissional"
+    },
+    {
+      "id": "clientes",
+      "name": "04 · Clientes"
+    },
+    {
+      "id": "financeiro",
+      "name": "05 · Financeiro"
+    },
+    {
+      "id": "online",
+      "name": "06 · Agendamento online"
+    },
+    {
+      "id": "landing",
+      "name": "07 · Landing page"
+    },
+    {
+      "id": "planos",
+      "name": "08 · Planos e assinantes"
+    },
+    {
+      "id": "whatsapp",
+      "name": "09 · WhatsApp e atendente de IA"
+    },
+    {
+      "id": "configuracoes",
+      "name": "10 · Configurações"
+    },
+    {
+      "id": "catalogo",
+      "name": "11 · Catálogo"
+    },
+    {
+      "id": "crescimento",
+      "name": "12 · Fidelidade, metas e ocupação"
+    },
+    {
+      "id": "gestao",
+      "name": "13 · Indicadores, tarefas e meu negócio"
+    },
+    {
+      "id": "conta",
+      "name": "14 · Conta e acesso"
+    },
+    {
+      "id": "plataforma",
+      "name": "15 · Plataforma (admin)"
+    }
+  ],
+  "title": "Barber Fluxo — Redesign"
+}

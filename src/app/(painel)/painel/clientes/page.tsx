@@ -85,6 +85,11 @@ export default function ClientesPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editBirthday, setEditBirthday] = useState("");
   const [editIsBlocked, setEditIsBlocked] = useState(false);
+  // Observações da barbearia sobre o cliente (ClientNote)
+  const [editNote, setEditNote] = useState("");
+  const [loadedNote, setLoadedNote] = useState("");
+  const [noteMeta, setNoteMeta] = useState<{ updatedAt: string; updatedBy: string | null } | null>(null);
+  const [noteLoading, setNoteLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState<{ id: string } | null>(null);
@@ -174,6 +179,19 @@ export default function ClientesPage() {
     setEditBirthday(c.birthday ? c.birthday.substring(0, 10) : "");
     setAddSubPlanId("");
     setAddSubBillingDay("");
+    setEditNote("");
+    setLoadedNote("");
+    setNoteMeta(null);
+    setNoteLoading(true);
+    fetch(`/api/barbershop/clientes/${c.id}/nota`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : { note: null }))
+      .then((d) => {
+        const content = d.note?.content ?? "";
+        setEditNote(content);
+        setLoadedNote(content);
+        setNoteMeta(d.note ? { updatedAt: d.note.updatedAt, updatedBy: d.note.updatedBy } : null);
+      })
+      .finally(() => setNoteLoading(false));
   }
 
   async function handleSaveEdit() {
@@ -194,6 +212,18 @@ export default function ClientesPage() {
       if (!res.ok) { 
         setAlertDialog({ title: "Erro ao salvar", message: data.error || "Tente novamente.", type: "danger" });
         return; 
+      }
+      if (editNote.trim() !== loadedNote.trim()) {
+        const noteRes = await fetch(`/api/barbershop/clientes/${editModal.id}/nota`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ content: editNote }),
+        });
+        if (!noteRes.ok) {
+          const err = await noteRes.json().catch(() => ({}));
+          setAlertDialog({ title: "Erro ao salvar observações", message: err.error || "Tente novamente.", type: "danger" });
+          return;
+        }
       }
       setEditModal(null);
       setAlertDialog({ title: "Sucesso!", message: "Ficha do cliente atualizada com sucesso.", type: "success" });
@@ -816,6 +846,25 @@ export default function ClientesPage() {
                     className="w-full rounded-xl border border-zinc-200 px-3.5 py-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none bg-zinc-50 hover:bg-white transition-all font-semibold" 
                   />
                 </div>
+              </div>
+
+              {/* Observações da barbearia sobre o cliente */}
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Observações</h3>
+                <textarea
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  disabled={noteLoading}
+                  maxLength={1000}
+                  rows={3}
+                  placeholder={noteLoading ? "Carregando..." : "Ex: gosta de degradê médio, prefere horário depois das 17h"}
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-3 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none bg-zinc-50 hover:bg-white transition-all resize-none disabled:opacity-60"
+                />
+                <p className="text-[10px] text-zinc-400">
+                  {noteMeta
+                    ? `Atualizado em ${new Date(noteMeta.updatedAt).toLocaleDateString("pt-BR")}${noteMeta.updatedBy ? ` por ${noteMeta.updatedBy}` : ""}`
+                    : "Só a sua barbearia vê. Aparece para a equipe na ficha do cliente."}
+                </p>
               </div>
 
               {/* Security section (Block contact) */}

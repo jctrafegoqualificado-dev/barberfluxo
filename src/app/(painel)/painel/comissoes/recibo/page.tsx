@@ -100,6 +100,12 @@ export default function ReciboPage() {
                 <span>Comissão de Produtos</span>
                 <span>{formatCurrency(barber.produtos.comissao)}</span>
               </div>
+              {(barber.gorjetas?.total ?? 0) > 0 && (
+                <div className="flex justify-between py-2 border-b border-zinc-100">
+                  <span>Gorjetas ({barber.gorjetas.quantidade})</span>
+                  <span>{formatCurrency(barber.gorjetas.total)}</span>
+                </div>
+              )}
               <div className="flex justify-between py-2 border-b border-zinc-100 text-red-600">
                 <span>Descontos (Vales Adiantados)</span>
                 <span>- {formatCurrency(barber.totalVales)}</span>

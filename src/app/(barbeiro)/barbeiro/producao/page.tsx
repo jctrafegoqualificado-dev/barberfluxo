@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { TrendingUp, Scissors, CreditCard, Package, ChevronLeft, ChevronRight, CheckCircle, UserX } from "lucide-react";
+import { TrendingUp, Scissors, CreditCard, Package, ChevronLeft, ChevronRight, CheckCircle, UserX, HandCoins } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { formatCurrency } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ interface DiaProd {
 interface Kpis {
   atendimentos: number; totalAgendados: number; noShow: number; cancelled: number;
   taxaComparecimento: number | null; faturado: number;
-  comissaoServicos: number; comissaoProdutos: number; totalComissao: number;
+  comissaoServicos: number; comissaoProdutos: number; totalComissao: number; gorjetas: number;
   avulso: number; assinatura: number; produtos: number; faturadoProdutos: number;
 }
 interface ProducaoData {
@@ -161,9 +161,23 @@ export default function ProducaoPage() {
             </div>
             <p className="text-lg font-bold text-primary/90">{formatCurrency(kpis.comissaoProdutos)}</p>
           </div>
+          {kpis.gorjetas > 0 && (
+            <div className="flex items-center justify-between py-3 border-b border-zinc-50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center">
+                  <HandCoins className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900">Gorjetas</p>
+                  <p className="text-xs text-zinc-400">100% suas</p>
+                </div>
+              </div>
+              <p className="text-lg font-bold text-primary/90">{formatCurrency(kpis.gorjetas)}</p>
+            </div>
+          )}
           <div className="flex items-center justify-between pt-2">
             <p className="font-bold text-zinc-900">Total a receber</p>
-            <p className="text-xl font-black text-primary/90">{formatCurrency(kpis.totalComissao)}</p>
+            <p className="text-xl font-black text-primary/90">{formatCurrency(kpis.totalComissao + (kpis.gorjetas ?? 0))}</p>
           </div>
         </div>
       </div>

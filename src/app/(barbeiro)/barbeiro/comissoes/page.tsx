@@ -20,6 +20,7 @@ interface Resumo {
   avulso: { atendimentos: number; faturado: number; comissao: number };
   assinatura: { atendimentos: number; servicos: number; faturado: number; comissao: number };
   produtos: { vendas: number; faturado: number; comissao: number };
+  gorjetas: { quantidade: number; total: number };
   totalComissao: number;
 }
 interface ComissoesData {
@@ -148,9 +149,10 @@ export default function ComissoesBarberPage() {
             <Scissors className="w-4 h-4 opacity-80" />
             <span className="text-sm font-medium opacity-90">Avulsos & Produtos</span>
           </div>
-          <p className="text-3xl font-black">{formatCurrency(resumo.avulso.comissao + resumo.produtos.comissao)}</p>
+          <p className="text-3xl font-black">{formatCurrency(resumo.avulso.comissao + resumo.produtos.comissao + resumo.gorjetas.total)}</p>
           <p className="text-xs opacity-70 mt-1">
             {resumo.avulso.atendimentos} atend. avulsos · {resumo.produtos.vendas} vendas
+            {resumo.gorjetas.total > 0 && <> · {formatCurrency(resumo.gorjetas.total)} em gorjetas</>}
           </p>
         </div>
 
@@ -182,9 +184,9 @@ export default function ComissoesBarberPage() {
         <div className="bg-white rounded-xl border border-zinc-100 p-4">
           <div className="flex items-center gap-2 mb-1 text-zinc-400">
             <DollarSign className="w-4 h-4" />
-            <span className="text-xs">Total comissão</span>
+            <span className="text-xs">Total comissão{resumo.gorjetas.total > 0 ? " + gorjetas" : ""}</span>
           </div>
-          <p className="text-xl font-bold text-zinc-900">{formatCurrency(resumo.totalComissao)}</p>
+          <p className="text-xl font-bold text-zinc-900">{formatCurrency(resumo.totalComissao + resumo.gorjetas.total)}</p>
           <p className="text-xs text-zinc-400 mt-0.5">{resumo.avulso.atendimentos + resumo.assinatura.atendimentos} atend. + {resumo.produtos.vendas} vendas</p>
         </div>
       </div>

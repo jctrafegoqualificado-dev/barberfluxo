@@ -10,7 +10,7 @@ import {
   Package, Settings, LogOut, ChevronRight, ChevronDown, ChevronLeft,
   Layers, TrendingUp, Clock, Target, DollarSign, KanbanSquare, Menu, X,
   Crown, MessageSquare, Sparkles, Bell, Banknote, BarChart3, Wallet,
-  Building2, Award, BookOpen, Activity
+  Building2, Award, BookOpen, Activity, Megaphone
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -25,6 +25,7 @@ const ownerAnalisesNav = [
   { href: "/painel/ocupacao", label: "Ocupação", icon: Clock },
   { href: "/painel/metas", label: "Metas", icon: Target },
   { href: "/painel/kanban", label: "Kanban", icon: KanbanSquare },
+  { href: "/painel/recados", label: "Recados", icon: Megaphone },
 ];
 
 // Links diretos abaixo de Análises
@@ -97,14 +98,16 @@ export default function Sidebar({ branding }: {
   const analisesActive =
     pathname.startsWith("/painel/ocupacao") ||
     pathname.startsWith("/painel/metas") ||
-    pathname.startsWith("/painel/kanban");
+    pathname.startsWith("/painel/kanban") ||
+    pathname.startsWith("/painel/recados");
 
   const configActive = pathname.startsWith("/painel/configuracoes");
 
   const [analisesOpen, setAnalisesOpen] = useState(() =>
     pathname.startsWith("/painel/ocupacao") ||
     pathname.startsWith("/painel/metas") ||
-    pathname.startsWith("/painel/kanban")
+    pathname.startsWith("/painel/kanban") ||
+    pathname.startsWith("/painel/recados")
   );
 
   const [cadastrosOpen, setCadastrosOpen] = useState(() =>

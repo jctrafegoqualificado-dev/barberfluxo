@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { Sparkles, Check, ChevronLeft, ChevronRight, Clock, Calendar, AlertCircle, UserCheck, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
+import WaitlistBox from "@/components/booking/WaitlistBox";
 
 interface Service { id: string; name: string; price: number; duration: number; description: string | null }
 interface Barber { id: string; nickname: string | null; user: { name: string } }
@@ -16,7 +17,8 @@ interface Shop {
   primaryColor: string | null;
   secondaryColor: string | null;
   services: Service[];
-  barbers: Barber[]
+  barbers: Barber[];
+  openingHours?: { dayOfWeek: number; isOpen: boolean }[];
 }
 interface DaySlots { date: string; label: string; slots: string[] }
 
@@ -480,6 +482,22 @@ export default function AgendarPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {!loadingSlots && daySlots.length > 0 && (
+              <WaitlistBox
+                key={selected.barber}
+                slug={slug}
+                barberId={selected.barber}
+                barberName={selectedBarber?.nickname || selectedBarber?.user.name.split(" ")[0] || "o profissional"}
+                serviceIds={serviceIds}
+                days={daySlots
+                  // Dia em que a barbearia não abre não entra na lista (não é "lotado").
+                  .filter((d) => shop?.openingHours?.find((h) => h.dayOfWeek === new Date(d.date + "T12:00:00").getDay())?.isOpen ?? true)
+                  .map((d) => ({ date: d.date, full: d.slots.length === 0 }))}
+                defaultDate={selectedDate}
+                dayLabel={formatDayLabel}
+              />
             )}
           </div>
         )}

@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input, textarea, select { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1300px; box-sizing: border-box; display: flex; background: #F5F3EE;">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #171512; color: #A8A196; display: flex; flex-direction: column; padding: 20px 14px; gap: 18px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 6px;">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+      </div>
+      <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF; white-space: nowrap;">Barbearia Modelo</span>
+        <span style="font-size: 12px; color: #A8A196;">Plano Pro · ativo</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: 10px; background: #221F1B; border: 1px solid #2E2A25;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A8A196;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>Caixa aberto</span>
+        <span style="font-size: 17px; font-weight: 600; color: #FFFFFF;">R$ 1.140,00</span>
+      </div>
+      <button type="button" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #3A352F; background: transparent; color: #E9E4DA; font-size: 12px; font-weight: 600; cursor: pointer;">Fechar</button>
+    </div>
+
+    <nav aria-label="Menu principal" style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <a href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <span style="display: flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg></span>
+          <span style="flex-grow: 1;">Início</span>
+        </a>
+        <a href="Agenda-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span style="flex-grow: 1;">Agenda</span>
+          <span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #2E2A25; color: #E9E4DA; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">38</span>
+        </a>
+        <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; background: #2A2723; color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;">
+          <svg style="color: {{accentOnDark}};" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+          <span style="flex-grow: 1;">WhatsApp</span>
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>
+        </a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Clientes</span>
+        <a href="Clientes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Clientes</a>
+        <a href="Assinantes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"></path><path d="M5 21h14"></path></svg>Assinantes</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"></circle><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"></path></svg>Fidelidade</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Catálogo</span>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"></path></svg>Profissionais</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>Serviços</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.29 7 12 12l8.71-5"></path><path d="M12 22V12"></path></svg>Produtos</a>
+        <a href="Planos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path></svg>Planos</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Financeiro</span>
+        <a href="Caixa-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Fluxo de caixa</a>
+        <a href="Financeiro-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"></path><path d="M16 7h6v6"></path></svg>Fluxo &amp; POE</a>
+        <a href="Comissoes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>Comissões</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>Indicadores</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Análises</span>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Ocupação</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Metas</a>
+        <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7"></path><path d="M12 7v4"></path><path d="M16 7v9"></path></svg>Kanban</a>
+      </div>
+    </nav>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 14px; border-top: 1px solid #2E2A25;">
+      <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"></path></svg>Meu negócio</a>
+      <a href="#" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"></path></svg>Configurações</a>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; border-radius: 10px; background: #221F1B;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #3A352F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0;">CA</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-size: 13px; font-weight: 600; color: #FFFFFF;">Carlos Almeida</span>
+          <span style="font-size: 12px; color: #A8A196;">Dono</span>
+        </div>
+        <button type="button" aria-label="Sair" style="width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: #A8A196; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 18px;">
+
+    <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;">WhatsApp</h1>
+        <span style="font-size: 14px; color: #6F685D;">Ensine o atendente a falar como a sua barbearia</span>
+      </div>
+      <nav aria-label="Seções do WhatsApp" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+        <a href="WhatsApp-desktop.dc.html" style="height: 36px; padding: 0 14px; border-radius: 7px; color: #57524A; font-size: 13px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Visão geral</a>
+        <a href="#" aria-current="page" style="height: 36px; padding: 0 14px; border-radius: 7px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(27,25,22,0.12); font-size: 13px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Atendente de IA</a>
+        <a href="Lembretes-desktop.dc.html" style="height: 36px; padding: 0 14px; border-radius: 7px; color: #57524A; font-size: 13px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Lembretes</a>
+      </nav>
+    </header>
+
+    <div style="flex-grow: 1; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; min-height: 0;">
+
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+
+        <section aria-labelledby="ident-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px;">
+          <h2 id="ident-t" style="margin: 0; font-size: 15px; font-weight: 600;">Quem responde</h2>
+          <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 14px;">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Nome do atendente
+              <input type="text" value="Atendimento Barbearia Modelo" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+              <span style="font-size: 12px; font-weight: 400; color: #6F685D;">Em branco, usa o nome da barbearia.</span>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Idioma
+              <select style="height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400; background: #FFFFFF;"><option>Português (Brasil)</option><option>English (US)</option></select>
+            </label>
+          </div>
+        </section>
+
+        <section aria-labelledby="tom-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <h2 id="tom-t" style="margin: 0; font-size: 15px; font-weight: 600;">Jeito de falar</h2>
+            <span style="font-size: 13px; color: #6F685D;">Escolha um ponto de partida e ajuste do seu jeito. A prévia ao lado muda na hora.</span>
+          </div>
+          <div role="radiogroup" aria-label="Tom de voz" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+            <sc-for list="{{tones}}" as="t" hint-placeholder-count="3">
+              <button type="button" role="radio" aria-checked="{{t.on}}" onClick="{{t.pick}}" style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; border: {{t.border}}; background: {{t.bg}}; color: #1B1916; text-align: left; cursor: pointer;">
+                <span style="font-size: 14px; font-weight: 600;">{{t.label}}</span>
+                <span style="font-size: 12px; color: #6F685D;">{{t.hint}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Personalidade
+            <textarea rows="3" style="resize: none; padding: 10px 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 14px; font-weight: 400; line-height: 1.5;">{{personality}}</textarea>
+            <span style="font-size: 12px; font-weight: 400; color: #6F685D; text-align: right;">{{personalityCount}} de 500</span>
+          </label>
+        </section>
+
+        <section aria-labelledby="regras-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <h2 id="regras-t" style="margin: 0; font-size: 15px; font-weight: 600;">Regras da casa</h2>
+            <span style="font-size: 13px; color: #6F685D;">O que a IA nunca deve fazer e quando deve chamar você</span>
+          </div>
+          <textarea rows="3" aria-label="Regras da casa" style="resize: none; padding: 10px 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 14px; line-height: 1.5;">Não agendar menores de 12 anos sem responsável. Não dar desconto pelo WhatsApp. Sempre perguntar se o cliente tem barbeiro preferido.</textarea>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <span style="font-size: 13px; font-weight: 600;">Passar a conversa para você quando o cliente</span>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <sc-for list="{{handoff}}" as="h" hint-placeholder-count="5">
+                <button type="button" onClick="{{h.toggle}}" aria-pressed="{{h.on}}" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid {{h.border}}; background: {{h.bg}}; color: {{h.fg}}; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;">{{h.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="msg-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 18px 22px 12px;">
+            <h2 id="msg-t" style="margin: 0; font-size: 15px; font-weight: 600;">Mensagens prontas</h2>
+            <span style="font-size: 13px; color: #6F685D;">Usadas em momentos específicos da conversa</span>
+          </div>
+          <sc-for list="{{messages}}" as="m" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 14px; min-height: 62px; padding: 0 22px; border-top: 1px solid #F1EDE6;">
+              <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                <span style="font-size: 14px; font-weight: 600;">{{m.title}}</span>
+                <span style="font-size: 13px; color: #6F685D; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{m.text}}</span>
+              </div>
+              <button type="button" aria-label="{{m.aria}}" style="height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 12px; font-weight: 600; cursor: pointer;">Editar</button>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+
+      <aside aria-label="Prévia da conversa" style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <span style="font-size: 15px; font-weight: 600;">Prévia</span>
+          <span style="font-size: 12px; color: #6F685D;">exemplo com o tom escolhido</span>
+        </div>
+        <div style="border-radius: 28px; background: #1B1916; padding: 10px;">
+          <div style="border-radius: 20px; overflow: hidden; background: #EFE8DD; display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #FFFFFF;">
+              <span style="width: 34px; height: 34px; border-radius: 50%; background: {{accent}};"></span>
+              <span style="display: flex; flex-direction: column;"><span style="font-size: 14px; font-weight: 600;">Atendimento Barbearia Modelo</span><span style="font-size: 11px; color: #1D6B40;">online</span></span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px 12px 22px; font-size: 14px; line-height: 1.45;">
+              <sc-for list="{{preview}}" as="p" hint-placeholder-count="6">
+                <span style="align-self: {{p.align}}; max-width: 82%; padding: 9px 11px; border-radius: {{p.radius}}; background: {{p.bg}};">{{p.text}}</span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" style="flex-grow: 1; height: 46px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; cursor: pointer;">Testar no meu WhatsApp</button>
+          <button type="button" style="flex-grow: 1; height: 46px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;">Salvar</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tone: 'parceiro', handoff: ['desconto', 'reclamacao', 'humano'] };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+
+    const T = {
+      parceiro: {
+        label: 'Parceiro', hint: 'Descontraído, de igual para igual',
+        personality: 'Fala como um amigo da barbearia: leve, direto e bem-humorado, sem exagerar na gíria. Chama o cliente pelo nome.',
+        replies: ['Fala, Gustavo! Beleza? Tem sim: com o Diego às 15:45 ou 16:00. Qual fica melhor?', 'Fechou! Degradê hoje às 16:00 com o Diego. Te mando um lembrete uma hora antes.']
+      },
+      profissional: {
+        label: 'Profissional', hint: 'Educado e objetivo',
+        personality: 'Cordial e objetivo. Trata o cliente com educação, confirma os detalhes e evita gírias.',
+        replies: ['Olá, Gustavo! Temos horários hoje com o Diego às 15:45 e às 16:00. Qual prefere?', 'Agendamento confirmado: corte degradê hoje, às 16:00, com o Diego. Enviaremos um lembrete uma hora antes.']
+      },
+      premium: {
+        label: 'Premium', hint: 'Caprichado e acolhedor',
+        personality: 'Atendimento de barbearia clássica: acolhedor, caprichado nas palavras, valoriza a experiência do cliente.',
+        replies: ['Boa tarde, Gustavo! Será um prazer te receber. O Diego tem disponibilidade às 15:45 ou às 16:00. Qual horário te atende melhor?', 'Perfeito, está reservado: degradê hoje às 16:00 com o Diego. Até logo, e qualquer coisa estou por aqui.']
+      }
+    };
+    const tone = T[this.state.tone];
+    const tones = Object.entries(T).map(([id, t]) => {
+      const on = this.state.tone === id;
+      return {
+        label: t.label, hint: t.hint, on,
+        border: on ? '2px solid ' + accent : '1px solid #E2DCD1',
+        bg: on ? mix(accent, 255, 0.93) : '#FFFFFF',
+        pick: () => this.setState({ tone: id })
+      };
+    });
+
+    const H = [['desconto', 'Pedir desconto'], ['reclamacao', 'Reclamar de algo'], ['humano', 'Pedir para falar com alguém'], ['preco', 'Perguntar preço de serviço que não existe'], ['audio', 'Mandar áudio']];
+    const handoff = H.map(([id, label]) => {
+      const on = this.state.handoff.includes(id);
+      return {
+        label, on,
+        bg: on ? '#1B1916' : '#FFFFFF', fg: on ? '#FFFFFF' : '#57524A', border: on ? '#1B1916' : '#D8D0C2',
+        toggle: () => this.setState({ handoff: on ? this.state.handoff.filter((x) => x !== id) : [...this.state.handoff, id] })
+      };
+    });
+
+    const messages = [
+      ['Boas-vindas', 'Primeira mensagem para quem chama', 'Olá! Seja bem-vindo à Barbearia Modelo. Posso te ajudar a marcar um horário ou tirar uma dúvida.'],
+      ['Fora do horário', 'Quando a barbearia está fechada', 'Estamos fechados agora, mas já posso deixar seu horário marcado. Atendemos de seg. a sáb., das 9h às 20h.'],
+      ['Horário confirmado', 'Depois de marcar', 'Prontinho! Seu horário está confirmado. Te esperamos no dia combinado.'],
+      ['Cancelamento', 'Quando o cliente desmarca', 'Seu horário foi cancelado. Quando quiser remarcar é só chamar aqui.']
+    ].map(([title, when, text]) => ({ title: title + ' · ' + when, text, aria: 'Editar mensagem de ' + title }));
+
+    const preview = [
+      ['c', 'boa tarde, tem horário hoje à tarde pra degradê?'],
+      ['ia', tone.replies[0]],
+      ['c', '16h'],
+      ['ia', tone.replies[1]]
+    ].map(([who, text]) => ({
+      text,
+      align: who === 'c' ? 'flex-end' : 'flex-start',
+      bg: who === 'c' ? '#D9F2D0' : '#FFFFFF',
+      radius: who === 'c' ? '12px 12px 3px 12px' : '12px 12px 12px 3px'
+    }));
+
+    return {
+      accent, accentOnDark: mix(accent, 255, 0.35),
+      tones, personality: tone.personality, personalityCount: String(tone.personality.length),
+      handoff, messages, preview
+    };
+  }
+}
+</script>
+</body>
+</html>
