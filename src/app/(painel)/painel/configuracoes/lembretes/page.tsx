@@ -17,7 +17,9 @@ const TIMING_OPTIONS = [
   { value: 2880, label: "48 horas antes" },
 ];
 
-const DEFAULT_MESSAGE = "Olá {{nome}}! 😊\n\nLembramos que você tem um horário de *{{servico}}* marcado para *{{data}}* às *{{hora}}*.\n\nPodemos confirmar sua presença?";
+// Mesmos textos do cron (src/app/api/cron/reminders/route.ts), para a prévia bater com o que o cliente recebe.
+const DEFAULT_MESSAGE = "Olá {{nome}}! 😊\n\nLembramos que você tem um horário de *{{servico}}* marcado para *{{data}}* às *{{hora}}* com *{{profissional}}* no(a) *{{empresa}}*.\n\nAté lá!";
+const CONFIRMATION_QUESTION = "Podemos confirmar sua presença? Responda com *SIM* para confirmar ou *NÃO* para cancelar.";
 
 const VARIABLES = [
   { tag: "{{nome}}", desc: "Nome do cliente" },
@@ -95,7 +97,9 @@ export default function LembretesPage() {
   }
 
   // Preview da mensagem com variáveis substituídas
-  const previewMsg = (message || DEFAULT_MESSAGE)
+  // Igual ao cron: com "Pedir confirmação" ligado, a pergunta SIM/NÃO vai no fim se a mensagem não pedir.
+  const baseMsg = message || DEFAULT_MESSAGE;
+  const previewMsg = (askConfirmation && !/\bSIM\b/i.test(baseMsg) ? `${baseMsg}\n\n${CONFIRMATION_QUESTION}` : baseMsg)
     .replace("{{nome}}", "Maria")
     .replace("{{servico}}", "Progressiva")
     .replace("{{data}}", "17/05/2026")
