@@ -12,7 +12,8 @@ import {
  * Comissões do período, por profissional. Regras (as mesmas desde antes do redesign):
  * - Avulso: % (ou valor fixo) do profissional sobre o preço menos o custo de material;
  *   serviço com comissão própria usa a dele. Extras de assinante entram como avulso.
- * - Assinatura: metade do que foi PAGO de assinaturas no período vai para o pote dos
+ * - Assinatura: do que foi PAGO de assinaturas no período, a parte dos profissionais
+ *   (padrão 50%, configurável em Indicadores; ver poolOf) vai para o pote dos
  *   profissionais; o pote é dividido pelo total de serviços de plano realizados (Corte +
  *   Barba = 2) e cada um recebe esse valor × os serviços que fez. Plano com comissão
  *   própria usa a % dele.
@@ -27,16 +28,78 @@ function calcComissao(valor: number, type: string, rate: number): number {
   return valor * (rate / 100);
 }
 
+/**
+ * Pote das assinaturas: do que foi pago no período, desconta a taxa (se a barbearia
+ * marcou), a parte da barbearia fica com ela e o resto é dividido pelos serviços de
+ * plano realizados. Padrão: 50% / 50%, sem descontar taxa.
+ */
+export function poolOf(
+  gross: number,
+  services: number,
+  shop: { poeOwnerPct: number; poeDeductFees: boolean; poeSubscriptionFee: number } | null,
+) {
+  const ownerPct = shop?.poeOwnerPct ?? 50;
+  const feePct = shop?.poeDeductFees ? shop.poeSubscriptionFee ?? 0 : 0;
+  const fees = gross * (feePct / 100);
+  const net = gross - fees;
+  const shopPart = net * (ownerPct / 100);
+  const barbersPart = net - shopPart;
+  return {
+    gross, fees, feePct, deductFees: !!shop?.poeDeductFees, net, ownerPct,
+    shopPart, barbersPart, services, ticket: services > 0 ? barbersPart / services : 0,
+  };
+}
+
+/** Mensalidades pagas no período que alimentam o pote (inclui as do Mercado Pago sem barbershopId). */
+export function subscriptionPaymentsWhere(barbershopId: string, start: Date, end: Date) {
+  return {
+    subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end },
+    OR: [{ barbershopId }, { subscription: { barbershopId } }],
+  };
+}
+
+/** Plano com comissão própria (%) fica fora do pote: nem o dinheiro nem os atendimentos dele entram na divisão. */
+type WithPlan = { subscription?: { plan?: { commissionPercentage?: number | null } | null } | null };
+export const isOwnCommissionPlan = (x: WithPlan) => x.subscription?.plan?.commissionPercentage != null;
+
+/** Seleção das mensalidades para o pote (valor + se o plano tem comissão própria). */
+export const POOL_PAYMENT_SELECT = { amount: true, subscription: { select: { plan: { select: { commissionPercentage: true } } } } } as const;
+
+/** Arrecadado que entra no pote: mensalidades dos planos sem comissão própria. */
+export function poolRevenue(payments: ({ amount: number } & WithPlan)[]) {
+  return payments.filter((p) => !isOwnCommissionPlan(p)).reduce((s, p) => s + p.amount, 0);
+}
+
+/** Atendimentos que dividem o pote: os dos planos sem comissão própria. */
+export function poolServices(appts: Parameters<typeof totalPlanServices>[0]) {
+  return totalPlanServices(appts.filter((a) => !isOwnCommissionPlan(a)));
+}
+
+/** Configuração do pote da barbearia (parte da barbearia e taxa). */
+export function poolSettings(barbershopId: string) {
+  return prisma.barbershop.findUnique({
+    where: { id: barbershopId },
+    select: { poeOwnerPct: true, poeDeductFees: true, poeSubscriptionFee: true },
+  });
+}
+
 export async function computeCommissions(barbershopId: string, start: Date, end: Date, monthKey: string) {
   const barbers = await prisma.barber.findMany({
     where: { barbershopId, active: true },
     include: { user: { select: { id: true, name: true, email: true } } },
   });
-  if (barbers.length === 0) return { barbers: [], totalSubRevenue: 0, ticketMedioSub: 0 };
+  const shop = await prisma.barbershop.findUnique({
+    where: { id: barbershopId },
+    select: { poeOwnerPct: true, poeDeductFees: true, poeSubscriptionFee: true },
+  });
+  const emptyPool = poolOf(0, 0, shop);
+  if (barbers.length === 0) return { barbers: [], totalSubRevenue: 0, ticketMedioSub: 0, pool: emptyPool };
 
     const [subPayments, allAvulsos, allSubAppointments, allProductSales, allCommissionPayments, allVales, allReviews] = await Promise.all([
       prisma.payment.findMany({
-        where: { barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end } },
+        // Mensalidades cobradas pelo Mercado Pago podem vir sem barbershopId: busca pela assinatura também
+        where: { subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end }, OR: [{ barbershopId }, { subscription: { barbershopId } }] },
+        select: POOL_PAYMENT_SELECT,
       }),
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: start, lte: end } },
@@ -63,11 +126,12 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
     ]);
 
     // ── Pool de assinaturas (calculado globalmente) ──
-    const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
-    const poolBarbeiros = totalSubRevenue * 0.5;
+    // Plano com comissão própria fica fora do pote (dinheiro e atendimentos)
+    const totalSubRevenue = poolRevenue(subPayments);
     // Cada serviço do plano realizado conta 1 (Corte + Barba = 2 serviços)
-    const totalSubServicos = totalPlanServices(allSubAppointments);
-    const ticketMedioSub = totalSubServicos > 0 ? poolBarbeiros / totalSubServicos : 0;
+    const totalSubServicos = poolServices(allSubAppointments);
+    const pool = poolOf(totalSubRevenue, totalSubServicos, shop);
+    const ticketMedioSub = pool.ticket;
 
     // ── Agrupamento em memória por barbeiro ──
     const result = barbers.map((b) => {
@@ -104,6 +168,12 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
       const comissaoAvulso = comissaoAvulsoBase + comissaoExtra;
 
       const comissaoAssinatura = subAppointments.reduce((s, a) => s + subscriptionCommission(a, ticketMedioSub), 0);
+      // Separação para exibir: o que veio do pote (ticket × serviços) e o que veio de plano
+      // com comissão própria (% do plano). Não muda o valor, só mostra de onde ele vem.
+      const ownPlan = (a: (typeof subAppointments)[number]) => a.subscription?.plan?.commissionPercentage != null;
+      const servicosPote = subAppointments.filter((a) => !ownPlan(a)).reduce((s, a) => s + countPlanServices(a), 0);
+      const servicosProprio = subAppointments.filter(ownPlan).reduce((s, a) => s + countPlanServices(a), 0);
+      const comissaoProprio = subAppointments.filter(ownPlan).reduce((s, a) => s + subscriptionCommission(a, ticketMedioSub), 0);
 
       const totalProdutos = productSales.reduce((s, p) => s + p.total, 0);
       const comissaoProdutos = productSales.reduce((s, p) => {
@@ -164,6 +234,10 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
         },
         assinatura: {
           servicos: subAppointments.reduce((s, a) => s + countPlanServices(a), 0),
+          atendimentos: subAppointments.length,
+          servicosPote, servicosProprio,
+          comissaoPote: ticketMedioSub * servicosPote,
+          comissaoProprio,
           ticketMedio: ticketMedioSub,
           comissao: comissaoAssinatura,
           items: subAppointments.map((a) => ({
@@ -194,7 +268,7 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
     });
 
 
-  return { barbers: result, totalSubRevenue, ticketMedioSub };
+  return { barbers: result, totalSubRevenue, ticketMedioSub, pool };
 }
 
 export type CommissionRow = Awaited<ReturnType<typeof computeCommissions>>["barbers"][number];

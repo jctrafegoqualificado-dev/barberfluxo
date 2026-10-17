@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { addMonth, currentMonthSP, monthStartSP } from "@/lib/monthResult";
+import { appointmentRevenue } from "@/lib/finance";
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,8 +25,9 @@ export async function GET(req: NextRequest) {
     }, 0);
 
     // ── 2. Média mensal de serviços (últimos 3 meses completos) ─────────────
-    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonth = currentMonthSP(now);
+    const threeMonthsAgo = monthStartSP(addMonth(currentMonth, -3));
+    const startOfCurrentMonth = monthStartSP(currentMonth);
 
     const appointments = await prisma.appointment.findMany({
       where: {
@@ -32,14 +35,15 @@ export async function GET(req: NextRequest) {
         status: "DONE",
         date: { gte: threeMonthsAgo, lt: startOfCurrentMonth },
       },
-      select: { price: true, extraPrice: true, date: true },
+      select: { price: true, paymentMethod: true, subscriptionId: true, extraPrice: true, extraPaymentMethod: true, tipAmount: true, tipPaymentMethod: true, date: true },
     });
 
     // Agrupa por mês YYYY-MM
     const byMonth: Record<string, number> = {};
     for (const a of appointments) {
-      const key = `${a.date.getFullYear()}-${String(a.date.getMonth() + 1).padStart(2, "0")}`;
-      byMonth[key] = (byMonth[key] ?? 0) + (a.price ?? 0) + (a.extraPrice ?? 0);
+      const key = a.date.toISOString().slice(0, 7);
+      // O que o atendimento trouxe de fato (assinante: só o extra; o plano está no MRR)
+      byMonth[key] = (byMonth[key] ?? 0) + appointmentRevenue(a);
     }
     const monthTotals = Object.values(byMonth);
     const historicalMonths = monthTotals.length || 1;
@@ -48,17 +52,16 @@ export async function GET(req: NextRequest) {
       : 0;
 
     // ── 3. Despesas recorrentes fixas ───────────────────────────────────────
+    // Cada mês de uma despesa recorrente é uma linha própria: conta só as deste mês
+    // (antes somava todas as cópias — uma conta lançada por 12 meses entrava 12 vezes).
     const fixedExpenses = await prisma.expense.findMany({
-      where: { barbershopId, isRecurring: true, type: "FIXED" },
+      where: { barbershopId, isRecurring: true, type: "FIXED", month: currentMonth },
       select: { amount: true },
     });
     const monthlyFixedExpenses = fixedExpenses.reduce((s, e) => s + e.amount, 0);
 
     // Média de despesas variáveis dos últimos 3 meses
-    const lastThreeMonths = [-2, -1, 0].map((offset) => {
-      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    });
+    const lastThreeMonths = [-2, -1, 0].map((offset) => addMonth(currentMonth, offset));
     const varExpenses = await prisma.expense.findMany({
       where: {
         barbershopId,

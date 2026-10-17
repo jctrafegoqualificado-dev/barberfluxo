@@ -25,6 +25,7 @@ const brl = (v: number) => formatCurrency(v).replace(",00", "");
 const brl2 = (v: number) => formatCurrency(v);
 const monthLabel = (m: string) => { const [y, mm] = m.split("-").map(Number); return `${MONTHS[mm - 1]} de ${y}`; };
 const monthName = (m: string) => MONTHS[Number(m.split("-")[1]) - 1];
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const shiftMonth = (m: string, d: number) => {
   const [y, mm] = m.split("-").map(Number);
   const t = new Date(Date.UTC(y, mm - 1 + d, 1));
@@ -118,7 +119,7 @@ export default function ResultadoDoMesPage() {
             <button type="button" onClick={() => { setMonth(shiftMonth(month, -1)); setLimit(15); }} aria-label="Mês anterior" className="w-10 h-full flex items-center justify-center hover:bg-surface-3 rounded-l-[10px]">
               <ChevronLeft className="w-4 h-4" aria-hidden />
             </button>
-            <span className="px-2 text-sm font-semibold capitalize min-w-[150px] text-center">{monthLabel(month)}</span>
+            <span className="px-2 text-sm font-semibold min-w-[150px] text-center">{cap(monthLabel(month))}</span>
             <button type="button" onClick={() => { setMonth(shiftMonth(month, 1)); setLimit(15); }} disabled={!canNext} aria-label="Próximo mês" className="w-10 h-full flex items-center justify-center hover:bg-surface-3 rounded-r-[10px] disabled:opacity-30">
               <ChevronRight className="w-4 h-4" aria-hidden />
             </button>

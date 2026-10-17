@@ -1,278 +1,189 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { startOfMonth, endOfMonth, parseISO, differenceInDays } from "date-fns";
-import { SUBSCRIPTION_APPT_INCLUDE, countPlanServices, totalPlanServices } from "@/lib/subscriptionServices";
+import { computeCommissions } from "@/lib/commissions";
+import { appointmentReceipts, cardFee, round2 } from "@/lib/finance";
+import { shopClientWhere } from "@/lib/shopClients";
+import { addMonth, currentMonthSP, monthStartSP } from "@/lib/monthResult";
+
+/**
+ * Indicadores (docs/design/Indicadores-desktop.dc.html): assinaturas e pote,
+ * atendimentos e serviços, clientes. Usa as mesmas contas do Caixa, Resultado do mês
+ * e Comissões (src/lib/finance.ts e src/lib/commissions.ts).
+ *
+ * ?period=thisMonth|last7|last30|lastMonth (padrão: thisMonth)
+ */
+
+const DAY = 86_400_000;
+const spDay = (d: Date) => new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(d);
+const dayStart = (ymd: string) => new Date(`${ymd}T00:00:00-03:00`);
+
+function resolvePeriod(period: string) {
+  const now = new Date();
+  const today = spDay(now);
+  if (period === "last7" || period === "last30") {
+    const days = period === "last7" ? 7 : 30;
+    const start = new Date(dayStart(today).getTime() - (days - 1) * DAY);
+    return { key: period, start, end: now, prevStart: new Date(start.getTime() - days * DAY), prevEnd: start, monthKey: spDay(start).slice(0, 7) };
+  }
+  if (period === "lastMonth") {
+    const m = addMonth(currentMonthSP(now), -1);
+    const start = monthStartSP(m);
+    const end = new Date(monthStartSP(addMonth(m, 1)).getTime() - 1);
+    const pm = addMonth(m, -1);
+    return { key: period, start, end, prevStart: monthStartSP(pm), prevEnd: new Date(start.getTime() - 1), monthKey: m };
+  }
+  const m = currentMonthSP(now);
+  const start = monthStartSP(m);
+  const pm = addMonth(m, -1);
+  // mês anterior até o mesmo ponto, para comparar justo
+  return { key: "thisMonth", start, end: now, prevStart: monthStartSP(pm), prevEnd: new Date(monthStartSP(pm).getTime() + (now.getTime() - start.getTime())), monthKey: m };
+}
 
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
-    const now = new Date();
+    const p = resolvePeriod(req.nextUrl.searchParams.get("period") ?? "thisMonth");
 
-    const url = new URL(req.url);
-    const fromParam = url.searchParams.get("from");
-    const toParam = url.searchParams.get("to");
-
-    const from = fromParam ? parseISO(fromParam) : startOfMonth(now);
-    const to = toParam ? parseISO(toParam) : endOfMonth(now);
-
-    // ── Round 1: todas as queries independentes em paralelo ──────────────────
-    const [subscriptions, newSubsPeriod, billingLogs, appts, latestVisitGroups, shop] = await Promise.all([
-      prisma.subscription.findMany({
-        where: { barbershopId },
-        include: {
-          client: { select: { id: true, name: true, email: true, phone: true } },
-          plan: true,
-        },
+    const [shop, subs, newSubs, prevNewSubs, billing, appts, commissions, registered, lastVisits, upcoming] = await Promise.all([
+      prisma.barbershop.findUnique({
+        where: { id: barbershopId },
+        select: { debitFee: true, creditFee: true, retentionDays: true, poeOwnerPct: true, poeDeductFees: true, poeSubscriptionFee: true },
       }),
-      prisma.subscription.count({ where: { barbershopId, createdAt: { gte: from, lte: to } } }),
+      prisma.subscription.findMany({
+        where: { barbershopId, status: { in: ["ACTIVE", "OVERDUE", "PAUSED"] } },
+        select: { status: true, plan: { select: { id: true, name: true, price: true } } },
+      }),
+      prisma.subscription.count({ where: { barbershopId, createdAt: { gte: p.start, lte: p.end } } }),
+      prisma.subscription.count({ where: { barbershopId, createdAt: { gte: p.prevStart, lte: p.prevEnd } } }),
       prisma.payment.findMany({
-        where: { subscription: { barbershopId }, createdAt: { gte: from, lte: to } },
-        include: {
-          subscription: {
-            include: {
-              client: { select: { name: true, email: true } },
-              plan: { select: { name: true } },
-            },
-          },
-        },
+        where: { subscriptionId: { not: null }, createdAt: { gte: p.start, lte: p.end }, OR: [{ barbershopId }, { subscription: { barbershopId } }] },
         orderBy: { createdAt: "desc" },
-        take: 100,
+        take: 200,
+        select: {
+          id: true, amount: true, method: true, status: true, paidAt: true, createdAt: true, gatewayType: true,
+          subscription: { select: { client: { select: { name: true } }, plan: { select: { name: true } } } },
+        },
       }),
       prisma.appointment.findMany({
-        where: { barbershopId, status: "DONE", date: { gte: from, lte: to } },
-        include: {
-          ...SUBSCRIPTION_APPT_INCLUDE,
-          service: true,
-          barber: { include: { user: { select: { name: true } } } },
-          client: { select: { id: true, name: true } },
+        where: { barbershopId, status: "DONE", date: { gte: p.start, lte: p.end } },
+        select: {
+          date: true, clientId: true, price: true, paymentMethod: true, subscriptionId: true,
+          extraPrice: true, extraPaymentMethod: true, tipAmount: true, tipPaymentMethod: true,
+          client: { select: { name: true, phone: true } },
+          service: { select: { name: true } },
+          services: { select: { price: true, service: { select: { name: true } } } },
         },
       }),
-      // Substituído findMany (sem filtro de data, full table scan) por groupBy
-      // que retorna apenas a data máxima por cliente — muito mais eficiente
-      prisma.appointment.groupBy({
-        by: ["clientId"],
-        where: { barbershopId, status: "DONE" },
-        _max: { date: true },
+      computeCommissions(barbershopId, p.start, p.end, p.monthKey),
+      prisma.user.count({ where: { role: "CLIENT", ...shopClientWhere(barbershopId) } }),
+      prisma.appointment.groupBy({ by: ["clientId"], where: { barbershopId, status: "DONE" }, _max: { date: true }, _min: { date: true } }),
+      prisma.appointment.findMany({
+        where: { barbershopId, status: { in: ["CONFIRMED", "PENDING"] }, date: { gte: dayStart(spDay(new Date())) } },
+        select: { clientId: true }, distinct: ["clientId"],
       }),
-      prisma.barbershop.findUnique({ where: { id: barbershopId } }),
     ]);
+    const fees = { debitFee: shop?.debitFee ?? 0, creditFee: shop?.creditFee ?? 0 };
 
-    // ── Derivações em memória a partir de subscriptions ───────────────────────
-    const activeSubs = subscriptions.filter((s) => s.status === "ACTIVE");
-    const overdueSubs = subscriptions.filter((s) => s.status === "OVERDUE");
-    const cancelledSubs = subscriptions.filter((s) => s.status === "CANCELLED");
-    const mrr = activeSubs.reduce((acc, s) => acc + s.plan.price, 0);
-
-    const planCounts: Record<string, { name: string; price: number; count: number; total: number }> = {};
-    for (const sub of activeSubs) {
-      const pid = sub.planId;
-      if (!planCounts[pid]) planCounts[pid] = { name: sub.plan.name, price: sub.plan.price, count: 0, total: 0 };
-      planCounts[pid].count += 1;
-      planCounts[pid].total += sub.plan.price;
+    // ── Assinaturas ──
+    const active = subs.filter((s) => s.status === "ACTIVE");
+    const overdue = subs.filter((s) => s.status === "OVERDUE").length;
+    const paused = subs.filter((s) => s.status === "PAUSED").length;
+    const mrr = active.reduce((s, x) => s + x.plan.price, 0);
+    const plans = new Map<string, { name: string; price: number; subs: number; total: number }>();
+    for (const s of active) {
+      const cur = plans.get(s.plan.id) ?? { name: s.plan.name, price: s.plan.price, subs: 0, total: 0 };
+      cur.subs += 1;
+      cur.total += s.plan.price;
+      plans.set(s.plan.id, cur);
     }
-    const planosBreakdown = Object.values(planCounts);
 
-    const formattedBilling = billingLogs.map((p) => ({
-      id: p.id,
-      amount: p.amount,
-      method: p.method,
-      status: p.status,
-      paidAt: p.paidAt,
-      createdAt: p.createdAt,
-      clientName: p.subscription?.client.name ?? "Cliente avulso",
-      planName: p.subscription?.plan.name ?? "Plano Geral",
-    }));
-
-    const totalActiveAndOverdue = activeSubs.length + overdueSubs.length;
-    const adimplenciaRate = totalActiveAndOverdue > 0
-      ? Math.round((activeSubs.length / totalActiveAndOverdue) * 100)
-      : 100;
-
-    // ── Derivações em memória a partir de appts ───────────────────────────────
-    const totalServices = appts.length;
-    const servicesRevenue = appts.reduce((sum, a) => sum + a.price, 0);
-    const uniqueClientsPeriod = new Set(appts.map((a) => a.clientId));
-    const avgTicketServices = uniqueClientsPeriod.size > 0 ? servicesRevenue / uniqueClientsPeriod.size : 0;
-
-    const serviceRankingMap: Record<string, { name: string; count: number; revenue: number }> = {};
+    // ── Atendimentos ──
+    let revenue = 0;
+    let feeTotal = 0;
+    let avulsos = 0;
+    const days = new Set<string>();
+    const ranking = new Map<string, { name: string; count: number; revenue: number }>();
+    const spent = new Map<string, { name: string; phone: string | null; visits: number; spent: number }>();
     for (const a of appts) {
-      if (!a.service) continue;
-      const sname = a.service.name;
-      if (!serviceRankingMap[sname]) serviceRankingMap[sname] = { name: sname, count: 0, revenue: 0 };
-      serviceRankingMap[sname].count += 1;
-      serviceRankingMap[sname].revenue += a.price;
-    }
-    const serviceRanking = Object.values(serviceRankingMap).sort((a, b) => b.count - a.count);
-
-    const barberPerformanceMap: Record<string, { name: string; nickname: string | null; count: number; gross: number; commission: number }> = {};
-    for (const a of appts) {
-      const bid = a.barberId;
-      if (!barberPerformanceMap[bid]) {
-        barberPerformanceMap[bid] = { name: a.barber.user.name, nickname: a.barber.nickname, count: 0, gross: 0, commission: 0 };
+      const rec = appointmentReceipts(a).filter((r) => r.kind === "SERVICE");
+      const value = rec.reduce((s, r) => s + r.amount, 0);
+      revenue += value;
+      feeTotal += rec.reduce((s, r) => s + cardFee(r.amount, r.method, fees), 0);
+      if (!a.subscriptionId) avulsos += 1;
+      days.add(a.date.toISOString().slice(0, 10));
+      // Ranking por serviço (Corte + Barba conta nos dois); assinante não traz faturamento do plano
+      const list = a.services.length > 0 ? a.services.map((s) => ({ name: s.service.name, price: s.price })) : a.service ? [{ name: a.service.name, price: a.price }] : [];
+      const scale = list.reduce((s, x) => s + x.price, 0);
+      for (const s of list) {
+        const cur = ranking.get(s.name) ?? { name: s.name, count: 0, revenue: 0 };
+        cur.count += 1;
+        cur.revenue += scale > 0 ? value * (s.price / scale) : 0;
+        ranking.set(s.name, cur);
       }
-      const commPct = a.barber.commission ?? 50;
-      const commVal = a.barber.commissionType === "PERCENTAGE" ? (a.price * (commPct / 100)) : a.barber.commission;
-      barberPerformanceMap[bid].count += 1;
-      barberPerformanceMap[bid].gross += a.price;
-      barberPerformanceMap[bid].commission += commVal;
-    }
-    const barberPerformance = Object.values(barberPerformanceMap).sort((a, b) => b.gross - a.gross);
-
-    const clientSpentMap: Record<string, { name: string; email: string; phone: string | null; visits: number; totalSpent: number }> = {};
-    for (const a of appts) {
-      const cid = a.clientId;
-      if (!clientSpentMap[cid]) clientSpentMap[cid] = { name: a.client.name, email: "", phone: null, visits: 0, totalSpent: 0 };
-      clientSpentMap[cid].visits += 1;
-      clientSpentMap[cid].totalSpent += a.price;
+      const c = spent.get(a.clientId) ?? { name: a.client.name, phone: a.client.phone, visits: 0, spent: 0 };
+      c.visits += 1;
+      c.spent += value;
+      spent.set(a.clientId, c);
     }
 
-    const periodClientIds = [...new Set(appts.map((a) => a.clientId))];
-
-    // ── Round 2: queries que dependem dos resultados do round 1 ──────────────
-    const latestVisitByClient: Record<string, Date> = {};
-    for (const g of latestVisitGroups) {
-      if (g._max.date) latestVisitByClient[g.clientId] = new Date(g._max.date);
+    // ── Clientes ──
+    const served = new Set(appts.map((a) => a.clientId));
+    let newClients = 0;
+    for (const g of lastVisits) {
+      if (served.has(g.clientId) && g._min.date && g._min.date >= p.start) newClients += 1;
     }
-    const clientsWithVisits = Object.keys(latestVisitByClient);
+    const upcomingSet = new Set(upcoming.map((u) => u.clientId));
+    const limit = shop?.retentionDays ?? 45;
+    const now = Date.now();
+    const lapsedIds = lastVisits
+      .filter((g) => g._max.date && !upcomingSet.has(g.clientId) && (now - g._max.date.getTime()) / DAY > limit)
+      .sort((a, b) => b._max.date!.getTime() - a._max.date!.getTime());
+    const lapsedUsers = await prisma.user.findMany({
+      where: { id: { in: lapsedIds.slice(0, 8).map((g) => g.clientId) }, role: "CLIENT", isBlocked: false },
+      select: { id: true, name: true, phone: true },
+    });
+    const lapsedList = lapsedIds.slice(0, 8).flatMap((g) => {
+      const u = lapsedUsers.find((x) => x.id === g.clientId);
+      return u ? [{ id: u.id, name: u.name, phone: u.phone, lastVisit: g._max.date!.toISOString(), days: Math.floor((now - g._max.date!.getTime()) / DAY) }] : [];
+    });
 
-    const [clientsData, earliestApptsByClient, fullClientsInfo] = await Promise.all([
-      periodClientIds.length > 0
-        ? prisma.user.findMany({ where: { id: { in: periodClientIds } }, select: { id: true, email: true, phone: true } })
-        : Promise.resolve([] as Array<{ id: string; email: string; phone: string | null }>),
-      periodClientIds.length > 0
-        ? prisma.appointment.groupBy({
-            by: ["clientId"],
-            where: { barbershopId, status: "DONE", clientId: { in: periodClientIds } },
-            _min: { date: true },
-          })
-        : Promise.resolve([] as Array<{ clientId: string; _min: { date: Date | null } }>),
-      clientsWithVisits.length > 0
-        ? prisma.user.findMany({ where: { id: { in: clientsWithVisits } }, select: { id: true, name: true, email: true, phone: true } })
-        : Promise.resolve([] as Array<{ id: string; name: string; email: string; phone: string | null }>),
-    ]);
-
-    for (const u of clientsData) {
-      if (clientSpentMap[u.id]) {
-        clientSpentMap[u.id].email = u.email;
-        clientSpentMap[u.id].phone = u.phone;
-      }
-    }
-
-    const clientRanking = Object.values(clientSpentMap).sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 15);
-
-    let newCount = 0;
-    let recurrentCount = 0;
-    for (const item of earliestApptsByClient) {
-      const minDate = item._min.date;
-      if (minDate && minDate >= from && minDate <= to) newCount += 1;
-      else recurrentCount += 1;
-    }
-
-    const riskClients: Array<{ id: string; name: string; email: string; phone: string | null; lastVisit: Date; daysSince: number }> = [];
-    for (const c of fullClientsInfo) {
-      const lvisit = latestVisitByClient[c.id];
-      if (!lvisit) continue;
-      const diff = differenceInDays(now, lvisit);
-      if (diff > 45) riskClients.push({ id: c.id, name: c.name, email: c.email, phone: c.phone, lastVisit: lvisit, daysSince: diff });
-    }
-    riskClients.sort((a, b) => b.daysSince - a.daysSince);
-
-    // ==========================================
-    // 3. MODELO POE (Subscription Pool)
-    // ==========================================
-    const poeOwnerPct = shop?.poeOwnerPct ?? 50;
-    const poeBarberPct = 100 - poeOwnerPct;
-    const debitFee = shop?.debitFee ?? 0;
-    const creditFee = shop?.creditFee ?? 0;
-    const poeDeductFees = shop?.poeDeductFees ?? false;
-    const poeSubscriptionFee = shop?.poeSubscriptionFee ?? 0;
-
-    const poeGrossTotal = mrr;
-    const poeTaxas = poeDeductFees ? poeGrossTotal * (poeSubscriptionFee / 100) : 0;
-    const poeTotal = poeGrossTotal - poeTaxas;
-    const poeBarbearia = poeTotal * (poeOwnerPct / 100);
-    const poolBarbeiros = poeTotal * (poeBarberPct / 100);
-
-    const poeAppts = appts.filter(a => a.subscriptionId !== null);
-    // Cada serviço do plano realizado conta 1 (Corte + Barba = 2 serviços)
-    const totalServicosPoe = totalPlanServices(poeAppts);
-    const ticketPorServicoPoe = totalServicosPoe > 0 ? poolBarbeiros / totalServicosPoe : 0;
-
-    const partilhaMap: Record<string, { name: string; servicos: number; recebe: number }> = {};
-    for (const appt of poeAppts) {
-      const id = appt.barberId;
-      const name = appt.barber.user.name;
-      const servicos = countPlanServices(appt);
-      if (!partilhaMap[id]) partilhaMap[id] = { name, servicos: 0, recebe: 0 };
-      partilhaMap[id].servicos += servicos;
-      partilhaMap[id].recebe += ticketPorServicoPoe * servicos;
-    }
-    const partilhaBarbeiros = Object.entries(partilhaMap)
-      .map(([id, b]) => ({ id, ...b }))
-      .sort((a, b) => b.servicos - a.servicos);
-
-    // ==========================================
-    // 4. NET REVENUE (Atendimentos Líquido)
-    // ==========================================
-    const safeDebitFee = typeof debitFee === "number" && !isNaN(debitFee) ? debitFee : 0;
-    const safeCreditFee = typeof creditFee === "number" && !isNaN(creditFee) ? creditFee : 0;
-    let netRevenue = 0;
-    for (const a of appts) {
-      const method = a.paymentMethod ?? "CASH";
-      const feeRate = method === "DEBIT" || method === "DEBIT_CARD" ? safeDebitFee / 100
-        : method === "CREDIT" || method === "CREDIT_CARD" ? safeCreditFee / 100 : 0;
-      netRevenue += a.price - (a.price * feeRate);
-    }
-
+    const pool = commissions.pool;
     return NextResponse.json({
-      range: {
-        from: from.toISOString().slice(0, 10),
-        to: to.toISOString().slice(0, 10),
-      },
+      period: { key: p.key, start: p.start.toISOString(), end: p.end.toISOString() },
       subscriptions: {
-        mrr,
-        active: activeSubs.length,
-        overdue: overdueSubs.length,
-        cancelled: cancelledSubs.length,
-        total: subscriptions.length,
-        growth: newSubsPeriod,
-        adimplenciaRate,
-        planosBreakdown,
-        billingLogs: formattedBilling,
-        poe: {
-          poeOwnerPct,
-          poeBarberPct,
-          poeDeductFees,
-          poeSubscriptionFee,
-          poeGrossTotal,
-          poeTaxas,
-          poeTotal,
-          poeBarbearia,
-          poolBarbeiros,
-          ticketPorServico: ticketPorServicoPoe,
-          totalServicos: totalServicosPoe,
-          partilhaBarbeiros,
-        },
+        mrr: round2(mrr), active: active.length, overdue, paused,
+        payingRate: active.length + overdue > 0 ? Math.round((active.length / (active.length + overdue)) * 100) : 100,
+        newSubs, prevNewSubs,
+        plans: [...plans.values()].sort((a, b) => b.subs - a.subs),
+        billing: billing.map((b) => ({
+          id: b.id, amount: b.amount, status: b.status, date: (b.paidAt ?? b.createdAt).toISOString(),
+          method: b.gatewayType ? "cobrança automática" : b.method, clientName: b.subscription?.client.name ?? "Assinante",
+          planName: b.subscription?.plan.name ?? "Plano",
+        })),
+        billingProblems: billing.filter((b) => b.status === "FAILED" || (b.status === "PENDING" && b.createdAt.getTime() < now - 3 * DAY)).length,
       },
-      atendimentos: {
-        totalServices,
-        revenue: servicesRevenue,
-        netRevenue,
-        avgTicket: avgTicketServices,
-        serviceRanking,
-        barberPerformance,
-        debitFee,
-        creditFee,
+      pool: {
+        ...pool,
+        share: commissions.barbers
+          .filter((b) => b.assinatura.servicos > 0)
+          .map((b) => ({ id: b.id, name: b.name, services: b.assinatura.servicos, poolServices: b.assinatura.servicosPote, poolValue: round2(b.assinatura.comissaoPote), ownServices: b.assinatura.servicosProprio, ownValue: round2(b.assinatura.comissaoProprio), value: round2(b.assinatura.comissao) }))
+          .sort((a, b) => b.services - a.services),
       },
-      clientes: {
-        ranking: clientRanking,
-        cohort: {
-          new: newCount,
-          recurrent: recurrentCount,
-        },
-        riskList: riskClients.slice(0, 30),
+      services: {
+        count: appts.length, avulsos, daysOpen: days.size,
+        revenue: round2(revenue), fees: round2(feeTotal), net: round2(revenue - feeTotal), ...fees,
+        avgTicket: avulsos > 0 ? round2(revenue / avulsos) : 0,
+        ranking: [...ranking.values()].map((r) => ({ ...r, revenue: round2(r.revenue) })).sort((a, b) => b.count - a.count).slice(0, 8),
+        barbers: commissions.barbers
+          .map((b) => ({ id: b.id, name: b.name, count: b.avulso.atendimentos + b.assinatura.atendimentos, gross: round2(b.avulso.faturado), commission: round2(b.totalComissao) }))
+          .sort((a, b) => b.gross - a.gross),
+      },
+      clients: {
+        registered, served: served.size, newClients, returned: served.size - newClients,
+        top: [...spent.values()].sort((a, b) => b.spent - a.spent).slice(0, 8).map((c) => ({ ...c, spent: round2(c.spent) })),
+        lapsedDays: limit, lapsedCount: lapsedIds.length, lapsed: lapsedList,
       },
     });
   } catch (e: unknown) {

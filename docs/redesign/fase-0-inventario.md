@@ -178,6 +178,11 @@ Corrigidos no redesign (entram em produção no lançamento):
 8. **Taxa de cartão não descontada** no Resultado do mês para pagamentos da comanda (`CREDIT_CARD`/`DEBIT_CARD`; a conta só reconhecia `CREDIT`/`DEBIT`).
 9. **Vencimento de despesa aparecia um dia antes** (gravado à meia-noite UTC).
 10. **Planilha do financeiro**: descrição com vírgula quebrava as colunas; usava as assinaturas ativas em vez das pagas e não tinha extras nem produtos.
+11. **Pote das assinaturas perdia mensalidades** (fase 6b): as cobranças automáticas do Mercado Pago (`payments/webhook`) são gravadas sem `barbershopId`, e as comissões filtravam por ele — essas mensalidades não entravam no pote dos profissionais. Agora busca também pela assinatura (dono e telas do barbeiro).
+12. **Indicadores × Comissões com contas diferentes**: o Indicadores mostrava o pote sobre as assinaturas *ativas* com a % configurada; as Comissões pagavam sobre as *pagas* com 50% fixo. Agora uma conta só (`poolOf`, padrão 50%/sem taxa — igual ao que já era pago).
+13. **Previsão somava cada despesa recorrente várias vezes** (uma linha por mês replicado) e contava o preço de atendimento de assinante como receita nova.
+14. **Mês das comissões começava às 21h do dia anterior** no servidor (UTC); agora usa o fuso de São Paulo.
+15. **Plano com comissão própria (%) diluía o pote**: os atendimentos dele entravam na divisão mas eram pagos pela % do plano — parte do pote não ia para ninguém, e o dinheiro desse plano engordava o pote dos outros. Decisão (17/10/2026): plano com comissão própria fica **fora do pote** (dinheiro e atendimentos). Só muda algo em barbearia que preencheu esse campo.
 
 ## Decisões de produto
 
