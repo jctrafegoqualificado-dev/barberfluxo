@@ -16,6 +16,11 @@ export async function GET(req: NextRequest) {
     const date = req.nextUrl.searchParams.get("date") ?? "";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: "Data inválida" }, { status: 400 });
 
+    // Barbeiro vê só os horários dele na faixa da semana
+    const own = payload.role === "BARBER"
+      ? await prisma.barber.findUnique({ where: { userId: payload.id }, select: { id: true } })
+      : null;
+
     const ref = new Date(date + "T12:00:00Z");
     const monday = new Date(ref);
     monday.setUTCDate(ref.getUTCDate() - ((ref.getUTCDay() + 6) % 7));
@@ -30,6 +35,7 @@ export async function GET(req: NextRequest) {
         by: ["date"],
         where: {
           barbershopId,
+          ...(own ? { barberId: own.id } : {}),
           status: { not: "CANCELLED" },
           date: { gte: new Date(days[0] + "T00:00:00Z"), lte: new Date(days[6] + "T23:59:59Z") },
         },

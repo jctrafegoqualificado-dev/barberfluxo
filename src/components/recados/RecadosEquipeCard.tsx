@@ -47,32 +47,32 @@ export default function RecadosEquipeCard() {
   }
 
   return (
-    <section className="bg-white rounded-xl border border-zinc-100 shadow-sm p-4 space-y-3" aria-label="Recados da barbearia">
+    <section className="bg-surface rounded-2xl border border-line p-5 flex flex-col gap-3" aria-label="Recados da barbearia">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-semibold text-zinc-900 flex items-center gap-2">
-          <Megaphone className="w-4 h-4 text-primary" /> Recados da barbearia
+        <h2 className="text-[15px] font-semibold flex items-center gap-2">
+          <Megaphone className="w-4 h-4 text-ink-3" aria-hidden /> Recados da barbearia
         </h2>
         {unread > 0 && (
-          <span className="text-xs font-bold text-white bg-primary rounded-full px-2 py-0.5">
+          <span className="h-[22px] px-2 rounded-full bg-primary text-white text-[11px] font-semibold inline-flex items-center">
             {unread} {unread === 1 ? "novo" : "novos"}
           </span>
         )}
       </div>
 
-      <ul className="space-y-2">
+      <ul className="flex flex-col gap-2">
         {visible.map((n) => (
-          <li key={n.id} className={`rounded-lg p-3 text-sm ${n.read ? "bg-zinc-50" : "bg-primary/5 border border-primary/20"}`}>
-            <p className="text-xs text-zinc-400">
-              {n.authorName ?? "Dono"} · {whenLabel(n.createdAt)}
+          <li key={n.id} className={`rounded-xl p-3.5 flex flex-col gap-1.5 ${n.read ? "border border-line-2" : "bg-ground"}`}>
+            <p className="text-xs text-ink-3 flex justify-between gap-2">
+              <span className="font-semibold text-ink">{n.authorName ?? "Dono"}</span><span>{whenLabel(n.createdAt)}</span>
             </p>
-            <p className="text-zinc-800 mt-0.5 whitespace-pre-line">{n.content}</p>
+            <p className={`text-sm leading-snug whitespace-pre-line ${n.read ? "text-ink-2" : "text-ink"}`}>{n.content}</p>
           </li>
         ))}
       </ul>
 
       <div className="flex items-center justify-between gap-2">
         {notices.length > 3 ? (
-          <button onClick={() => setShowAll((v) => !v)} className="text-xs font-semibold text-zinc-500 hover:text-zinc-800">
+          <button onClick={() => setShowAll((v) => !v)} className="text-[13px] font-semibold text-ink-2 underline underline-offset-2">
             {showAll ? "Mostrar menos" : `Ver todos (${notices.length})`}
           </button>
         ) : <span />}
@@ -80,7 +80,7 @@ export default function RecadosEquipeCard() {
           <button
             onClick={markAllRead}
             disabled={marking}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-800 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-positive disabled:opacity-50"
           >
             <CheckCheck className="w-4 h-4" /> {marking ? "..." : "Marcar como lidos"}
           </button>

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, Banknote, Menu, Plus, TrendingUp, Users } from "lucide-react";
+import { LayoutDashboard, Calendar, Banknote, Menu, Plus, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ElementType } from "react";
 
@@ -15,9 +15,9 @@ const OWNER_TABS: [Tab, Tab, Tab] = [
   { href: "/painel/fluxo-caixa", label: "Caixa", icon: Banknote },
 ];
 const BARBER_TABS: [Tab, Tab, Tab] = [
-  { href: "/barbeiro", label: "Agenda", icon: Calendar, exact: true },
+  { href: "/barbeiro", label: "Início", icon: LayoutDashboard, exact: true },
+  { href: "/barbeiro/agenda", label: "Agenda", icon: Calendar },
   { href: "/barbeiro/producao", label: "Ganhos", icon: TrendingUp },
-  { href: "/barbeiro/clientes", label: "Clientes", icon: Users },
 ];
 
 function isActive(pathname: string, tab: Tab) {
@@ -27,7 +27,7 @@ function isActive(pathname: string, tab: Tab) {
 export default function BottomNav({ isOwner, onOpenMenu }: { isOwner: boolean; onOpenMenu: () => void }) {
   const pathname = usePathname();
   const [a, b, c] = isOwner ? OWNER_TABS : BARBER_TABS;
-  const newHref = isOwner ? "/painel/agendamentos?novo=1" : "/barbeiro?novo=1";
+  const newHref = isOwner ? "/painel/agendamentos?novo=1" : "/barbeiro/agenda?novo=1";
 
   const tab = (t: Tab) => {
     const active = isActive(pathname, t);

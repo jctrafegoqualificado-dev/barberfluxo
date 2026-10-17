@@ -65,7 +65,7 @@ export default function BarbeiroLayout({ children }: { children: React.ReactNode
         <Sidebar branding={branding || undefined} />
         <main className="flex-1 min-w-0 overflow-auto">
           {/* pb-28 no celular: espaço para a barra inferior */}
-          <div className="px-4 pt-5 pb-28 md:p-6 max-w-5xl mx-auto">{children}</div>
+          <div className="px-4 pt-5 pb-28 md:p-6 max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
     </>

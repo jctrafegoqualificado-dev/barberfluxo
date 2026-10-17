@@ -77,7 +77,8 @@ const ownerConfigSubnav: NavItem[] = [
 ];
 
 const barberNav: NavItem[] = [
-  { href: "/barbeiro", label: "Minha agenda", icon: Calendar, exact: true },
+  { href: "/barbeiro", label: "Início", icon: LayoutDashboard, exact: true },
+  { href: "/barbeiro/agenda", label: "Minha agenda", icon: Calendar },
   { href: "/barbeiro/producao", label: "Ganhos", icon: TrendingUp },
   { href: "/barbeiro/comissoes", label: "Comissões", icon: CreditCard },
   { href: "/barbeiro/assinaturas", label: "Assinantes", icon: Layers },
