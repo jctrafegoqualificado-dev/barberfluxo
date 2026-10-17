@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     const shop = await prisma.barbershop.findUnique({
       where: { slug, active: true },
       select: {
-        id: true, name: true, slug: true, description: true, logoUrl: true,
+        id: true, name: true, slug: true, description: true, logoUrl: true, favIconUrl: true,
         primaryColor: true, secondaryColor: true,
         phone: true, address: true, streetNumber: true, neighborhood: true, city: true, state: true,
         cancelByClientEnabled: true, minCancelHours: true, reminderEnabled: true, reminderMinutes: true,

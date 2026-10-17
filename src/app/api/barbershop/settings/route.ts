@@ -31,6 +31,9 @@ export async function GET(req: NextRequest) {
         debitFee: true,
         creditFee: true,
         poeOwnerPct: true,
+        prebillingReminderEnabled: true,
+        prebillingReminderDays: true,
+        blockOverdueEnabled: true,
       }
     });
 
@@ -53,8 +56,11 @@ export async function PATCH(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
     const body = await req.json();
+    const hex = /^#[0-9a-fA-F]{6}$/;
+    for (const k of ["primaryColor", "secondaryColor"]) {
+      if (body[k] !== undefined && !hex.test(body[k])) return NextResponse.json({ error: "Cor inválida: use o código #RRGGBB" }, { status: 400 });
+    }
 
-    console.log("🎨 [Settings PATCH] Updating branding:", body);
 
     const updated = await prisma.barbershop.update({
       where: { id: barbershopId },

@@ -80,9 +80,9 @@ traz um recurso a mais · ⛔ falta dado — precisa de campo/tabela nova (migra
 
 | Tela | Rota atual | Status | Observação |
 |---|---|---|---|
-| `Config-geral-desktop` | `/painel/configuracoes` | ✅ | Dados, horários, regras de cancelamento e descontos já existem. |
-| `Config-marca-desktop` | `/painel/configuracoes/marca` | ✅ | Logo, cores, frase e favicon já existem. |
-| `Config-pagamentos-desktop` | `/painel/configuracoes/pagamentos` | ✅ | Mercado Pago por barbearia já existe. |
+| `Config-geral-desktop` | `/painel/configuracoes` | ✅ fase 7d | Dados, horários, regras de cancelamento e descontos já existem. |
+| `Config-marca-desktop` | `/painel/configuracoes/marca` | ✅ fase 7d | Logo, cores, frase e favicon já existem. |
+| `Config-pagamentos-desktop` | `/painel/configuracoes/pagamentos` | ✅ fase 7d | Mercado Pago por barbearia já existe. |
 
 ## 11 Catálogo
 
@@ -196,6 +196,7 @@ Corrigidos no redesign (entram em produção no lançamento):
 26. **Segurança — tarefas** (fase 7c): `PATCH /api/barbershop/tasks/[id]` gravava qualquer campo que viesse no corpo (até `barbershopId`) e o barbeiro podia mexer na tarefa de outro. Agora só campos permitidos; barbeiro só muda a situação da tarefa dele ou da equipe. **Vale levar para a `main` antes do lançamento.**
 27. **Barbeiro nunca via as tarefas atribuídas a ele**: a tela filtrava pelo e-mail, que a API não devolvia — só sobravam as da equipe. Agora a API já devolve as dele + as da equipe.
 28. **"Comparecimento" do barbeiro dividia pelos horários do mês inteiro** (inclusive futuros e cancelados): mostrava 57% quando era ~90%. Agora feitos ÷ (feitos + faltas).
+29. **Ícone da aba (favicon) não era usado** (fase 7d): a tela de Marca salvava `favIconUrl`, mas nenhuma página aplicava. Agora a página de agendamento usa o ícone (ou a logo) e o nome da barbearia na aba.
 
 Pendentes do Catálogo (precisam de dado novo, ficaram fora da 7a):
 

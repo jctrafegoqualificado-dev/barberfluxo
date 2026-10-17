@@ -16,6 +16,7 @@ interface Shop {
   slug: string;
   description: string | null;
   logoUrl: string | null;
+  favIconUrl?: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
   phone: string | null;
@@ -123,6 +124,17 @@ export default function AgendarPage() {
     setStep("datetime");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shop, slug]);
+
+  // Aba do navegador: nome da barbearia e o ícone escolhido em Configurações → Marca (ou a logo)
+  useEffect(() => {
+    if (!shop) return;
+    document.title = `${shop.name} · Agendar`;
+    const href = shop.favIconUrl || shop.logoUrl;
+    if (!href) return;
+    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (!link) { link = document.createElement("link"); link.rel = "icon"; document.head.appendChild(link); }
+    link.href = href;
+  }, [shop]);
 
   // Volta ao topo a cada etapa (no celular a etapa anterior costuma estar rolada)
   useEffect(() => { window.scrollTo({ top: 0 }); }, [step]);
