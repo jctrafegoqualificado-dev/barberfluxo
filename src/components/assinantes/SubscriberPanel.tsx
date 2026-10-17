@@ -20,8 +20,12 @@ interface Use {
 
 const dayKey = (iso: string) => new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(new Date(iso));
 
-export function SubscriberPanel({ sub: listSub, today, plans, onChanged, onClose }: {
-  sub: Sub; today: string; plans: PlanOption[]; onChanged: () => void; onClose: () => void;
+/**
+ * canManage = dono: pausar, cancelar, reativar, desfazer baixa, apagar e mexer no débito automático.
+ * O barbeiro só dá baixa, cobra, reenvia o link, lança uso e edita.
+ */
+export function SubscriberPanel({ sub: listSub, today, plans, onChanged, onClose, canManage = true }: {
+  sub: Sub; today: string; plans: PlanOption[]; onChanged: () => void; onClose: () => void; canManage?: boolean;
 }) {
   const { token } = useAuthStore();
   const [sub, setSub] = useState<Sub>(listSub);
@@ -87,8 +91,8 @@ export function SubscriberPanel({ sub: listSub, today, plans, onChanged, onClose
       case "late": return { tone: "danger", title: st.text, text: `Venceu em ${shortDay(dueKey(sub.nextBillingDate))}. Cobre no WhatsApp ou dê baixa se já pagou.`, actions: <>{baixa}{cobrar}</> };
       case "today": return { tone: "warning", title: "Vence hoje", text: `${brl(sub.plan.price)} · ${methodText(sub)}`, actions: <>{baixa}{cobrar}</> };
       case "auth": return { tone: "neutral", title: "Esperando o cliente autorizar", text: "O link do débito automático foi enviado e ainda não foi aceito.", actions: <><Button size="sm" variant="outline" className="h-[38px]" loading={busy} onClick={sendLink}>Reenviar link</Button>{sub.authorizationLink && <Button size="sm" variant="outline" className="h-[38px]" onClick={() => { navigator.clipboard?.writeText(sub.authorizationLink!); toast.success("Link copiado"); }}><Copy className="w-4 h-4 mr-1" aria-hidden />Copiar</Button>}</> };
-      case "paused": return { tone: "neutral", title: "Assinatura pausada", text: "Não cobra e não dá para usar o plano até retomar.", actions: <Button size="sm" className="h-[38px]" loading={busy} onClick={() => setStatus("ACTIVE", "Assinatura retomada")}>Retomar</Button> };
-      case "cancelled": return { tone: "neutral", title: "Assinatura cancelada", text: "O histórico continua aqui.", actions: <Button size="sm" variant="outline" className="h-[38px]" loading={busy} onClick={() => setStatus("ACTIVE", "Assinatura reativada")}>Reativar</Button> };
+      case "paused": return { tone: "neutral", title: "Assinatura pausada", text: "Não cobra e não dá para usar o plano até retomar.", actions: canManage ? <Button size="sm" className="h-[38px]" loading={busy} onClick={() => setStatus("ACTIVE", "Assinatura retomada")}>Retomar</Button> : null };
+      case "cancelled": return { tone: "neutral", title: "Assinatura cancelada", text: "O histórico continua aqui.", actions: canManage ? <Button size="sm" variant="outline" className="h-[38px]" loading={busy} onClick={() => setStatus("ACTIVE", "Assinatura reativada")}>Reativar</Button> : null };
       default: return null;
     }
   })();
@@ -167,11 +171,11 @@ export function SubscriberPanel({ sub: listSub, today, plans, onChanged, onClose
             {sub.payments.slice(0, 6).map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-2 text-[13px]">
                 <span className="min-w-0 truncate">
-                  {p.paidAt ? shortDay(dayKey(p.paidAt)) : shortDay(dayKey(p.createdAt))} · {brl(p.amount)}
+                  {p.paidAt ? shortDay(dayKey(p.paidAt)) : p.status === "PENDING" && live ? `a cobrar em ${shortDay(dueKey(sub.nextBillingDate))}` : shortDay(dayKey(p.createdAt))} · {brl(p.amount)}
                   {p.status === "PAID" && <span className="text-ink-3"> · {METHOD_LABEL[normalizeMethod(p.method)]}</span>}
                 </span>
                 <span className="flex items-center gap-2 shrink-0">
-                  {p.id === lastPaidId && <button type="button" onClick={() => setConfirm("undo")} className="text-xs font-semibold text-ink-3 underline underline-offset-2">Desfazer</button>}
+                  {canManage && p.id === lastPaidId && <button type="button" onClick={() => setConfirm("undo")} className="text-xs font-semibold text-ink-3 underline underline-offset-2">Desfazer</button>}
                   <span className={cn("h-[22px] px-2 rounded-full text-[11px] font-semibold inline-flex items-center",
                     p.status === "PAID" ? "bg-positive-soft text-positive" : p.status === "PENDING" ? "bg-warning-soft text-warning" : "bg-danger-soft text-danger")}>
                     {p.status === "PAID" ? "Paga" : p.status === "PENDING" ? "Aberta" : "Recusada"}
@@ -192,13 +196,13 @@ export function SubscriberPanel({ sub: listSub, today, plans, onChanged, onClose
               : auto === "FAILED" ? "A última cobrança falhou."
               : "Cobrança manual: o cliente paga no balcão ou por Pix e você dá baixa."}
           </p>
-          <div className="flex flex-wrap gap-2">
+          {canManage && <div className="flex flex-wrap gap-2">
             {!sub.mpPreapprovalId && <Button size="sm" variant="outline" loading={busy} onClick={() => createAuto()}>Ativar débito automático</Button>}
             {sub.mpPreapprovalId && auto === "PAUSED" && (
               <Button size="sm" variant="outline" loading={busy} onClick={async () => { if (await call(`/api/barbershop/subscriptions/${sub.id}/resume-authorization`, { method: "POST" }, "Débito automático retomado")) refresh(); }}>Retomar débito</Button>
             )}
             {sub.mpPreapprovalId && <Button size="sm" variant="ghost" onClick={() => setConfirm("stopAuto")}>{auto === "AUTHORIZED" ? "Cancelar débito" : "Cancelar e gerar outro"}</Button>}
-          </div>
+          </div>}
         </Section>
       )}
 
@@ -206,12 +210,13 @@ export function SubscriberPanel({ sub: listSub, today, plans, onChanged, onClose
         {live ? (
           <>
             <Button variant="outline" size="sm" onClick={() => setModal("editar")}>Editar</Button>
-            {sub.status !== "PAUSED" && <Button variant="outline" size="sm" onClick={() => setConfirm("pause")}>Pausar</Button>}
-            <Button variant="outline" size="sm" className="ml-auto text-danger border-danger/30" onClick={() => setConfirm("cancel")}>Cancelar assinatura</Button>
+            {canManage && sub.status !== "PAUSED" && <Button variant="outline" size="sm" onClick={() => setConfirm("pause")}>Pausar</Button>}
+            {canManage ? <Button variant="outline" size="sm" className="ml-auto text-danger border-danger/30" onClick={() => setConfirm("cancel")}>Cancelar assinatura</Button>
+              : <Button variant="outline" size="sm" className="ml-auto" onClick={onClose}>Fechar</Button>}
           </>
         ) : (
           <>
-            <Button variant="ghost" size="sm" className="text-danger" onClick={() => setConfirm("delete")}>Apagar registro</Button>
+            {canManage && <Button variant="ghost" size="sm" className="text-danger" onClick={() => setConfirm("delete")}>Apagar registro</Button>}
             <Button variant="outline" size="sm" className="ml-auto" onClick={onClose}>Fechar</Button>
           </>
         )}

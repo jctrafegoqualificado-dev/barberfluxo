@@ -80,7 +80,6 @@ const barberNav: NavItem[] = [
   { href: "/barbeiro", label: "Início", icon: LayoutDashboard, exact: true },
   { href: "/barbeiro/agenda", label: "Minha agenda", icon: Calendar },
   { href: "/barbeiro/producao", label: "Ganhos", icon: TrendingUp },
-  { href: "/barbeiro/comissoes", label: "Comissões", icon: CreditCard },
   { href: "/barbeiro/assinaturas", label: "Assinantes", icon: Layers },
   { href: "/barbeiro/clientes", label: "Clientes", icon: Users },
   { href: "/barbeiro/tarefas", label: "Tarefas", icon: KanbanSquare },

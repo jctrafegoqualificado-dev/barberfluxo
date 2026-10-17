@@ -19,11 +19,13 @@ export async function GET(req: NextRequest) {
     const monthEnd = endOfMonth(now);
 
     let barbershopId = payload.barbershopId!;
+    let myBarberId: string | null = null;
 
     if (payload.role === "BARBER") {
       const barber = await prisma.barber.findUnique({ where: { userId: payload.id } });
       if (!barber) return NextResponse.json({ clientes: [] });
       barbershopId = barber.barbershopId;
+      myBarberId = barber.id;
     }
 
     const [shop, dbClients, upcoming, retention, barbers, reviewsAgg] = await Promise.all([
@@ -115,6 +117,8 @@ export async function GET(req: NextRequest) {
         activePlan: sub?.plan?.name ?? null,
         planPrice: sub?.plan?.price ?? null,
         preferredBarber: preferredBarberId ? barberName.get(preferredBarberId) ?? null : null,
+        // Tela do barbeiro: já foi atendido por ele / o profissional que mais o atende é ele
+        ...(myBarberId ? { visitsWithMe: barberCount.get(myBarberId) ?? 0, mine: preferredBarberId === myBarberId } : {}),
         hasUpcoming,
         expectedInterval: rhythm.expected,
         lapsed: rhythm.lapsed,

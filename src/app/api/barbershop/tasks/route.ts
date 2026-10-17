@@ -7,8 +7,13 @@ export async function GET(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
 
+    // Barbeiro vê as tarefas dele e as da equipe (sem responsável)
+    const me = payload.role === "BARBER"
+      ? await prisma.barber.findUnique({ where: { userId: payload.id }, select: { id: true } })
+      : null;
+
     const tasks = await prisma.task.findMany({
-      where: { barbershopId },
+      where: { barbershopId, ...(payload.role === "BARBER" ? { OR: [{ barberId: null }, { barberId: me?.id ?? "-" }] } : {}) },
       include: { barber: { include: { user: { select: { name: true } } } } },
       orderBy: { createdAt: "desc" },
     });

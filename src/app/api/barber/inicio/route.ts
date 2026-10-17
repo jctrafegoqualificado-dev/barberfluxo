@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { POOL_PAYMENT_SELECT, poolOf, poolRevenue, poolServices, poolSettings, subscriptionPaymentsWhere } from "@/lib/commissions";
-import { SUBSCRIPTION_APPT_INCLUDE, subscriptionCommission } from "@/lib/subscriptionServices";
+import { POOL_PAYMENT_SELECT, appointmentCommission, poolOf, poolRevenue, poolServices, poolSettings, subscriptionPaymentsWhere } from "@/lib/commissions";
+import { SUBSCRIPTION_APPT_INCLUDE } from "@/lib/subscriptionServices";
 import { averageInterval, clientRhythm } from "@/lib/clientRhythm";
 import { addMonth, currentMonthSP, monthStartSP } from "@/lib/monthResult";
 import { addDaysKey, todayKeySP } from "@/lib/subscriptionCycle";
@@ -91,14 +91,7 @@ export async function GET(req: NextRequest) {
 
     // ── Ganhos de hoje (mesma conta das Comissões) ──
     const ticket = poolOf(poolRevenue(subPayments), poolServices(subAppts), await poolSettings(barbershopId)).ticket;
-    const pct = (v: number, type: string, rate: number) => (type === "FIXED" ? rate : v * (rate / 100));
-    const commissionOf = (a: (typeof todayAppts)[number]) => {
-      const extra = (a.extraPrice ?? 0) > 0 ? pct(a.extraPrice ?? 0, barber.commissionType, barber.commission) : 0;
-      if (a.subscriptionId) return subscriptionCommission(a, ticket) + extra;
-      const net = Math.max(0, a.price - (a.service?.materialCost || 0));
-      const base = a.service?.commission != null ? pct(net, "PERCENTAGE", a.service.commission) : pct(net, barber.commissionType, barber.commission);
-      return base + extra;
-    };
+    const commissionOf = (a: (typeof todayAppts)[number]) => appointmentCommission(a, barber, ticket);
     const done = todayAppts.filter((a) => a.status === "DONE");
     const open = todayAppts.filter((a) => a.status === "CONFIRMED" || a.status === "PENDING");
     const earned = done.reduce((s, a) => s + commissionOf(a) + (a.tipAmount ?? 0), 0);

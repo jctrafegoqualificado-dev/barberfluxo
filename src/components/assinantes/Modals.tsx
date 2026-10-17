@@ -174,6 +174,7 @@ export function NovoAssinanteModal({ plans, onClose, onDone }: { plans: PlanOpti
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.clientName.trim() || form.clientPhone.replace(/\D/g, "").length < 10) { toast.error("Informe nome e WhatsApp com DDD."); return; }
+    if (form.clientEmail.trim() && !/^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/.test(form.clientEmail.trim())) { toast.error("Confira o e-mail: parece ter algo errado."); return; }
     if (!form.planId) { toast.error("Escolha o plano."); return; }
     const day = Number(form.billingDay);
     if (!(day >= 1 && day <= 31)) { toast.error("Escolha o dia de cobrança (1 a 31)."); return; }

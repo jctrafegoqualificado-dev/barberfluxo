@@ -193,6 +193,9 @@ Corrigidos no redesign (entram em produção no lançamento):
 23. **Plano excluído ainda aceitava assinante novo** pela API.
 24. **Avaliação valia para qualquer agendamento** (inclusive cancelado ou futuro) e dava pontos de fidelidade. Agora só atendimento concluído.
 25. **Barbeiro conseguia desfazer a baixa de mensalidade** (apagar o pagamento). Agora só o dono.
+26. **Segurança — tarefas** (fase 7c): `PATCH /api/barbershop/tasks/[id]` gravava qualquer campo que viesse no corpo (até `barbershopId`) e o barbeiro podia mexer na tarefa de outro. Agora só campos permitidos; barbeiro só muda a situação da tarefa dele ou da equipe. **Vale levar para a `main` antes do lançamento.**
+27. **Barbeiro nunca via as tarefas atribuídas a ele**: a tela filtrava pelo e-mail, que a API não devolvia — só sobravam as da equipe. Agora a API já devolve as dele + as da equipe.
+28. **"Comparecimento" do barbeiro dividia pelos horários do mês inteiro** (inclusive futuros e cancelados): mostrava 57% quando era ~90%. Agora feitos ÷ (feitos + faltas).
 
 Pendentes do Catálogo (precisam de dado novo, ficaram fora da 7a):
 

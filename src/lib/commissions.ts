@@ -28,6 +28,45 @@ function calcComissao(valor: number, type: string, rate: number): number {
   return valor * (rate / 100);
 }
 
+// ── Comissão de um item (mesma regra em todas as telas: Comissões, Ganhos e Início do barbeiro) ──
+
+export interface BarberRates {
+  commissionType: string; commission: number;
+  productCommissionType: string; productCommission: number;
+}
+type AvulsoAppt = { price: number; service?: { materialCost?: number | null; commission?: number | null } | null };
+
+/** Avulso: % (ou fixo) do profissional sobre preço − material; serviço com comissão própria usa a dele. */
+export function avulsoCommission(a: AvulsoAppt, b: Pick<BarberRates, "commissionType" | "commission">): number {
+  const net = Math.max(0, a.price - (a.service?.materialCost || 0));
+  if (a.service?.commission != null) return calcComissao(net, "PERCENTAGE", a.service.commission);
+  return calcComissao(net, b.commissionType, b.commission);
+}
+
+/** Extra cobrado além do plano (ou do serviço): comissiona como avulso pela taxa do profissional. */
+export function extraCommission(a: { extraPrice?: number | null }, b: Pick<BarberRates, "commissionType" | "commission">): number {
+  return (a.extraPrice ?? 0) > 0 ? calcComissao(a.extraPrice ?? 0, b.commissionType, b.commission) : 0;
+}
+
+/** Comissão do atendimento inteiro: avulso ou assinatura (pote/% do plano) + extra. Sem gorjeta. */
+export function appointmentCommission(
+  a: AvulsoAppt & { subscriptionId?: string | null; extraPrice?: number | null } & Parameters<typeof subscriptionCommission>[0],
+  b: Pick<BarberRates, "commissionType" | "commission">,
+  ticket: number,
+): number {
+  return (a.subscriptionId ? subscriptionCommission(a, ticket) : avulsoCommission(a, b)) + extraCommission(a, b);
+}
+
+/** Venda de produto: regra do produto ou a padrão do profissional. */
+export function productSaleCommission(
+  p: { total: number; quantity: number; product?: { commissionType?: string | null; commissionValue?: number | null } | null },
+  b: Pick<BarberRates, "productCommissionType" | "productCommission">,
+): number {
+  const type = p.product?.commissionType || b.productCommissionType;
+  const value = p.product?.commissionValue != null ? p.product.commissionValue : b.productCommission;
+  return type === "FIXED" ? value * p.quantity : calcComissao(p.total, type, value);
+}
+
 /**
  * Pote das assinaturas: do que foi pago no período, desconta a taxa (se a barbearia
  * marcou), a parte da barbearia fica com ela e o resto é dividido pelos serviços de
@@ -155,18 +194,9 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
       // como AVULSO: comissão pela taxa padrão do barbeiro e somados ao acerto avulso (Líquido a Pagar).
       const extraAppts = [...avulsos, ...subAppointments].filter((a) => (a.extraPrice ?? 0) > 0);
       const totalExtra = extraAppts.reduce((s, a) => s + (a.extraPrice ?? 0), 0);
-      const comissaoExtra = extraAppts.reduce(
-        (s, a) => s + calcComissao(a.extraPrice ?? 0, b.commissionType, b.commission),
-        0
-      );
+      const comissaoExtra = extraAppts.reduce((s, a) => s + extraCommission(a, b), 0);
 
-      const comissaoAvulsoBase = avulsos.reduce((s, a) => {
-        const materialCost = a.service?.materialCost || 0;
-        const netValue = Math.max(0, a.price - materialCost);
-        const hasCustomCommission = a.service?.commission !== null && a.service?.commission !== undefined;
-        if (hasCustomCommission) return s + calcComissao(netValue, "PERCENTAGE", a.service!.commission!);
-        return s + calcComissao(netValue, b.commissionType, b.commission);
-      }, 0);
+      const comissaoAvulsoBase = avulsos.reduce((s, a) => s + avulsoCommission(a, b), 0);
       const comissaoAvulso = comissaoAvulsoBase + comissaoExtra;
 
       const comissaoAssinatura = subAppointments.reduce((s, a) => s + subscriptionCommission(a, ticketMedioSub), 0);
@@ -178,15 +208,7 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
       const comissaoProprio = subAppointments.filter(ownPlan).reduce((s, a) => s + subscriptionCommission(a, ticketMedioSub), 0);
 
       const totalProdutos = productSales.reduce((s, p) => s + p.total, 0);
-      const comissaoProdutos = productSales.reduce((s, p) => {
-        const commType = p.product?.commissionType || b.productCommissionType;
-        const commValue =
-          p.product?.commissionValue !== undefined && p.product?.commissionValue !== null
-            ? p.product.commissionValue
-            : b.productCommission;
-        if (commType === "FIXED") return s + commValue * p.quantity;
-        return s + calcComissao(p.total, commType, commValue);
-      }, 0);
+      const comissaoProdutos = productSales.reduce((s, p) => s + productSaleCommission(p, b), 0);
 
       const totalComissao = comissaoAvulso + comissaoAssinatura + comissaoProdutos;
       const totalVales = vales.reduce((s, v) => s + v.amount, 0);
