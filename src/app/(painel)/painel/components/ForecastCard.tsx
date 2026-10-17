@@ -66,13 +66,13 @@ export function ForecastCard({ forecast, appointments }: ForecastCardProps) {
           <div className="flex flex-wrap items-end gap-7">
             <div>
               <p className="text-[13px] text-ink-2">Se todos vierem</p>
-              <p className="font-display text-[38px] leading-[1.1] font-bold tracking-tight text-ink tabular-nums">
+              <p className="font-display text-[38px] leading-[1.1] font-bold tracking-tight text-ink">
                 {formatCurrency(best)}
               </p>
             </div>
             <div className="pb-1">
               <p className="text-[13px] text-ink-2">Previsão realista</p>
-              <p className="font-display text-2xl font-bold text-primary tabular-nums">{formatCurrency(realistic)}</p>
+              <p className="font-display text-2xl font-bold text-primary">{formatCurrency(realistic)}</p>
             </div>
           </div>
 
@@ -82,7 +82,7 @@ export function ForecastCard({ forecast, appointments }: ForecastCardProps) {
               <div className="bg-primary" style={{ width: pct(confirmed.value, scale) }} />
               <div className="bg-primary/40" style={{ width: pct(unconfirmed.value, scale) }} />
             </div>
-            <div className="flex justify-between text-xs text-ink-3 tabular-nums">
+            <div className="flex justify-between text-xs text-ink-3">
               <span>R$ 0</span>
               {goalPct !== null && (
                 <span>
@@ -97,21 +97,22 @@ export function ForecastCard({ forecast, appointments }: ForecastCardProps) {
             {rows.map((r) => (
               <div key={r.label} className="flex items-center gap-2.5 min-h-9 border-t border-line-3">
                 <span className={`w-2.5 h-2.5 rounded-[3px] ${r.swatch}`} />
-                <span className="flex-1 text-sm text-ink">
-                  {r.label} <span className="text-ink-3">· {r.detail}</span>
+                <span className="flex-1 min-w-0 text-sm text-ink">
+                  <span className="whitespace-nowrap">{r.label}</span> <span className="text-ink-3 whitespace-nowrap">· {r.detail}</span>
                 </span>
                 {r.label === "Sem confirmação" && confirmLink && (
                   <a
                     href={confirmLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-line text-xs font-semibold text-ink hover:bg-ground"
+                    aria-label="Pedir confirmação pelo WhatsApp"
+                    className="flex items-center gap-1.5 h-8 px-2.5 shrink-0 whitespace-nowrap rounded-lg border border-line text-xs font-semibold text-ink hover:bg-ground"
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    Pedir confirmação
+                    <span className="hidden sm:inline">Pedir confirmação</span>
                   </a>
                 )}
-                <span className="w-24 text-right text-sm font-semibold text-ink tabular-nums">{formatCurrency(r.value)}</span>
+                <span className="w-24 text-right text-sm font-semibold text-ink">{formatCurrency(r.value)}</span>
               </div>
             ))}
             {noShow.count > 0 && (
@@ -120,7 +121,7 @@ export function ForecastCard({ forecast, appointments }: ForecastCardProps) {
                 <span className="flex-1 text-sm text-ink">
                   Perdido com falta <span className="text-ink-3">· {noShow.count} cliente{noShow.count !== 1 ? "s" : ""}</span>
                 </span>
-                <span className="w-24 text-right text-sm font-semibold text-danger tabular-nums">− {formatCurrency(noShow.value)}</span>
+                <span className="w-24 text-right text-sm font-semibold text-danger">− {formatCurrency(noShow.value)}</span>
               </div>
             )}
           </div>

@@ -43,7 +43,7 @@ export function ChartsSection({ dailyRevenue, appointmentStatus, projecaoMes, sh
         {showProjection && (
           <div className="text-right">
             <p className="text-xs text-ink-3">Projeção do mês</p>
-            <p className="font-display text-[22px] font-bold text-ink tabular-nums">{formatCurrency(projecaoMes)}</p>
+            <p className="font-display text-[22px] font-bold text-ink">{formatCurrency(projecaoMes)}</p>
           </div>
         )}
       </div>
@@ -87,7 +87,7 @@ export function ChartsSection({ dailyRevenue, appointmentStatus, projecaoMes, sh
       <div className="flex flex-col gap-2.5 pt-4 border-t border-line-2">
         <div className="flex justify-between text-[13px]">
           <span className="font-semibold text-ink">Status dos atendimentos no período</span>
-          <span className="text-ink-3 tabular-nums">{statusTotal} no total</span>
+          <span className="text-ink-3">{statusTotal} no total</span>
         </div>
         {statusTotal > 0 && (
           <div className="flex h-2.5 gap-0.5 rounded-full overflow-hidden" aria-hidden="true">
@@ -100,7 +100,7 @@ export function ChartsSection({ dailyRevenue, appointmentStatus, projecaoMes, sh
           {statuses.map((s) => (
             <span key={s.label} className="flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-sm ${s.color}`} />
-              {s.label} <strong className="text-ink tabular-nums">{s.value}</strong>
+              {s.label} <strong className="text-ink">{s.value}</strong>
             </span>
           ))}
         </div>

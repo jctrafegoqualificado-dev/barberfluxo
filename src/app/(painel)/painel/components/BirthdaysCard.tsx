@@ -30,7 +30,7 @@ export function BirthdaysCard({ birthdays, today }: { birthdays: DashboardData["
             return (
               <li key={c.id} className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-[10px] bg-ground flex flex-col items-center justify-center shrink-0">
-                  <span className="text-[15px] font-bold leading-none text-ink tabular-nums">{c.day}</span>
+                  <span className="text-[15px] font-bold leading-none text-ink">{c.day}</span>
                   <span className="text-[10px] font-semibold uppercase text-ink-3">{month}</span>
                 </div>
                 <p className="flex-1 min-w-0 text-sm font-semibold text-ink truncate">{c.name}</p>

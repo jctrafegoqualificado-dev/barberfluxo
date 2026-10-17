@@ -17,7 +17,7 @@ export function KpiCard({ title, value, change, prevLabel, isCurrency }: KpiCard
   return (
     <div className="bg-white border border-line rounded-[14px] p-[18px] flex flex-col gap-2 min-w-0">
       <span className="text-[13px] font-medium text-ink-2">{title}</span>
-      <span className="font-display text-[26px] leading-tight font-bold tracking-tight text-ink tabular-nums truncate">
+      <span className="font-display text-[26px] leading-tight font-bold tracking-tight text-ink truncate">
         {display}
       </span>
       <div className="flex flex-wrap items-center gap-x-1.5 text-xs">

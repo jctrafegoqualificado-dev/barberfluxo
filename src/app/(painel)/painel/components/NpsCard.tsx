@@ -29,7 +29,7 @@ export function NpsCard({ nps }: { nps: DashboardData["nps"] }) {
       ) : (
         <>
           <div className="flex flex-wrap items-baseline gap-x-2.5">
-            <span className="font-display text-[40px] leading-none font-bold tracking-tight text-ink tabular-nums">{nps.score}</span>
+            <span className="font-display text-[40px] leading-none font-bold tracking-tight text-ink">{nps.score}</span>
             <span className="text-[13px] text-ink-2">
               NPS · nota média {nps.average.toLocaleString("pt-BR")} · {nps.total} avaliações
             </span>
@@ -41,7 +41,7 @@ export function NpsCard({ nps }: { nps: DashboardData["nps"] }) {
               <div className="bg-danger-strong" style={{ width: `${(nps.detractors / total) * 100}%` }} />
             </div>
           )}
-          <div className="flex justify-between text-xs text-ink-2 tabular-nums">
+          <div className="flex justify-between text-xs text-ink-2">
             <span><strong className="text-ink">{nps.promoters}</strong> promotores</span>
             <span><strong className="text-ink">{nps.passives}</strong> neutros</span>
             <span><strong className="text-ink">{nps.detractors}</strong> detratores</span>

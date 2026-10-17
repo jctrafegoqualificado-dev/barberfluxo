@@ -34,8 +34,8 @@ export function RankingsSection({ topBarbers, topClients, newClients, returningC
                 </div>
                 <span className="flex-1 min-w-0 truncate text-sm font-semibold text-ink">{b.name}</span>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-ink tabular-nums">{formatCurrency(b.revenue)}</p>
-                  <p className="text-xs text-ink-3 tabular-nums">{b.appointments} atendimentos</p>
+                  <p className="text-sm font-semibold text-ink">{formatCurrency(b.revenue)}</p>
+                  <p className="text-xs text-ink-3">{b.appointments} atendimentos</p>
                 </div>
               </div>
               <div className="ml-[68px] h-1 rounded-full bg-line-3" aria-hidden="true">
@@ -70,7 +70,7 @@ export function RankingsSection({ topBarbers, topClients, newClients, returningC
                   {c.visits} visita{c.visits !== 1 ? "s" : ""}
                 </p>
               </div>
-              <span className="text-sm font-semibold text-ink tabular-nums">{formatCurrency(c.totalSpent)}</span>
+              <span className="text-sm font-semibold text-ink">{formatCurrency(c.totalSpent)}</span>
             </div>
           ))
         )}
@@ -80,7 +80,7 @@ export function RankingsSection({ topBarbers, topClients, newClients, returningC
               <div className="bg-primary" style={{ width: `${(newClients / clientsTotal) * 100}%` }} />
               <div className="bg-ink" style={{ width: `${(returningClients / clientsTotal) * 100}%` }} />
             </div>
-            <div className="flex justify-between text-[13px] text-ink-2 tabular-nums">
+            <div className="flex justify-between text-[13px] text-ink-2">
               <span>
                 <strong className="text-ink">{newClients}</strong> clientes novos
               </span>

@@ -75,7 +75,7 @@ export function TodayAgenda({ appointments, nowHour }: { appointments: TodayAppo
                 key={a.id}
                 className={`flex items-center gap-3.5 px-5 py-3 border-t border-line-3 ${isNext ? "bg-primary/10" : ""}`}
               >
-                <span className={`w-11 text-sm font-bold tabular-nums ${isNext ? "text-primary" : "text-ink"}`}>{a.startTime}</span>
+                <span className={`w-11 text-sm font-bold ${isNext ? "text-primary" : "text-ink"}`}>{a.startTime}</span>
                 <div className="flex-1 min-w-0">
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-ink truncate">
                     {a.client?.name || "Cliente"}

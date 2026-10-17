@@ -40,13 +40,13 @@ export function SubscriptionsDueCard({ data }: { data: SubscriptionsDueToday }) 
           <div className="flex flex-wrap items-end gap-7">
             <div>
               <p className="text-[13px] text-ink-2">A receber hoje</p>
-              <p className="font-display text-[38px] leading-[1.1] font-bold tracking-tight text-ink tabular-nums">
+              <p className="font-display text-[38px] leading-[1.1] font-bold tracking-tight text-ink">
                 {formatCurrency(total)}
               </p>
             </div>
             <div className="pb-1">
               <p className="text-[13px] text-ink-2">Já recebido</p>
-              <p className="font-display text-2xl font-bold text-positive tabular-nums">{formatCurrency(paid)}</p>
+              <p className="font-display text-2xl font-bold text-positive">{formatCurrency(paid)}</p>
             </div>
           </div>
 
@@ -69,7 +69,7 @@ export function SubscriptionsDueCard({ data }: { data: SubscriptionsDueToday }) 
                 <span className="flex-1 text-sm text-ink">
                   {r.label} <span className="text-ink-3">· {r.n}</span>
                 </span>
-                <span className="text-sm font-semibold text-ink tabular-nums">{formatCurrency(r.value)}</span>
+                <span className="text-sm font-semibold text-ink">{formatCurrency(r.value)}</span>
               </div>
             ))}
           </div>

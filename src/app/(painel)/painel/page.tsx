@@ -115,7 +115,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <div role="group" aria-label="Período" className="flex p-1 gap-0.5 rounded-[10px] bg-track">
+          <div role="group" aria-label="Período" className="flex max-w-full overflow-x-auto p-1 gap-0.5 rounded-[10px] bg-track">
             {PERIODS.map(({ key, label }) => {
               const on = period === key;
               return (
@@ -127,7 +127,7 @@ export default function DashboardPage() {
                     setShowCalendar(false);
                     setPeriod(key);
                   }}
-                  className={`h-9 px-3.5 rounded-[7px] text-[13px] font-semibold transition-colors ${
+                  className={`h-9 px-3 sm:px-3.5 shrink-0 whitespace-nowrap rounded-[7px] text-[13px] font-semibold transition-colors ${
                     on ? "bg-white text-ink shadow-[0_1px_2px_rgba(27,25,22,0.12)]" : "text-ink-2 hover:text-ink"
                   }`}
                 >
