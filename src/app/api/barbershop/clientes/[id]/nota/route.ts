@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { shopClientWhere } from "@/lib/shopClients";
 import { requireAuth } from "@/lib/auth";
 
 // Observações da barbearia sobre o cliente ("gosta de degradê médio, prefere depois das 17h").
@@ -13,10 +14,7 @@ async function findClient(id: string, barbershopId: string) {
     where: {
       id,
       role: "CLIENT",
-      OR: [
-        { appointments: { some: { barbershopId } } },
-        { subscriptions: { some: { barbershopId } } },
-      ],
+      ...shopClientWhere(barbershopId),
     },
     select: { id: true },
   });

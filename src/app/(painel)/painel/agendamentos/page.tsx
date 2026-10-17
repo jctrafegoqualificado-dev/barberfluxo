@@ -103,17 +103,26 @@ export default function AgendamentosPage() {
   const [showBloqueio, setShowBloqueio] = useState(false);
   const [showAgendamento, setShowAgendamento] = useState(false);
 
-  // ?novo=1 (botão "+" da barra inferior do celular) já abre o novo agendamento
+  // ?novo=1 (botão "+" da barra inferior do celular) já abre o novo agendamento.
+  // Vindo da ficha do cliente também traz nome, telefone, profissional e serviços preferidos.
+  const [pendingNovo, setPendingNovo] = useState<{ name?: string; phone?: string; barberId?: string; serviceIds: string[] } | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("novo") === "1") {
-      setShowAgendamento(true);
-      params.delete("novo");
+      setPendingNovo({
+        name: params.get("cliente") ?? undefined,
+        phone: params.get("tel") ?? undefined,
+        barberId: params.get("barbeiro") ?? undefined,
+        serviceIds: (params.get("servicos") ?? "").split(",").filter(Boolean),
+      });
+      for (const k of ["novo", "cliente", "tel", "barbeiro", "servicos"]) params.delete(k);
       const qs = params.toString();
       window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
     }
   }, []);
-  const [agendamentoInit, setAgendamentoInit] = useState<{ barberId: string; startTime: string } | null>(null);
+  const [agendamentoInit, setAgendamentoInit] = useState<{
+    barberId?: string; startTime?: string; client?: { name: string; phone: string }; serviceIds?: string[];
+  } | null>(null);
   const [encaixePendingData, setEncaixePendingData] = useState<any>(null);
   // Motivo do 409 vindo da API — distingue "barbeiro ocupado" de "cliente já tem horário".
   const [encaixeMotivo, setEncaixeMotivo] = useState<string | null>(null);
@@ -137,6 +146,20 @@ export default function AgendamentosPage() {
   const [week, setWeek] = useState<WeekDay[]>([]);
   const [dayHours, setDayHours] = useState<DayHours | null>(null);
   const [shopSlug, setShopSlug] = useState<string | null>(null);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+
+  // Abre o novo agendamento pedido pela URL depois que os serviços carregaram
+  // (os serviços preferidos do cliente só entram se ainda estiverem ativos).
+  useEffect(() => {
+    if (!pendingNovo || !catalogLoaded) return;
+    setAgendamentoInit({
+      barberId: pendingNovo.barberId,
+      client: pendingNovo.name ? { name: pendingNovo.name, phone: pendingNovo.phone ?? "" } : undefined,
+      serviceIds: pendingNovo.serviceIds.filter((id) => services.some((s) => s.id === id)),
+    });
+    setShowAgendamento(true);
+    setPendingNovo(null);
+  }, [pendingNovo, catalogLoaded, services]);
 
 
   /* Carrega dados */
@@ -156,7 +179,7 @@ export default function AgendamentosPage() {
     fetch("/api/barbershop/barbers", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setBarbers(d.barbers || []));
     fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => setServices((d.services || []).filter((s: any) => s.active)));
+      .then(r => r.json()).then(d => { setServices((d.services || []).filter((s: any) => s.active)); setCatalogLoaded(true); });
     fetch("/api/barbershop/products", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setProducts(d.products || []));
     fetch("/api/barbershop/settings", { headers: { Authorization: `Bearer ${token}` } })
@@ -501,6 +524,8 @@ export default function AgendamentosPage() {
           onConfirm={handleNovoAgendamento}
           initialBarberId={agendamentoInit?.barberId}
           initialStartTime={agendamentoInit?.startTime}
+          initialClient={agendamentoInit?.client}
+          initialServiceIds={agendamentoInit?.serviceIds}
           onClose={() => { setShowAgendamento(false); setAgendamentoInit(null); }} />
       )}
       {movePending && (

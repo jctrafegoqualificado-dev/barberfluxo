@@ -34,6 +34,7 @@ model User {
   productSales     ProductSale[]     @relation("ClientProductSales")
   whatsappContacts WhatsAppContact[]
   clientNotes      ClientNote[]
+  shopLinks        ShopClient[]
   reviews          Review[]          @relation("ClientReviews")
   loyaltyPoints    LoyaltyPoint[]    @relation("ClientLoyaltyPoints")
   clientRetentions ClientRetention[]
@@ -161,6 +162,7 @@ model Barbershop {
   clientNotes      ClientNote[]
   teamNotices      TeamNotice[]
   waitlistEntries  WaitlistEntry[]
+  clientLinks      ShopClient[]
 }
 
 model WhatsAppInstance {
@@ -858,6 +860,23 @@ model ClientNote {
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
 
   @@unique([clientId, barbershopId])
+}
+
+// Cliente cadastrado ou importado pela barbearia ("Novo cliente", "Importar planilha").
+// Quem já agendou ou assinou pertence à barbearia por esses vínculos; este cobre quem
+// ainda não tem nenhum dos dois — antes ele era criado e sumia da lista.
+model ShopClient {
+  id           String     @id @default(cuid())
+  source       String     @default("MANUAL") // MANUAL | IMPORT
+  createdAt    DateTime   @default(now())
+
+  clientId     String
+  client       User       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, barbershopId])
+  @@index([barbershopId])
 }
 
 // ===================== RECADOS DA EQUIPE =====================

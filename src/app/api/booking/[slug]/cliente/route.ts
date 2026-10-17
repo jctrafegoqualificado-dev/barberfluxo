@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { shopClientWhere } from "@/lib/shopClients";
 
 /**
  * GET /api/booking/{slug}/cliente?phone=...
@@ -47,10 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
           },
           {
             // Vínculo com esta barbearia
-            OR: [
-              { appointments: { some: { barbershopId: shop.id } } },
-              { subscriptions: { some: { barbershopId: shop.id } } },
-            ],
+            ...shopClientWhere(shop.id),
           },
         ],
       },

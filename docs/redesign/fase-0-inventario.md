@@ -168,6 +168,12 @@ traz um recurso a mais · ⛔ falta dado — precisa de campo/tabela nova (migra
 1. **Desconto em avulso não é aplicado no preço** (comanda do painel do dono): a comanda manda o preço cheio junto, e a API só aplica o desconto quando o preço não vem.
 2. **Lembrete sai ~3h antes do configurado**: `cron/reminders` monta o horário do agendamento com `setHours` no fuso do servidor (UTC na Vercel), e não no de São Paulo.
 
+Corrigidos no redesign (entram em produção no lançamento):
+
+3. **Rota pública do link devolvia o cadastro inteiro da barbearia** (`GET /api/booking/[slug]`): CNPJ, instruções da IA e IDs de cobrança. Agora só os campos públicos (fase 4).
+4. **"Novo cliente" e "Importar planilha" criavam o cliente sem vínculo com a barbearia**, e ele sumia da lista (que só mostra quem agendou ou assinou). Nova tabela `ShopClient`, migration `20261017120000_vinculo_cliente_barbearia` (fase 5). O `POST` de cliente também deixou de devolver o registro inteiro (com o hash da senha).
+5. **Bloquear cliente vale só para o atendente do WhatsApp**: o link de agendamento não confere `isBlocked`, e o bloqueio é global (o cadastro do cliente é compartilhado entre barbearias). Não mexido — precisa decidir se o bloqueio passa a ser por barbearia.
+
 ## Decisões de produto
 
 - **A. `Meu negócio` × `Config-marca`** — ✅ **decidido (15/10/2026):** fica só Configurações → Marca. `/painel/meu-negocio` passa a redirecionar para ela e sai do menu. Feito na fase das Configurações.

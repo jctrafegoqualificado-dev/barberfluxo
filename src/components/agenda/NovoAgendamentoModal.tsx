@@ -25,7 +25,7 @@ const planIdsOf = (sub: any): string[] =>
  * possível ("Outro horário"); o conflito é tratado pela agenda (diálogo de encaixe).
  */
 export default function NovoAgendamentoModal({
-  barbers, date, services, slug, onConfirm, onClose, initialBarberId, initialStartTime,
+  barbers, date, services, slug, onConfirm, onClose, initialBarberId, initialStartTime, initialClient, initialServiceIds,
 }: {
   barbers: Barber[];
   date: string;
@@ -35,16 +35,19 @@ export default function NovoAgendamentoModal({
   onClose: () => void;
   initialBarberId?: string;
   initialStartTime?: string;
+  /** Vindo da ficha do cliente: já abre com ele escolhido. */
+  initialClient?: { name: string; phone: string };
+  initialServiceIds?: string[];
 }) {
   const { token } = useAuthStore();
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [picked, setPicked] = useState(false); // cliente escolhido da lista (mostra o cartão)
+  const [clientName, setClientName] = useState(initialClient?.name ?? "");
+  const [clientPhone, setClientPhone] = useState(initialClient?.phone ?? "");
+  const [picked, setPicked] = useState(!!initialClient); // cliente escolhido da lista (mostra o cartão)
   const [suggestions, setSuggestions] = useState<{ id: string; name: string; phone: string | null }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSub, setActiveSub] = useState<any | null>(null);
   const [beneficiaryName, setBeneficiaryName] = useState("");
-  const [serviceIds, setServiceIds] = useState<string[]>([]);
+  const [serviceIds, setServiceIds] = useState<string[]>(initialServiceIds ?? []);
   const [barberId, setBarberId] = useState(initialBarberId ?? barbers[0]?.id ?? "");
   const [selectedDate, setSelectedDate] = useState(date);
   const [startTime, setStartTime] = useState(initialStartTime ?? "");
