@@ -93,7 +93,8 @@ export default function ConcluirAtendimentoModal({
       fetch(`/api/barbershop/products/${pid}/sell`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ quantity, paymentMethod }),
+        // Produto vendido na comanda conta para o profissional do atendimento
+        body: JSON.stringify({ quantity, paymentMethod, barberId: appt.barber.id }),
       })
     ));
   }

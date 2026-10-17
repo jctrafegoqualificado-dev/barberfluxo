@@ -85,7 +85,9 @@ export function poolSettings(barbershopId: string) {
 
 export async function computeCommissions(barbershopId: string, start: Date, end: Date, monthKey: string) {
   const barbers = await prisma.barber.findMany({
-    where: { barbershopId, active: true },
+    // Todos (inclusive em férias, inativos e excluídos): quem trabalhou no mês e depois
+    // saiu de férias continua tendo comissão a receber. Sem movimento, só os ativos aparecem.
+    where: { barbershopId },
     include: { user: { select: { id: true, name: true, email: true } } },
   });
   const shop = await prisma.barbershop.findUnique({
@@ -268,7 +270,12 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
     });
 
 
-  return { barbers: result, totalSubRevenue, ticketMedioSub, pool };
+  const shown = result.filter((r) => {
+    const b = barbers.find((x) => x.id === r.id)!;
+    const moved = r.avulso.atendimentos + r.assinatura.atendimentos + r.produtos.vendas + r.vales.length > 0 || !!r.paid || !!r.subPaid;
+    return (b.active && !b.archivedAt) || moved;
+  });
+  return { barbers: shown, totalSubRevenue, ticketMedioSub, pool };
 }
 
 export type CommissionRow = Awaited<ReturnType<typeof computeCommissions>>["barbers"][number];

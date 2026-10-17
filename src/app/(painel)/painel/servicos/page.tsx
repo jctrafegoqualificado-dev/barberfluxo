@@ -1,325 +1,284 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Sparkles, Plus, Clock, DollarSign, Edit, Percent, HelpCircle, Trash2, Globe, EyeOff } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ExternalLink, Plus, Scissors } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
-import { Modal } from "@/components/ui/Modal";
+import { cn, formatCurrency } from "@/lib/utils";
 import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import { formatCurrency } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { parseMoney } from "@/lib/finance";
+import { Field, Section, Segmented, SidePanel, Switch, fieldCls, useWide } from "@/components/catalogo/SidePanel";
 
 interface Service {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  duration: number;
-  active: boolean;
-  imageUrl: string | null;
-  commission: number | null;
-  materialCost: number;
-  onlineBooking: boolean;
+  id: string; name: string; description: string | null; price: number; duration: number; imageUrl: string | null;
+  commission: number | null; materialCost: number; active: boolean; onlineBooking: boolean;
 }
+type Stats = Record<string, { count: number; revenue: number }>;
+type Filter = "active" | "inactive" | "all";
+
+const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const brl = (v: number) => formatCurrency(v).replace(",00", "");
+const money = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const month = () => MONTHS[Number(new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(new Date()).slice(5, 7)) - 1];
 
 export default function ServicosPage() {
   const { token } = useAuthStore();
-  const [services, setServices] = useState<Service[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState<"active" | "inactive" | "all">("active");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    price: "",
-    duration: "30",
-    imageUrl: "",
-    commission: "",
-    materialCost: "0",
-    onlineBooking: true,
-  });
+  const wide = useWide();
+  const [services, setServices] = useState<Service[] | null>(null);
+  const [stats, setStats] = useState<Stats>({});
+  const [totals, setTotals] = useState({ services: 0, appointments: 0, revenue: 0 });
+  const [slug, setSlug] = useState<string | null>(null);
+  const [barberRate, setBarberRate] = useState<number | null>(null);
+  const [filter, setFilter] = useState<Filter>("active");
+  const [selected, setSelected] = useState<string | "new" | null>(null);
 
-  function setField(k: string, v: string | boolean) { setForm((f) => ({ ...f, [k]: v })); }
-
-  function openNew() {
-    setEditingId(null);
-    setForm({
-      name: "",
-      description: "",
-      price: "",
-      duration: "30",
-      imageUrl: "",
-      commission: "",
-      materialCost: "0",
-      onlineBooking: true,
-    });
-    setOpen(true);
-  }
-
-  function openEdit(s: Service) {
-    setEditingId(s.id);
-    setForm({
-      name: s.name,
-      description: s.description || "",
-      price: s.price.toString(),
-      duration: s.duration.toString(),
-      imageUrl: s.imageUrl || "",
-      commission: s.commission !== null && s.commission !== undefined ? s.commission.toString() : "",
-      materialCost: s.materialCost.toString(),
-      onlineBooking: s.onlineBooking,
-    });
-    setOpen(true);
-  }
-
-  async function load() {
-    const r = await fetch("/api/barbershop/services", { headers: { Authorization: `Bearer ${token}` } });
-    const d = await r.json();
+  const load = useCallback(async () => {
+    const h = { Authorization: `Bearer ${token}` };
+    const d = await fetch("/api/barbershop/services?stats=1", { headers: h }).then((r) => r.json());
     setServices(d.services || []);
-  }
+    setStats(d.stats || {});
+    if (d.monthTotals) setTotals(d.monthTotals);
+  }, [token]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const h = { Authorization: `Bearer ${token}` };
+    fetch("/api/barbershop/settings", { headers: h }).then((r) => r.json()).then((d) => setSlug(d.slug ?? null)).catch(() => {});
+    // Comissão mais comum da equipe, para o exemplo de "quanto fica" quando o serviço não tem regra própria
+    fetch("/api/barbershop/barbers", { headers: h }).then((r) => r.json()).then((d) => {
+      const pcts = (d.barbers || []).filter((b: { commissionType: string }) => b.commissionType === "PERCENTAGE").map((b: { commission: number }) => b.commission);
+      if (pcts.length) setBarberRate(pcts.sort((a: number, b: number) => pcts.filter((x: number) => x === b).length - pcts.filter((x: number) => x === a).length)[0]);
+    }).catch(() => {});
+  }, [token]);
 
-  useEffect(() => { load(); }, []);
+  const list = services ?? [];
+  const activeCount = list.filter((s) => s.active).length;
+  const visible = list.filter((s) => filter === "all" || (filter === "active" ? s.active : !s.active));
+  const top = useMemo(() => {
+    const entries = list.map((s) => ({ s, st: stats[s.id] ?? { count: 0, revenue: 0 } }));
+    const byCount = [...entries].sort((a, b) => b.st.count - a.st.count)[0];
+    const byRev = [...entries].sort((a, b) => b.st.revenue - a.st.revenue)[0];
+    return { byCount: byCount?.st.count ? byCount : null, byRev: byRev?.st.revenue ? byRev : null };
+  }, [list, stats]);
+  const offline = list.filter((s) => s.active && !s.onlineBooking);
+  const popularIds = new Set(list.filter((s) => s.active).map((s) => s.id).sort((a, b) => (stats[b]?.count ?? 0) - (stats[a]?.count ?? 0)).slice(0, 2).filter((id) => (stats[id]?.count ?? 0) > 0));
+  const sel = list.find((s) => s.id === selected);
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    
-    const payload = {
-      name: form.name,
-      description: form.description || null,
-      price: parseFloat(form.price),
-      duration: parseInt(form.duration),
-      imageUrl: form.imageUrl || null,
-      commission: form.commission !== "" ? parseFloat(form.commission) : null,
-      materialCost: parseFloat(form.materialCost || "0"),
-      onlineBooking: form.onlineBooking,
-    };
+  useEffect(() => {
+    if (wide && services?.length && selected === null) setSelected(services.find((s) => s.active)?.id ?? services[0].id);
+  }, [wide, services, selected]);
 
-    if (editingId) {
-      const existing = services.find((s) => s.id === editingId);
-      await fetch(`/api/barbershop/services/${editingId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...payload, active: existing?.active ?? true }),
-      });
-    } else {
-      await fetch("/api/barbershop/services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
-    }
-    
-    setLoading(false);
-    setOpen(false);
-    load();
-  }
-
-  async function toggleActive(s: Service) {
-    await fetch(`/api/barbershop/services/${s.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...s, active: !s.active }),
-    });
-    load();
-  }
-
-  async function handleDelete(s: Service) {
-    if (!confirm(`Excluir "${s.name}"? O serviço será desativado permanentemente.`)) return;
-    await fetch(`/api/barbershop/services/${s.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    load();
-  }
-
-  const filtered = services.filter((s) => {
-    if (filter === "active") return s.active;
-    if (filter === "inactive") return !s.active;
-    return true;
-  });
-
-  const inactiveCount = services.filter(s => !s.active).length;
+  const pct = (v: number, t: number) => (t > 0 ? Math.round((v / t) * 100) : 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Serviços</h1>
-          <p className="text-zinc-500 text-xs mt-0.5">Gerencie os tratamentos, custos de insumos e comissões da equipe.</p>
+    <div className="flex flex-col gap-5">
+      <header className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Serviços</h1>
+          <span className="text-sm text-ink-3">O que a barbearia oferece, quanto custa e quanto rende</span>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="w-4 h-4 mr-1" /> Novo Serviço
-        </Button>
-      </div>
-
-      <div className="flex gap-2 flex-wrap">
-        {(["active", "inactive", "all"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filter === f ? "bg-primary text-white" : "bg-white border border-zinc-200 text-zinc-600 hover:border-zinc-300"
-            }`}
-          >
-            {f === "active" ? "Ativos" : f === "inactive" ? `Inativos${inactiveCount > 0 ? ` (${inactiveCount})` : ""}` : "Todos"}
+        <div className="flex gap-2">
+          {slug && (
+            <a href={`/agendar/${slug}`} target="_blank" rel="noreferrer" className="hidden sm:inline-flex h-[42px] px-3.5 rounded-[10px] border border-control bg-surface text-sm font-semibold items-center gap-2 hover:bg-surface-3">
+              <ExternalLink className="w-4 h-4" aria-hidden /> Ver como o cliente vê
+            </a>
+          )}
+          <button type="button" onClick={() => setSelected("new")} className="h-[42px] px-4 rounded-[10px] bg-primary text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-primary/90">
+            <Plus className="w-4 h-4" aria-hidden /> Novo serviço
           </button>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          [`Feitos em ${month()}`, String(totals.services), `em ${totals.appointments} atendimentos · ${brl(totals.revenue)}`],
+          ["Mais pedido", top.byCount?.s.name ?? "—", top.byCount ? `${top.byCount.st.count} vezes · ${pct(top.byCount.st.count, totals.services)}% dos serviços` : "nada feito ainda"],
+          ["Mais faturou", top.byRev?.s.name ?? "—", top.byRev ? `${brl(top.byRev.st.revenue)} · ${pct(top.byRev.st.revenue, totals.revenue)}% do faturamento` : "nada faturado ainda"],
+          ["Fora do agendamento online", String(offline.length), offline.length ? offline.map((s) => s.name).join(", ") : "todos aparecem no link"],
+        ].map(([l, v, sub]) => (
+          <div key={l} className="rounded-2xl bg-surface border border-line p-4 flex flex-col gap-1 min-w-0">
+            <span className="text-[13px] text-ink-3">{l}</span>
+            <span className="font-display text-xl md:text-2xl font-bold truncate">{v}</span>
+            <span className="text-xs text-ink-3 truncate">{sub}</span>
+          </div>
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((s) => (
-          <div key={s.id} className={`bg-white rounded-2xl border shadow-sm p-5 relative overflow-hidden flex flex-col justify-between min-h-[220px] transition-all hover:shadow-md ${!s.active ? "opacity-50" : "border-zinc-200"}`}>
-            {s.imageUrl && (
-              <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
-                <img src={s.imageUrl} alt="" className="w-full h-full object-cover rounded-bl-full" />
-              </div>
-            )}
-            
-            <div>
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-zinc-400 hover:text-primary hover:bg-primary/10 transition-colors" title="Editar serviço">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => toggleActive(s)} className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${s.active ? "bg-green-50 text-green-700 border border-green-200" : "bg-zinc-100 text-zinc-500 border border-zinc-200"}`}>
-                    {s.active ? "Ativo" : "Inativo"}
-                  </button>
-                  <button onClick={() => handleDelete(s)} className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Excluir serviço">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              
-              <p className="font-bold text-zinc-950 text-base mb-1">{s.name}</p>
-              {!s.onlineBooking && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 mb-2">
-                  <EyeOff className="w-3 h-3" /> Fora do agendamento online
-                </span>
-              )}
-              {s.description && <p className="text-xs text-zinc-400 mb-3 line-clamp-2">{s.description}</p>}
-            </div>
-
-            <div className="space-y-2 mt-4 pt-3 border-t border-zinc-200 text-sm">
-              <div className="flex justify-between items-center text-zinc-500">
-                <span className="flex items-center gap-1.5 text-xs"><Clock className="w-3.5 h-3.5" /> Duração</span>
-                <span className="font-semibold text-zinc-700">{s.duration} min</span>
-              </div>
-              {s.materialCost > 0 && (
-                <div className="flex justify-between items-center text-red-500">
-                  <span className="flex items-center gap-1.5 text-xs"><DollarSign className="w-3.5 h-3.5" /> Custo Insumo</span>
-                  <span className="font-bold text-xs">-{formatCurrency(s.materialCost)}</span>
-                </div>
-              )}
-              <div className="flex justify-between items-center text-zinc-500">
-                <span className="flex items-center gap-1.5 text-xs"><Percent className="w-3.5 h-3.5" /> Comissão</span>
-                <span className="font-semibold text-zinc-700 text-xs flex items-center gap-1">
-                  {s.commission !== null ? `${s.commission}%` : (
-                    <>
-                      Geral do Profissional
-                      <span className="group relative cursor-help text-zinc-400 hover:text-zinc-600">
-                        <HelpCircle className="w-3 h-3" />
-                        <span className="absolute bottom-5 right-0 hidden group-hover:block w-52 bg-zinc-950 text-white text-[10px] p-2 rounded-lg leading-tight shadow-xl z-50 font-normal">
-                          Usa a comissão padrão configurada no perfil do profissional. Para definir uma taxa específica deste serviço, edite e preencha o campo de comissão.
-                        </span>
-                      </span>
-                    </>
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between items-center pt-1 border-t border-zinc-100">
-                <span className="text-xs font-semibold text-zinc-500">Preço Final</span>
-                <span className="font-extrabold text-zinc-950 text-base">{formatCurrency(s.price)}</span>
-              </div>
-            </div>
+      <div className="flex gap-5 items-start">
+        <section className="flex-1 min-w-0 bg-surface border border-line rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-line-2">
+            <Segmented value={filter} onChange={setFilter} label="Filtrar"
+              options={[["active", `Ativos ${activeCount}`], ["inactive", `Inativos ${list.length - activeCount}`], ["all", `Todos ${list.length}`]]} />
+            <span className="text-xs text-ink-3">Números de {month()}</span>
           </div>
-        ))}
+          {!services ? <div className="h-48 animate-pulse bg-surface-3/50" aria-busy /> : visible.length === 0 ? (
+            <p className="px-5 py-8 text-center text-[13px] text-ink-3">Nenhum serviço aqui.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[620px]">
+                <thead>
+                  <tr className="text-xs text-ink-3 border-b border-line-2">
+                    <th scope="col" className="text-left font-semibold px-4 py-2.5">Serviço</th>
+                    <th scope="col" className="text-right font-semibold px-3">Duração</th>
+                    <th scope="col" className="text-right font-semibold px-3">Preço</th>
+                    <th scope="col" className="text-right font-semibold px-3">No mês</th>
+                    <th scope="col" className="text-left font-semibold px-3 pr-4">Online</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line-3">
+                  {visible.map((s) => {
+                    const st = stats[s.id];
+                    const on = selected === s.id;
+                    const tag = !s.active ? ["Inativo", "bg-surface-2 text-ink-2"] : s.commission != null ? [`Comissão ${s.commission}%`, "bg-warning-soft text-warning"] : popularIds.has(s.id) ? ["Mais escolhido", "bg-positive-soft text-positive"] : null;
+                    return (
+                      <tr key={s.id} onClick={() => setSelected(s.id)} aria-current={on || undefined}
+                        className={cn("cursor-pointer", on ? "bg-primary/[0.07]" : "hover:bg-surface-3/50", !s.active && "opacity-70")}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={cn("w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0", on ? "bg-primary text-white" : "bg-ground text-ink-2")}><Scissors className="w-4 h-4" aria-hidden /></div>
+                            <div className="min-w-0">
+                              <p className="font-semibold flex items-center gap-1.5"><span className="truncate">{s.name}</span>{tag && <span className={cn("h-5 px-2 rounded-full text-[11px] font-semibold inline-flex items-center shrink-0", tag[1])}>{tag[0]}</span>}</p>
+                              {s.description && <p className="text-xs text-ink-3 truncate">{s.description}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 text-right text-ink-2">{s.duration} min</td>
+                        <td className="px-3 text-right">{brl(s.price)}</td>
+                        <td className="px-3 text-right"><p>{st?.count || "—"}</p><p className="text-xs text-ink-3">{st?.revenue ? brl(st.revenue) : st?.count ? "plano" : "nenhum"}</p></td>
+                        <td className="px-3 pr-4">
+                          {!s.active ? <span className="text-ink-4">—</span> : (
+                            <span className={cn("h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center", s.onlineBooking ? "bg-positive-soft text-positive" : "bg-ground text-ink-2")}>
+                              {s.onlineBooking ? "Aparece" : "Só no balcão"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <button type="button" onClick={() => setSelected("new")} className="w-full h-11 border-t border-line-2 text-[13px] font-semibold text-ink-2 hover:bg-surface-3 inline-flex items-center justify-center gap-1.5">
+            <Plus className="w-4 h-4" aria-hidden /> Adicionar serviço
+          </button>
+        </section>
 
-        <button onClick={openNew} className="border-2 border-dashed border-zinc-200 rounded-2xl p-5 flex flex-col items-center justify-center gap-2 text-zinc-400 hover:border-primary/80 hover:text-primary transition-colors min-h-[220px]">
-          <Plus className="w-8 h-8" />
-          <span className="text-sm font-semibold">Novo Serviço</span>
-        </button>
+        <SidePanel open={!!selected && (selected === "new" || !!sel)} wide={wide} onClose={() => setSelected(null)} label="Editar serviço">
+          {selected === "new" ? (
+            <Editor key="new" barberRate={barberRate} onClose={() => setSelected(null)} onSaved={(id) => { load(); setSelected(id ?? null); }} />
+          ) : sel ? (
+            <Editor key={sel.id} service={sel} stat={stats[sel.id]} barberRate={barberRate} onClose={() => setSelected(null)} onSaved={() => load()} />
+          ) : null}
+        </SidePanel>
+      </div>
+    </div>
+  );
+}
+
+function Editor({ service, stat, barberRate, onClose, onSaved }: {
+  service?: Service; stat?: { count: number; revenue: number }; barberRate: number | null; onClose: () => void; onSaved: (id?: string) => void;
+}) {
+  const { token } = useAuthStore();
+  const isNew = !service;
+  const init = () => ({
+    name: service?.name ?? "", description: service?.description ?? "", price: service ? money(service.price) : "",
+    duration: String(service?.duration ?? 30), imageUrl: service?.imageUrl ?? "", materialCost: service?.materialCost ? money(service.materialCost) : "",
+    commission: service?.commission != null ? String(service.commission) : "", onlineBooking: service?.onlineBooking ?? true, active: service?.active ?? true,
+  });
+  const [form, setForm] = useState(init);
+  const [saving, setSaving] = useState(false);
+  const [confirmOff, setConfirmOff] = useState(false);
+  const set = <K extends keyof ReturnType<typeof init>>(k: K, v: ReturnType<typeof init>[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const dirty = JSON.stringify(form) !== JSON.stringify(init());
+
+  const price = parseMoney(form.price);
+  const cost = parseMoney(form.materialCost);
+  const ownPct = form.commission.trim() === "" ? null : Number(form.commission.replace(",", "."));
+  const comPct = ownPct ?? barberRate;
+  const com = comPct != null ? Math.max(0, price - cost) * (comPct / 100) : null;
+
+  async function save(override?: Partial<ReturnType<typeof init>>) {
+    const f = { ...form, ...override };
+    const duration = Number(f.duration);
+    if (!f.name.trim()) { toast.error("Informe o nome."); return; }
+    if (!(parseMoney(f.price) > 0)) { toast.error("Informe um preço maior que zero."); return; }
+    if (!(duration > 0)) { toast.error("Informe a duração em minutos."); return; }
+    if (ownPct != null && !(ownPct >= 0 && ownPct <= 100)) { toast.error("A comissão vai de 0 a 100%."); return; }
+    setSaving(true);
+    const body = {
+      name: f.name.trim(), description: f.description.trim() || undefined, price: parseMoney(f.price), duration,
+      imageUrl: f.imageUrl.trim() || null, materialCost: parseMoney(f.materialCost), commission: ownPct, onlineBooking: f.onlineBooking, active: f.active,
+    };
+    const r = await fetch(isNew ? "/api/barbershop/services" : `/api/barbershop/services/${service!.id}`, {
+      method: isNew ? "POST" : "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body),
+    });
+    setSaving(false);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast.error(d.error ?? "Não foi possível salvar."); return; }
+    toast.success(isNew ? "Serviço criado" : override?.active === false ? "Serviço desativado" : override?.active ? "Serviço reativado" : "Serviço salvo");
+    if (override) setForm(f);
+    onSaved(isNew ? d.service?.id : undefined);
+  }
+
+  return (
+    <div className="flex flex-col">
+      <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3 pr-12 xl:pr-5">
+        <div className="min-w-0">
+          <h2 className="font-display text-[21px] font-bold truncate">{isNew ? "Novo serviço" : service!.name}</h2>
+          {!isNew && <p className="text-[13px] text-ink-3">{stat?.count ? `${stat.count} vezes este mês${stat.revenue ? ` · ${brl(stat.revenue)}` : ""}` : "não foi feito este mês"}</p>}
+        </div>
+        {!isNew && (
+          <span className="flex items-center gap-2 text-[13px] font-semibold shrink-0">
+            {form.active ? "Ativo" : "Inativo"}
+            <Switch checked={form.active} label="Ativo" onChange={(v) => (v ? save({ active: true }) : setConfirmOff(true))} />
+          </span>
+        )}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title={editingId ? "Editar Serviço" : "Novo Serviço"}>
-        <form onSubmit={handleAdd} className="space-y-4">
-          <Input label="Nome do serviço" value={form.name} onChange={(e) => setField("name", e.target.value)} placeholder="Ex: Progressiva, Botox, Manicure" required />
-          <Input label="Descrição (opcional)" value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Detalhes do serviço..." />
-          <Input label="URL da Foto do Serviço (opcional)" value={form.imageUrl} onChange={(e) => setField("imageUrl", e.target.value)} placeholder="https://exemplo.com/foto.jpg" />
-          
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Preço de Venda (R$)" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setField("price", e.target.value)} placeholder="150.00" required />
-            <Input label="Duração (minutos)" type="number" min="5" step="5" value={form.duration} onChange={(e) => setField("duration", e.target.value)} required />
+      <Section title="Serviço">
+        <Field label="Nome do serviço" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: Corte degradê" />
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Preço" prefix="R$" value={form.price} onChange={(e) => set("price", e.target.value)} inputMode="decimal" placeholder="0,00" />
+          <Field label="Duração" suffix="min" value={form.duration} onChange={(e) => set("duration", e.target.value.replace(/\D/g, ""))} inputMode="numeric" />
+        </div>
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-line-2 p-3">
+          <span className="text-sm">
+            <span className="font-semibold block">Agendamento online</span>
+            <span className="text-xs text-ink-3">{form.onlineBooking ? "O cliente pode agendar sozinho pelo link." : "Só a barbearia marca (no balcão ou pelo painel)."}</span>
+          </span>
+          <Switch checked={form.onlineBooking} label="Agendamento online" onChange={(v) => set("onlineBooking", v)} />
+        </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-semibold text-ink-2">Descrição <span className="font-normal text-ink-3">· opcional, o cliente vê embaixo do nome</span></span>
+          <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} maxLength={160} className={cn(fieldCls, "h-auto py-2.5 resize-none")} />
+        </label>
+        <Field label="Foto (link da imagem)" value={form.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://… (opcional)" />
+      </Section>
+
+      <Section title="Custo e comissão">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Custo de material" prefix="R$" value={form.materialCost} onChange={(e) => set("materialCost", e.target.value)} inputMode="decimal" placeholder="0,00" />
+          <Field label="Comissão própria" suffix="%" value={form.commission} onChange={(e) => set("commission", e.target.value)} inputMode="decimal" placeholder="do barbeiro" />
+        </div>
+        <p className="text-xs text-ink-3">O material (química, tinta) é descontado antes de calcular a comissão. Deixe a comissão em branco para usar a de cada barbeiro.</p>
+        {price > 0 && (
+          <div className="rounded-xl bg-surface-3/60 p-3 text-[13px] flex flex-col gap-1">
+            <div className="flex justify-between"><span className="text-ink-3">Cliente paga</span><span>{formatCurrency(price)}</span></div>
+            {cost > 0 && <div className="flex justify-between"><span className="text-ink-3">Material</span><span>− {formatCurrency(cost)}</span></div>}
+            {com != null && <div className="flex justify-between"><span className="text-ink-3">Comissão ({comPct}%{ownPct == null ? " do barbeiro" : ""})</span><span>− {formatCurrency(com)}</span></div>}
+            {com != null && <div className="flex justify-between font-semibold border-t border-line-2 pt-1 mt-0.5"><span>Fica para a barbearia</span><span>{formatCurrency(price - cost - com)}</span></div>}
           </div>
+        )}
+      </Section>
 
-          <label className="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.onlineBooking}
-              onChange={(e) => setField("onlineBooking", e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-[var(--color-primary)]"
-            />
-            <span>
-              <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-800"><Globe className="w-4 h-4 text-primary" /> Aparece no agendamento online</span>
-              <span className="block text-xs text-zinc-500 mt-0.5">Desmarque para o cliente não conseguir marcar este serviço pelo link. Pelo painel continua agendável.</span>
-            </span>
-          </label>
+      <div className="px-5 py-4 border-t border-line-2 flex items-center gap-2 sticky bottom-0 bg-surface">
+        <Button variant="outline" className="ml-auto" onClick={() => (dirty && !isNew ? setForm(init()) : onClose())}>{dirty && !isNew ? "Descartar" : "Fechar"}</Button>
+        <Button loading={saving} disabled={!dirty} onClick={() => save()}>{isNew ? "Criar serviço" : "Salvar"}</Button>
+      </div>
 
-          <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-150 space-y-4">
-            <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
-              <Percent className="w-4 h-4 text-primary" /> Regras Financeiras Avançadas
-            </h4>
-            
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 mb-1 flex items-center gap-1">
-                  Custo de Insumo / Química (R$)
-                  <span className="group relative cursor-help text-zinc-400 hover:text-zinc-600">
-                    <HelpCircle className="w-3.5 h-3.5" />
-                    <span className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:block w-48 bg-zinc-950 text-white text-[10px] p-2 rounded-lg leading-tight shadow-xl z-50">
-                      O valor do insumo/química será deduzido do preço total antes do cálculo de comissão do profissional.
-                    </span>
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.materialCost}
-                  onChange={(e) => setField("materialCost", e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="0.00 (Ex: R$ 30,00 de química)"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 mb-1 flex items-center gap-1">
-                  Comissão Especial do Serviço (%)
-                  <span className="group relative cursor-help text-zinc-400 hover:text-zinc-600">
-                    <HelpCircle className="w-3.5 h-3.5" />
-                    <span className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:block w-48 bg-zinc-950 text-white text-[10px] p-2 rounded-lg leading-tight shadow-xl z-50">
-                      Deixe em branco para usar a porcentagem padrão que o profissional já tem configurada no perfil dele.
-                    </span>
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={form.commission}
-                  onChange={(e) => setField("commission", e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Ex: 40 (Opcional)"
-                />
-              </div>
-            </div>
-          </div>
-
-          <Button type="submit" loading={loading} className="w-full">{editingId ? "Salvar Alterações" : "Criar Serviço"}</Button>
-        </form>
-      </Modal>
+      <ConfirmDialog isOpen={confirmOff} title={`Desativar ${service?.name}?`}
+        message="Ele some do link e da agenda para novos horários. O histórico continua, e dá para reativar quando quiser."
+        confirmLabel="Desativar" onConfirm={() => { setConfirmOff(false); save({ active: false }); }} onCancel={() => setConfirmOff(false)} />
     </div>
   );
 }

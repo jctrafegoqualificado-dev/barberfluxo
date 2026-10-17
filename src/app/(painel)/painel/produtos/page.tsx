@@ -1,625 +1,474 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Package, Plus, ShoppingCart, AlertTriangle, TrendingUp, Edit2, Minus, Percent, HelpCircle, Trash2, Image as ImageIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Minus, Package, Plus, Send } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
-import { Modal } from "@/components/ui/Modal";
+import { cn, formatCurrency } from "@/lib/utils";
 import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { parseMoney } from "@/lib/finance";
+import { Field, Section, Segmented, SidePanel, Switch, fieldCls, useWide } from "@/components/catalogo/SidePanel";
 
 interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  costPrice: number;
-  stock: number;
-  barcode: string | null;
-  category: string;
-  active: boolean;
-  commissionType: string;
-  commissionValue: number;
-  imageUrl: string | null;
+  id: string; name: string; description: string | null; price: number; costPrice: number; stock: number; barcode: string | null;
+  category: string; commissionType: string; commissionValue: number; active: boolean; imageUrl: string | null;
 }
-
 interface Sale {
-  id: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  createdAt: string;
-  product: { name: string; category: string };
-  barber: { user: { name: string } } | null;
+  id: string; quantity: number; unitPrice: number; total: number; createdAt: string;
+  product: { id: string; name: string; costPrice: number };
+  barber: { nickname: string | null; user: { name: string } } | null;
+  client: { name: string } | null;
 }
+interface Barber { id: string; nickname: string | null; active: boolean; user: { name: string } }
 
-const CATEGORIAS: Record<string, { label: string; emoji: string; color: string }> = {
-  GERAL:    { label: "Geral",     emoji: "📦", color: "bg-zinc-100 text-zinc-700" },
-  CABELO:   { label: "Cabelo",    emoji: "✂️",  color: "bg-blue-100 text-blue-700" },
-  BARBA:    { label: "Barba",     emoji: "🪒",  color: "bg-primary/20 text-amber-700" },
-  SKINCARE: { label: "Skincare",  emoji: "🧴",  color: "bg-green-100 text-green-700" },
-};
-
-const EMPTY_FORM = {
-  name: "",
-  description: "",
-  price: "",
-  costPrice: "",
-  stock: "",
-  category: "GERAL",
-  barcode: "",
-  commissionType: "PERCENTAGE",
-  commissionValue: "10",
-  imageUrl: "",
-};
+const CATS: [string, string][] = [["CABELO", "Cabelo"], ["BARBA", "Barba"], ["SKINCARE", "Skincare"], ["GERAL", "Geral"]];
+const catLabel = (k: string) => CATS.find((c) => c[0] === k)?.[1] ?? "Geral";
+const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const LOW = 3;
+const brl = (v: number) => formatCurrency(v).replace(",00", "");
+const money = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const spNow = () => new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(new Date());
+const commissionOf = (p: Product, qty: number) => (p.commissionType === "FIXED" ? p.commissionValue * qty : p.price * qty * (p.commissionValue / 100));
+const tracked = (p: Product) => p.stock > 0;
 
 export default function ProdutosPage() {
   const { token } = useAuthStore();
-  const [products, setProducts] = useState<Product[]>([]);
+  const wide = useWide();
+  const [products, setProducts] = useState<Product[] | null>(null);
   const [sales, setSales] = useState<Sale[]>([]);
-  const [totalMes, setTotalMes] = useState(0);
-  const [totalUnidades, setTotalUnidades] = useState(0);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
   const [tab, setTab] = useState<"estoque" | "vendas">("estoque");
-  const [openAdd, setOpenAdd] = useState(false);
-  const [openSell, setOpenSell] = useState(false);
-  const [openEdit, setOpenEdit] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [sellQty, setSellQty] = useState(1);
-  const [sellPaymentMethod, setSellPaymentMethod] = useState("CASH");
-  const [barcodeSearch, setBarcodeSearch] = useState("");
+  const [cat, setCat] = useState("all");
+  const [selected, setSelected] = useState<string | "new" | null>(null);
+  const [startMode, setStartMode] = useState<"edit" | "sell">("edit");
 
-  const [form, setForm] = useState(EMPTY_FORM);
-
-  function setField(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
-
-  async function load() {
-    const [pr, sr] = await Promise.all([
-      fetch("/api/barbershop/products?admin=1", { headers: { Authorization: `Bearer ${token}` } }),
-      fetch("/api/barbershop/products/sales", { headers: { Authorization: `Bearer ${token}` } }),
+  const load = useCallback(async () => {
+    const h = { Authorization: `Bearer ${token}` };
+    const [p, s] = await Promise.all([
+      fetch("/api/barbershop/products?admin=1", { headers: h }).then((r) => r.json()),
+      fetch("/api/barbershop/products/sales", { headers: h }).then((r) => (r.ok ? r.json() : { sales: [] })),
     ]);
-    const [pd, sd] = await Promise.all([pr.json(), sr.json()]);
-    setProducts(pd.products || []);
-    setSales(sd.sales || []);
-    setTotalMes(sd.totalMes || 0);
-    setTotalUnidades(sd.totalUnidades || 0);
+    setProducts(p.products || []);
+    setSales(s.sales || []);
+  }, [token]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    fetch("/api/barbershop/barbers", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).then((d) => setBarbers(d.barbers || [])).catch(() => {});
+  }, [token]);
+
+  const today = spNow();
+  const day = Number(today.slice(8, 10));
+  const daysInMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0)).getUTCDate();
+  const month = MONTHS[Number(today.slice(5, 7)) - 1];
+
+  const soldBy = useMemo(() => {
+    const m: Record<string, { qty: number; value: number }> = {};
+    for (const s of sales) { const c = (m[s.product.id] ??= { qty: 0, value: 0 }); c.qty += s.quantity; c.value += s.total; }
+    return m;
+  }, [sales]);
+
+  const list = products ?? [];
+  const k = useMemo(() => {
+    const salesTotal = sales.reduce((a, s) => a + s.total, 0);
+    const units = sales.reduce((a, s) => a + s.quantity, 0);
+    const gross = sales.reduce((a, s) => a + (s.unitPrice - s.product.costPrice) * s.quantity, 0);
+    const com = sales.reduce((a, s) => {
+      const p = list.find((x) => x.id === s.product.id);
+      return a + (p && s.barber ? commissionOf({ ...p, price: s.unitPrice }, s.quantity) : 0);
+    }, 0);
+    const shelf = list.filter((p) => p.active && tracked(p));
+    return {
+      salesTotal, units, gross, com,
+      shelfUnits: shelf.reduce((a, p) => a + p.stock, 0),
+      shelfCost: shelf.reduce((a, p) => a + p.stock * p.costPrice, 0),
+      low: list.filter((p) => p.active && p.stock > 0 && p.stock <= LOW),
+    };
+  }, [sales, list]);
+
+  // Precisa repor: ritmo de vendas do mês até o fim do mês
+  const reorder = useMemo(() => list.filter((p) => p.active && tracked(p)).map((p) => {
+    const sold = soldBy[p.id]?.qty ?? 0;
+    const pace = sold / Math.max(1, day);
+    const need = Math.ceil(pace * (daysInMonth - day) - p.stock + (p.stock <= LOW ? LOW : 0));
+    return { p, sold, pace, buy: Math.max(0, need) };
+  }).filter((x) => x.buy > 0).sort((a, b) => b.buy - a.buy), [list, soldBy, day, daysInMonth]);
+
+  const visible = list.filter((p) => cat === "all" || p.category === cat).sort((a, b) => Number(b.active) - Number(a.active));
+  const sel = list.find((p) => p.id === selected);
+
+  useEffect(() => {
+    if (wide && products?.length && selected === null) setSelected(products.find((p) => p.active)?.id ?? products[0].id);
+  }, [wide, products, selected]);
+
+  function supplierList() {
+    const text = [`Pedido de reposição`, ...reorder.map((r) => `- ${r.buy}× ${r.p.name}`)].join("\n");
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   }
 
-  useEffect(() => { load(); }, []);
-
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    await fetch("/api/barbershop/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        name: form.name,
-        description: form.description || null,
-        price: parseFloat(form.price),
-        costPrice: parseFloat(form.costPrice || "0"),
-        stock: parseInt(form.stock || "0"),
-        barcode: form.barcode || null,
-        category: form.category,
-        imageUrl: form.imageUrl || null,
-        commissionType: form.commissionType,
-        commissionValue: parseFloat(form.commissionValue || "0"),
-      }),
-    });
-    setLoading(false);
-    setOpenAdd(false);
-    setForm(EMPTY_FORM);
-    load();
-  }
-
-  async function handleEdit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedProduct) return;
-    setLoading(true);
-    await fetch(`/api/barbershop/products/${selectedProduct.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        ...selectedProduct,
-        name: form.name,
-        description: form.description || null,
-        price: parseFloat(form.price),
-        costPrice: parseFloat(form.costPrice || "0"),
-        stock: parseInt(form.stock || "0"),
-        barcode: form.barcode || null,
-        category: form.category,
-        imageUrl: form.imageUrl || null,
-        commissionType: form.commissionType,
-        commissionValue: parseFloat(form.commissionValue || "0"),
-      }),
-    });
-    setLoading(false);
-    setOpenEdit(false);
-    load();
-  }
-
-  async function toggleActive(p: Product) {
-    await fetch(`/api/barbershop/products/${p.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...p, active: !p.active }),
-    });
-    load();
-  }
-
-  async function handleDelete(p: Product) {
-    if (!confirm(`Excluir "${p.name}"? O produto será desativado permanentemente.`)) return;
-    await fetch(`/api/barbershop/products/${p.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    load();
-  }
-
-  async function handleSell() {
-    if (!selectedProduct) return;
-    setLoading(true);
-    const res = await fetch(`/api/barbershop/products/${selectedProduct.id}/sell`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ quantity: sellQty, paymentMethod: sellPaymentMethod }),
-    });
-    const data = await res.json();
-    if (!res.ok) { alert(data.error); setLoading(false); return; }
-    setLoading(false);
-    setOpenSell(false);
-    setSellQty(1);
-    load();
-  }
-
-  function openSellModal(p: Product) {
-    setSelectedProduct(p);
-    setSellQty(1);
-    setOpenSell(true);
-  }
-
-  function openEditModal(p: Product) {
-    setSelectedProduct(p);
-    setForm({
-      name: p.name,
-      description: p.description || "",
-      price: String(p.price),
-      costPrice: String(p.costPrice),
-      stock: String(p.stock),
-      barcode: p.barcode || "",
-      category: p.category,
-      imageUrl: p.imageUrl || "",
-      commissionType: p.commissionType || "PERCENTAGE",
-      commissionValue: String(p.commissionValue ?? 10),
-    });
-    setOpenEdit(true);
-  }
-
-  const lowStock = products.filter((p) => p.active && p.stock > 0 && p.stock <= 3);
-  const byCategory = Object.keys(CATEGORIAS).reduce<Record<string, Product[]>>((acc, cat) => {
-    acc[cat] = products.filter((p) => p.category === cat);
-    return acc;
-  }, {});
-
-  const CommissionFields = () => (
-    <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-150 space-y-4">
-      <h4 className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
-        <Percent className="w-4 h-4 text-primary" /> Configuração de Comissão do Profissional
-      </h4>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-semibold text-zinc-700 mb-1 flex items-center gap-1">
-            Tipo de Comissão
-            <span className="group relative cursor-help text-zinc-400 hover:text-zinc-600">
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:block w-48 bg-zinc-950 text-white text-[10px] p-2 rounded-lg leading-tight shadow-xl z-50">
-                Escolha se a comissão é uma porcentagem sobre o preço de venda ou um valor fixo em reais.
-              </span>
-            </span>
-          </label>
-          <select
-            value={form.commissionType}
-            onChange={(e) => setField("commissionType", e.target.value)}
-            className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            <option value="PERCENTAGE">Porcentagem (%)</option>
-            <option value="FIXED">Valor Fixo (R$)</option>
-          </select>
-        </div>
-        <Input
-          label={form.commissionType === "PERCENTAGE" ? "Comissão (%)" : "Comissão (R$)"}
-          type="number"
-          step="0.01"
-          min="0"
-          value={form.commissionValue}
-          onChange={(e) => setField("commissionValue", e.target.value)}
-          placeholder={form.commissionType === "PERCENTAGE" ? "10" : "5.00"}
-          required
-        />
-      </div>
-    </div>
-  );
+  const barberName = (b: Sale["barber"]) => (b ? b.nickname || b.user.name.split(" ")[0] : "balcão");
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Produtos</h1>
-          <p className="text-zinc-500 text-sm mt-1">{products.length} produto{products.length !== 1 ? "s" : ""} cadastrados</p>
+    <div className="flex flex-col gap-5">
+      <header className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Produtos</h1>
+          <span className="text-sm text-ink-3">{products ? `${list.filter((p) => p.active).length} à venda · ${k.units} vendidos em ${month}` : " "}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Input
-              placeholder="Bipar Código de Barras..."
-              value={barcodeSearch}
-              onChange={(e) => {
-                setBarcodeSearch(e.target.value);
-                const found = products.find(p => p.barcode === e.target.value && p.active);
-                if (found) { openSellModal(found); setBarcodeSearch(""); }
-              }}
-              className="w-48 sm:w-64"
-            />
-          </div>
-          <Button onClick={() => setOpenAdd(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Novo Produto
-          </Button>
-        </div>
-      </div>
+        <button type="button" onClick={() => { setStartMode("edit"); setSelected("new"); }} className="h-[42px] px-4 rounded-[10px] bg-primary text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-primary/90">
+          <Plus className="w-4 h-4" aria-hidden /> Novo produto
+        </button>
+      </header>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-zinc-200 shadow-sm p-4 sm:p-5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs sm:text-sm text-zinc-500">Vendas do mês</span>
-            <TrendingUp className="w-4 h-4 text-green-500" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          [`Vendas em ${month}`, brl(k.salesTotal), `${k.units} ${k.units === 1 ? "unidade" : "unidades"}`],
+          ["Lucro com produtos", brl(k.gross - k.com), k.com > 0 ? `depois de ${brl(k.com)} de comissão` : "venda menos o custo"],
+          ["Na prateleira", `${k.shelfUnits} un.`, `${brl(k.shelfCost)} pelo preço de custo`],
+          ["Estoque baixo", String(k.low.length), k.low.length ? k.low.map((p) => p.name).join(", ") : `nada com ${LOW} ou menos`],
+        ].map(([l, v, sub]) => (
+          <div key={l} className="rounded-2xl bg-surface border border-line p-4 flex flex-col gap-1 min-w-0">
+            <span className="text-[13px] text-ink-3">{l}</span>
+            <span className={cn("font-display text-2xl font-bold", l === "Estoque baixo" && k.low.length > 0 && "text-warning")}>{v}</span>
+            <span className="text-xs text-ink-3 truncate">{sub}</span>
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-zinc-900">{formatCurrency(totalMes)}</p>
-          <p className="text-xs text-zinc-400 mt-1">{totalUnidades} unidades vendidas</p>
-        </div>
-        <div className="bg-white rounded-xl border border-zinc-200 shadow-sm p-4 sm:p-5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs sm:text-sm text-zinc-500">Em estoque</span>
-            <Package className="w-4 h-4 text-blue-500" />
-          </div>
-          <p className="text-xl sm:text-2xl font-bold text-zinc-900">{products.filter(p => p.active).reduce((s, p) => s + p.stock, 0)}</p>
-          <p className="text-xs text-zinc-400 mt-1">unidades no total</p>
-        </div>
-        <div className={`rounded-xl border shadow-sm p-4 sm:p-5 ${lowStock.length > 0 ? "bg-red-50 border-red-300" : "bg-white border-zinc-200"}`}>
-          <div className="flex items-center justify-between mb-2">
-            <span className={`text-xs sm:text-sm ${lowStock.length > 0 ? "text-red-600" : "text-zinc-500"}`}>Estoque baixo</span>
-            <AlertTriangle className={`w-4 h-4 ${lowStock.length > 0 ? "text-red-500" : "text-zinc-300"}`} />
-          </div>
-          <p className={`text-xl sm:text-2xl font-bold ${lowStock.length > 0 ? "text-red-700" : "text-zinc-400"}`}>{lowStock.length}</p>
-          <p className={`text-xs mt-1 truncate ${lowStock.length > 0 ? "text-red-500" : "text-zinc-400"}`}>
-            {lowStock.length > 0 ? lowStock.map((p) => p.name).join(", ") : "tudo OK"}
-          </p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex rounded-lg border border-zinc-200 overflow-hidden w-fit">
-        {(["estoque", "vendas"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-5 py-2 text-sm font-medium transition-colors ${tab === t ? "bg-primary text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}>
-            {t === "estoque" ? "📦 Estoque" : "🛒 Vendas do Mês"}
-          </button>
         ))}
       </div>
 
-      {tab === "estoque" && (
-        <div className="space-y-6">
-          {Object.entries(byCategory).map(([cat, prods]) => {
-            if (prods.length === 0) return null;
-            const cfg = CATEGORIAS[cat];
-            return (
-              <div key={cat}>
-                <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-                  {cfg.emoji} {cfg.label}
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {prods.map((p) => {
-                    const margem = p.costPrice > 0
-                      ? Math.round(((p.price - p.costPrice) / p.price) * 100)
-                      : null;
-                    return (
-                      <div key={p.id} className={`bg-white rounded-xl border border-zinc-150 shadow-sm p-5 flex flex-col justify-between min-h-[220px] relative overflow-hidden transition-all ${!p.active ? "opacity-50" : ""}`}>
-                        {/* Imagem de fundo decorativa */}
-                        {p.imageUrl && (
-                          <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none">
-                            <img src={p.imageUrl} alt="" className="w-full h-full object-cover rounded-bl-full" />
-                          </div>
-                        )}
-                        <div>
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-zinc-900 truncate">{p.name}</p>
-                              {p.description && <p className="text-xs text-zinc-400 mt-0.5 truncate">{p.description}</p>}
-                            </div>
-                            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ml-2 shrink-0 ${cfg.color}`}>
-                              {cfg.label}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <p className="text-xl font-bold text-zinc-900">{formatCurrency(p.price)}</p>
-                              {p.costPrice > 0 && (
-                                <p className="text-[10px] text-zinc-400 font-medium">Custo: {formatCurrency(p.costPrice)}</p>
-                              )}
-                            </div>
-                            {margem !== null && (
-                              <div className="text-right">
-                                <p className="text-xs font-bold text-green-600">+{margem}%</p>
-                                <p className="text-[10px] text-zinc-400 font-medium">Lucro</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          {/* Comissão */}
-                          <div className="flex items-center justify-between px-3 py-1.5 rounded-lg mb-2 bg-zinc-100 border border-zinc-200 text-xs text-zinc-600">
-                            <span className="flex items-center gap-1 font-medium"><Percent className="w-3.5 h-3.5 text-primary" /> Comissão</span>
-                            <span className="font-bold text-primary">
-                              {p.commissionType === "PERCENTAGE" ? `${p.commissionValue}%` : formatCurrency(p.commissionValue)}
-                            </span>
-                          </div>
-
-                          {/* Estoque */}
-                          <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg mb-3 border text-xs ${p.stock <= 3 && p.stock > 0 ? "bg-red-50 border-red-300 text-red-700" : "bg-zinc-100 border-zinc-200 text-zinc-600"}`}>
-                            <span>Estoque</span>
-                            <span className="font-bold">
-                              {p.stock === 0 ? "Não controlado" : `${p.stock} un.`}
-                              {p.stock <= 3 && p.stock > 0 && " ⚠️"}
-                            </span>
-                          </div>
-
-                          {/* Ações */}
-                          <div className="flex gap-2 items-center">
-                            {p.active && (
-                              <Button onClick={() => openSellModal(p)} className="flex-1 font-bold text-xs" size="sm">
-                                <ShoppingCart className="w-3.5 h-3.5 mr-1" /> Vender
-                              </Button>
-                            )}
-                            <button
-                              onClick={() => openEditModal(p)}
-                              className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                              title="Editar produto"
-                            >
-                              <Edit2 className="w-3.5 h-3.5 text-zinc-500" />
-                            </button>
-                            <button
-                              onClick={() => toggleActive(p)}
-                              className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold border transition-colors ${p.active ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" : "bg-zinc-100 text-zinc-500 border-zinc-200 hover:bg-zinc-200"}`}
-                              title={p.active ? "Desativar produto" : "Ativar produto"}
-                            >
-                              {p.active ? "Ativo" : "Inativo"}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(p)}
-                              className="p-2 rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
-                              title="Excluir produto"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+      <div className="flex gap-5 items-start">
+        <div className="flex-1 min-w-0 flex flex-col gap-5">
+          <section className="bg-surface border border-line rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-line-2">
+              <Segmented value={tab} onChange={setTab} label="Ver" options={[["estoque", "Estoque"], ["vendas", "Vendas do mês"]]} />
+              {tab === "estoque" && (
+                <div role="group" aria-label="Categoria" className="flex gap-1.5 flex-wrap">
+                  {[["all", "Todas"] as [string, string], ...CATS].map(([key, l]) => (
+                    <button key={key} type="button" aria-pressed={cat === key} onClick={() => setCat(key)}
+                      className={cn("h-8 px-3 rounded-full text-[13px] font-semibold", cat === key ? "bg-ink text-white" : "bg-surface border border-control text-ink-2")}>{l}</button>
+                  ))}
                 </div>
-              </div>
-            );
-          })}
-
-          {products.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-zinc-100 text-zinc-400">
-              <Package className="w-14 h-14 mb-3" />
-              <p className="font-semibold text-lg">Nenhum produto cadastrado</p>
-              <Button className="mt-5" onClick={() => setOpenAdd(true)}>
-                <Plus className="w-4 h-4 mr-1" /> Adicionar produto
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === "vendas" && (
-        <div className="bg-white rounded-xl border border-zinc-150 shadow-sm overflow-hidden">
-          {sales.length === 0 ? (
-            <div className="py-16 text-center text-zinc-400">
-              <ShoppingCart className="w-12 h-12 mx-auto mb-3" />
-              <p>Nenhuma venda registrada este mês</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-zinc-100">
-              {sales.map((s) => {
-                const cfg = CATEGORIAS[s.product.category] || CATEGORIAS.GERAL;
-                return (
-                  <div key={s.id} className="px-6 py-4 flex items-center gap-4 hover:bg-zinc-50 transition-colors">
-                    <div className="w-9 h-9 rounded-lg bg-zinc-100 flex items-center justify-center text-lg shrink-0">
-                      {cfg.emoji}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-zinc-900">{s.product.name}</p>
-                      <p className="text-xs text-zinc-400">
-                        {s.quantity} × {formatCurrency(s.unitPrice)}
-                        {s.barber && ` · ${s.barber.user.name}`}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-zinc-900">{formatCurrency(s.total)}</p>
-                      <p className="text-xs text-zinc-400">{formatDateTime(s.createdAt)}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {sales.length > 0 && (
-            <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-200 flex justify-between text-sm">
-              <span className="text-zinc-500 font-medium">Total do mês</span>
-              <span className="font-black text-zinc-900">{formatCurrency(totalMes)}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal: Novo produto */}
-      <Modal open={openAdd} onClose={() => setOpenAdd(false)} title="Novo Produto" className="max-w-lg">
-        <form onSubmit={handleAdd} className="space-y-4">
-          <Input label="Nome" value={form.name} onChange={(e) => setField("name", e.target.value)} placeholder="Ex: Pomada Modeladora Matte" required />
-          <Input label="Descrição (opcional)" value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Breve descrição do produto" />
-          <Input label="Código de Barras (opcional)" value={form.barcode} onChange={(e) => setField("barcode", e.target.value)} placeholder="Bipe aqui" />
-
-          {/* Foto */}
-          <div>
-            <label className="block text-sm font-semibold text-zinc-700 mb-1 flex items-center gap-1.5">
-              <ImageIcon className="w-3.5 h-3.5 text-zinc-400" /> Foto do produto (URL, opcional)
-            </label>
-            <input
-              type="url"
-              value={form.imageUrl}
-              onChange={(e) => setField("imageUrl", e.target.value)}
-              placeholder="https://exemplo.com/foto.jpg"
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            {form.imageUrl && (
-              <img src={form.imageUrl} alt="Preview" className="mt-2 h-16 w-16 object-cover rounded-lg border border-zinc-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-1">Categoria</label>
-              <select value={form.category} onChange={(e) => setField("category", e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                {Object.entries(CATEGORIAS).map(([v, c]) => (
-                  <option key={v} value={v}>{c.emoji} {c.label}</option>
-                ))}
-              </select>
-            </div>
-            <Input label="Estoque inicial (0 = s/ controle)" type="number" min="0" value={form.stock} onChange={(e) => setField("stock", e.target.value)} placeholder="10" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Preço de venda (R$)" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setField("price", e.target.value)} placeholder="45.00" required />
-            <Input label="Preço de Custo (R$)" type="number" step="0.01" min="0" value={form.costPrice} onChange={(e) => setField("costPrice", e.target.value)} placeholder="20.00" />
-          </div>
-
-          <CommissionFields />
-
-          <Button type="submit" loading={loading} className="w-full mt-2">Cadastrar Produto</Button>
-        </form>
-      </Modal>
-
-      {/* Modal: Editar produto */}
-      <Modal open={openEdit} onClose={() => setOpenEdit(false)} title="Editar Produto" className="max-w-lg">
-        <form onSubmit={handleEdit} className="space-y-4">
-          <Input label="Nome" value={form.name} onChange={(e) => setField("name", e.target.value)} required />
-          <Input label="Descrição (opcional)" value={form.description} onChange={(e) => setField("description", e.target.value)} />
-          <Input label="Código de Barras (opcional)" value={form.barcode} onChange={(e) => setField("barcode", e.target.value)} />
-
-          {/* Foto */}
-          <div>
-            <label className="block text-sm font-semibold text-zinc-700 mb-1 flex items-center gap-1.5">
-              <ImageIcon className="w-3.5 h-3.5 text-zinc-400" /> Foto do produto (URL, opcional)
-            </label>
-            <input
-              type="url"
-              value={form.imageUrl}
-              onChange={(e) => setField("imageUrl", e.target.value)}
-              placeholder="https://exemplo.com/foto.jpg"
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            {form.imageUrl && (
-              <img src={form.imageUrl} alt="Preview" className="mt-2 h-16 w-16 object-cover rounded-lg border border-zinc-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-1">Categoria</label>
-              <select value={form.category} onChange={(e) => setField("category", e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                {Object.entries(CATEGORIAS).map(([v, c]) => (
-                  <option key={v} value={v}>{c.emoji} {c.label}</option>
-                ))}
-              </select>
-            </div>
-            <Input label="Estoque atual" type="number" min="0" value={form.stock} onChange={(e) => setField("stock", e.target.value)} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Preço de Venda (R$)" type="number" step="0.01" value={form.price} onChange={(e) => setField("price", e.target.value)} required />
-            <Input label="Preço de Custo (R$)" type="number" step="0.01" value={form.costPrice} onChange={(e) => setField("costPrice", e.target.value)} />
-          </div>
-
-          <CommissionFields />
-
-          <Button type="submit" loading={loading} className="w-full mt-2">Salvar Alterações</Button>
-        </form>
-      </Modal>
-
-      {/* Modal: Vender */}
-      <Modal open={openSell} onClose={() => setOpenSell(false)} title="Registrar Venda">
-        {selectedProduct && (
-          <div className="space-y-4">
-            <div className="bg-zinc-50 rounded-xl p-4 flex items-center gap-3">
-              {selectedProduct.imageUrl && (
-                <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-12 h-12 object-cover rounded-lg border border-zinc-200 shrink-0" />
               )}
-              <div>
-                <p className="font-semibold text-zinc-900">{selectedProduct.name}</p>
-                <p className="text-sm text-zinc-500 mt-0.5">{formatCurrency(selectedProduct.price)} por unidade</p>
-                {selectedProduct.stock > 0 && (
-                  <p className="text-xs text-zinc-400 mt-0.5">{selectedProduct.stock} em estoque</p>
-                )}
-              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-2">Quantidade</label>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setSellQty((q) => Math.max(1, q - 1))}
-                  className="w-10 h-10 rounded-lg border border-zinc-300 flex items-center justify-center hover:bg-zinc-50">
-                  <Minus className="w-4 h-4" />
+            {!products ? <div className="h-48 animate-pulse bg-surface-3/50" aria-busy /> : tab === "estoque" ? (
+              visible.length === 0 ? <p className="px-5 py-8 text-center text-[13px] text-ink-3">Nenhum produto aqui.</p> : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[680px]">
+                    <thead>
+                      <tr className="text-xs text-ink-3 border-b border-line-2">
+                        <th scope="col" className="text-left font-semibold px-4 py-2.5">Produto</th>
+                        <th scope="col" className="text-right font-semibold px-3">Estoque</th>
+                        <th scope="col" className="text-right font-semibold px-3">Preço</th>
+                        <th scope="col" className="text-right font-semibold px-3">Lucro</th>
+                        <th scope="col" className="text-right font-semibold px-3">Vendidos</th>
+                        <th scope="col" className="px-3 pr-4"><span className="sr-only">Vender</span></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line-3">
+                      {visible.map((p) => {
+                        const on = selected === p.id;
+                        const low = p.active && p.stock > 0 && p.stock <= LOW;
+                        const sold = soldBy[p.id];
+                        return (
+                          <tr key={p.id} onClick={() => { setStartMode("edit"); setSelected(p.id); }} aria-current={on || undefined}
+                            className={cn("cursor-pointer", on ? "bg-primary/[0.07]" : "hover:bg-surface-3/50", !p.active && "opacity-60")}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className={cn("w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0", on ? "bg-primary text-white" : "bg-ground text-ink-2")}><Package className="w-4 h-4" aria-hidden /></div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold flex items-center gap-1.5"><span className="truncate">{p.name}</span>
+                                    {low && <span className="h-5 px-2 rounded-full text-[11px] font-semibold inline-flex items-center bg-warning-soft text-warning shrink-0">Estoque baixo</span>}
+                                  </p>
+                                  <p className="text-xs text-ink-3 truncate">{catLabel(p.category)}{p.description ? ` · ${p.description}` : ""}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className={cn("px-3 text-right", low && "text-warning font-semibold")}>{tracked(p) ? `${p.stock} un.` : <span className="text-ink-4" title="Sem controle de estoque">—</span>}</td>
+                            <td className="px-3 text-right">{brl(p.price)}</td>
+                            <td className="px-3 text-right"><p>{brl(p.price - p.costPrice)}</p><p className="text-xs text-ink-3">custo {brl(p.costPrice)}</p></td>
+                            <td className="px-3 text-right"><p>{sold?.qty ?? 0}</p><p className="text-xs text-ink-3">{sold ? brl(sold.value) : "—"}</p></td>
+                            <td className="px-3 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              {p.active ? (
+                                <button type="button" onClick={() => { setStartMode("sell"); setSelected(p.id); }} className="h-8 px-3 rounded-lg border border-control text-xs font-semibold hover:bg-surface-3">Vender</button>
+                              ) : <span className="text-xs text-ink-4">inativo</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <p className="px-4 py-2.5 text-xs text-ink-3 border-t border-line-2">Lucro = preço de venda menos o preço de custo, por unidade. Estoque “—” = sem controle de estoque.</p>
+                </div>
+              )
+            ) : sales.length === 0 ? <p className="px-5 py-8 text-center text-[13px] text-ink-3">Nenhuma venda em {month}.</p> : (
+              <ul className="divide-y divide-line-3">
+                {sales.map((s) => (
+                  <li key={s.id} className="grid grid-cols-[70px_minmax(0,1fr)_auto] sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,0.6fr)_100px] gap-3 items-center px-4 py-2.5 text-[13px]">
+                    <span className="text-ink-3">{new Date(s.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" })}</span>
+                    <span className="min-w-0 truncate"><span className="font-semibold">{s.product.name}</span>{s.quantity > 1 && <span className="text-ink-3"> · {s.quantity} un.</span>}</span>
+                    <span className="hidden sm:block text-ink-2 truncate">{barberName(s.barber)}{s.client ? ` · ${s.client.name}` : ""}</span>
+                    <span className="font-semibold text-right">{formatCurrency(s.total)}</span>
+                  </li>
+                ))}
+                <li className="flex justify-between px-4 py-3 text-sm font-semibold bg-surface-3/40"><span>Total do mês · {k.units} un.</span><span>{formatCurrency(k.salesTotal)}</span></li>
+              </ul>
+            )}
+          </section>
+
+          {reorder.length > 0 && (
+            <section className="bg-surface border border-line rounded-2xl p-5 flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <h2 className="text-[15px] font-semibold">Precisa repor</h2>
+                  <p className="text-[13px] text-ink-3">Sugestão para chegar ao fim do mês, pelo ritmo de vendas de {month}</p>
+                </div>
+                <button type="button" onClick={supplierList} className="h-9 px-3 rounded-[9px] border border-control text-[13px] font-semibold inline-flex items-center gap-1.5 hover:bg-surface-3">
+                  <Send className="w-4 h-4" aria-hidden /> Mandar lista pro fornecedor
                 </button>
-                <span className="text-2xl font-bold text-zinc-900 w-10 text-center">{sellQty}</span>
-                <button onClick={() => setSellQty((q) => q + 1)}
-                  className="w-10 h-10 rounded-lg border border-zinc-300 flex items-center justify-center hover:bg-zinc-50">
-                  <Plus className="w-4 h-4" />
-                </button>
               </div>
-            </div>
+              <ul className="flex flex-col divide-y divide-line-3">
+                {reorder.map((r) => (
+                  <li key={r.p.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 items-center py-2 text-[13px]">
+                    <span className="min-w-0"><span className="font-semibold">{r.p.name}</span> <span className="text-ink-3">· {r.sold ? `${r.sold} vendidos no mês` : "sem vendas no mês"} · tem {r.p.stock}</span></span>
+                    <span className="font-semibold">comprar {r.buy}</span>
+                    <span className="text-ink-3 w-20 text-right">{brl(r.buy * r.p.costPrice)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
 
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-2">Forma de Pagamento (Caixa)</label>
-              <select
-                value={sellPaymentMethod}
-                onChange={(e) => setSellPaymentMethod(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="PIX">Pix</option>
-                <option value="CREDIT_CARD">Cartão de Crédito</option>
-                <option value="DEBIT_CARD">Cartão de Débito</option>
-                <option value="CASH">Dinheiro Vivo</option>
-              </select>
-            </div>
+        <SidePanel open={!!selected && (selected === "new" || !!sel)} wide={wide} onClose={() => setSelected(null)} label="Produto">
+          {selected === "new" ? (
+            <Editor key="new" barbers={barbers} startMode="edit" onClose={() => setSelected(null)} onSaved={(id) => { load(); setSelected(id ?? null); }} />
+          ) : sel ? (
+            <Editor key={sel.id + startMode} product={sel} sold={soldBy[sel.id]} month={month} barbers={barbers} startMode={startMode}
+              onClose={() => setSelected(null)} onSaved={() => load()} />
+          ) : null}
+        </SidePanel>
+      </div>
+    </div>
+  );
+}
 
-            <div className="bg-primary/10 rounded-xl p-4 flex justify-between items-center">
-              <span className="text-sm text-amber-700 font-medium">Total</span>
-              <span className="text-xl font-black text-primary/90">
-                {formatCurrency(selectedProduct.price * sellQty)}
-              </span>
-            </div>
+function Editor({ product, sold, month, barbers, startMode, onClose, onSaved }: {
+  product?: Product; sold?: { qty: number; value: number }; month?: string; barbers: Barber[]; startMode: "edit" | "sell";
+  onClose: () => void; onSaved: (id?: string) => void;
+}) {
+  const { token } = useAuthStore();
+  const isNew = !product;
+  const init = () => ({
+    name: product?.name ?? "", description: product?.description ?? "", barcode: product?.barcode ?? "", imageUrl: product?.imageUrl ?? "",
+    category: product?.category ?? "GERAL", stock: String(product?.stock ?? 0), price: product ? money(product.price) : "",
+    costPrice: product?.costPrice ? money(product.costPrice) : "", commissionType: product?.commissionType ?? "PERCENTAGE",
+    commissionValue: String(product?.commissionValue ?? 10), active: product?.active ?? true,
+  });
+  const [form, setForm] = useState(init);
+  const set = <K extends keyof ReturnType<typeof init>>(k: K, v: ReturnType<typeof init>[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const dirty = JSON.stringify(form) !== JSON.stringify(init());
+  const [saving, setSaving] = useState(false);
+  const stockNow = product?.stock;
+  useEffect(() => { if (stockNow !== undefined) setForm((f) => ({ ...f, stock: String(stockNow) })); }, [stockNow]);
+  const [mode, setMode] = useState<"sell" | "restock" | null>(isNew ? null : startMode === "sell" ? "sell" : null);
+  const [qty, setQty] = useState(1);
+  const [pay, setPay] = useState("PIX");
+  const [barberId, setBarberId] = useState("");
+  const [unitCost, setUnitCost] = useState(product?.costPrice ? money(product.costPrice) : "");
+  const [confirmOff, setConfirmOff] = useState(false);
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-            <Button onClick={handleSell} loading={loading} className="w-full" size="lg">
-              <ShoppingCart className="w-4 h-4 mr-1" /> Confirmar Venda
-            </Button>
+  const price = parseMoney(form.price), cost = parseMoney(form.costPrice);
+  const margin = price > 0 ? Math.round(((price - cost) / price) * 100) : 0;
+
+  async function save(override?: Partial<ReturnType<typeof init>>) {
+    const f = { ...form, ...override };
+    if (!f.name.trim()) { toast.error("Informe o nome."); return; }
+    if (!(parseMoney(f.price) > 0)) { toast.error("Informe o preço de venda."); return; }
+    const cv = Number(f.commissionValue.replace(",", "."));
+    if (!(cv >= 0) || (f.commissionType === "PERCENTAGE" && cv > 100)) { toast.error("Comissão inválida."); return; }
+    setSaving(true);
+    const body = {
+      name: f.name.trim(), description: f.description.trim() || null, barcode: f.barcode.trim(), imageUrl: f.imageUrl.trim(),
+      category: f.category, stock: Math.max(0, Math.floor(Number(f.stock) || 0)), price: parseMoney(f.price), costPrice: parseMoney(f.costPrice),
+      commissionType: f.commissionType, commissionValue: cv, active: f.active,
+    };
+    const r = await fetch(isNew ? "/api/barbershop/products" : `/api/barbershop/products/${product!.id}`, { method: isNew ? "POST" : "PUT", headers, body: JSON.stringify(body) });
+    setSaving(false);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast.error(d.error ?? "Não foi possível salvar."); return; }
+    toast.success(isNew ? "Produto cadastrado" : override?.active === false ? "Produto desativado" : override?.active ? "Produto reativado" : "Produto salvo");
+    if (override) setForm(f);
+    onSaved(isNew ? d.product?.id : undefined);
+  }
+
+  async function sell() {
+    setSaving(true);
+    const r = await fetch(`/api/barbershop/products/${product!.id}/sell`, { method: "POST", headers, body: JSON.stringify({ quantity: qty, paymentMethod: pay, barberId: barberId || undefined }) });
+    setSaving(false);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast.error(d.error ?? "Não foi possível vender."); return; }
+    toast.success(`Venda registrada: ${qty}× ${product!.name}`);
+    setMode(null); setQty(1);
+    onSaved();
+  }
+
+  async function restock() {
+    setSaving(true);
+    const c = parseMoney(unitCost);
+    const r = await fetch(`/api/barbershop/products/${product!.id}`, { method: "PATCH", headers, body: JSON.stringify({ addStock: qty, costPrice: c }) });
+    setSaving(false);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast.error(d.error ?? "Não foi possível repor."); return; }
+    toast.success(`+${qty} no estoque de ${product!.name}`);
+    setForm((f) => ({ ...f, stock: String(d.product.stock), costPrice: money(d.product.costPrice) }));
+    setMode(null); setQty(1);
+    onSaved();
+  }
+
+  const total = (product?.price ?? 0) * qty;
+  const max = product && tracked(product) && mode === "sell" ? product.stock : 999;
+
+  return (
+    <div className="flex flex-col">
+      <div className="px-5 pt-5 pb-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3 pr-10 xl:pr-0">
+          <div className="min-w-0">
+            <h2 className="font-display text-[21px] font-bold truncate">{isNew ? "Novo produto" : product!.name}</h2>
+            {!isNew && <p className="text-[13px] text-ink-3">{catLabel(product!.category)}{product!.barcode ? ` · ${product!.barcode}` : ""}</p>}
+          </div>
+          {!isNew && (
+            <span className="flex items-center gap-2 text-[13px] font-semibold shrink-0">
+              {form.active ? "Ativo" : "Inativo"}
+              <Switch checked={form.active} label="Ativo" onChange={(v) => (v ? save({ active: true }) : setConfirmOff(true))} />
+            </span>
+          )}
+        </div>
+        {!isNew && (
+          <div className="grid grid-cols-2 gap-px rounded-xl overflow-hidden bg-line-2 border border-line-2">
+            <div className="bg-surface p-3">
+              <p className="text-xs text-ink-3">Na prateleira</p>
+              <p className="text-lg font-bold">{tracked(product!) ? `${product!.stock} un.` : "—"}</p>
+              <p className="text-[11px] text-ink-3">{!tracked(product!) ? "sem controle de estoque" : product!.stock <= LOW ? "estoque baixo" : "ok"}</p>
+            </div>
+            <div className="bg-surface p-3">
+              <p className="text-xs text-ink-3">Vendidos em {month}</p>
+              <p className="text-lg font-bold">{sold?.qty ?? 0}</p>
+              <p className="text-[11px] text-ink-3">{sold ? brl(sold.value) : "nenhuma venda"}</p>
+            </div>
           </div>
         )}
-      </Modal>
+
+        {!isNew && form.active && (
+          <div className="rounded-xl border border-line-2 p-3 flex flex-col gap-3">
+            <div role="group" aria-label="Movimentar" className="grid grid-cols-2 gap-2">
+              {([["sell", "Vender"], ["restock", "Repor estoque"]] as const).map(([m, l]) => (
+                <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(mode === m ? null : m); setQty(1); }}
+                  className={cn("h-10 rounded-[10px] text-[13px] font-semibold border", mode === m ? "bg-ink text-white border-ink" : "border-control hover:bg-surface-3")}>{l}</button>
+              ))}
+            </div>
+            {mode && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-semibold text-ink-2">Quantidade</span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" aria-label="Menos" onClick={() => setQty(Math.max(1, qty - 1))} className="w-9 h-9 rounded-lg border border-control flex items-center justify-center"><Minus className="w-4 h-4" aria-hidden /></button>
+                    <span className="w-8 text-center font-bold">{qty}</span>
+                    <button type="button" aria-label="Mais" onClick={() => setQty(Math.min(max, qty + 1))} className="w-9 h-9 rounded-lg border border-control flex items-center justify-center"><Plus className="w-4 h-4" aria-hidden /></button>
+                  </div>
+                </div>
+                {mode === "sell" ? (
+                  <>
+                    <div>
+                      <span className="block text-[13px] font-semibold text-ink-2 mb-1.5">Pagamento</span>
+                      <div role="radiogroup" aria-label="Pagamento" className="grid grid-cols-4 gap-1.5">
+                        {[["PIX", "Pix"], ["CASH", "Dinheiro"], ["CREDIT_CARD", "Crédito"], ["DEBIT_CARD", "Débito"]].map(([v, l]) => (
+                          <button key={v} type="button" role="radio" aria-checked={pay === v} onClick={() => setPay(v)}
+                            className={cn("h-9 rounded-lg border text-xs font-semibold", pay === v ? "bg-ink text-white border-ink" : "border-control")}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[13px] font-semibold text-ink-2">Quem vendeu <span className="font-normal text-ink-3">· recebe a comissão</span></span>
+                      <select value={barberId} onChange={(e) => setBarberId(e.target.value)} className={fieldCls}>
+                        <option value="">Balcão (sem comissão)</option>
+                        {barbers.filter((b) => b.active).map((b) => <option key={b.id} value={b.id}>{b.nickname || b.user.name}</option>)}
+                      </select>
+                    </label>
+                    <Button loading={saving} onClick={sell}>Vender por {formatCurrency(total)}</Button>
+                    <p className="text-xs text-ink-3">Com o caixa aberto, a venda entra no caixa sozinha.</p>
+                  </>
+                ) : (
+                  <>
+                    <Field label="Custo de cada unidade" prefix="R$" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} inputMode="decimal" />
+                    <Button loading={saving} onClick={restock}>Somar {qty} ao estoque</Button>
+                    <p className="text-xs text-ink-3">Fica com {product!.stock + qty} un.{parseMoney(unitCost) > 0 && ` · gasto de ${formatCurrency(parseMoney(unitCost) * qty)} (lance em Resultado do mês, se quiser)`}</p>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Section title="Cadastro">
+        <Field label="Nome" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: Pomada modeladora" />
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-semibold text-ink-2">Descrição <span className="font-normal text-ink-3">· opcional</span></span>
+          <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} maxLength={160} className={cn(fieldCls, "h-auto py-2.5 resize-none")} />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Código de barras" value={form.barcode} onChange={(e) => set("barcode", e.target.value)} inputMode="numeric" />
+          <Field label="Foto (link)" value={form.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://…" />
+        </div>
+        <div>
+          <span className="block text-[13px] font-semibold text-ink-2 mb-1.5">Categoria</span>
+          <div role="radiogroup" aria-label="Categoria" className="flex gap-1.5 flex-wrap">
+            {CATS.map(([v, l]) => (
+              <button key={v} type="button" role="radio" aria-checked={form.category === v} onClick={() => set("category", v)}
+                className={cn("h-9 px-3 rounded-lg border text-[13px] font-semibold", form.category === v ? "bg-ink text-white border-ink" : "border-control hover:bg-surface-3")}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Estoque">
+        <Field label="Quantidade atual" suffix="un." value={form.stock} onChange={(e) => set("stock", e.target.value.replace(/\D/g, ""))} inputMode="numeric"
+          hint={`Deixe 0 para não controlar estoque (vende sem limite). Com ${LOW} ou menos aparece como estoque baixo.`} />
+      </Section>
+
+      <Section title="Preço">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Preço de venda" prefix="R$" value={form.price} onChange={(e) => set("price", e.target.value)} inputMode="decimal" />
+          <Field label="Preço de custo" prefix="R$" value={form.costPrice} onChange={(e) => set("costPrice", e.target.value)} inputMode="decimal" />
+        </div>
+        {price > 0 && <p className="text-xs text-ink-3">Lucro de {formatCurrency(price - cost)} por unidade · margem de {margin}%</p>}
+      </Section>
+
+      <Section title="Comissão de quem vende">
+        <div className="flex items-end gap-2">
+          <div role="radiogroup" aria-label="Tipo de comissão" className="flex rounded-[10px] border border-control overflow-hidden h-11 shrink-0">
+            {[["PERCENTAGE", "%"], ["FIXED", "R$"]].map(([v, l]) => (
+              <button key={v} type="button" role="radio" aria-checked={form.commissionType === v} onClick={() => set("commissionType", v)}
+                className={cn("w-12 text-sm font-semibold", form.commissionType === v ? "bg-ink text-white" : "bg-surface")}>{l}</button>
+            ))}
+          </div>
+          <Field className="flex-1" label={form.commissionType === "FIXED" ? "Valor por unidade" : "Porcentagem da venda"} value={form.commissionValue}
+            onChange={(e) => set("commissionValue", e.target.value)} inputMode="decimal" />
+        </div>
+        {price > 0 && (
+          <p className="text-xs text-ink-3">
+            Em cada venda, quem vendeu recebe {formatCurrency(form.commissionType === "FIXED" ? Number(form.commissionValue.replace(",", ".")) || 0 : price * ((Number(form.commissionValue.replace(",", ".")) || 0) / 100))}.
+          </p>
+        )}
+      </Section>
+
+      <div className="px-5 py-4 border-t border-line-2 flex items-center gap-2 sticky bottom-0 bg-surface">
+        <Button variant="outline" className="ml-auto" onClick={() => (dirty && !isNew ? setForm(init()) : onClose())}>{dirty && !isNew ? "Descartar" : "Fechar"}</Button>
+        <Button loading={saving} disabled={!dirty} onClick={() => save()}>{isNew ? "Cadastrar" : "Salvar"}</Button>
+      </div>
+
+      <ConfirmDialog isOpen={confirmOff} title={`Desativar ${product?.name}?`} message="Ele some da comanda e da lista de venda. O histórico de vendas continua."
+        confirmLabel="Desativar" onConfirm={() => { setConfirmOff(false); save({ active: false }); }} onCancel={() => setConfirmOff(false)} />
     </div>
   );
 }

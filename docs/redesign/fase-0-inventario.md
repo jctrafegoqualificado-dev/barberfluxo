@@ -183,6 +183,14 @@ Corrigidos no redesign (entram em produção no lançamento):
 13. **Previsão somava cada despesa recorrente várias vezes** (uma linha por mês replicado) e contava o preço de atendimento de assinante como receita nova.
 14. **Mês das comissões começava às 21h do dia anterior** no servidor (UTC); agora usa o fuso de São Paulo.
 15. **Plano com comissão própria (%) diluía o pote**: os atendimentos dele entravam na divisão mas eram pagos pela % do plano — parte do pote não ia para ninguém, e o dinheiro desse plano engordava o pote dos outros. Decisão (17/10/2026): plano com comissão própria fica **fora do pote** (dinheiro e atendimentos). Só muda algo em barbearia que preencheu esse campo.
+16. **Produto vendido pelo dono na comanda não dava comissão ao barbeiro** (fase 7a): a venda ficava sem profissional. Agora a comanda manda o profissional do atendimento, e a tela de Produtos pergunta quem vendeu.
+17. **Comissão de produto 0% virava 10%** ao salvar (`Number(valor || 10)`).
+18. **Lista de serviços com cache de 30 s**: depois de editar, a tela podia mostrar o valor antigo.
+
+Pendentes do Catálogo (precisam de dado novo, ficaram fora da 7a):
+
+- **"Serviços que faz" / "Quem faz"** (Profissionais e Serviços): não existe vínculo profissional ↔ serviço. Precisa de tabela nova e mudar o link de agendamento e a agenda para filtrar.
+- **"Controlar estoque" e "Avisar quando chegar em"** (Produtos): hoje estoque 0 = sem controle e o aviso é fixo em 3 unidades.
 
 ## Decisões de produto
 

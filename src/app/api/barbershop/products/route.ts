@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
         category: category || "GERAL",
         imageUrl: imageUrl || null,
         commissionType: commissionType || "PERCENTAGE",
-        commissionValue: Number(commissionValue || 10),
+        // 0% é válido (antes "|| 10" transformava 0 em 10%)
+        commissionValue: commissionValue === undefined || commissionValue === null || commissionValue === "" ? 10 : Number(commissionValue),
         barbershopId: payload.barbershopId!,
       },
     });
