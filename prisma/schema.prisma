@@ -280,6 +280,8 @@ model Appointment {
   // Quando o próprio cliente confirmou presença (ex.: respondeu SIM ao lembrete).
   confirmedAt        DateTime?
   confirmedVia       String?   // WHATSAPP
+  // Quando foi concluído (comanda fechada) — o caixa do dia usa esta hora.
+  completedAt        DateTime?
   notes              String?
   price              Float
   reminderSent  Boolean  @default(false)
@@ -309,6 +311,7 @@ model Appointment {
 
   @@index([barbershopId, date])
   @@index([barbershopId, status, date])
+  @@index([barbershopId, completedAt])
   @@index([status])
   @@index([clientId])
   @@index([mpPaymentId]) // busca rápida no webhook de pagamento avulso
@@ -805,6 +808,11 @@ model CashFlowSession {
   closingBalance Float?
   status         String    @default("OPEN") // OPEN | CLOSED
   notes          String?
+  // Quem abriu/fechou e a conferência do fechamento (gaveta esperada × contada)
+  openedByName    String?
+  closedByName    String?
+  expectedBalance Float?
+  totalIn         Float?   // quanto entrou no período do caixa (todas as formas)
   createdAt      DateTime  @default(now())
 
   barbershopId   String

@@ -173,6 +173,11 @@ Corrigidos no redesign (entram em produção no lançamento):
 3. **Rota pública do link devolvia o cadastro inteiro da barbearia** (`GET /api/booking/[slug]`): CNPJ, instruções da IA e IDs de cobrança. Agora só os campos públicos (fase 4).
 4. **"Novo cliente" e "Importar planilha" criavam o cliente sem vínculo com a barbearia**, e ele sumia da lista (que só mostra quem agendou ou assinou). Nova tabela `ShopClient`, migration `20261017120000_vinculo_cliente_barbearia` (fase 5). O `POST` de cliente também deixou de devolver o registro inteiro (com o hash da senha).
 5. **Bloquear cliente vale só para o atendente do WhatsApp**: o link de agendamento não confere `isBlocked`, e o bloqueio é global (o cadastro do cliente é compartilhado entre barbearias). Não mexido — precisa decidir se o bloqueio passa a ser por barbearia.
+6. **Segurança — comissões** (fase 6a): `POST/DELETE /api/barbershop/comissoes/pagar` aceitava qualquer usuário da barbearia (o barbeiro conseguia marcar a própria comissão como paga); `DELETE /comissoes/vale` apagava vale de qualquer barbearia pelo id, e o `POST` não conferia se o profissional era da barbearia. **Vale levar para a `main` antes do lançamento.**
+7. **Caixa somava o troco duas vezes** na tela (ele era gravado em `openingBalance` e também como lançamento de entrada). O atalho do menu não tinha o erro. E os atendimentos pagos nunca entravam no caixa — só lançamentos manuais e vendas de produto (fase 6a; o caixa agora soma atendimentos, gorjetas e mensalidades e guarda a conferência do fechamento).
+8. **Taxa de cartão não descontada** no Resultado do mês para pagamentos da comanda (`CREDIT_CARD`/`DEBIT_CARD`; a conta só reconhecia `CREDIT`/`DEBIT`).
+9. **Vencimento de despesa aparecia um dia antes** (gravado à meia-noite UTC).
+10. **Planilha do financeiro**: descrição com vírgula quebrava as colunas; usava as assinaturas ativas em vez das pagas e não tinha extras nem produtos.
 
 ## Decisões de produto
 

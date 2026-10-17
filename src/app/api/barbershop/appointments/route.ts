@@ -283,6 +283,10 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
 
+    // Hora da conclusão: o caixa do dia conta o atendimento por ela.
+    if (status === "DONE" && previousState.status !== "DONE") updateData.completedAt = new Date();
+    else if (status && status !== "DONE" && previousState.status === "DONE") updateData.completedAt = null;
+
     // Vincula assinatura retroativamente (cliente virou assinante após agendar)
     if (overrideSubscriptionId && !previousState.subscriptionId) {
       const sub = await prisma.subscription.findUnique({

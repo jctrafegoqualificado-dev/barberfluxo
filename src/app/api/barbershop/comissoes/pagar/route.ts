@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 // POST — marcar comissão como paga
 export async function POST(req: NextRequest) {
   try {
-    const payload = requireAuth(req);
+    const payload = requireAuth(req, ["OWNER"]); // só o dono marca comissão como paga
     if (!payload.barbershopId) return NextResponse.json({ error: "Sem barbearia" }, { status: 403 });
 
     const { barberId, month, amount, type = "STANDARD" } = await req.json();
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 // DELETE — desfazer pagamento
 export async function DELETE(req: NextRequest) {
   try {
-    const payload = requireAuth(req);
+    const payload = requireAuth(req, ["OWNER"]); // só o dono marca comissão como paga
     if (!payload.barbershopId) return NextResponse.json({ error: "Sem barbearia" }, { status: 403 });
 
     const { barberId, month, type = "STANDARD" } = await req.json();
