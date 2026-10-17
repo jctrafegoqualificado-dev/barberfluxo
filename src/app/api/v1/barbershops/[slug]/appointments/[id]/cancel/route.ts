@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notifyWaitlistSlotOpened } from "@/lib/waitlist";
+import { logAudit } from "@/lib/audit";
 
-export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ slug: string; id: string }> }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string; id: string }> }) {
   try {
     const { slug, id } = await params;
     const shop = await prisma.barbershop.findUnique({
@@ -52,6 +53,14 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ s
       where: { id },
       data: { status: "CANCELLED" },
       select: { id: true, status: true },
+    });
+
+    // Motivo opcional dado pelo cliente na tela "meus horários" (vai para o histórico).
+    const body = await req.json().catch(() => ({}));
+    const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 200) : "";
+    void logAudit({
+      barbershopId: shop.id, action: "CANCEL", entity: "Appointment", entityId: id,
+      diff: { before: { status: existing.status }, after: { status: "CANCELLED", via: body?.via === "RESCHEDULE" ? "Remarcado pelo cliente" : "Cancelado pelo cliente", ...(reason ? { reason } : {}) } },
     });
 
     // Lista de espera: a vaga liberada é avisada para quem está na fila do dia.

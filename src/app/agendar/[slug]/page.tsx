@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
-import { Sparkles, Check, ChevronLeft, ChevronRight, Clock, Calendar, AlertCircle, UserCheck, X } from "lucide-react";
-import Button from "@/components/ui/Button";
-import { formatCurrency } from "@/lib/utils";
+import {
+  Scissors, Check, ChevronLeft, ChevronRight, Clock, AlertCircle, Star, MapPin, RotateCcw,
+  CalendarPlus, Navigation, MessageCircle, User,
+} from "lucide-react";
+import { cn, formatCurrency } from "@/lib/utils";
 import WaitlistBox from "@/components/booking/WaitlistBox";
 
 interface Service { id: string; name: string; price: number; duration: number; description: string | null }
-interface Barber { id: string; nickname: string | null; user: { name: string } }
+interface Barber { id: string; nickname: string | null; bio: string | null; photoUrl: string | null; user: { name: string } }
 interface Shop {
   id: string;
   name: string;
@@ -16,150 +18,190 @@ interface Shop {
   logoUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+  phone: string | null;
+  address: string | null; streetNumber: string | null; neighborhood: string | null; city: string | null; state: string | null;
+  cancelByClientEnabled: boolean;
+  minCancelHours: number;
+  reminderEnabled: boolean;
+  reminderMinutes: number;
   services: Service[];
   barbers: Barber[];
-  openingHours?: { dayOfWeek: number; isOpen: boolean }[];
+  openingHours: { dayOfWeek: number; openTime: string; closeTime: string; isOpen: boolean }[];
+  rating: { average: number; count: number } | null;
+  popularServiceId: string | null;
 }
-interface DaySlots { date: string; label: string; slots: string[] }
+interface DaySlots { date: string; slots: string[] }
+interface LastVisit { date: string; barberId: string; serviceIds: string[] }
 
 type Step = "service" | "barber" | "datetime" | "dados" | "confirmado";
+const STEPS: Step[] = ["service", "barber", "datetime", "dados"];
+const STEP_NAMES = ["Serviço", "Profissional", "Horário", "Seus dados"];
 
-const DIAS_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const MESES_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
-function localDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const todaySP = () => new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(new Date());
+const nowMinSP = () => {
+  const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()).split(":").map(Number);
+  return h * 60 + m;
+};
+const addDays = (day: string, n: number) => { const d = new Date(day + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+const toHHMM = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const dow = (day: string) => new Date(day + "T12:00:00Z").getUTCDay();
+const dayNum = (day: string) => Number(day.slice(8, 10));
+
+/** "Hoje", "Amanhã" ou "Sáb, 18 de out" */
+function dayLabel(day: string) {
+  if (day === todaySP()) return "Hoje";
+  if (day === addDays(todaySP(), 1)) return "Amanhã";
+  const d = new Date(day + "T12:00:00Z");
+  return `${DOW[d.getUTCDay()]}, ${d.getUTCDate()} de ${MONTHS[d.getUTCMonth()].slice(0, 3)}`;
+}
+/** "sábado, 18 de outubro" */
+function fullDate(day: string) {
+  const d = new Date(day + "T12:00:00Z");
+  return `${["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"][d.getUTCDay()]}, ${d.getUTCDate()} de ${MONTHS[d.getUTCMonth()]}`;
 }
 
 function hexToRgb(hex: string) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ?
-    `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` :
-    null;
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? `${parseInt(r[1], 16)}, ${parseInt(r[2], 16)}, ${parseInt(r[3], 16)}` : null;
 }
-
-function formatDayLabel(dateStr: string) {
-  const d = new Date(dateStr + "T12:00:00");
-  const today = new Date();
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  if (dateStr === localDateStr(today)) return "Hoje";
-  if (dateStr === localDateStr(tomorrow)) return "Amanhã";
-  return `${DIAS_PT[d.getDay()]}, ${d.getDate()} ${MESES_PT[d.getMonth()]}`;
-}
+const initials = (name: string) => name.split(" ").filter(Boolean).slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+const barberName = (b: Barber) => b.nickname || b.user.name.split(" ")[0];
+const brl = (v: number) => formatCurrency(v).replace(",00", "");
 
 export default function AgendarPage() {
   const { slug } = useParams<{ slug: string }>();
   const [shop, setShop] = useState<Shop | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const [step, setStep] = useState<Step>("service");
-  const [selected, setSelected] = useState({ barber: "", date: "", slot: "" });
   const [serviceIds, setServiceIds] = useState<string[]>([]);
+  const [selected, setSelected] = useState({ barber: "", date: "", slot: "" });
   const [form, setForm] = useState({ firstName: "", lastName: "", phone: "" });
   const [clientFound, setClientFound] = useState<boolean | null>(null);
+  const [lastVisit, setLastVisit] = useState<LastVisit | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [booked, setBooked] = useState<{ startTime: string } | null>(null);
-  const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [daySlots, setDaySlots] = useState<DaySlots[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
   const [activeSub, setActiveSub] = useState<{ subscriptionId: string; planName: string; allowedBarberIds: string[] } | null>(null);
+  const [daySlots, setDaySlots] = useState<DaySlots[] | null>(null);
+  const [loading, setLoading] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
-
-  // Calendar strip state
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [weekOffset, setWeekOffset] = useState(0); // 0 = week 1 (days 0-6), 1 = week 2 (days 7-13)
+  const [booked, setBooked] = useState<{ startTime: string } | null>(null);
+  // "Já é cliente? Repita o último corte"
+  const [repeatOpen, setRepeatOpen] = useState(false);
+  const [repeatPhone, setRepeatPhone] = useState("");
+  const [repeatMsg, setRepeatMsg] = useState<string | null>(null);
+  const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Remarcação vinda de "meus horários": o horário antigo só é cancelado depois que o novo é marcado.
+  const [rescheduleFrom, setRescheduleFrom] = useState<{ id: string; when: string } | null>(null);
 
   useEffect(() => {
     fetch(`/api/booking/${slug}`)
       .then(async (r) => {
-        // Paywall: barbearia sem plano ativo → agendamento indisponível.
-        if (r.status === 403) {
-          setUnavailable(true);
-          return null;
-        }
+        if (r.status === 403) { setUnavailable(true); return null; }
         return r.json();
       })
       .then((d) => { if (d?.shop) setShop(d.shop); })
       .catch(() => {});
   }, [slug]);
 
+  // Chegou por "Remarcar": mesmo serviço e profissional, direto na escolha de horário.
+  useEffect(() => {
+    if (!shop || !new URLSearchParams(window.location.search).has("remarcar")) return;
+    let r: { id: string; slug: string; serviceIds: string[]; barberId: string; phone: string; when: string } | null = null;
+    try { r = JSON.parse(sessionStorage.getItem("remarcar") || "null"); } catch { /* ignora */ }
+    window.history.replaceState(null, "", window.location.pathname);
+    if (!r || r.slug !== slug) return;
+    const ids = r.serviceIds.filter((id) => shop.services.some((s) => s.id === id));
+    if (ids.length === 0 || !shop.barbers.some((b) => b.id === r!.barberId)) return;
+    setRescheduleFrom({ id: r.id, when: r.when });
+    setServiceIds(ids);
+    setSelected({ barber: r.barberId, date: "", slot: "" });
+    setForm((f) => ({ ...f, phone: r!.phone }));
+    lookupClient(r.phone);
+    setStep("datetime");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shop, slug]);
+
+  // Volta ao topo a cada etapa (no celular a etapa anterior costuma estar rolada)
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [step]);
+
+  /** Procura o cliente pelo telefone: nome, última visita e assinatura. */
+  async function lookupClient(phone: string) {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) return null;
+    setLookingUp(true);
+    try {
+      const r = await fetch(`/api/booking/${slug}/cliente?phone=${encodeURIComponent(phone)}`);
+      const d = await r.json();
+      if (!d.found) { setClientFound(false); setLastVisit(null); return null; }
+      setForm((f) => ({ ...f, phone, firstName: d.firstName, lastName: d.lastName }));
+      setClientFound(true);
+      setLastVisit(d.lastVisit ?? null);
+      const subRes = await fetch(`/api/booking/${slug}/subscriber?phone=${encodeURIComponent(digits)}`);
+      const sub = await subRes.json();
+      setActiveSub(sub.subscriptionId ? sub : null);
+      return d as { firstName: string; lastVisit: LastVisit | null };
+    } finally {
+      setLookingUp(false);
+    }
+  }
+
   function handlePhoneChange(phone: string) {
     setForm((f) => ({ ...f, phone }));
     setClientFound(null);
     setActiveSub(null);
-
     if (phoneDebounce.current) clearTimeout(phoneDebounce.current);
-
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 8) return;
-
-    phoneDebounce.current = setTimeout(async () => {
-      setLookingUp(true);
-      try {
-        const r = await fetch(`/api/booking/${slug}/cliente?phone=${encodeURIComponent(phone)}`);
-        const d = await r.json();
-        if (d.found) {
-          setForm((f) => ({ ...f, firstName: d.firstName, lastName: d.lastName }));
-          setClientFound(true);
-
-          const subRes = await fetch(`/api/booking/${slug}/subscriber?phone=${encodeURIComponent(digits)}`);
-          const subData = await subRes.json();
-          if (subData.subscriptionId) {
-            setActiveSub(subData);
-          }
-        } else {
-          setClientFound(false);
-        }
-      } finally {
-        setLookingUp(false);
-      }
-    }, 600);
+    if (phone.replace(/\D/g, "").length < 10) return;
+    phoneDebounce.current = setTimeout(() => { lookupClient(phone); }, 600);
   }
 
-  // Carrega os próximos 14 dias ao entrar no step datetime
-  useEffect(() => {
-    if (step !== "datetime" || !selected.barber || serviceIds.length === 0) return;
-
-    setLoadingSlots(true);
-    setDaySlots([]);
-    setSelectedDate("");
-    setWeekOffset(0);
-
-    const today = new Date();
-    const dates: string[] = [];
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      dates.push(localDateStr(d));
+  async function repeatLastCut(e: React.FormEvent) {
+    e.preventDefault();
+    if (!shop) return;
+    setRepeatMsg(null);
+    const found = await lookupClient(repeatPhone);
+    if (!found) { setRepeatMsg("Não encontramos agendamentos com esse número. Escolha o serviço abaixo."); return; }
+    const lv = found.lastVisit;
+    const ids = (lv?.serviceIds ?? []).filter((id) => shop.services.some((s) => s.id === id));
+    const barberOk = lv && shop.barbers.some((b) => b.id === lv.barberId);
+    if (ids.length === 0 || !barberOk) {
+      setRepeatMsg(`Olá, ${found.firstName}! Seu último serviço não está mais disponível online. Escolha abaixo.`);
+      return;
     }
-
-    Promise.all(
-      dates.map((date) =>
-        fetch(`/api/booking/${slug}/slots?barberId=${selected.barber}&serviceIds=${serviceIds.join(",")}&date=${date}`)
-          .then((r) => r.json())
-          .then((d) => ({ date, label: formatDayLabel(date), slots: d.slots || [] }))
-      )
-    ).then((results) => {
-      setDaySlots(results);
-      // Auto-seleciona o primeiro dia com horário disponível
-      const firstAvailable = results.find((d) => d.slots.length > 0);
-      if (firstAvailable) {
-        setSelectedDate(firstAvailable.date);
-        const idx = results.indexOf(firstAvailable);
-        if (idx >= 7) setWeekOffset(1);
-      }
-      setLoadingSlots(false);
-    });
-  }, [step, selected.barber, serviceIds.join(","), slug]);
-
-  function sel(key: string, val: string) { setSelected((s) => ({ ...s, [key]: val })); }
-  function toggleService(id: string) {
-    setServiceIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setServiceIds(ids);
+    setSelected({ barber: lv!.barberId, date: "", slot: "" });
+    setRepeatOpen(false);
+    setStep("datetime");
   }
 
-  function pickSlot(date: string, slot: string) {
-    setSelected((s) => ({ ...s, date, slot }));
-    setStep("dados");
+  // Horários dos próximos 14 dias ao entrar na etapa de horário
+  const slotsKey = step === "datetime" && selected.barber && serviceIds.length > 0 ? `${selected.barber}|${serviceIds.join(",")}` : null;
+  useEffect(() => {
+    if (!slotsKey) return;
+    let alive = true;
+    const [barberId, ids] = slotsKey.split("|");
+    const today = todaySP();
+    const dates = Array.from({ length: 14 }, (_, i) => addDays(today, i));
+    Promise.all(dates.map((date) =>
+      fetch(`/api/booking/${slug}/slots?barberId=${barberId}&serviceIds=${ids}&date=${date}`)
+        .then((r) => r.json()).then((d) => ({ date, slots: (d.slots || []) as string[] }))
+        .catch(() => ({ date, slots: [] as string[] }))
+    )).then((results) => {
+      if (!alive) return;
+      setDaySlots(results);
+      setSelected((s) => {
+        if (s.date && results.some((r) => r.date === s.date && r.slots.length > 0)) return s;
+        const first = results.find((r) => r.slots.length > 0);
+        return { ...s, date: first?.date ?? "", slot: "" };
+      });
+    });
+    return () => { alive = false; };
+  }, [slotsKey, slug]);
+
+  function toggleService(id: string) {
+    setServiceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   async function handleBook(e: React.FormEvent) {
@@ -168,8 +210,6 @@ export default function AgendarPage() {
     setBookError(null);
     const clientName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
     const isAllowed = !activeSub || activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(selected.barber);
-    const subscriptionId = activeSub && isAllowed ? activeSub.subscriptionId : undefined;
-
     const r = await fetch(`/api/booking/${slug}/book`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -177,37 +217,32 @@ export default function AgendarPage() {
         clientName, clientPhone: form.phone,
         barberId: selected.barber, serviceIds,
         date: selected.date, startTime: selected.slot,
-        subscriptionId,
+        subscriptionId: activeSub && isAllowed ? activeSub.subscriptionId : undefined,
+        // Remarcação: o servidor cria o novo e cancela o antigo de uma vez só.
+        rescheduleFromId: rescheduleFrom?.id,
       }),
     });
     const d = await r.json();
-    if (r.ok) { setBooked(d.appointment); setStep("confirmado"); }
-    else { setBookError(d.error || "Não foi possível concluir o agendamento."); }
+    if (r.ok) {
+      if (rescheduleFrom) {
+        try { sessionStorage.removeItem("remarcar"); } catch { /* ignora */ }
+      }
+      setBooked(d.appointment); setStep("confirmado");
+    }
+    else setBookError(d.error || "Não foi possível concluir o agendamento.");
     setLoading(false);
   }
 
-  const selectedServices = shop?.services.filter((s) => serviceIds.includes(s.id)) ?? [];
-  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
-  const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
-  const selectedBarber = shop?.barbers.find((b) => b.id === selected.barber);
-  const hasAnySlot = daySlots.some((d) => d.slots.length > 0);
-  const isFormValid = form.firstName.trim().length > 0 && form.phone.trim().length >= 8;
-
-  // Semana atual visível no strip (7 dias por vez)
-  const weekDays = daySlots.slice(weekOffset * 7, weekOffset * 7 + 7);
-  const currentDaySlots = daySlots.find((d) => d.date === selectedDate);
-
   if (unavailable) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
+      <div className="min-h-screen bg-ground flex items-center justify-center px-6">
         <div className="text-center max-w-md">
-          <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-5">
-            <AlertCircle className="w-8 h-8 text-zinc-400" />
+          <div className="w-16 h-16 rounded-full bg-surface-2 flex items-center justify-center mx-auto mb-5">
+            <AlertCircle className="w-8 h-8 text-ink-3" />
           </div>
-          <h1 className="text-xl font-bold text-white mb-2">Agendamento indisponível</h1>
-          <p className="text-zinc-400 text-sm leading-relaxed">
-            Esta barbearia não está aceitando agendamentos online no momento.
-            Entre em contato diretamente com o estabelecimento.
+          <h1 className="font-display text-xl font-bold text-ink mb-2">Agendamento indisponível</h1>
+          <p className="text-ink-3 text-sm leading-relaxed">
+            Esta barbearia não está aceitando agendamentos online no momento. Entre em contato diretamente com o estabelecimento.
           </p>
         </div>
       </div>
@@ -216,468 +251,526 @@ export default function AgendarPage() {
 
   if (!shop) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-ground flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Carregando" />
       </div>
     );
   }
 
-  const primaryRgb = shop.primaryColor ? hexToRgb(shop.primaryColor) : "245, 158, 11";
-  const secondaryRgb = shop.secondaryColor ? hexToRgb(shop.secondaryColor) : "251, 191, 36";
+  const selectedServices = shop.services.filter((s) => serviceIds.includes(s.id));
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
+  const servicesText = selectedServices.map((s) => s.name).join(" + ");
+  const selectedBarber = shop.barbers.find((b) => b.id === selected.barber);
+  const subCovers = !!activeSub && (activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(selected.barber));
+  const priceText = subCovers ? "no plano" : brl(totalPrice);
+  const isFormValid = form.firstName.trim().length > 0 && form.phone.replace(/\D/g, "").length >= 10;
+  const stepIndex = STEPS.indexOf(step);
+
+  // Aberto agora?
+  const todayHours = shop.openingHours.find((h) => h.dayOfWeek === dow(todaySP()));
+  const nowMin = nowMinSP();
+  const openNow = !!todayHours?.isOpen && nowMin >= toMin(todayHours.openTime) && nowMin < toMin(todayHours.closeTime);
+  const address = [shop.address && `${shop.address}${shop.streetNumber ? `, ${shop.streetNumber}` : ""}`, shop.neighborhood, shop.city].filter(Boolean).join(" · ");
+  const mapsQuery = encodeURIComponent([shop.address, shop.streetNumber, shop.neighborhood, shop.city, shop.state].filter(Boolean).join(", "));
+
+  const primaryRgb = shop.primaryColor ? hexToRgb(shop.primaryColor) : null;
+  const secondaryRgb = shop.secondaryColor ? hexToRgb(shop.secondaryColor) : null;
+
+  const backButton = (to: Step) => (
+    <div className="flex items-center gap-2.5 h-12">
+      <button type="button" onClick={() => setStep(to)} aria-label="Voltar"
+        className="w-11 h-11 rounded-[10px] border border-control bg-surface inline-flex items-center justify-center hover:bg-surface-3">
+        <ChevronLeft className="w-5 h-5" />
+      </button>
+      <span className="flex-1 text-[15px] font-semibold truncate">{shop.name}</span>
+    </div>
+  );
+
+  const progress = (right: string) => (
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-between gap-3 text-[13px] text-ink-2">
+        <span className="shrink-0"><strong className="text-ink">Passo {stepIndex + 1} de 4</strong> · {STEP_NAMES[stepIndex]}</span>
+        <span className="truncate text-right">{right}</span>
+      </div>
+      <div className="h-1 rounded-sm bg-line" role="progressbar" aria-valuemin={1} aria-valuemax={4} aria-valuenow={stepIndex + 1}>
+        <div className="h-full rounded-sm bg-primary transition-all" style={{ width: `${(stepIndex + 1) * 25}%` }} />
+      </div>
+    </div>
+  );
+
+  // Barra fixa de rodapé (total + Continuar)
+  const footer = (main: React.ReactNode, sub: React.ReactNode, action: React.ReactNode) => (
+    <div className="fixed inset-x-0 bottom-0 z-30 bg-surface border-t border-line">
+      <div className="max-w-md mx-auto px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))] flex items-center gap-3">
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="text-base font-bold truncate">{main}</span>
+          <span className="text-xs text-ink-3 truncate">{sub}</span>
+        </div>
+        {action}
+      </div>
+    </div>
+  );
+  const continueBtn = (onClick: () => void, disabled: boolean) => (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className="h-[52px] px-[26px] rounded-xl bg-primary text-white text-base font-semibold shrink-0 disabled:opacity-40">
+      Continuar
+    </button>
+  );
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: `
-        :root {
-          --primary: ${primaryRgb};
-          --secondary: ${secondaryRgb};
-        }
-      `}} />
-      <div className="min-h-screen bg-zinc-950 text-white">
-        <div className="max-w-md mx-auto px-4 py-8">
+      {(primaryRgb || secondaryRgb) && (
+        <style dangerouslySetInnerHTML={{ __html: `:root{${primaryRgb ? `--primary:${primaryRgb};` : ""}${secondaryRgb ? `--secondary:${secondaryRgb};` : ""}}` }} />
+      )}
+      <div className="min-h-screen bg-ground text-ink">
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          {shop.logoUrl ? (
-            <div className="inline-flex items-center justify-center mb-3">
-              <img
-                src={shop.logoUrl}
-                alt={shop.name}
-                className="w-16 h-16 rounded-2xl object-cover border-2 border-primary/20 shadow-md"
-              />
-            </div>
-          ) : (
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-3">
-              <Sparkles className="w-7 h-7 text-white" />
-            </div>
-          )}
-          <h1 className="text-2xl font-bold">{shop.name}</h1>
-          {shop.description && <p className="text-zinc-400 text-sm mt-1">{shop.description}</p>}
-        </div>
-
-        {/* Stepper */}
-        {step !== "confirmado" && (
-          <div className="flex items-center justify-center gap-2 mb-8">
-            {(["service", "barber", "datetime", "dados"] as Step[]).map((s, i) => (
-              <div key={s} className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  step === s ? "bg-primary text-white"
-                  : ["service","barber","datetime","dados"].indexOf(step) > i ? "bg-green-500 text-white"
-                  : "bg-zinc-800 text-zinc-500"
-                }`}>
-                  {["service","barber","datetime","dados"].indexOf(step) > i ? <Check className="w-3.5 h-3.5" /> : i + 1}
-                </div>
-                {i < 3 && <div className="w-8 h-0.5 bg-zinc-800" />}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* STEP 1 — Serviço */}
+        {/* ── 1. Serviço ── */}
         {step === "service" && (
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold mb-1">Escolha o serviço</h2>
-            <p className="text-xs text-zinc-500 mb-4">Você pode selecionar mais de um.</p>
-            {shop.services.map((s) => {
-              const checked = serviceIds.includes(s.id);
-              return (
-                <button key={s.id} onClick={() => toggleService(s.id)}
-                  className={`w-full text-left p-4 rounded-xl border transition-colors ${checked ? "border-primary bg-primary/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${checked ? "border-primary bg-primary text-white" : "border-zinc-600"}`}>
-                        {checked && <Check className="w-3.5 h-3.5" />}
-                      </div>
-                      <div>
-                        <p className="font-semibold">{s.name}</p>
-                        {s.description && <p className="text-xs text-zinc-400 mt-0.5">{s.description}</p>}
-                        <span className="text-xs text-zinc-400 flex items-center gap-1 mt-1">
-                          <Clock className="w-3 h-3" />{s.duration}min
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-primary/80 font-bold text-lg shrink-0">{formatCurrency(s.price)}</span>
+          <>
+            <header className="bg-ink text-white">
+              <div className="max-w-md mx-auto px-4 pt-[22px] pb-5 flex flex-col gap-3.5">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-[60px] h-[60px] rounded-2xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+                    {shop.logoUrl
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={shop.logoUrl} alt="" className="w-full h-full object-cover" />
+                      : <Scissors className="w-7 h-7 text-white" aria-hidden />}
                   </div>
-                </button>
-              );
-            })}
-            {serviceIds.length > 0 && (
-              <div className="sticky bottom-0 pt-3 bg-gradient-to-t from-black via-black/95 to-transparent">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex items-center justify-between mb-3">
-                  <p className="text-sm text-zinc-400">{serviceIds.length} serviço{serviceIds.length > 1 ? "s" : ""} · {totalDuration}min</p>
-                  <p className="text-primary/80 font-bold text-lg">{formatCurrency(totalPrice)}</p>
-                </div>
-                <Button onClick={() => setStep("barber")} className="w-full" size="lg">Continuar</Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* STEP 2 — Profissional */}
-        {step === "barber" && (
-          <div className="space-y-3">
-            <button onClick={() => setStep("service")} className="flex items-center gap-1 text-zinc-400 hover:text-white text-sm mb-4">
-              <ChevronLeft className="w-4 h-4" /> Voltar
-            </button>
-            <h2 className="text-lg font-semibold mb-4">Escolha o profissional</h2>
-            {shop.barbers.map((b) => {
-              const isAllowed = !activeSub || activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(b.id);
-              return (
-                <button key={b.id} onClick={() => { sel("barber", b.id); setStep("datetime"); }}
-                  className={`w-full text-left p-4 rounded-xl border transition-colors ${selected.barber === b.id ? "border-primary bg-primary/10" : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold">{b.user.name}</p>
-                      {b.nickname && <p className="text-xs text-zinc-400">{b.nickname}</p>}
-                    </div>
-                    {activeSub && (
-                      isAllowed ? (
-                        <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-1 rounded">✓ Incluso no plano</span>
-                      ) : (
-                        <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded">💰 Não incluso</span>
-                      )
+                  <div className="min-w-0 flex flex-col gap-0.5">
+                    <h1 className="font-display text-2xl font-bold truncate">{shop.name}</h1>
+                    {todayHours && (
+                      <span className="flex items-center gap-1.5 text-[13px] text-night-text">
+                        <span className={cn("w-[7px] h-[7px] rounded-full", openNow ? "bg-[#4CC38A]" : "bg-ink-4")} aria-hidden />
+                        {openNow ? `Aberto agora · fecha às ${todayHours.closeTime.replace(":00", "h")}` : todayHours.isOpen && nowMin < toMin(todayHours.openTime) ? `Abre hoje às ${todayHours.openTime.replace(":00", "h")}` : "Fechado agora"}
+                      </span>
                     )}
                   </div>
+                </div>
+                {shop.description && <p className="text-[13px] text-night-text">{shop.description}</p>}
+                {(shop.rating || address) && (
+                  <div className="flex gap-2 flex-wrap">
+                    {shop.rating && (
+                      <span className="h-7 px-2.5 rounded-full bg-night-3 text-xs text-[#E9E4DA] inline-flex items-center gap-1.5">
+                        <Star className="w-3.5 h-3.5 fill-current text-[#E9B949]" aria-hidden />
+                        {shop.rating.average.toFixed(1).replace(".", ",")} · {shop.rating.count} {shop.rating.count === 1 ? "avaliação" : "avaliações"}
+                      </span>
+                    )}
+                    {address && (
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${mapsQuery}`} target="_blank" rel="noreferrer"
+                        className="h-7 px-2.5 rounded-full bg-night-3 text-xs text-[#E9E4DA] inline-flex items-center gap-1.5 max-w-full">
+                        <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden /><span className="truncate">{address}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            </header>
+
+            <main className="max-w-md mx-auto px-4 pt-4 pb-32 flex flex-col gap-4">
+              {progress("Profissional → Horário → Dados")}
+
+              {/* Já é cliente? */}
+              <div className="rounded-[14px] bg-surface border border-line">
+                <button type="button" onClick={() => setRepeatOpen((v) => !v)} aria-expanded={repeatOpen}
+                  className="w-full flex items-center gap-3 p-3.5 text-left">
+                  <span className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0"><RotateCcw className="w-[18px] h-[18px]" aria-hidden /></span>
+                  <span className="flex-1 flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold">Já é cliente? Repita o último corte</span>
+                    <span className="text-xs text-ink-3">Entre com seu WhatsApp e pule direto para o horário</span>
+                  </span>
+                  <ChevronRight className={cn("w-5 h-5 text-ink-3 transition-transform", repeatOpen && "rotate-90")} aria-hidden />
                 </button>
-              );
-            })}
-          </div>
+                {repeatOpen && (
+                  <form onSubmit={repeatLastCut} className="px-3.5 pb-3.5 flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <input type="tel" inputMode="tel" autoComplete="tel" value={repeatPhone} onChange={(e) => setRepeatPhone(e.target.value)}
+                        placeholder="(41) 99999-9999" aria-label="Seu WhatsApp"
+                        className="flex-1 min-w-0 h-12 px-3.5 rounded-xl border border-control bg-surface text-base outline-none focus:border-ink" />
+                      <button type="submit" disabled={lookingUp || repeatPhone.replace(/\D/g, "").length < 10}
+                        className="h-12 px-4 rounded-xl bg-ink text-white text-sm font-semibold disabled:opacity-40">
+                        {lookingUp ? "…" : "Buscar"}
+                      </button>
+                    </div>
+                    {repeatMsg && <p className="text-[13px] text-ink-2" role="status">{repeatMsg}</p>}
+                  </form>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <h2 className="font-display text-[22px] font-bold">O que você vai fazer?</h2>
+                <span className="text-sm text-ink-3">Pode escolher mais de um</span>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                {shop.services.map((s) => {
+                  const on = serviceIds.includes(s.id);
+                  return (
+                    <button key={s.id} type="button" aria-pressed={on} onClick={() => toggleService(s.id)}
+                      className={cn("flex items-center gap-3.5 p-3.5 rounded-[14px] text-left transition-colors",
+                        on ? "border-2 border-ink bg-surface" : "border border-line bg-surface hover:border-control")}>
+                      <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                        <span className="flex items-center gap-2 text-base font-semibold flex-wrap">
+                          {s.name}
+                          {s.id === shop.popularServiceId && (
+                            <span className="h-5 px-[7px] rounded-full bg-surface-3 text-ink-2 text-[11px] font-semibold inline-flex items-center">mais pedido</span>
+                          )}
+                        </span>
+                        {s.description && <span className="text-[13px] text-ink-3">{s.description}</span>}
+                        <span className="text-[13px] text-ink-2">{s.duration} min</span>
+                      </span>
+                      <span className="flex flex-col items-end gap-2 shrink-0">
+                        <span className="text-base font-bold">{brl(s.price)}</span>
+                        <span className={cn("w-6 h-6 rounded-[7px] flex items-center justify-center",
+                          on ? "bg-ink text-white" : "border-[1.5px] border-[#B9B0A1]")} aria-hidden>
+                          {on && <Check className="w-4 h-4" />}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+                {shop.services.length === 0 && <p className="text-sm text-ink-3">Nenhum serviço disponível para agendar online.</p>}
+              </div>
+
+              <ManageLink slug={slug} />
+            </main>
+
+            {footer(
+              serviceIds.length > 0 ? brl(totalPrice) : "Escolha um serviço",
+              serviceIds.length > 0 ? `${servicesText} · ${totalDuration} min` : "toque para selecionar",
+              continueBtn(() => setStep("barber"), serviceIds.length === 0),
+            )}
+          </>
         )}
 
-        {/* STEP 3 — Data e Horário com calendar strip */}
-        {step === "datetime" && (
-          <div className="space-y-4">
-            <button onClick={() => setStep("barber")} className="flex items-center gap-1 text-zinc-400 hover:text-white text-sm">
-              <ChevronLeft className="w-4 h-4" /> Voltar
-            </button>
-            <div>
-              <h2 className="text-lg font-semibold">Escolha data e horário</h2>
-            </div>
-
-            {loadingSlots ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-                <p className="text-zinc-500 text-sm">Buscando horários disponíveis...</p>
-              </div>
-            ) : !hasAnySlot ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3 bg-zinc-900 rounded-xl border border-zinc-800">
-                <AlertCircle className="w-10 h-10 text-zinc-600" />
-                <p className="text-zinc-400 text-sm text-center">Nenhum horário disponível<br />nos próximos 14 dias</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* ── Calendar strip ── */}
-                <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-3">
-                  <div className="flex items-center gap-2">
-                    {/* Seta semana anterior */}
-                    <button
-                      onClick={() => {
-                        setWeekOffset(0);
-                        const firstInWeek = daySlots.slice(0, 7).find((d) => d.slots.length > 0);
-                        if (firstInWeek) setSelectedDate(firstInWeek.date);
-                      }}
-                      disabled={weekOffset === 0}
-                      className="p-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 disabled:opacity-20 disabled:cursor-default transition-all shrink-0 active:scale-95"
-                      aria-label="Semana anterior"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
+        {/* ── 2. Profissional ── */}
+        {step === "barber" && (
+          <>
+            <main className="max-w-md mx-auto px-4 pt-3 pb-32 flex flex-col gap-4">
+              {backButton("service")}
+              {progress(`${servicesText} · ${totalDuration} min`)}
+              <h2 className="font-display text-[22px] font-bold">Com quem você quer cortar?</h2>
+              <div role="radiogroup" aria-label="Profissional" className="flex flex-col gap-2.5">
+                {shop.barbers.map((b) => {
+                  const on = selected.barber === b.id;
+                  const inPlan = activeSub && (activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(b.id));
+                  return (
+                    <button key={b.id} type="button" role="radio" aria-checked={on}
+                      onClick={() => setSelected({ barber: b.id, date: "", slot: "" })}
+                      className={cn("flex items-center gap-3.5 p-3.5 rounded-[14px] text-left",
+                        on ? "border-2 border-ink bg-surface" : "border border-line bg-surface hover:border-control")}>
+                      <span className={cn("w-14 h-14 rounded-full overflow-hidden text-[17px] font-bold flex items-center justify-center shrink-0",
+                        on ? "bg-ink text-white" : "bg-surface-2 text-ink-2")}>
+                        {b.photoUrl
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={b.photoUrl} alt="" className="w-full h-full object-cover" />
+                          : initials(b.user.name)}
+                      </span>
+                      <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                        <span className="text-base font-semibold">{b.user.name}</span>
+                        {b.bio && <span className="text-[13px] text-ink-3">{b.bio}</span>}
+                        {activeSub && (
+                          <span className={cn("text-[13px] font-semibold", inPlan ? "text-positive" : "text-warning")}>
+                            {inPlan ? "Incluso no seu plano" : "Fora do seu plano · paga no local"}
+                          </span>
+                        )}
+                      </span>
+                      <span className={cn("w-6 h-6 rounded-full shrink-0", on ? "border-[7px] border-ink" : "border-[1.5px] border-[#B9B0A1]")} aria-hidden />
                     </button>
+                  );
+                })}
+              </div>
+            </main>
+            {footer(
+              subCovers ? "No plano" : brl(totalPrice),
+              selectedBarber ? `com ${barberName(selectedBarber)}` : "escolha o profissional",
+              continueBtn(() => { setDaySlots(null); setStep("datetime"); }, !selected.barber),
+            )}
+          </>
+        )}
 
-                    {/* Dias da semana */}
-                    <div className="flex gap-1.5 flex-1 overflow-hidden">
-                      {weekDays.map(({ date, slots }) => {
-                        const d = new Date(date + "T12:00:00");
-                        const isSelected = selectedDate === date;
-                        const hasSlots = slots.length > 0;
-                        const isToday = date === localDateStr(new Date());
+        {/* ── 3. Dia e horário ── */}
+        {step === "datetime" && (() => {
+          const current = daySlots?.find((d) => d.date === selected.date);
+          const groups = [
+            { name: "Manhã", slots: (current?.slots ?? []).filter((t) => toMin(t) < 12 * 60) },
+            { name: "Tarde", slots: (current?.slots ?? []).filter((t) => toMin(t) >= 12 * 60 && toMin(t) < 18 * 60) },
+            { name: "Noite", slots: (current?.slots ?? []).filter((t) => toMin(t) >= 18 * 60) },
+          ].filter((g) => g.slots.length > 0);
+          const openDay = (d: string) => shop.openingHours.find((h) => h.dayOfWeek === dow(d))?.isOpen ?? true;
+          return (
+            <>
+              <main className="max-w-md mx-auto px-4 pt-3 pb-32 flex flex-col gap-4">
+                {backButton("barber")}
+                {progress(`${servicesText}${selectedBarber ? ` · ${barberName(selectedBarber)}` : ""}`)}
+{rescheduleFrom && (
+                  <p className="text-[13px] text-ink-2 bg-surface border border-line rounded-xl px-3.5 py-2.5">
+                    Remarcando o horário de <strong>{rescheduleFrom.when}</strong>. Ele só é cancelado quando você confirmar o novo.
+                  </p>
+                )}
+                <h2 className="font-display text-[22px] font-bold">Quando fica bom?</h2>
+
+                {daySlots === null ? (
+                  <div className="flex flex-col items-center py-12 gap-3 text-ink-3">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" aria-hidden />
+                    <p className="text-sm">Buscando horários…</p>
+                  </div>
+                ) : (
+                  <>
+                    <div role="radiogroup" aria-label="Dia" className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1 snap-x">
+                      {daySlots.map((d) => {
+                        const on = d.date === selected.date;
+                        const open = openDay(d.date);
+                        const has = d.slots.length > 0;
                         return (
-                          <button
-                            key={date}
-                            onClick={() => hasSlots && setSelectedDate(date)}
-                            disabled={!hasSlots}
-                            className={`flex-1 flex flex-col items-center py-2.5 px-0.5 rounded-xl text-center transition-all active:scale-95 min-w-0 ${
-                              isSelected
-                                ? "bg-primary text-white shadow-lg shadow-primary/30"
-                                : hasSlots
-                                ? "bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
-                                : "bg-zinc-800/40 text-zinc-600 cursor-default"
-                            }`}
-                          >
-                            <span className={`text-[9px] font-semibold uppercase tracking-wider ${isSelected ? "text-white/80" : "text-zinc-500"}`}>
-                              {DIAS_PT[d.getDay()]}
-                            </span>
-                            <span className="text-base font-bold leading-tight mt-0.5">
-                              {d.getDate()}
-                            </span>
-                            <span className={`text-[9px] ${isSelected ? "text-white/70" : "text-zinc-500"}`}>
-                              {MESES_PT[d.getMonth()]}
-                            </span>
-                            {/* Indicador de disponibilidade */}
-                            {hasSlots && !isSelected && (
-                              <div className="w-1 h-1 rounded-full bg-primary mt-1" />
-                            )}
-                            {isToday && !isSelected && (
-                              <div className="w-1 h-1 rounded-full bg-zinc-400 mt-1" />
-                            )}
+                          <button key={d.date} type="button" role="radio" aria-checked={on} disabled={!has}
+                            onClick={() => setSelected((s) => ({ ...s, date: d.date, slot: "" }))}
+                            className={cn("w-[64px] h-[70px] shrink-0 snap-start rounded-xl border flex flex-col items-center justify-center gap-0.5",
+                              on ? "bg-ink border-ink text-white" : has ? "bg-surface border-line text-ink" : "bg-surface-3 border-line text-ink-4")}>
+                            <span className="text-xs font-semibold">{d.date === todaySP() ? "Hoje" : DOW[dow(d.date)]}</span>
+                            <span className="text-lg font-bold">{dayNum(d.date)}</span>
+                            <span className="text-[11px] opacity-85">{has ? `${d.slots.length} hor.` : open ? "lotado" : "fechado"}</span>
                           </button>
                         );
                       })}
                     </div>
 
-                    {/* Seta próxima semana */}
-                    <button
-                      onClick={() => {
-                        setWeekOffset(1);
-                        const firstInWeek = daySlots.slice(7, 14).find((d) => d.slots.length > 0);
-                        if (firstInWeek) setSelectedDate(firstInWeek.date);
-                      }}
-                      disabled={weekOffset === 1}
-                      className="p-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 disabled:opacity-20 disabled:cursor-default transition-all shrink-0 active:scale-95"
-                      aria-label="Próxima semana"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Label da semana */}
-                  <p className="text-center text-xs text-zinc-600 mt-2">
-                    {weekOffset === 0 ? "Esta semana" : "Próxima semana"}
-                  </p>
-                </div>
-
-                {/* ── Horários do dia selecionado ── */}
-                {selectedDate && currentDaySlots ? (
-                  currentDaySlots.slots.length > 0 ? (
-                    <div className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-primary/80" />
-                          <span className="font-semibold text-sm">{formatDayLabel(selectedDate)}</span>
+                    {groups.length === 0 ? (
+                      <p className="text-sm text-ink-3 bg-surface border border-line rounded-[14px] p-5 text-center">
+                        Nenhum horário livre nos próximos 14 dias com {selectedBarber ? barberName(selectedBarber) : "esse profissional"}. Tente outro profissional ou entre na lista de espera.
+                      </p>
+                    ) : groups.map((g) => (
+                      <div key={g.name} className="flex flex-col gap-2">
+                        <span className="text-sm font-semibold text-ink-2">{g.name}</span>
+                        <div role="radiogroup" aria-label={g.name} className="grid grid-cols-4 gap-2">
+                          {g.slots.map((t) => {
+                            const on = t === selected.slot;
+                            return (
+                              <button key={t} type="button" role="radio" aria-checked={on}
+                                onClick={() => setSelected((s) => ({ ...s, slot: t }))}
+                                className={cn("h-12 rounded-[10px] text-[15px] font-semibold",
+                                  on ? "bg-primary border-2 border-primary text-white" : "bg-surface border border-[#B9B0A1] text-ink hover:border-ink")}>
+                                {t}
+                              </button>
+                            );
+                          })}
                         </div>
-                        <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
-                          {currentDaySlots.slots.length} horário{currentDaySlots.slots.length !== 1 ? "s" : ""}
-                        </span>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 p-3">
-                        {currentDaySlots.slots.map((slot) => (
-                          <button
-                            key={slot}
-                            onClick={() => pickSlot(selectedDate, slot)}
-                            className="py-2.5 rounded-xl text-sm font-semibold bg-zinc-800 hover:bg-primary hover:text-white text-zinc-200 transition-all active:scale-95 border border-zinc-700 hover:border-primary"
-                          >
-                            {slot}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-8 text-center">
-                      <p className="text-zinc-500 text-sm">Sem horários disponíveis neste dia</p>
-                      <p className="text-zinc-600 text-xs mt-1">Selecione outro dia no calendário acima</p>
-                    </div>
-                  )
-                ) : (
-                  <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-8 text-center">
-                    <p className="text-zinc-500 text-sm">Selecione um dia acima para ver os horários</p>
-                  </div>
+                    ))}
+
+                    <WaitlistBox
+                      key={selected.barber}
+                      slug={slug}
+                      barberId={selected.barber}
+                      barberName={selectedBarber ? barberName(selectedBarber) : "o profissional"}
+                      serviceIds={serviceIds}
+                      days={daySlots.filter((d) => openDay(d.date)).map((d) => ({ date: d.date, full: d.slots.length === 0 }))}
+                      defaultDate={selected.date}
+                      dayLabel={(d) => dayLabel(d)}
+                    />
+                  </>
                 )}
-              </div>
-            )}
+              </main>
+              {footer(
+                selected.slot ? `${dayLabel(selected.date)}, ${selected.slot}` : "Escolha o horário",
+                `${selectedBarber ? `com ${barberName(selectedBarber)} · ` : ""}${priceText}`,
+                continueBtn(() => setStep("dados"), !selected.slot),
+              )}
+            </>
+          );
+        })()}
 
-            {!loadingSlots && daySlots.length > 0 && (
-              <WaitlistBox
-                key={selected.barber}
-                slug={slug}
-                barberId={selected.barber}
-                barberName={selectedBarber?.nickname || selectedBarber?.user.name.split(" ")[0] || "o profissional"}
-                serviceIds={serviceIds}
-                days={daySlots
-                  // Dia em que a barbearia não abre não entra na lista (não é "lotado").
-                  .filter((d) => shop?.openingHours?.find((h) => h.dayOfWeek === new Date(d.date + "T12:00:00").getDay())?.isOpen ?? true)
-                  .map((d) => ({ date: d.date, full: d.slots.length === 0 }))}
-                defaultDate={selectedDate}
-                dayLabel={formatDayLabel}
-              />
-            )}
-          </div>
-        )}
-
-        {/* STEP 4 — Dados pessoais */}
+        {/* ── 4. Seus dados ── */}
         {step === "dados" && (
-          <div className="space-y-4">
-            <button onClick={() => setStep("datetime")} className="flex items-center gap-1 text-zinc-400 hover:text-white text-sm">
-              <ChevronLeft className="w-4 h-4" /> Voltar
-            </button>
-            <h2 className="text-lg font-semibold">Seus dados</h2>
-            <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 space-y-1 text-sm">
-              <p className="text-zinc-400">Serviço{selectedServices.length > 1 ? "s" : ""}: <span className="text-white font-medium">{selectedServices.map((s) => s.name).join(" + ")}</span></p>
-              <p className="text-zinc-400">Profissional: <span className="text-white font-medium">{selectedBarber?.user.name}</span></p>
-              <p className="text-zinc-400">Data: <span className="text-white font-medium">{formatDayLabel(selected.date)} às {selected.slot}</span></p>
-              <p className="text-zinc-400">Valor: <span className="text-primary/80 font-bold">{formatCurrency(totalPrice)}</span></p>
-            </div>
-            <form onSubmit={handleBook} className="space-y-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">WhatsApp</label>
-                <div className="relative">
-                  <input
-                    required
-                    type="tel"
-                    value={form.phone}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
-                    placeholder="(41) 99999-9999"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  {lookingUp && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
+          <form onSubmit={handleBook}>
+            <main className="max-w-md mx-auto px-4 pt-3 pb-32 flex flex-col gap-4">
+              {backButton("datetime")}
+              {progress("quase lá")}
+
+              <section aria-label="Resumo do agendamento" className="bg-surface border border-line rounded-[14px] px-4 py-1">
+                <div className="flex items-center gap-3 min-h-12">
+                  <Clock className="w-[18px] h-[18px] text-ink-3 shrink-0" aria-hidden />
+                  <span className="flex-1 text-[15px] font-semibold">{dayLabel(selected.date)}, {selected.slot} – {toHHMM(toMin(selected.slot) + totalDuration)}</span>
+                  <button type="button" onClick={() => setStep("datetime")} className="text-[13px] font-semibold text-ink-2 underline underline-offset-2">Trocar</button>
                 </div>
+                <div className="flex items-center gap-3 min-h-12 border-t border-line-3">
+                  <Scissors className="w-[18px] h-[18px] text-ink-3 shrink-0" aria-hidden />
+                  <span className="flex-1 text-[15px]">{servicesText} com {selectedBarber ? barberName(selectedBarber) : ""}</span>
+                  <span className="text-[15px] font-bold">{priceText}</span>
+                </div>
+              </section>
+
+              <h2 className="font-display text-[22px] font-bold mt-1">Seus dados</h2>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="wpp" className="text-sm font-semibold">WhatsApp</label>
+                <div className="relative">
+                  <input id="wpp" required type="tel" inputMode="tel" autoComplete="tel" value={form.phone}
+                    onChange={(e) => handlePhoneChange(e.target.value)} placeholder="(41) 99999-9999"
+                    className="w-full h-[52px] px-3.5 rounded-xl border-2 border-ink bg-surface text-[17px] outline-none" />
+                  {lookingUp && <span className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden />}
+                </div>
+                <span className="text-xs text-ink-3">É por aqui que enviamos a confirmação{shop.reminderEnabled ? " e o lembrete" : ""}.</span>
               </div>
 
-              {clientFound === true && (
-                <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2.5">
-                  <UserCheck className="w-4 h-4 text-green-400 shrink-0" />
-                  <p className="text-sm text-green-400 font-medium">
-                    Olá, {form.firstName}! Seus dados foram encontrados.
-                  </p>
+              {clientFound && (
+                <div className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-positive-soft border border-[#BFDFCB]" role="status">
+                  <User className="w-5 h-5 text-positive shrink-0" aria-hidden />
+                  <span className="flex flex-col gap-0.5 text-positive">
+                    <span className="text-sm font-semibold">Que bom te ver de novo, {form.firstName}!</span>
+                    <span className="text-[13px]">
+                      Preenchemos seu nome.{lastVisit ? ` Última visita: ${dayNum(lastVisit.date)} de ${MONTHS[Number(lastVisit.date.slice(5, 7)) - 1]}.` : ""}
+                    </span>
+                  </span>
                 </div>
               )}
 
               {activeSub && (
-                (() => {
-                  const isAllowed = activeSub.allowedBarberIds.length === 0 || activeSub.allowedBarberIds.includes(selected.barber);
-                  return isAllowed ? (
-                    <div className="flex flex-col gap-1 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-400 shrink-0" />
-                        <p className="text-sm text-green-400 font-bold">
-                          Assinatura Ativa: {activeSub.planName}
-                        </p>
-                      </div>
-                      <p className="text-xs text-green-500/90 pl-6">
-                        ✓ Este agendamento está 100% coberto pelo seu plano e o profissional {selectedBarber?.user.name} está autorizado!
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                        <p className="text-sm text-amber-400 font-bold">
-                          Restrição de Profissional
-                        </p>
-                      </div>
-                      <p className="text-xs text-amber-400/90 pl-6">
-                        O profissional <strong>{selectedBarber?.user.name}</strong> não está incluído no seu plano de assinatura (<strong>{activeSub.planName}</strong>).
-                      </p>
-                      <div className="pl-6 flex gap-3 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => setStep("barber")}
-                          className="text-xs font-bold text-amber-300 hover:text-amber-200 underline transition-all"
-                        >
-                          Alterar profissional
-                        </button>
-                        <span className="text-xs text-zinc-500">ou continue para pagar no local</span>
-                      </div>
-                    </div>
-                  );
-                })()
+                subCovers ? (
+                  <p className="flex items-start gap-2 px-3.5 py-3 rounded-xl bg-positive-soft text-[13px] text-positive">
+                    <Check className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+                    <span><strong>{activeSub.planName}</strong>: este horário é coberto pelo seu plano.</span>
+                  </p>
+                ) : (
+                  <p className="flex items-start gap-2 px-3.5 py-3 rounded-xl bg-warning-soft text-[13px] text-warning">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+                    <span>
+                      {selectedBarber?.user.name} não atende pelo seu plano ({activeSub.planName}). Você pode{" "}
+                      <button type="button" onClick={() => setStep("barber")} className="font-semibold underline">trocar de profissional</button> ou pagar no local.
+                    </span>
+                  </p>
+                )
               )}
 
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="block text-xs text-zinc-400 mb-1">Nome</label>
-                  <input
-                    required
-                    value={form.firstName}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="nome" className="text-sm font-semibold">Nome</label>
+                  <input id="nome" required autoComplete="given-name" value={form.firstName}
                     onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                    placeholder="João"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                    className="h-[50px] px-3.5 rounded-xl border border-[#D8D0C2] bg-surface text-base outline-none focus:border-ink" />
                 </div>
-                <div className="flex-1">
-                  <label className="block text-xs text-zinc-400 mb-1">Sobrenome</label>
-                  <input
-                    value={form.lastName}
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="sobrenome" className="text-sm font-semibold">Sobrenome</label>
+                  <input id="sobrenome" autoComplete="family-name" value={form.lastName}
                     onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                    placeholder="Silva"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                    className="h-[50px] px-3.5 rounded-xl border border-[#D8D0C2] bg-surface text-base outline-none focus:border-ink" />
                 </div>
               </div>
 
+              <p className="text-[13px] text-ink-3 leading-relaxed">
+                Pagamento na barbearia.
+                {shop.cancelByClientEnabled
+                  ? ` Precisa desmarcar? Cancele grátis pelo link de "meus horários"${shop.minCancelHours > 0 ? `, até ${shop.minCancelHours}h antes` : ""}.`
+                  : " Para desmarcar, fale com a barbearia."}
+              </p>
+
               {bookError && (
-                <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2.5">
-                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                  <div className="text-sm text-red-400">
-                    <p>{bookError}</p>
-                    <a href={`/agendar/${slug}/cancelar`} className="underline text-red-300 hover:text-red-200 text-xs mt-1 inline-block">
-                      Gerenciar meus agendamentos →
-                    </a>
-                  </div>
+                <div className="flex items-start gap-2 px-3.5 py-3 rounded-xl bg-danger-soft text-sm text-danger" role="alert">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+                  <span>
+                    {bookError}{" "}
+                    <a href={`/agendar/${slug}/cancelar`} className="underline font-semibold">Ver meus horários</a>
+                  </span>
                 </div>
               )}
-
-              <Button type="submit" loading={loading} disabled={!isFormValid} className="w-full" size="lg">
-                Confirmar Agendamento
-              </Button>
-            </form>
-          </div>
+            </main>
+            <div className="fixed inset-x-0 bottom-0 z-30 bg-surface border-t border-line">
+              <div className="max-w-md mx-auto px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
+                <button type="submit" disabled={!isFormValid || loading}
+                  className="w-full h-[54px] rounded-xl bg-primary text-white text-[17px] font-semibold disabled:opacity-40">
+                  {loading ? "Confirmando…" : "Confirmar agendamento"}
+                </button>
+              </div>
+            </div>
+          </form>
         )}
 
-        {/* CONFIRMADO */}
+        {/* ── 5. Confirmado ── */}
+        {step === "confirmado" && (() => {
+          const start = booked?.startTime ?? selected.slot;
+          const startDate = new Date(`${selected.date}T${start}:00-03:00`);
+          const endDate = new Date(startDate.getTime() + totalDuration * 60_000);
+          const gcal = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+          const calUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${servicesText} · ${shop.name}`)}&dates=${gcal(startDate)}/${gcal(endDate)}&details=${encodeURIComponent(`Com ${selectedBarber?.user.name ?? ""}`)}${mapsQuery ? `&location=${mapsQuery}` : ""}`;
+          const reminderAt = shop.reminderEnabled ? toHHMM(Math.max(0, toMin(start) - shop.reminderMinutes)) : null;
+          return (
+            <main className="max-w-md mx-auto px-4 pt-10 pb-8 flex flex-col gap-5">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <div className="w-[76px] h-[76px] rounded-full bg-primary text-white flex items-center justify-center"><Check className="w-9 h-9" aria-hidden /></div>
+                <h1 className="font-display text-3xl font-bold tracking-[-0.02em]">{rescheduleFrom ? "Horário remarcado!" : `Tudo certo, ${form.firstName.trim() || "até lá"}!`}</h1>
+                <span className="text-base text-ink-2">{rescheduleFrom ? `O de ${rescheduleFrom.when} foi cancelado.` : "Seu horário está reservado."}</span>
+              </div>
+
+              <section aria-label="Detalhes do agendamento" className="bg-surface border border-line rounded-2xl overflow-hidden">
+                <div className="px-[18px] pt-[18px] pb-3.5 flex flex-col gap-1 border-b border-dashed border-[#D8D0C2]">
+                  <span className="text-[13px] font-semibold tracking-[0.06em] uppercase text-ink-3">
+                    {selected.date === todaySP() ? `Hoje · ${fullDate(selected.date)}` : selected.date === addDays(todaySP(), 1) ? `Amanhã · ${fullDate(selected.date)}` : fullDate(selected.date)}
+                  </span>
+                  <span className="font-display text-4xl font-bold">{start}</span>
+                </div>
+                <dl className="px-[18px] py-1.5 text-[15px]">
+                  <Row label="Serviço" value={`${servicesText} · ${totalDuration} min`} />
+                  <Row label="Profissional" value={selectedBarber?.user.name ?? ""} />
+                  <Row label="Valor" value={subCovers ? `${activeSub!.planName}` : `${brl(totalPrice)} · pague na barbearia`} />
+                  {address && <Row label="Onde" value={address} />}
+                </dl>
+              </section>
+
+              <p className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-positive-soft text-sm text-positive">
+                <MessageCircle className="w-5 h-5 shrink-0" aria-hidden />
+                Mandamos a confirmação no seu WhatsApp.{reminderAt && selected.date === todaySP() ? ` Às ${reminderAt} chega o lembrete.` : reminderAt ? " Antes do horário chega o lembrete." : ""}
+              </p>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <a href={calUrl} target="_blank" rel="noreferrer"
+                  className="h-[52px] rounded-xl border border-[#D8D0C2] bg-surface text-[15px] font-semibold inline-flex items-center justify-center gap-2">
+                  <CalendarPlus className="w-[18px] h-[18px]" aria-hidden />Pôr na agenda
+                </a>
+                {mapsQuery ? (
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${mapsQuery}`} target="_blank" rel="noreferrer"
+                    className="h-[52px] rounded-xl border border-[#D8D0C2] bg-surface text-[15px] font-semibold inline-flex items-center justify-center gap-2">
+                    <Navigation className="w-[18px] h-[18px]" aria-hidden />Como chegar
+                  </a>
+                ) : <span />}
+              </div>
+
+              <div className="flex flex-col items-center gap-1.5 pt-1.5">
+                <a href={`/agendar/${slug}/cancelar`} className="h-11 inline-flex items-center text-[15px] font-semibold text-ink-2 underline underline-offset-2">Remarcar ou cancelar</a>
+                <button type="button" className="h-11 text-[15px] font-semibold text-ink-2 underline underline-offset-2"
+                  onClick={() => { setStep("service"); setSelected({ barber: "", date: "", slot: "" }); setServiceIds([]); setBooked(null); setRescheduleFrom(null); }}>
+                  Agendar outro horário
+                </button>
+              </div>
+            </main>
+          );
+        })()}
+
         {step === "confirmado" && (
-          <div className="text-center py-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/20 mb-4">
-              <Check className="w-10 h-10 text-green-400" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Agendado!</h2>
-            <p className="text-zinc-400 mb-6">Seu horário foi confirmado.</p>
-            <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 text-left space-y-2 text-sm mb-6">
-              <p className="text-zinc-400">Serviço{selectedServices.length > 1 ? "s" : ""}: <span className="text-white">{selectedServices.map((s) => s.name).join(" + ")}</span></p>
-              <p className="text-zinc-400">Profissional: <span className="text-white">{selectedBarber?.user.name}</span></p>
-              <p className="text-zinc-400">Data: <span className="text-white">{formatDayLabel(selected.date)} às {booked?.startTime}</span></p>
-            </div>
-            <p className="text-xs text-zinc-500 mb-5">
-              Precisa cancelar?{" "}
-              <a href={`/agendar/${slug}/cancelar`} className="text-primary/80 underline hover:text-primary">
-                Gerenciar meus agendamentos
-              </a>
-            </p>
-            <Button onClick={() => { setStep("service"); setSelected({ barber: "", date: "", slot: "" }); setServiceIds([]); }} variant="secondary">
-              Fazer novo agendamento
-            </Button>
+          <div className="text-center pb-6">
+            <a href="https://iadebarbearia.com.br" target="_blank" rel="noopener noreferrer" className="text-xs text-ink-4 hover:text-ink-3">
+              Agendamento por IA de Barbearia
+            </a>
           </div>
         )}
-
       </div>
-
-      {/* Rodapé: acesso rápido ao cancelamento */}
-      {step !== "confirmado" && (
-        <div className="text-center py-4 border-t border-zinc-800/50">
-          <p className="text-xs text-zinc-600">
-            Já tem um agendamento?{" "}
-            <a href={`/agendar/${slug}/cancelar`} className="text-zinc-500 underline underline-offset-2 hover:text-zinc-300 transition-colors">
-              Ver ou cancelar meus horários
-            </a>
-          </p>
-        </div>
-      )}
-
-      {/* Powered by — PLG passivo para donos de barbearia que chegam como clientes */}
-      <div className="text-center py-3">
-        <a
-          href="https://iadebarbearia.com.br"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-700 hover:text-zinc-500 transition-colors"
-        >
-          <Sparkles className="w-3 h-3" />
-          Agendamento por IaDeBarbearia
-        </a>
-      </div>
-    </div>
     </>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 min-h-[42px] items-center border-t border-line-3 first:border-t-0">
+      <dt className="text-ink-3 shrink-0">{label}</dt>
+      <dd className="font-semibold text-right">{value}</dd>
+    </div>
+  );
+}
+
+function ManageLink({ slug }: { slug: string }) {
+  return (
+    <p className="text-center text-[13px] text-ink-3 pt-2">
+      Já tem horário marcado?{" "}
+      <a href={`/agendar/${slug}/cancelar`} className="font-semibold text-ink-2 underline underline-offset-2">Ver, remarcar ou cancelar</a>
+    </p>
   );
 }

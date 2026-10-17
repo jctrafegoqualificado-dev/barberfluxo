@@ -8,7 +8,9 @@ import { getEntitlements } from "@/lib/entitlements";
 import { sendWhatsAppNotification, notifyBarberNewAppointment, welcomeMessage } from "@/lib/notifications";
 import { phoneVariants } from "@/lib/phone";
 import { findClientOverlap, clientOverlapMessage } from "@/lib/appointments";
-import { markWaitlistBooked } from "@/lib/waitlist";
+import { markWaitlistBooked, notifyWaitlistSlotOpened } from "@/lib/waitlist";
+import { logAudit } from "@/lib/audit";
+import type { Prisma } from "@prisma/client";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
         { status: 429 },
       );
     }
-    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, subscriptionId } =
+    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, subscriptionId, rescheduleFromId } =
       await req.json();
     // Gera email interno a partir do telefone para identificar cliente sem exigir email
     const cleanPhone = (clientPhone ?? "").replace(/\D/g, "") || "sem-telefone";
@@ -128,6 +130,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       }
     }
 
+    // Remarcação ("meus horários" → Remarcar): o horário antigo precisa ser deste
+    // cliente, desta barbearia, ainda ativo e dentro da regra de cancelamento. Ele é
+    // ignorado nas travas abaixo e cancelado junto com a criação do novo.
+    let rescheduleFrom: { id: string; status: string; date: Date; startTime: string; barberId: string } | null = null;
+    if (rescheduleFromId) {
+      rescheduleFrom = client
+        ? await prisma.appointment.findFirst({
+            where: { id: String(rescheduleFromId), barbershopId: shop.id, clientId: client.id, status: { in: ["CONFIRMED", "PENDING"] } },
+            select: { id: true, status: true, date: true, startTime: true, barberId: true },
+          })
+        : null;
+      if (!rescheduleFrom) {
+        return NextResponse.json({ error: "Não encontramos o horário que você quer remarcar. Confira em \"meus horários\"." }, { status: 409 });
+      }
+      if (!shop.cancelByClientEnabled) {
+        return NextResponse.json({ error: "Esta barbearia não permite remarcar pelo link. Fale com ela pelo WhatsApp." }, { status: 403 });
+      }
+      if (shop.minCancelHours > 0) {
+        const dateStr = rescheduleFrom.date.toISOString().split("T")[0];
+        const diffHours = (new Date(`${dateStr}T${rescheduleFrom.startTime}:00-03:00`).getTime() - Date.now()) / 3_600_000;
+        if (diffHours < shop.minCancelHours) {
+          return NextResponse.json({ error: `Só dá para remarcar com pelo menos ${shop.minCancelHours}h de antecedência.` }, { status: 400 });
+        }
+      }
+    }
+
     // Bloqueia double-booking: mesmo telefone + mesmo nome + agendamento futuro ativo
     // Assinantes são isentos pois agendam regularmente
     if (client && !validSubscriptionId) {
@@ -141,6 +169,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
             clientId: client.id,
             status: { in: ["CONFIRMED", "PENDING"] },
             date: { gte: today },
+            ...(rescheduleFrom ? { id: { not: rescheduleFrom.id } } : {}),
           },
           select: { date: true, startTime: true },
         });
@@ -175,30 +204,48 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       date: new Date(date + "T12:00:00Z"),
       startTime,
       endTime,
+      excludeAppointmentId: rescheduleFrom?.id,
     });
     if (overlap) {
       return NextResponse.json({ error: clientOverlapMessage(overlap) }, { status: 409 });
     }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        // Meio-dia UTC: normaliza o campo `date` para o DIA agendado, evitando que
-        // o fuso do Brasil (UTC-3) "volte um dia" ao exibir (ex.: comissões). (bug fuso)
-        date: new Date(date + "T12:00:00Z"),
-        startTime,
-        endTime,
-        price: totalPrice,
-        clientId: client.id,
-        barbershopId: shop.id,
-        barberId,
-        serviceId: services[0].id, // Legado: primeiro serviço para retrocompatibilidade
-        status: "CONFIRMED",
-        ...(validSubscriptionId ? { subscriptionId: validSubscriptionId } : {}),
-        services: {
-          create: services.map((s) => ({ serviceId: s.id, price: s.price, duration: s.duration })),
-        },
+    const createData = {
+      // Meio-dia UTC: normaliza o campo `date` para o DIA agendado, evitando que
+      // o fuso do Brasil (UTC-3) "volte um dia" ao exibir (ex.: comissões). (bug fuso)
+      date: new Date(date + "T12:00:00Z"),
+      startTime,
+      endTime,
+      price: totalPrice,
+      clientId: client.id,
+      barbershopId: shop.id,
+      barberId,
+      serviceId: services[0].id, // Legado: primeiro serviço para retrocompatibilidade
+      status: "CONFIRMED",
+      ...(validSubscriptionId ? { subscriptionId: validSubscriptionId } : {}),
+      services: {
+        create: services.map((s) => ({ serviceId: s.id, price: s.price, duration: s.duration })),
       },
-    });
+    } satisfies Prisma.AppointmentUncheckedCreateInput;
+
+    // Remarcação: cria o novo e cancela o antigo na mesma transação — ou os dois, ou nenhum.
+    const appointment = rescheduleFrom
+      ? (await prisma.$transaction([
+          prisma.appointment.create({ data: createData }),
+          prisma.appointment.update({ where: { id: rescheduleFrom.id }, data: { status: "CANCELLED" } }),
+        ]))[0]
+      : await prisma.appointment.create({ data: createData });
+
+    if (rescheduleFrom) {
+      const old = rescheduleFrom;
+      void logAudit({
+        barbershopId: shop.id, action: "CANCEL", entity: "Appointment", entityId: old.id,
+        diff: { before: { status: old.status }, after: { status: "CANCELLED", via: "Remarcado pelo cliente", newAppointmentId: appointment.id } },
+      });
+      // Se o novo horário não ocupa a mesma vaga, quem está na lista de espera é avisado.
+      const sameSlot = old.barberId === barberId && old.startTime === startTime && old.date.toISOString().slice(0, 10) === date;
+      if (!sameSlot) void notifyWaitlistSlotOpened({ barbershopId: shop.id, date: old.date, barberId: old.barberId, startTime: old.startTime });
+    }
 
     const [ano, mes, dia] = date.split("-");
     const dataFormatada = `${dia}/${mes}/${ano}`;
