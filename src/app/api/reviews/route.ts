@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/evolution/client";
+import { LOYALTY_POINTS_PER_REVIEW } from "@/lib/loyalty";
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,6 +58,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
 
+    // Só atendimento concluído vale avaliação (e pontos de fidelidade)
+    if (appointment.status !== "DONE") {
+      return NextResponse.json({ error: "Este atendimento ainda não foi concluído" }, { status: 400 });
+    }
+
     if (appointment.review) {
       return NextResponse.json({ error: "Este agendamento já foi avaliado" }, { status: 400 });
     }
@@ -75,10 +81,10 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // 2. Adiciona +10 pontos de fidelidade
+      // 2. Adiciona os pontos de fidelidade
       const points = await tx.loyaltyPoint.create({
         data: {
-          points: 10,
+          points: LOYALTY_POINTS_PER_REVIEW,
           action: "EARNED",
           description: `Avaliação do agendamento #${appointment.id.slice(-6).toUpperCase()}`,
           clientId: appointment.clientId,

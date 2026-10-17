@@ -9,6 +9,9 @@ import { decrypt } from "@/lib/encrypt";
 import { createMpPreapproval } from "@/lib/mercadopago";
 import { sendWhatsAppNotification } from "@/lib/notifications";
 import { phoneVariants } from "@/lib/phone";
+import { addDaysKey, dayStartUTC, daysBetween, dueKey, monthlyValue, todayKeySP } from "@/lib/subscriptionCycle";
+import { currentMonthSP, monthStartSP } from "@/lib/monthResult";
+import { startOfTodaySP } from "@/lib/cashSummary";
 
 function clampDay(day: number, year: number, month: number): number {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -69,31 +72,6 @@ const SUB_SELECT = {
   },
 } as const;
 
-// Versão leve para painéis (cobranças hoje, 7 dias, inadimplentes)
-// Omite planServices e allowedBarbers que são sub-queries desnecessárias na listagem
-const PANEL_SELECT = {
-  id: true,
-  status: true,
-  startDate: true,
-  nextBillingDate: true,
-  billingDay: true,
-  usesThisCycle: true,
-  beneficiaries: true,
-  createdAt: true,
-  mpPreapprovalId: true,
-  authorizationStatus: true,
-  authorizationLink: true,
-  authorizationSentAt: true,
-  paymentMethod: true,
-  client: { select: { id: true, name: true, email: true, phone: true } },
-  plan: { select: { id: true, name: true, price: true, maxUses: true } },
-  payments: {
-    select: { id: true, amount: true, method: true, status: true, paidAt: true, createdAt: true },
-    orderBy: { createdAt: "desc" as const },
-    take: 1,
-  },
-} as const;
-
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
@@ -125,98 +103,108 @@ export async function GET(req: NextRequest) {
       return res;
     }
 
-    // ── Paginated mode ──────────────────────────────────────────────────────
-    const take = Number(takeParam);
+    // ── Paginated mode (tela Assinantes) ────────────────────────────────────
+    // Abas: active (ativos, inclui quem está devendo) · today (vence hoje) · late (atrasado
+    // ou cartão recusado) · paused · cancelled. Vencimento = dia em UTC; hoje = dia em SP.
+    const take = Math.min(100, Number(takeParam) || 30);
     const skip = Number(searchParams.get("skip") ?? "0");
-    const q = searchParams.get("q") ?? "";
-    const statusParam = searchParams.get("status") ?? "";
+    const q = (searchParams.get("q") ?? "").trim();
+    const tab = searchParams.get("status") ?? "active";
     const planIdParam = searchParams.get("planId") ?? "";
-    const sortField = searchParams.get("sortField") ?? "nextBillingDate";
-    const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
 
-    const now = new Date();
-    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
-    const in7Days = new Date(todayStart); in7Days.setDate(in7Days.getDate() + 7); in7Days.setHours(23, 59, 59, 999);
+    const today = todayKeySP();
+    const todayStart = dayStartUTC(today);
+    const tomorrowStart = dayStartUTC(addDaysKey(today, 1));
+    const monthStart = monthStartSP(currentMonthSP());
+    const LIVE = { in: ["ACTIVE", "OVERDUE"] };
 
-    // Build where using AND clauses to handle OR + search combinations
-    const andClauses: any[] = [{ barbershopId }];
-
-    if (statusParam === "active") {
-      andClauses.push({ status: "ACTIVE", nextBillingDate: { gt: now } });
-    } else if (statusParam === "overdue") {
-      andClauses.push({ OR: [{ status: "OVERDUE" }, { status: "ACTIVE", nextBillingDate: { lte: now } }] });
-    } else if (statusParam === "paused") {
-      andClauses.push({ status: "PAUSED" });
-    } else if (statusParam === "cancelled") {
-      andClauses.push({ status: "CANCELLED" });
-    }
-
-    if (planIdParam) andClauses.push({ planId: planIdParam });
-
-    if (q) {
-      andClauses.push({
+    const tabWhere: Record<string, object> = {
+      active: { status: LIVE },
+      today: { status: "ACTIVE", nextBillingDate: { gte: todayStart, lt: tomorrowStart } },
+      late: {
         OR: [
-          { client: { name: { contains: q, mode: "insensitive" } } },
-          { client: { phone: { contains: q } } },
+          { status: "OVERDUE" },
+          { status: "ACTIVE", nextBillingDate: { lt: todayStart } },
+          { status: LIVE, authorizationStatus: "FAILED" },
         ],
-      });
-    }
-
-    const tableWhere = andClauses.length === 1 ? andClauses[0] : { AND: andClauses };
-
-    // Build orderBy
-    let orderBy: any = { nextBillingDate: sortDir };
-    if (sortField === "name") orderBy = { client: { name: sortDir } };
-    else if (sortField === "price") orderBy = { plan: { price: sortDir } };
-
-    const overdueWhere = {
-      barbershopId,
-      OR: [{ status: "OVERDUE" }, { status: "ACTIVE", nextBillingDate: { lte: now } }],
+      },
+      paused: { status: "PAUSED" },
+      cancelled: { status: "CANCELLED" },
     };
+    const base = { barbershopId, ...(planIdParam ? { planId: planIdParam } : {}) };
+    const listWhere = {
+      AND: [
+        base,
+        tabWhere[tab] ?? tabWhere.active,
+        ...(q ? [{ OR: [
+          { client: { name: { contains: q, mode: "insensitive" as const } } },
+          { client: { phone: { contains: q.replace(/\D/g, "") || q } } },
+        ] }] : []),
+      ],
+    };
+    const orderBy = tab === "paused" || tab === "cancelled"
+      ? [{ updatedAt: "desc" as const }]
+      : [{ nextBillingDate: "asc" as const }, { id: "asc" as const }];
 
-    const [subscriptions, total, activePriceRows, overduePriceRows, todayBilling, billingIn7Days, overdueSubs] = await Promise.all([
-      prisma.subscription.findMany({ where: tableWhere, select: SUB_SELECT, orderBy, skip, take }),
-      prisma.subscription.count({ where: tableWhere }),
-      prisma.subscription.findMany({
-        where: { barbershopId, status: "ACTIVE", nextBillingDate: { gt: now } },
-        select: { plan: { select: { price: true } } },
+    const PRICE = { plan: { select: { price: true, billingCycle: true } } } as const;
+    const [subscriptions, total, counts, liveRows, todayRows, paidToday, lateRows, cancelledRows] = await Promise.all([
+      prisma.subscription.findMany({ where: listWhere, select: SUB_SELECT, orderBy, skip, take }),
+      prisma.subscription.count({ where: listWhere }),
+      Promise.all(Object.values(tabWhere).map((w) => prisma.subscription.count({ where: { AND: [base, w] } }))),
+      prisma.subscription.findMany({ where: { barbershopId, status: LIVE }, select: { createdAt: true, ...PRICE } }),
+      prisma.subscription.findMany({ where: { barbershopId, ...tabWhere.today }, select: PRICE }),
+      prisma.payment.findMany({
+        where: { status: "PAID", paidAt: { gte: startOfTodaySP() }, subscription: { barbershopId } },
+        select: { amount: true },
       }),
+      prisma.subscription.findMany({ where: { barbershopId, ...tabWhere.late }, select: { nextBillingDate: true, ...PRICE } }),
       prisma.subscription.findMany({
-        where: overdueWhere,
-        select: { plan: { select: { price: true } } },
-      }),
-      prisma.subscription.findMany({
-        where: { barbershopId, status: "ACTIVE", nextBillingDate: { gte: todayStart, lte: todayEnd } },
-        select: PANEL_SELECT,
-        orderBy: { nextBillingDate: "asc" },
-      }),
-      prisma.subscription.findMany({
-        where: { barbershopId, status: "ACTIVE", nextBillingDate: { gt: todayEnd, lte: in7Days } },
-        select: PANEL_SELECT,
-        orderBy: { nextBillingDate: "asc" },
-      }),
-      prisma.subscription.findMany({
-        where: overdueWhere,
-        select: PANEL_SELECT,
-        orderBy: { nextBillingDate: "asc" },
+        where: { barbershopId, status: "CANCELLED", updatedAt: { gte: monthStart } },
+        select: PRICE,
       }),
     ]);
 
-    const totalActive  = activePriceRows.length;
-    const mrr          = activePriceRows.reduce((s, r) => s + r.plan.price, 0);
-    const overdueCount = overduePriceRows.length;
-    const overdueTotal = overduePriceRows.reduce((s, r) => s + r.plan.price, 0);
+    const monthly = (rows: { plan: { price: number; billingCycle: string } }[]) =>
+      rows.reduce((s, r) => s + monthlyValue(r.plan.price, r.plan.billingCycle), 0);
+    const sum = (rows: { plan: { price: number } }[]) => rows.reduce((s, r) => s + r.plan.price, 0);
+    const oldestLate = lateRows.reduce<string | null>((o, r) => {
+      const k = dueKey(r.nextBillingDate);
+      return !o || k < o ? k : o;
+    }, null);
+
+    const [cActive, cToday, cLate, cPaused, cCancelled] = counts;
+    const stats = {
+      totalActive: liveRows.length,
+      mrr: monthly(liveRows),
+      newThisMonth: liveRows.filter((r) => r.createdAt >= monthStart).length,
+      today: {
+        count: todayRows.length + paidToday.length,
+        paid: paidToday.length,
+        total: sum(todayRows) + paidToday.reduce((s, p) => s + p.amount, 0),
+      },
+      late: {
+        count: lateRows.length,
+        total: sum(lateRows),
+        oldestDays: oldestLate ? Math.max(0, daysBetween(oldestLate, today)) : 0,
+      },
+      cancelledMonth: {
+        count: cancelledRows.length,
+        mrrLost: monthly(cancelledRows),
+        pct: liveRows.length + cancelledRows.length > 0 ? cancelledRows.length / (liveRows.length + cancelledRows.length) : 0,
+      },
+      // compat: campos antigos
+      overdueCount: lateRows.length,
+      overdueTotal: sum(lateRows),
+    };
 
     const res = NextResponse.json({
       subscriptions,
       total,
-      stats: { totalActive, mrr, overdueCount, overdueTotal },
-      todayBilling,
-      billingIn7Days,
-      overdueSubs,
+      today,
+      counts: { active: cActive, today: cToday, late: cLate, paused: cPaused, cancelled: cCancelled },
+      stats,
     });
-    res.headers.set("Cache-Control", "private, no-cache");
+    res.headers.set("Cache-Control", "private, no-store");
     return res;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
@@ -253,6 +241,7 @@ export async function POST(req: NextRequest) {
     // Valida que o plano pertence a esta barbearia (CVE-10)
     const plan = await prisma.plan.findFirst({ where: { id: planId, barbershopId: payload.barbershopId! } });
     if (!plan) return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 });
+    if (!plan.active) return NextResponse.json({ error: "Este plano está fechado para novas assinaturas" }, { status: 400 });
 
     const barbershop = await prisma.barbershop.findUnique({
       where: { id: payload.barbershopId! },

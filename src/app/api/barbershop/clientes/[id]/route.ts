@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { shopClientWhere } from "@/lib/shopClients";
 import { requireAuth } from "@/lib/auth";
 import { logAudit, getClientIp } from "@/lib/audit";
+import { cancelAutoDebit } from "@/lib/subscriptionGateway";
 import { differenceInDays } from "date-fns";
 import { averageInterval, clientRhythm } from "@/lib/clientRhythm";
 
@@ -237,6 +238,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
     }
 
+    // Assinaturas vivas: o débito automático no MP também precisa parar
+    const liveSubs = await prisma.subscription.findMany({
+      where: { clientId: id, barbershopId, status: { in: ["ACTIVE", "OVERDUE", "PAUSED"] } },
+      select: { mpPreapprovalId: true },
+    });
+
     // Transação para limpar vínculos e anonimizar
     await prisma.$transaction(async (tx) => {
       // 1. Cancela apenas agendamentos ativos DESTA barbearia (CVE-12)
@@ -247,8 +254,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
       // 2. Cancela apenas assinaturas ativas DESTA barbearia (CVE-12)
       await tx.subscription.updateMany({
-        where: { clientId: id, barbershopId, status: "ACTIVE" },
-        data: { status: "CANCELLED" },
+        where: { clientId: id, barbershopId, status: { in: ["ACTIVE", "OVERDUE", "PAUSED"] } },
+        data: { status: "CANCELLED", mpPreapprovalId: null, authorizationLink: null },
       });
 
       // 3. Anonimização global apenas se não houver vínculo em outras barbearias (CVE-12)
@@ -281,6 +288,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         });
       }
     });
+
+    for (const sub of liveSubs) await cancelAutoDebit(barbershopId, sub.mpPreapprovalId, "client-delete");
 
     // ── Audit: exclusão (anonimização) de cliente ──
     void logAudit({

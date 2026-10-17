@@ -191,6 +191,11 @@ export default function ConcluirAtendimentoModal({
                       <Line key={s.id} left={<>{s.name} <span className="text-ink-3">· extra</span></>} right={formatCurrency(s.price)} />
                     ))}
                     <p className="text-xs text-ink-3 pt-1.5">Plano {appt.subscription?.plan.name}{appt.beneficiaryName ? ` · ${appt.beneficiaryName}` : ""}</p>
+                    {!appt.beneficiaryName && appt.subscription?.plan.maxUses != null && (appt.subscription.usesThisCycle ?? 0) >= appt.subscription.plan.maxUses && (
+                      <p className="text-xs text-warning bg-warning-soft rounded-lg px-2.5 py-2 mt-1.5">
+                        Passou do limite do plano: esta será a visita {(appt.subscription.usesThisCycle ?? 0) + 1} de {appt.subscription.plan.maxUses} no ciclo. Se for cobrar à parte, lance o valor como extra.
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>

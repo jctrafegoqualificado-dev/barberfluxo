@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         barber: { include: { user: { select: { name: true } } } },
         service: true,
         services: { include: { service: { select: { id: true, name: true, price: true, duration: true } } } },
-        subscription: { select: { id: true, status: true, plan: { select: { name: true, planServices: { select: { serviceId: true } } } } } },
+        subscription: { select: { id: true, status: true, usesThisCycle: true, plan: { select: { name: true, maxUses: true, planServices: { select: { serviceId: true } } } } } },
       },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
@@ -443,7 +443,7 @@ export async function POST(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     await requireActiveSubscription(barbershopId);
     const body = await req.json();
-    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, force, beneficiaryName } = body;
+    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, force, beneficiaryName, noPlan } = body;
 
     // Aceita serviceIds (array multi-serviço) OU serviceId (legado, único)
     const ids: string[] = Array.isArray(serviceIds) && serviceIds.length > 0
@@ -509,6 +509,9 @@ export async function POST(req: NextRequest) {
           include: { plan: { include: { allowedBarbers: true } } },
         })
       : null;
+
+    // Assinante que passou do limite do plano e o dono escolheu cobrar como avulso
+    if (noPlan === true) subscription = null;
 
     // ── Sprint 1: Bloqueia se assinatura vencida ──
     if (subscription && new Date(subscription.nextBillingDate) < new Date()) {

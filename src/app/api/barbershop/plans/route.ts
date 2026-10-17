@@ -9,12 +9,16 @@ export async function GET(req: NextRequest) {
     const plans = await prisma.plan.findMany({
       where: { barbershopId: payload.barbershopId! },
       include: {
-        planServices: { include: { service: true } },
-        _count: { select: { subscriptions: true } }
+        planServices: { include: { service: { select: { id: true, name: true, price: true, duration: true, active: true } } } },
+        allowedBarbers: { select: { id: true } },
+        // Assinantes = ativos + devendo (cancelados e pausados não contam)
+        _count: { select: { subscriptions: { where: { status: { in: ["ACTIVE", "OVERDUE"] } } } } },
       },
       orderBy: { price: "asc" },
     });
-    return NextResponse.json({ plans });
+    const res = NextResponse.json({ plans });
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     return NextResponse.json({ error: msg }, { status: 401 });

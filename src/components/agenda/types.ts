@@ -17,7 +17,7 @@ export interface Appointment {
   service: { id: string; name: string; duration: number } | null;
   services: AppointmentServiceItem[];
   barber: { id: string; nickname?: string | null; user: { name: string; phone?: string } };
-  subscription: { id: string; status: string; plan: { name: string; planServices: { serviceId: string }[] } } | null;
+  subscription: { id: string; status: string; usesThisCycle?: number; plan: { name: string; maxUses?: number | null; planServices: { serviceId: string }[] } } | null;
   beneficiaryName: string | null;
 }
 

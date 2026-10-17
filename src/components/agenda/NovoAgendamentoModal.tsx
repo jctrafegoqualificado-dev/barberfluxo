@@ -11,6 +11,8 @@ type Service = { id: string; name: string; price: number; duration: number };
 export interface NovoAgendamentoData {
   clientName: string; clientPhone: string; barberId: string; serviceIds: string[];
   date: string; startTime: string; beneficiaryName?: string; price?: number; notifyClient?: boolean;
+  /** Assinante passou do limite do plano: agenda como avulso (sem usar o plano). */
+  noPlan?: boolean;
 }
 
 const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -47,6 +49,7 @@ export default function NovoAgendamentoModal({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSub, setActiveSub] = useState<any | null>(null);
   const [beneficiaryName, setBeneficiaryName] = useState("");
+  const [usePlanAnyway, setUsePlanAnyway] = useState(false);
   const [serviceIds, setServiceIds] = useState<string[]>(initialServiceIds ?? []);
   const [barberId, setBarberId] = useState(initialBarberId ?? barbers[0]?.id ?? "");
   const [selectedDate, setSelectedDate] = useState(date);
@@ -89,6 +92,7 @@ export default function NovoAgendamentoModal({
           const overdue = new Date(sub.nextBillingDate) < new Date();
           const beneficiaries = Array.isArray(sub.beneficiaries) ? sub.beneficiaries : [];
           setActiveSub(overdue ? { ...sub, beneficiaries, _overdue: true } : { ...sub, beneficiaries });
+          setUsePlanAnyway(false);
           setBeneficiaryName(overdue ? "" : beneficiaries[0]?.name || "");
           if (sub.client?.name) setClientName((n) => n || sub.client.name);
           // Já marca os serviços do plano (o que vier além disso é extra)
@@ -106,7 +110,11 @@ export default function NovoAgendamentoModal({
   }, [clientPhone, token]);
 
   // Plano familiar exige escolher quem usa; plano simples vale direto.
-  const subUsable = !!activeSub && !activeSub._overdue && (activeSub.beneficiaries.length === 0 || !!beneficiaryName);
+  // Limite de visitas do plano (planos de dependentes usam a cota de cada um, acima)
+  const planLimit: number | null = activeSub && !activeSub._overdue && activeSub.beneficiaries.length === 0 ? activeSub.plan?.maxUses ?? null : null;
+  const usedVisits: number = activeSub?.usesThisCycle ?? 0;
+  const overLimit = planLimit != null && usedVisits >= planLimit;
+  const subUsable = !!activeSub && !activeSub._overdue && (activeSub.beneficiaries.length === 0 || !!beneficiaryName) && (!overLimit || usePlanAnyway);
   const planServiceIds: string[] = subUsable ? planIdsOf(activeSub) : [];
   const allowedBarberIds: string[] | null =
     subUsable && activeSub.plan?.allowedBarbers?.length > 0 ? activeSub.plan.allowedBarbers.map((b: any) => b.id) : null;
@@ -169,7 +177,7 @@ export default function NovoAgendamentoModal({
     setSaving(true);
     const ok = await onConfirm({
       clientName: clientName.trim(), clientPhone, barberId: effectiveBarberId, serviceIds,
-      date: selectedDate, startTime, beneficiaryName, price: toPay, notifyClient,
+      date: selectedDate, startTime, beneficiaryName, price: toPay, notifyClient, noPlan: overLimit && !usePlanAnyway,
     });
     setSaving(false);
     if (ok) onClose();
@@ -242,6 +250,20 @@ export default function NovoAgendamentoModal({
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
                 Assinatura com pagamento pendente{activeSub.nextBillingDate ? ` desde ${new Date(activeSub.nextBillingDate).toLocaleDateString("pt-BR")}` : ""}. O plano não pode ser usado até regularizar.
               </p>
+            )}
+            {overLimit && (
+              <div className="flex flex-col gap-1.5 text-[13px] text-warning bg-warning-soft rounded-[10px] px-3 py-2.5">
+                <p className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+                  <span>
+                    Já usou {usedVisits} de {planLimit} visitas do plano {activeSub.plan?.name} neste ciclo.
+                    {usePlanAnyway ? " Este atendimento vai usar o plano mesmo assim." : " Este atendimento vai ser cobrado como avulso."}
+                  </span>
+                </p>
+                <button type="button" onClick={() => setUsePlanAnyway((v) => !v)} className="self-start ml-6 font-semibold underline underline-offset-2">
+                  {usePlanAnyway ? "Cobrar como avulso" : "Usar o plano mesmo assim"}
+                </button>
+              </div>
             )}
             {activeSub && !activeSub._overdue && activeSub.beneficiaries.length > 1 && (
               <div role="radiogroup" aria-label="Quem vai usar o plano" className="flex flex-wrap gap-2">

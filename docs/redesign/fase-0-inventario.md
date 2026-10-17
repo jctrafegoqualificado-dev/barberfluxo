@@ -65,8 +65,8 @@ traz um recurso a mais · ⛔ falta dado — precisa de campo/tabela nova (migra
 
 | Tela | Rota atual | Status | Observação |
 |---|---|---|---|
-| `Assinantes-desktop` / `-celular` | `/painel/assinaturas` | ✅ | "Cobranças de hoje" e "em atraso" saem de `nextBillingDate` + pagamentos. |
-| `Planos-desktop` | `/painel/planos` | ✅ | Dependentes, barbeiros permitidos, comissão e desconto em extras já existem. |
+| `Assinantes-desktop` / `-celular` | `/painel/assinaturas` | ✅ fase 7b | "Cobranças de hoje" e "em atraso" saem de `nextBillingDate` + pagamentos. |
+| `Planos-desktop` | `/painel/planos` | ✅ fase 7b | "Aberto para novas assinaturas" = plano ativo. Dependentes, barbeiros permitidos, comissão e desconto em extras já existem. |
 
 ## 09 WhatsApp e IA
 
@@ -96,7 +96,7 @@ traz um recurso a mais · ⛔ falta dado — precisa de campo/tabela nova (migra
 
 | Tela | Rota atual | Status | Observação |
 |---|---|---|---|
-| `Fidelidade-desktop` | `/painel/fidelidade` | ✅ | +10 pts por avaliação, limite e desconto já existem. |
+| `Fidelidade-desktop` | `/painel/fidelidade` | ✅ fase 7b | +10 pts por avaliação, limite e desconto já existem. |
 | `Metas-desktop` | `/painel/metas` | ✅ | Metas mensais e semanais, da casa e por profissional. |
 | `Ocupacao-desktop` | `/painel/ocupacao` | ✅ | Mapa de calor e retorno de clientes são calculados. |
 
@@ -186,11 +186,26 @@ Corrigidos no redesign (entram em produção no lançamento):
 16. **Produto vendido pelo dono na comanda não dava comissão ao barbeiro** (fase 7a): a venda ficava sem profissional. Agora a comanda manda o profissional do atendimento, e a tela de Produtos pergunta quem vendeu.
 17. **Comissão de produto 0% virava 10%** ao salvar (`Number(valor || 10)`).
 18. **Lista de serviços com cache de 30 s**: depois de editar, a tela podia mostrar o valor antigo.
+19. **Cancelar assinatura não parava o débito automático** (fase 7b): o cancelamento no Mercado Pago usava o token da plataforma, mas o débito foi criado com o token da barbearia — a chamada falhava calada e **o MP continuava cobrando o cliente**. Valia para cancelar, excluir a assinatura e excluir o cliente. Agora sempre com o token da barbearia (`src/lib/subscriptionGateway.ts`). Excluir cliente também cancelava só as assinaturas `ACTIVE` (as devendo e pausadas ficavam). **Vale levar para a `main` antes do lançamento.**
+20. **Baixa manual de plano trimestral/anual** andava o vencimento só 1 mês (o webhook do MP já andava o ciclo certo). Desfazer a baixa voltava 1 mês também.
+21. **Recorrência (MRR) somava o preço cheio** de planos trimestrais e anuais como se fosse mensal, e não contava quem estava devendo. Contador de assinantes do plano somava os cancelados.
+22. **Pausar assinatura não pausava o débito automático** no Mercado Pago (continuava cobrando).
+23. **Plano excluído ainda aceitava assinante novo** pela API.
+24. **Avaliação valia para qualquer agendamento** (inclusive cancelado ou futuro) e dava pontos de fidelidade. Agora só atendimento concluído.
+25. **Barbeiro conseguia desfazer a baixa de mensalidade** (apagar o pagamento). Agora só o dono.
 
 Pendentes do Catálogo (precisam de dado novo, ficaram fora da 7a):
 
 - **"Serviços que faz" / "Quem faz"** (Profissionais e Serviços): não existe vínculo profissional ↔ serviço. Precisa de tabela nova e mudar o link de agendamento e a agenda para filtrar.
 - **"Controlar estoque" e "Avisar quando chegar em"** (Produtos): hoje estoque 0 = sem controle e o aviso é fixo em 3 unidades.
+
+Pendentes de Planos, Assinantes e Fidelidade (fase 7b):
+
+- **Limite do plano não era aplicado** (✅ aviso feito na 7b, decisão 17/10/2026): o "limite de visitas" (`maxUses`) só aparecia na tela; havia assinante com 12 usos num plano de 5. Agora a agenda avisa quando o assinante já atingiu o limite e agenda **como avulso** (o dono pode tocar "Usar o plano mesmo assim"); a comanda também avisa. Ainda falta: a quantidade de cada serviço (`PlanService.quantity`, ex.: 4 cortes e 4 barbas) continua sem controle.
+- **Resgate de fidelidade não entra sozinho na comanda**: o resgate tira os pontos e mostra o desconto, mas o barbeiro aplica o desconto à mão no próximo atendimento (não existe vínculo resgate ↔ atendimento). Por isso "Resgates recentes" mostra pontos, e não reais.
+- **"+10 pts por avaliação" é fixo** no código (`src/lib/loyalty.ts`); dá para editar só os pontos do resgate e o desconto.
+- **"Cancelaram no mês"** usa a data da última alteração da assinatura cancelada (não existe `cancelledAt`).
+- **Novo preço do plano não muda o débito automático** de quem já autorizou (o valor fica no Mercado Pago). A tela avisa.
 
 ## Decisões de produto
 
