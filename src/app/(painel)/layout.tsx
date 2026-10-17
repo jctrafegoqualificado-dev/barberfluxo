@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import Sidebar from "@/components/layout/Sidebar";
 import { useTokenRefresh } from "@/hooks/useTokenRefresh";
+import { lightPrimaryCss } from "@/lib/brandContrast";
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuthStore();
@@ -118,6 +119,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
           --primary: ${branding?.primaryColor ? hexToRgb(branding.primaryColor) : "201, 79, 12"};
           --secondary: ${branding?.secondaryColor ? hexToRgb(branding.secondaryColor) : "161, 98, 7"};
         }
+        ${lightPrimaryCss(branding?.primaryColor)}
       `}} />
       {saasExpiresInDays !== null && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-orange-500 text-white text-center text-sm font-semibold py-2 px-4">

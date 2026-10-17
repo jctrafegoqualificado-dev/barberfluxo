@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import Sidebar from "@/components/layout/Sidebar";
 import { useTokenRefresh } from "@/hooks/useTokenRefresh";
+import { lightPrimaryCss } from "@/lib/brandContrast";
 
 export default function BarbeiroLayout({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuthStore();
@@ -60,6 +61,7 @@ export default function BarbeiroLayout({ children }: { children: React.ReactNode
           --primary: ${branding?.primaryColor ? hexToRgb(branding.primaryColor) : "201, 79, 12"};
           --secondary: ${branding?.secondaryColor ? hexToRgb(branding.secondaryColor) : "161, 98, 7"};
         }
+        ${lightPrimaryCss(branding?.primaryColor)}
       `}} />
       <div className="flex min-h-screen bg-ground">
         <Sidebar branding={branding || undefined} />
