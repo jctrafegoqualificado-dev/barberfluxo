@@ -98,7 +98,7 @@ export default function WeekView({ date, today, barbers, onOpen, reloadKey }: {
               );
             })}
           </div>
-          <div className="grid relative" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
+          <div className="grid relative pt-2" style={{ gridTemplateColumns: "52px repeat(7, minmax(0, 1fr))" }}>
             <div>
               {hours.map((h) => (
                 <div key={h} className="text-[11px] text-ink-3 text-right pr-2 -translate-y-1.5" style={{ height: HOUR_PX }}>{String(h).padStart(2, "0")}:00</div>

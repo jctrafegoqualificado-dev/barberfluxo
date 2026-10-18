@@ -759,7 +759,8 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
           </div>
         </header>
 
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+        {/* Na Semana, a grade já mostra os dias e a situação de cada horário */}
+        {view !== "week" && <div className="flex items-center justify-between gap-4 flex-wrap">
           {week.length > 0 && <WeekStrip days={week} selected={date} today={todayStr} onPick={setDate} />}
           <div className="flex items-center gap-4 text-[13px] text-ink-2 flex-wrap">
             <Legend swatch="bg-surface-3" n={stats.done} label="concluídos" />
@@ -767,9 +768,9 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
             <Legend swatch="bg-[#FFF8E8] border border-dashed border-[#B08A2E]" n={stats.pending} label="sem confirmação" />
             <Legend swatch="bg-danger-soft border border-[#E3A59D]" n={stats.noShow} label={stats.noShow === 1 ? "falta" : "faltas"} />
           </div>
-        </div>
+        </div>}
 
-        {dayHours && !dayHours.isOpen && (
+        {view !== "week" && dayHours && !dayHours.isOpen && (
           <p className="text-[13px] text-warning bg-warning-soft rounded-[10px] px-3.5 py-2.5">
             A barbearia não abre neste dia{dayHours.reason ? ` (${dayHours.reason})` : ""}. Dá para agendar mesmo assim, como encaixe.
           </p>
@@ -1003,7 +1004,7 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
           )}
 
           {/* Detalhes ao lado (computador largo) */}
-          <aside aria-label="Detalhes do horário" className="hidden xl:flex w-[348px] shrink-0 bg-surface border border-line rounded-2xl flex-col overflow-hidden">
+          <aside aria-label="Detalhes do horário" className={view === "week" ? "hidden" : "hidden xl:flex w-[348px] shrink-0 bg-surface border border-line rounded-2xl flex-col overflow-hidden"}>
             <AppointmentDetails appt={selected} {...detailActions} />
           </aside>
         </div>
