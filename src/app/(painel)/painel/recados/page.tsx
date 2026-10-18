@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Megaphone, Send, Trash2, CheckCheck, Clock } from "lucide-react";
+import { Send, Trash2, CheckCheck, Clock } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -82,16 +82,16 @@ export default function RecadosPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
-          <Megaphone className="w-6 h-6 text-primary" /> Recados da equipe
+        <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">
+          Recados da equipe
         </h1>
-        <p className="text-zinc-500 text-xs mt-0.5">
+        <p className="text-sm text-ink-3 mt-1">
           Avisos para os profissionais. Aparecem no início do sistema de cada um, e você vê quem já leu.
         </p>
       </div>
 
-      <form onSubmit={handleSend} className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-5 space-y-3">
-        <label htmlFor="recado" className="block text-sm font-semibold text-zinc-800">Novo recado</label>
+      <form onSubmit={handleSend} className="bg-surface rounded-2xl border border-line p-5 space-y-3">
+        <label htmlFor="recado" className="block text-[15px] font-semibold">Novo recado</label>
         <textarea
           id="recado"
           value={content}
@@ -99,10 +99,10 @@ export default function RecadosPage() {
           maxLength={MAX_LENGTH}
           rows={3}
           placeholder="Ex: Sábado (19) abrimos às 7h. Quem puder começar mais cedo, libera a agenda até sexta."
-          className="w-full rounded-xl border border-zinc-200 px-3.5 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+          className="w-full rounded-[10px] border border-control bg-surface px-3.5 py-3 text-sm placeholder:text-ink-4 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
         />
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-ink-2 cursor-pointer">
             <input
               type="checkbox"
               checked={notifyWhatsApp}
@@ -112,25 +112,25 @@ export default function RecadosPage() {
             Avisar a equipe no WhatsApp
           </label>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-zinc-400">{content.length} de {MAX_LENGTH}</span>
+            <span className="text-xs text-ink-3">{content.length} de {MAX_LENGTH}</span>
             <button
               type="submit"
               disabled={sending || !content.trim()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 transition-colors"
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-[10px] bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 transition-colors"
             >
               <Send className="w-4 h-4" /> {sending ? "Publicando..." : "Publicar"}
             </button>
           </div>
         </div>
-        {feedback && <p className="text-xs text-zinc-600" role="status">{feedback}</p>}
+        {feedback && <p className="text-xs text-ink-2" role="status">{feedback}</p>}
       </form>
 
       <div className="space-y-3">
-        <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Últimos 60 dias</h2>
+        <h2 className="text-xs font-semibold text-ink-3 uppercase tracking-[0.06em]">Últimos 60 dias</h2>
         {loading ? (
-          <p className="text-sm text-zinc-400">Carregando...</p>
+          <p className="text-sm text-ink-3">Carregando...</p>
         ) : notices.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-sm text-zinc-400">
+          <div className="bg-surface rounded-2xl border border-dashed border-line p-8 text-center text-sm text-ink-3">
             Nenhum recado ainda.
           </div>
         ) : (
@@ -139,32 +139,32 @@ export default function RecadosPage() {
             const pending = team.filter((m) => !readIds.has(m.id));
             const allRead = team.length > 0 && pending.length === 0;
             return (
-              <div key={n.id} className="bg-white rounded-2xl border border-zinc-200 p-4 space-y-3">
+              <div key={n.id} className="bg-surface rounded-2xl border border-line p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-ink-3">
                       {n.authorName ?? "Dono"} · {whenLabel(n.createdAt)}
                     </p>
-                    <p className="text-sm text-zinc-800 mt-1 whitespace-pre-line">{n.content}</p>
+                    <p className="text-sm text-ink mt-1 whitespace-pre-line">{n.content}</p>
                   </div>
                   <button
                     onClick={() => setToDelete(n)}
-                    className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                    className="p-1.5 rounded-lg text-ink-4 hover:text-danger hover:bg-danger-soft transition-colors shrink-0"
                     title="Apagar recado"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="pt-3 border-t border-zinc-100 text-xs space-y-1">
-                  <p className={`font-semibold flex items-center gap-1.5 ${allRead ? "text-green-700" : "text-zinc-600"}`}>
+                <div className="pt-3 border-t border-line-2 text-xs space-y-1">
+                  <p className={`font-semibold flex items-center gap-1.5 ${allRead ? "text-positive" : "text-ink-2"}`}>
                     <CheckCheck className="w-4 h-4" />
                     {allRead ? "Toda a equipe leu" : `Lido por ${n.readBy.length} de ${team.length}`}
                   </p>
                   {n.readBy.length > 0 && (
-                    <p className="text-zinc-500">Leram: {n.readBy.map((r) => r.name.split(" ")[0]).join(", ")}</p>
+                    <p className="text-ink-2">Leram: {n.readBy.map((r) => r.name.split(" ")[0]).join(", ")}</p>
                   )}
                   {!allRead && pending.length > 0 && (
-                    <p className="text-zinc-400 flex items-center gap-1">
+                    <p className="text-ink-3 flex items-center gap-1">
                       <Clock className="w-3 h-3" /> Ainda não leram: {pending.map((m) => m.name.split(" ")[0]).join(", ")}
                     </p>
                   )}
