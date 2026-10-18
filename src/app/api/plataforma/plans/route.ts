@@ -29,7 +29,7 @@ export async function PUT(req: NextRequest) {
   try {
     const payload = await requirePlatformAdmin(req);
     const body = await req.json();
-    const { key, label, tagline, monthlyPrice, annualPriceMonthly, isPaid, legacy, active } = body;
+    const { key, label, tagline, monthlyPrice, annualPriceMonthly, isPaid, legacy, active, includedBarbers, extraBarberMonthly, extraBarberAnnualMonthly } = body;
 
     if (!key || !(key in SAAS_PLANS)) {
       return NextResponse.json({ error: "Plano inválido" }, { status: 400 });
@@ -64,6 +64,24 @@ export async function PUT(req: NextRequest) {
         data.annualPriceMonthly = n;
       }
     }
+    if (includedBarbers !== undefined) {
+      const n = Number(includedBarbers);
+      if (!Number.isInteger(n) || n < 0 || n > 100) return NextResponse.json({ error: "Barbeiros inclusos inválido" }, { status: 400 });
+      data.includedBarbers = n;
+    }
+    if (extraBarberMonthly !== undefined) {
+      const n = Number(extraBarberMonthly);
+      if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: "Valor do barbeiro extra inválido" }, { status: 400 });
+      data.extraBarberMonthly = n;
+    }
+    if (extraBarberAnnualMonthly !== undefined) {
+      if (extraBarberAnnualMonthly === null || extraBarberAnnualMonthly === "") data.extraBarberAnnualMonthly = null;
+      else {
+        const n = Number(extraBarberAnnualMonthly);
+        if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: "Valor anual do barbeiro extra inválido" }, { status: 400 });
+        data.extraBarberAnnualMonthly = n;
+      }
+    }
     if (isPaid !== undefined) data.isPaid = !!isPaid;
     if (legacy !== undefined) data.legacy = !!legacy;
     if (active !== undefined) data.active = !!active;
@@ -86,6 +104,9 @@ export async function PUT(req: NextRequest) {
         annualPriceMonthly: def.annualPriceMonthly,
         isPaid: def.isPaid,
         legacy: def.legacy ?? false,
+        includedBarbers: def.includedBarbers,
+        extraBarberMonthly: def.extraBarberMonthly,
+        extraBarberAnnualMonthly: def.extraBarberAnnualMonthly,
         ...data,
       },
     });

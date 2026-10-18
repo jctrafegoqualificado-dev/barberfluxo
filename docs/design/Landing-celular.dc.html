@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 390px; height: 5000px; box-sizing: border-box; background: #F5F3EE; display: flex; flex-direction: column;">
+
+  <nav aria-label="Principal" style="height: 64px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; justify-content: space-between;">
+    <span style="display: flex; align-items: center; gap: 8px;">
+      <span style="width: 32px; height: 32px; border-radius: 9px; background: {{accent}}; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg></span>
+      <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 17px; font-weight: 700;">IA de Barbearia</span>
+    </span>
+    <a href="#" style="height: 40px; padding: 0 14px; border-radius: 10px; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Entrar</a>
+  </nav>
+
+  <header style="box-sizing: border-box; padding: 24px 16px 40px; display: flex; flex-direction: column; gap: 18px;">
+    <span style="align-self: flex-start; height: 28px; padding: 0 12px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E2DCD1; font-size: 12px; font-weight: 600; color: #57524A; display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{accent}};"></span>Gestão + atendente de IA no WhatsApp</span>
+    <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 40px; line-height: 1.04; font-weight: 800; letter-spacing: -0.03em;">Sua barbearia cheia, organizada e atendendo o WhatsApp 24 horas.</h1>
+    <p style="margin: 0; font-size: 17px; line-height: 1.5; color: #57524A;">Agenda, comissões, caixa e clientes num lugar só. E um atendente de IA que agenda enquanto você está na cadeira.</p>
+    <a href="#planos-m" style="height: 56px; border-radius: 12px; background: {{accent}}; color: #FFFFFF; font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none;">Quero na minha barbearia</a>
+    <span style="font-size: 13px; color: #57524A; text-align: center;">Sem taxa de adesão · sem fidelidade · suporte humano</span>
+
+    <div style="margin-top: 8px; border-radius: 24px; background: #1B1916; padding: 8px;">
+      <div style="border-radius: 18px; overflow: hidden; background: #EFE8DD;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #FFFFFF;">
+          <span style="width: 30px; height: 30px; border-radius: 50%; background: {{accent}};"></span>
+          <span style="display: flex; flex-direction: column;"><span style="font-size: 13px; font-weight: 600;">Barbearia Modelo</span><span style="font-size: 11px; color: #1D6B40;">respondendo agora</span></span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 7px; padding: 12px; font-size: 13px; line-height: 1.4;">
+          <span style="align-self: flex-end; max-width: 80%; padding: 8px 10px; border-radius: 12px 12px 2px 12px; background: #D9F2D0;">fala! tem horário hoje à tarde pra degradê?</span>
+          <span style="align-self: flex-start; max-width: 84%; padding: 8px 10px; border-radius: 12px 12px 12px 2px; background: #FFFFFF;">Tenho sim, Gustavo! Com o Diego às 15:45 ou 16:00. Qual fica melhor?</span>
+          <span style="align-self: flex-end; max-width: 80%; padding: 8px 10px; border-radius: 12px 12px 2px 12px; background: #D9F2D0;">16h</span>
+          <span style="align-self: flex-start; max-width: 84%; padding: 8px 10px; border-radius: 12px 12px 12px 2px; background: #FFFFFF;">Fechado! Hoje às 16:00 com o Diego. Te lembro às 15h.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section aria-labelledby="m-dor-t" style="box-sizing: border-box; padding: 48px 16px; background: #FFFFFF; display: flex; flex-direction: column; gap: 20px;">
+    <h2 id="m-dor-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em;">Onde a barbearia perde dinheiro sem perceber</h2>
+    <sc-for list="{{pains}}" as="p" hint-placeholder-count="4">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 16px; background: #F5F3EE;">
+        <span style="font-size: 17px; font-weight: 600;">{{p.title}}</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #57524A;">{{p.text}}</span>
+        <span style="font-size: 14px; line-height: 1.45;"><strong>Com a IA de Barbearia:</strong> {{p.fix}}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <section aria-labelledby="m-ia-t" style="box-sizing: border-box; padding: 48px 16px; background: #1B1916; color: #FFFFFF; display: flex; flex-direction: column; gap: 18px;">
+    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: {{accentOnDark}};">Atendente de IA no WhatsApp</span>
+    <h2 id="m-ia-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em;">Não é robô de menu. É um atendente que conversa.</h2>
+    <p style="margin: 0; font-size: 16px; line-height: 1.55; color: #C9C2B6;">Entende o jeito que o cliente escreve, consulta a agenda de verdade e fecha o horário, de madrugada, domingo ou feriado.</p>
+    <sc-for list="{{aiPoints}}" as="a" hint-placeholder-count="4">
+      <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 14px; border-top: 1px solid #3A352F;">
+        <span style="font-size: 16px; font-weight: 600;">{{a.title}}</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #A8A196;">{{a.text}}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <section aria-labelledby="m-rec-t" style="box-sizing: border-box; padding: 48px 16px; display: flex; flex-direction: column; gap: 14px;">
+    <h2 id="m-rec-t" style="margin: 0 0 6px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em;">Tudo da barbearia num lugar só</h2>
+    <sc-for list="{{features}}" as="f" hint-placeholder-count="6">
+      <div style="display: flex; gap: 14px; padding: 16px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E7E2D8;">
+        <span style="width: 40px; height: 40px; border-radius: 10px; background: #F5F3EE; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B1916" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{f.icon}}"></path></svg></span>
+        <span style="display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 16px; font-weight: 600;">{{f.title}}</span><span style="font-size: 14px; line-height: 1.5; color: #57524A;">{{f.text}}</span></span>
+      </div>
+    </sc-for>
+  </section>
+
+  <section id="planos-m" aria-labelledby="m-planos-t" style="box-sizing: border-box; padding: 48px 16px; background: #FFFFFF; display: flex; flex-direction: column; gap: 18px;">
+    <h2 id="m-planos-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;">Planos</h2>
+    <p style="margin: 0; font-size: 15px; color: #57524A;">Sem taxa de adesão, sem fidelidade.</p>
+    <div role="group" aria-label="Forma de cobrança" style="display: flex; padding: 4px; gap: 2px; border-radius: 12px; background: #EAE6DD;">
+      <sc-for list="{{billing}}" as="b" hint-placeholder-count="2">
+        <button type="button" onClick="{{b.pick}}" aria-pressed="{{b.on}}" style="flex-grow: 1; flex-basis: 0; height: 44px; border: 0; border-radius: 9px; font-size: 14px; font-weight: 600; background: {{b.bg}}; color: {{b.fg}}; box-shadow: {{b.shadow}};">{{b.label}}</button>
+      </sc-for>
+    </div>
+    <sc-for list="{{plans}}" as="p" hint-placeholder-count="2">
+      <div style="display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 18px; background: {{p.bg}}; color: {{p.fg}}; border: {{p.border}};">
+        <sc-if value="{{p.popular}}" hint-placeholder-val="{{false}}">
+          <span style="align-self: flex-start; height: 26px; padding: 0 10px; border-radius: 13px; background: {{accent}}; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center;">Mais escolhido</span>
+        </sc-if>
+        <span style="font-size: 20px; font-weight: 700;">{{p.name}}</span>
+        <span style="font-size: 14px; line-height: 1.45; color: {{p.muted}};">{{p.desc}}</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 42px; font-weight: 800; letter-spacing: -0.03em; line-height: 1;">{{p.price}}</span>
+        <span style="font-size: 13px; color: {{p.muted}};">{{p.period}}</span>
+        <span style="font-size: 13px; font-weight: 600; color: {{p.extraColor}};">{{p.extra}}</span>
+        <a href="#" style="height: 52px; border-radius: 12px; background: {{p.ctaBg}}; color: #FFFFFF; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none;">{{p.cta}}</a>
+        <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid {{p.line}};">
+          <sc-for list="{{p.items}}" as="i" hint-placeholder-count="5">
+            <span style="display: flex; gap: 8px; font-size: 14px; line-height: 1.4;"><svg style="flex-shrink: 0; margin-top: 2px;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{p.check}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>{{i.text}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </section>
+
+  <section aria-labelledby="m-faq-t" style="box-sizing: border-box; padding: 48px 16px; display: flex; flex-direction: column;">
+    <h2 id="m-faq-t" style="margin: 0 0 12px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700;">Dúvidas</h2>
+    <sc-for list="{{faq}}" as="q" hint-placeholder-count="4">
+      <div style="border-top: 1px solid #D8D0C2;">
+        <button type="button" onClick="{{q.toggle}}" aria-expanded="{{q.open}}" style="width: 100%; min-height: 60px; padding: 0; border: 0; background: transparent; color: #1B1916; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; font-weight: 600; text-align: left;">{{q.q}}<span style="font-size: 22px; font-weight: 400;">{{q.sign}}</span></button>
+        <sc-if value="{{q.open}}" hint-placeholder-val="{{false}}">
+          <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.55; color: #57524A;">{{q.a}}</p>
+        </sc-if>
+      </div>
+    </sc-for>
+  </section>
+
+  <section aria-labelledby="m-cta-t" style="box-sizing: border-box; margin: 0 16px 32px; padding: 28px 22px; border-radius: 22px; background: {{accent}}; color: #FFFFFF; display: flex; flex-direction: column; gap: 16px;">
+    <h2 id="m-cta-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; line-height: 1.1; font-weight: 700;">Coloque sua barbearia no automático ainda esta semana.</h2>
+    <a href="#planos-m" style="height: 54px; border-radius: 12px; background: #FFFFFF; color: #1B1916; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none;">Quero começar</a>
+  </section>
+
+  <footer style="padding: 20px 16px 32px; font-size: 13px; color: #6F685D; text-align: center;">© 2026 IA de Barbearia · Termos · Privacidade</footer>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#E4570B","#A16207","#1F4E8C"],"section":"Marca"},"$preview":{"width":390,"height":5000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { annual: false, openFaq: 0 };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+
+    const pains = [
+      ['Mensagem sem resposta vira cliente perdido', 'Você está cortando, o WhatsApp apita e o cliente agenda na concorrência.', 'a IA responde na hora e já marca o horário.'],
+      ['Cliente que não aparece', 'Sem lembrete, o horário fica vazio.', 'confirmação e lembrete automáticos.'],
+      ['Comissão na calculadora', 'Todo fim de mês é conferência e discussão.', 'comissões, vales e recibos prontos.'],
+      ['Cliente que some', 'Quem parou de vir? Sem dados, não dá para saber.', 'lista de quem passou do prazo, pronta para chamar.']
+    ].map(([title, text, fix]) => ({ title, text, fix }));
+
+    const aiPoints = [
+      ['Agenda de verdade', 'Consulta os horários livres e bloqueia na hora.'],
+      ['Lembretes e confirmações', 'Avisa o cliente antes para diminuir faltas.'],
+      ['Vende enquanto conversa', 'Oferece planos e produtos no meio do papo.'],
+      ['Com o jeito da sua barbearia', 'Fala no tom da casa e entende gíria.']
+    ].map(([title, text]) => ({ title, text }));
+
+    const icons = {
+      agenda: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      comissao: 'M2 8h20v10H2zM12 13h.01M6 13h.01M18 13h.01',
+      caixa: 'M22 7 13.5 15.5 8.5 10.5 2 17M16 7h6v6',
+      planos: 'M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83ZM22 17.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65',
+      clientes: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      painel: 'M3 3v18h18M18 17V9M13 17V5M8 17v-3'
+    };
+    const features = [
+      ['agenda', 'Agenda por barbeiro', 'Encaixes, bloqueios e link de agendamento online.'],
+      ['comissao', 'Comissões e vales', 'Recibo pronto no fechamento do mês.'],
+      ['caixa', 'Caixa e financeiro', 'Contas a pagar e quanto sobrou no mês.'],
+      ['planos', 'Clube de assinatura', 'Cobrança automática e faturamento previsível.'],
+      ['clientes', 'Histórico de clientes', 'Quem mais gasta e quem sumiu.'],
+      ['painel', 'Painel e metas', 'Faturamento e ocupação em tempo real.']
+    ].map(([k, title, text]) => ({ icon: icons[k], title, text }));
+
+    const annual = this.state.annual;
+    const billing = [[false, 'Mensal'], [true, 'Anual · −10%']].map(([val, label]) => {
+      const on = annual === val;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A', shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none', pick: () => this.setState({ annual: val }) };
+    });
+    const plans = [
+      { name: 'Gestão + Atendente de IA', desc: 'Tudo do Gestão, mais a IA atendendo no seu WhatsApp.', price: annual ? 'R$ 179,90' : 'R$ 197,90', period: annual ? 'por mês · cobrado por ano' : 'por mês', extra: annual ? 'A partir do 3º barbeiro: + R$ 29,90 cada' : 'A partir do 3º barbeiro: + R$ 33,90 cada', cta: 'Assinar com IA', popular: true,
+        items: ['Tudo do plano Gestão', 'Atendente de IA 24 horas', 'Agendamento pela conversa', 'Lembretes automáticos', 'Venda de planos e produtos'] },
+      { name: 'Gestão', desc: 'Agenda, equipe, financeiro e clientes.', price: annual ? 'R$ 139,90' : 'R$ 154,90', period: annual ? 'por mês · cobrado por ano' : 'por mês', extra: '', cta: 'Assinar Gestão', popular: false,
+        items: ['Agendamentos ilimitados', 'Comissões e vales', 'Caixa e fluxo de caixa', 'Produtos e estoque', 'Planos para clientes'] }
+    ].map((p) => ({
+      ...p, items: p.items.map((text) => ({ text })),
+      bg: p.popular ? '#1B1916' : '#F5F3EE', fg: p.popular ? '#FFFFFF' : '#1B1916', border: p.popular ? '1px solid #1B1916' : '1px solid #E7E2D8',
+      muted: p.popular ? '#C9C2B6' : '#57524A', extraColor: p.popular ? mix(accent, 255, 0.45) : '#57524A',
+      ctaBg: p.popular ? accent : '#1B1916', line: p.popular ? '#3A352F' : '#E2DCD1', check: p.popular ? mix(accent, 255, 0.45) : '#1D6B40'
+    }));
+
+    const faq = [
+      ['A IA é um chatbot de menu?', 'Não. Ela entende a conversa, responde dúvidas e marca o horário como um atendente faria.'],
+      ['Preciso entender de tecnologia?', 'Não. A configuração é guiada e o suporte humano ajuda a deixar tudo pronto no mesmo dia.'],
+      ['Como a IA sabe os horários livres?', 'Ela usa a mesma agenda do sistema e bloqueia o horário escolhido na hora.'],
+      ['Tem fidelidade ou multa?', 'Não. É assinatura mensal, sem multa para cancelar.']
+    ].map(([q, a], i) => {
+      const open = this.state.openFaq === i;
+      return { q, a, open, sign: open ? '−' : '+', toggle: () => this.setState({ openFaq: open ? -1 : i }) };
+    });
+
+    return { accent, accentOnDark: mix(accent, 255, 0.4), pains, aiPoints, features, billing, plans, faq };
+  }
+}
+</script>
+</body>
+</html>

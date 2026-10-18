@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { POOL_PAYMENT_SELECT, poolOf, poolRevenue, poolServices, poolSettings, subscriptionPaymentsWhere } from "@/lib/commissions";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -33,16 +34,11 @@ export async function GET(req: NextRequest) {
     const mesLabel = format(refDate, "MMMM yyyy", { locale: ptBR });
 
     // --- LÓGICA DE ASSINATURA SÊNIOR (Igual ao Admin) ---
-    const subPayments = await prisma.payment.findMany({
-      where: {
-        barbershopId: barber.barbershopId,
-        subscriptionId: { not: null },
-        status: "PAID",
-        paidAt: { gte: start, lte: end },
-      }
-    });
-    const totalSubRevenue = subPayments.reduce((s, p) => s + p.amount, 0);
-    const poolBarbeiros = totalSubRevenue * 0.5;
+    const [subPayments, poolCfg] = await Promise.all([
+      prisma.payment.findMany({ where: subscriptionPaymentsWhere(barber.barbershopId, start, end), select: POOL_PAYMENT_SELECT }),
+      poolSettings(barber.barbershopId),
+    ]);
+    const totalSubRevenue = poolRevenue(subPayments);
 
     const allSubAppointments = await prisma.appointment.findMany({
       where: {
@@ -54,8 +50,9 @@ export async function GET(req: NextRequest) {
       select: { price: true, extraPrice: true, ...SUBSCRIPTION_APPT_INCLUDE },
     });
     // Cada serviço do plano realizado conta 1 (Corte + Barba = 2 serviços)
-    const totalSubServicos = totalPlanServices(allSubAppointments);
-    const ticketMedioSub = totalSubServicos > 0 ? poolBarbeiros / totalSubServicos : 0;
+    const totalSubServicos = poolServices(allSubAppointments);
+    // Mesma conta da tela de Comissões do dono (src/lib/commissions.ts)
+    const ticketMedioSub = poolOf(totalSubRevenue, totalSubServicos, poolCfg).ticket;
 
     const [avulsos, subAppointments, productSales] = await Promise.all([
       prisma.appointment.findMany({
@@ -176,6 +173,10 @@ export async function GET(req: NextRequest) {
 
     const totalComissao = totalAvulsoComissao + totalAssinaturaComissao + totalProdutoComissao;
 
+    // Gorjetas: 100% do barbeiro, recebidas no acerto avulso.
+    const gorjetaAppts = [...avulsos, ...subAppointments].filter((a) => (a.tipAmount ?? 0) > 0);
+    const totalGorjetas = gorjetaAppts.reduce((s, a) => s + a.tipAmount, 0);
+
     return NextResponse.json({
       barber: {
         name: barber.user.name,
@@ -195,6 +196,7 @@ export async function GET(req: NextRequest) {
           comissao: totalAssinaturaComissao,
         },
         produtos: { vendas: productSales.length, faturado: totalProdutoFaturado, comissao: totalProdutoComissao },
+        gorjetas: { quantidade: gorjetaAppts.length, total: totalGorjetas },
         totalComissao,
       },
       itens: {

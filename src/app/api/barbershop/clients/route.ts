@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { shopClientWhere } from "@/lib/shopClients";
 import { requireAuth } from "@/lib/auth";
 import { phoneVariants } from "@/lib/phone";
 
@@ -21,10 +22,7 @@ export async function GET(req: NextRequest) {
       where: {
         AND: [
           {
-            OR: [
-              { appointments: { some: { barbershopId } } },
-              { subscriptions: { some: { barbershopId } } },
-            ],
+            ...shopClientWhere(barbershopId),
           },
           {
             OR: [

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { nextSaasExpiry } from "@/lib/saasBilling";
 import { requireAuth } from "@/lib/auth";
 import { getCheckoutAmount } from "@/lib/saasPlans";
-import { loadSaasPlans } from "@/lib/saasPlans.server";
+import { billableBarbers, loadSaasPlans } from "@/lib/saasPlans.server";
 import MercadoPago, { Payment } from "mercadopago";
 
 export async function POST(req: NextRequest) {
@@ -20,11 +21,12 @@ export async function POST(req: NextRequest) {
     // Valida o valor contra a fonte única — o transaction_amount vem do frontend
     // e NÃO pode ser confiado (antes dava para pagar qualquer valor por um plano).
     const cycle = billingCycle === "annual" ? "annual" : "monthly";
-    const plans = await loadSaasPlans();
-    const expectedAmount = getCheckoutAmount(planType, cycle, plans);
+    // Plano + barbeiros extras (src/lib/saasPlans.ts saasCharge)
+    const [plans, barbers] = await Promise.all([loadSaasPlans(), billableBarbers(payload.barbershopId!)]);
+    const expectedAmount = getCheckoutAmount(planType, cycle, plans, barbers);
     if (expectedAmount == null || Math.abs(Number(transaction_amount) - expectedAmount) > 1) {
       return NextResponse.json(
-        { error: "Valor do pagamento não confere com o plano selecionado." },
+        { error: "O valor mudou (a equipe ou o preço do plano foi alterado). Recarregue a página e tente de novo." },
         { status: 400 }
       );
     }
@@ -80,13 +82,15 @@ export async function POST(req: NextRequest) {
       };
       const method = methodMap[payment_method_id] ?? payment_method_id?.toUpperCase() ?? "CREDIT_CARD";
 
-      // Calcula data de vencimento baseada no ciclo de cobrança
-      const now = new Date();
-      const saasExpiresAt = billingCycle === "annual"
-        ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
-        : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      // Vencimento: renovação antecipada soma ao período que ainda falta (src/lib/saasBilling.ts)
+      const [current, already] = await Promise.all([
+        prisma.barbershop.findUnique({ where: { id: payload.barbershopId! }, select: { saasStatus: true, saasExpiresAt: true } }),
+        // O webhook do MP pode ter chegado antes e já registrado este pagamento
+        prisma.payment.findFirst({ where: { externalId: String(result.id), barbershopId: payload.barbershopId! }, select: { id: true } }),
+      ]);
+      const saasExpiresAt = nextSaasExpiry(current, billingCycle === "annual" ? "annual" : "monthly");
 
-      await Promise.all([
+      if (!already) await Promise.all([
         // 1. Atualiza plano, status e data de vencimento da barbearia
         prisma.barbershop.update({
           where: { id: payload.barbershopId! },

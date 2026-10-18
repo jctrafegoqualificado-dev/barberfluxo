@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button { font-family: inherit; }
+  </style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1760px; box-sizing: border-box; background: #F5F3EE; overflow: hidden;">
+  <div style="box-sizing: border-box; padding: 16px 16px 110px; display: flex; flex-direction: column; gap: 14px;">
+
+    <div style="display: flex; align-items: center; gap: 12px; height: 48px;">
+      <div style="width: 40px; height: 40px; border-radius: 50%; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;">DR</div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column;">
+        <span style="font-size: 13px; color: #6F685D;">Quarta, 16 de setembro</span>
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Bom dia, Diego</h1>
+      </div>
+      <button type="button" aria-label="Recados, 2 novos" style="position: relative; width: 44px; height: 44px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; display: flex; align-items: center; justify-content: center;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+        <span style="position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: {{accent}}; border: 2px solid #FFFFFF;"></span>
+      </button>
+    </div>
+
+    <section aria-label="Próximo cliente" style="background: #FFFFFF; border: 2px solid {{accent}}; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Próximo cliente</span>
+        <span style="height: 24px; padding: 0 9px; border-radius: 12px; background: {{accentSoft}}; color: {{accentText}}; font-size: 12px; font-weight: 600; display: flex; align-items: center;">em 12 min</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700;">14:30</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 600;">Rafael Moura</span>
+      </div>
+      <span style="font-size: 13px; color: #57524A;">Corte + barba · R$ 75 · faz aniversário dia 18</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+        <button type="button" style="height: 46px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600;">Chegou</button>
+        <a href="Concluir-atendimento.dc.html" style="height: 46px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none;">Fechar comanda</a>
+      </div>
+    </section>
+
+    <section aria-label="Seus ganhos" style="background: #1B1916; color: #FFFFFF; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 13px; color: #C9C2B6;">Ganhou hoje</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700; line-height: 1.1;">R$ 130</span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding-bottom: 3px;">
+          <span style="font-size: 12px; color: #C9C2B6;">até o fim do dia</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 700; color: {{accentOnDark}};">R$ 226</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid #3A352F;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px;">
+          <span style="color: #C9C2B6;">Meta de setembro</span>
+          <span><strong>R$ 5.004</strong> <span style="color: #C9C2B6;">de R$ 9.000</span></span>
+        </div>
+        <div style="position: relative; height: 10px; border-radius: 5px; background: #3A352F; overflow: hidden;">
+          <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 55.6%; background: #FFFFFF;"></div>
+          <div style="position: absolute; left: 55.6%; top: 0; bottom: 0; width: 10.5%; background: {{accent}};"></div>
+        </div>
+        <span style="font-size: 12px; color: #C9C2B6;">R$ 333 por dia para bater · R$ 946 já agendados nesta semana</span>
+      </div>
+    </section>
+
+    <section aria-label="Horários livres hoje" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <span style="font-size: 15px; font-weight: 600;">Horários livres hoje</span>
+        <span style="font-size: 12px; color: #6F685D;">2h45 sem cliente</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1px dashed #B9B0A1;">
+          <span style="font-size: 15px; font-weight: 600;">15:45 – 17:00</span>
+          <span style="font-size: 12px; color: #6F685D;">cabe corte + barba</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1px dashed #B9B0A1;">
+          <span style="font-size: 15px; font-weight: 600;">18:30 – 20:00</span>
+          <span style="font-size: 12px; color: #6F685D;">cabe 2 atendimentos</span>
+        </div>
+      </div>
+      <button type="button" style="height: 44px; border-radius: 10px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Oferecer para quem quer encaixe</button>
+    </section>
+
+    <section aria-label="Recados da barbearia" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 15px; font-weight: 600;">Recados da barbearia</span>
+        <span style="height: 22px; padding: 0 8px; border-radius: 11px; background: {{accent}}; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center;">2 novos</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: #F9F7F3;">
+        <span style="font-size: 12px; color: #6F685D;"><strong style="color: #1B1916;">Carlos · dono</strong> · hoje, 08:05</span>
+        <span style="font-size: 14px; line-height: 1.45;">Sábado (19) abrimos às 7h. Quem puder começar mais cedo, libera a agenda até sexta.</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: #F9F7F3;">
+        <span style="font-size: 12px; color: #6F685D;"><strong style="color: #1B1916;">Carlos · dono</strong> · ontem</span>
+        <span style="font-size: 14px; line-height: 1.45;">Chegou a pomada efeito seco. Comissão de 15% em cada venda.</span>
+      </div>
+    </section>
+
+    <section aria-label="Clientes para chamar de volta" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px;">
+        <span style="font-size: 15px; font-weight: 600;">Clientes para chamar de volta</span>
+        <span style="font-size: 12px; color: #6F685D;">Passaram do tempo que costumam voltar</span>
+      </div>
+      <sc-for list="{{comeback}}" as="c" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-top: 1px solid #F1EDE6;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 600;">{{c.name}}</span>
+            <span style="font-size: 12px; color: #6F685D;">{{c.note}}</span>
+          </div>
+          <button type="button" aria-label="{{c.aria}}" style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Chamar</button>
+        </div>
+      </sc-for>
+    </section>
+
+    <section aria-label="Suas avaliações" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <span style="font-size: 15px; font-weight: 600;">Suas avaliações</span>
+        <span style="font-size: 12px; color: #6F685D;">58 no mês</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700;">9,4</span>
+        <span style="font-size: 13px; color: #57524A;">nota média · barbearia 9,2</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid #F1EDE6;">
+        <span style="font-size: 12px; color: #6F685D;"><strong style="color: #1B1916;">Marcelo Cunha · nota 10</strong> · hoje</span>
+        <span style="font-size: 14px; color: #57524A;">“Atendimento rápido e o corte ficou do jeito que pedi.”</span>
+      </div>
+    </section>
+  </div>
+
+  <nav aria-label="Navegação do profissional" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 8px 12px 20px; background: #FFFFFF; border-top: 1px solid #E7E2D8; display: flex; align-items: center; justify-content: space-around;">
+    <a href="#" aria-current="page" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #1B1916; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path><path d="M10 21v-6h4v6"></path></svg>Início
+    </a>
+    <a href="Profissional-celular.dc.html" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>Agenda
+    </a>
+    <a href="Novo-agendamento.dc.html" aria-label="Novo agendamento" style="width: 52px; height: 52px; border-radius: 16px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; text-decoration: none;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+    </a>
+    <a href="Producao-celular.dc.html" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"></path><path d="M16 7h6v6"></path></svg>Ganhos
+    </a>
+    <a href="#" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>Mais
+    </a>
+  </nav>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":390,"height":1760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const comeback = [
+      ['Gustavo Nunes', 'há 38 dias · volta a cada 21'],
+      ['Pedro Henrique', 'há 45 dias · volta a cada 30'],
+      ['Lucas Andrade', 'há 33 dias · volta a cada 20']
+    ].map(([name, note]) => ({ name, note, aria: 'Chamar ' + name + ' pelo WhatsApp' }));
+    return {
+      accent,
+      accentSoft: mix(accent, 255, 0.88),
+      accentText: mix(accent, 0, 0.35),
+      accentOnDark: mix(accent, 255, 0.35),
+      comeback
+    };
+  }
+}
+</script>
+</body>
+</html>

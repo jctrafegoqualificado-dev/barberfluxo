@@ -7,12 +7,20 @@ export async function POST(req: NextRequest) {
     const payload = requireAuth(req, ["OWNER"]);
     const { barberId, month, amount, description } = await req.json();
 
+    // O profissional precisa ser desta barbearia
+    const barber = await prisma.barber.findFirst({ where: { id: barberId, barbershopId: payload.barbershopId! }, select: { id: true } });
+    if (!barber) return NextResponse.json({ error: "Profissional não encontrado" }, { status: 404 });
+    const value = Number(amount);
+    if (!(value > 0) || typeof month !== "string" || !month || month.length > 30) {
+      return NextResponse.json({ error: "Informe o mês e um valor maior que zero." }, { status: 400 });
+    }
+
     const vale = await prisma.commissionVale.create({
       data: {
         barberId,
         barbershopId: payload.barbershopId!,
         month,
-        amount: Number(amount),
+        amount: Math.round(value * 100) / 100,
         description: description || null,
       },
     });
@@ -26,9 +34,11 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    requireAuth(req, ["OWNER"]);
+    const payload = requireAuth(req, ["OWNER"]);
     const { id } = await req.json();
-    await prisma.commissionVale.delete({ where: { id } });
+    // Só apaga vale desta barbearia (antes qualquer dono apagava pelo id)
+    const { count } = await prisma.commissionVale.deleteMany({ where: { id, barbershopId: payload.barbershopId! } });
+    if (count === 0) return NextResponse.json({ error: "Vale não encontrado" }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";

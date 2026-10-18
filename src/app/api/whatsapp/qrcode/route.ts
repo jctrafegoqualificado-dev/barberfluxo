@@ -12,6 +12,11 @@ export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
+    // Sem Evolution configurada (ex.: homologação desliga de propósito) o QR nunca chega:
+    // avisa em vez de deixar a tela carregando para sempre.
+    if (!process.env.EVOLUTION_API_URL || !process.env.EVOLUTION_GLOBAL_API_KEY) {
+      return NextResponse.json({ error: "WhatsApp indisponível neste ambiente: o servidor do WhatsApp (Evolution) não está configurado." }, { status: 503 });
+    }
 
     const instance = await prisma.whatsAppInstance.findUnique({
       where: { barbershopId },

@@ -201,6 +201,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
     const appointment = await prisma.appointment.create({
       data: {
+        source: "AI",
         date: appointmentDate,
         startTime,
         endTime,

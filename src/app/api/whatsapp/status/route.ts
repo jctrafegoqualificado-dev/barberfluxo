@@ -34,6 +34,18 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Sem Evolution configurada (ex.: homologação), o QR nunca chega: a tela mostra o aviso
+    // em vez de ficar tentando buscar o QR para sempre.
+    if (!process.env.EVOLUTION_API_URL || !process.env.EVOLUTION_GLOBAL_API_KEY) {
+      return NextResponse.json({
+        provisioned: true,
+        status: instance.status,
+        evolutionInstanceName: instance.evolutionInstanceName,
+        lastConnectedAt: instance.lastConnectedAt,
+        unavailable: true,
+      });
+    }
+
     // 2. Se token for sentinela, a instância ainda está sendo criada — não consultar Evolution
     // (ela estaria em "close" e sobrescreveria PENDING com DISCONNECTED, quebrando o fluxo)
     const SENTINEL_TOKENS = ["__pending__", "__creating__"];

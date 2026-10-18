@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 
     const shop = await prisma.barbershop.findUnique({
       where: { slug },
-      select: { id: true, active: true },
+      select: { id: true, active: true, name: true, phone: true, cancelByClientEnabled: true, minCancelHours: true },
     });
     if (!shop || !shop.active) {
       return NextResponse.json({ error: "Barbearia não encontrada" }, { status: 404 });
@@ -56,13 +56,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       include: {
         service: { select: { name: true } },
         barber: { include: { user: { select: { name: true } } } },
-        services: { include: { service: { select: { name: true } } } },
+        services: { include: { service: { select: { id: true, name: true } } } },
       },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
 
     return NextResponse.json({
       clientName: clients[0].name,
+      // Regras para a tela de remarcar/cancelar
+      shop: { name: shop.name, phone: shop.phone, cancelByClientEnabled: shop.cancelByClientEnabled, minCancelHours: shop.minCancelHours },
       appointments: appointments.map((a) => ({
         id: a.id,
         date: a.date.toISOString().split("T")[0],
@@ -73,6 +75,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
           ? a.services.map((s) => s.service.name).join(" + ")
           : a.service?.name ?? "Serviço",
         barberName: a.barber.user.name,
+        barberId: a.barberId,
+        serviceIds: a.services.length > 0 ? a.services.map((s) => s.service.id) : a.serviceId ? [a.serviceId] : [],
         price: a.price,
       })),
     });

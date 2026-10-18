@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1100px; box-sizing: border-box; display: flex; background: #F5F3EE;">
+
+  <aside style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #171512; color: #A8A196; display: flex; flex-direction: column; padding: 20px 14px; gap: 22px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 6px;">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+      </div>
+      <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF; white-space: nowrap;">Barbearia Modelo</span>
+        <span style="font-size: 12px; color: #A8A196;">Área do profissional</span>
+      </div>
+    </div>
+
+    <nav aria-label="Menu do profissional" style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+      <a href="Inicio-profissional-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path><path d="M10 21v-6h4v6"></path></svg>Início</a>
+      <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; background: #2A2723; color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;"><svg style="color: {{accentOnDark}};" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg><span style="flex-grow: 1;">Minha agenda</span><span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #3A352F; color: #E9E4DA; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">4</span></a>
+      <a href="Producao-celular.dc.html" style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"></path><path d="M16 7h6v6"></path></svg>Produção e comissões</a>
+      <a href="#" style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Meus clientes</a>
+      <a href="#" style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"></path><path d="M5 21h14"></path></svg>Assinantes</a>
+      <a href="#" style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg><span style="flex-grow: 1;">Tarefas</span><span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #2E2A25; color: #E9E4DA; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">3</span></a>
+    </nav>
+
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: #221F1B;">
+      <div style="width: 34px; height: 34px; border-radius: 50%; background: #3A352F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0;">DR</div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+        <span style="font-size: 13px; font-weight: 600; color: #FFFFFF;">Diego Ramos</span>
+        <span style="font-size: 12px; color: #A8A196;">Barbeiro</span>
+      </div>
+      <button type="button" aria-label="Sair" style="width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: #A8A196; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></button>
+    </div>
+  </aside>
+
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 18px;">
+    <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 14px; color: #6F685D;">Quarta-feira, 16 de setembro</span>
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;">Minha agenda</h1>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button type="button" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.29 7 12 12l8.71-5"></path><path d="M12 22V12"></path></svg>Vender produto</button>
+        <button type="button" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Bloquear horário</button>
+        <a href="Novo-agendamento.dc.html" style="height: 42px; padding: 0 16px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Novo agendamento</a>
+      </div>
+    </header>
+
+    <div style="flex-grow: 1; display: flex; gap: 20px; min-height: 0;">
+
+      <section aria-labelledby="minha-ag-t" style="flex-grow: 1; min-width: 0; background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #EFEBE3;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" aria-label="Dia anterior" style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B1916" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+            <h2 id="minha-ag-t" style="margin: 0; font-size: 15px; font-weight: 600; min-width: 110px; text-align: center;">Hoje, 16 set</h2>
+            <button type="button" aria-label="Próximo dia" style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B1916" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+          </div>
+          <div style="display: flex; gap: 16px; font-size: 13px; color: #57524A;">
+            <span><strong style="color: #1B1916;">11</strong> horários</span>
+            <span><strong style="color: #1B1916;">6</strong> concluídos</span>
+            <span><strong style="color: #1B1916;">4</strong> a atender</span>
+            <span><strong style="color: #B42318;">1</strong> falta</span>
+          </div>
+        </div>
+        <div style="position: relative; display: flex; padding: 14px 16px 16px 0;">
+          <div style="position: relative; width: 60px; height: 704px; flex-shrink: 0;">
+            <sc-for list="{{hours}}" as="h" hint-placeholder-count="12">
+              <span style="position: absolute; right: 12px; top: {{h.top}}; font-size: 11px; color: #8A8378;">{{h.label}}</span>
+            </sc-for>
+          </div>
+          <div style="position: relative; flex-grow: 1; height: 704px; border-left: 1px solid #EFEBE3; background-image: repeating-linear-gradient(to bottom, #EFEBE3 0, #EFEBE3 1px, transparent 1px, transparent 32px);">
+            <sc-for list="{{items}}" as="it" hint-placeholder-count="12">
+              <div title="{{it.title}}" style="position: absolute; left: 8px; right: 0; top: {{it.top}}; height: {{it.height}}; box-sizing: border-box; padding: {{it.pad}}; border-radius: 8px; background: {{it.bg}}; border: {{it.border}}; overflow: hidden; display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: {{it.dir}}; gap: {{it.gap}};">
+                  <span style="font-size: 13px; font-weight: 600; color: {{it.nameColor}}; white-space: nowrap; text-decoration: {{it.strike}};"><span style="font-weight: 500; color: {{it.metaColor}};">{{it.range}}</span>  {{it.name}}</span>
+                  <span style="font-size: 12px; color: {{it.metaColor}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{it.meta}}</span>
+                </div>
+                <sc-if value="{{it.isNext}}" hint-placeholder-val="{{false}}">
+                  <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                    <button type="button" style="height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Chegou</button>
+                    <a href="Concluir-atendimento.dc.html" style="height: 34px; padding: 0 12px; border-radius: 8px; background: {{accent}}; color: #FFFFFF; font-size: 13px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Fechar comanda</a>
+                  </div>
+                </sc-if>
+                <sc-if value="{{it.showPrice}}" hint-placeholder-val="{{true}}">
+                  <span style="font-size: 13px; font-weight: 600; color: {{it.nameColor}}; flex-shrink: 0;">{{it.price}}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+            <div aria-hidden="true" style="position: absolute; left: -6px; right: 0; top: 403px; height: 2px; background: {{accent}}; pointer-events: none;">
+              <span style="position: absolute; left: 0; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: {{accent}};"></span>
+            </div>
+          </div>
+          <span style="position: absolute; left: 8px; top: 407px; height: 20px; padding: 0 5px; border-radius: 5px; background: {{accent}}; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center;">14:18</span>
+        </div>
+      </section>
+
+      <div style="width: 360px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;">
+
+        <aside aria-labelledby="det-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 18px 20px 12px;">
+            <div style="width: 44px; height: 44px; border-radius: 50%; background: {{accentSoft}}; color: {{accentText}}; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center;">RM</div>
+            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+              <h2 id="det-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 700;">Rafael Moura</h2>
+              <span style="font-size: 13px; color: #6F685D;">8 visitas com você · última há 21 dias</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; padding: 0 20px 14px;">
+            <span style="height: 24px; padding: 0 9px; border-radius: 12px; background: #E8F4EC; color: #1D6B40; font-size: 12px; font-weight: 600; display: flex; align-items: center;">Confirmado</span>
+            <span style="height: 24px; padding: 0 9px; border-radius: 12px; background: {{accentSoft}}; color: {{accentText}}; font-size: 12px; font-weight: 600; display: flex; align-items: center;">em 12 min</span>
+          </div>
+          <div style="display: flex; flex-direction: column; padding: 0 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; min-height: 42px; border-top: 1px solid #F1EDE6; font-size: 14px;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6F685D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+              <span style="flex-grow: 1;">14:30 – 15:15</span>
+              <a href="#" style="font-size: 13px; font-weight: 600; color: #57524A;">Remarcar</a>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; min-height: 42px; border-top: 1px solid #F1EDE6; font-size: 14px;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6F685D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+              <span style="flex-grow: 1;">Corte + barba</span>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-top: 1px solid #F1EDE6; font-size: 14px; color: #57524A;">
+              <svg style="flex-shrink: 0; margin-top: 1px;" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6F685D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>
+              <span>Degradê baixo e barba desenhada na navalha. Faz aniversário dia 18.</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 20px 14px; border-top: 1px solid #EFEBE3;">
+            <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Últimas visitas</span>
+            <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>26 ago · Corte + barba</span><span style="color: #6F685D;">com você</span></div>
+            <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>29 jul · Corte + barba</span><span style="color: #6F685D;">com você</span></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 20px 18px; border-top: 1px solid #EFEBE3;">
+            <a href="Concluir-atendimento.dc.html" style="height: 46px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none;">Fechar comanda</a>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+              <button type="button" style="height: 40px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Chegou</button>
+              <button type="button" style="height: 40px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Mensagem</button>
+              <button type="button" style="height: 40px; border-radius: 10px; border: 1px solid #F2C9C4; background: #FFFFFF; color: #B42318; font-size: 13px; font-weight: 600; cursor: pointer;">Faltou</button>
+            </div>
+          </div>
+        </aside>
+
+        <section aria-labelledby="livres-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <h2 id="livres-t" style="margin: 0; font-size: 15px; font-weight: 600;">Horários livres hoje</h2>
+            <span style="font-size: 12px; color: #6F685D;">2h45</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; height: 38px; padding: 0 12px; border-radius: 9px; border: 1px dashed #B9B0A1;">
+            <span style="font-size: 14px; font-weight: 600;">15:45 – 17:00</span>
+            <a href="Novo-agendamento.dc.html" style="font-size: 13px; font-weight: 600; color: #57524A;">Agendar</a>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; height: 38px; padding: 0 12px; border-radius: 9px; border: 1px dashed #B9B0A1;">
+            <span style="font-size: 14px; font-weight: 600;">18:30 – 20:00</span>
+            <a href="Novo-agendamento.dc.html" style="font-size: 13px; font-weight: 600; color: #57524A;">Agendar</a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const accentSoft = mix(accent, 255, 0.88);
+
+    const hours = Array.from({ length: 12 }, (_, i) => ({ label: String(8 + i).padStart(2, '0') + ':00', top: (i * 64 - 7) + 'px' }));
+
+    const PX = 64 / 60;
+    const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const fmt = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    const style = {
+      done: { bg: '#F1EDE6', border: '1px solid #F1EDE6', nameColor: '#57524A', metaColor: '#6F685D', strike: 'none', label: 'concluído' },
+      noshow: { bg: '#FBECEA', border: '1px solid #E3A59D', nameColor: '#9B2C22', metaColor: '#9B2C22', strike: 'line-through', label: 'faltou' },
+      conf: { bg: '#FFFFFF', border: '1px solid #B9B0A1', nameColor: '#1B1916', metaColor: '#57524A', strike: 'none', label: 'confirmado' },
+      pend: { bg: '#FFF8E8', border: '1px dashed #B08A2E', nameColor: '#1B1916', metaColor: '#6E5210', strike: 'none', label: 'sem confirmação' },
+      next: { bg: accentSoft, border: '2px solid ' + accent, nameColor: '#1B1916', metaColor: mix(accent, 0, 0.35), strike: 'none', label: 'próximo · em 12 min' },
+      block: { bg: 'repeating-linear-gradient(135deg, #F7F5F0 0px, #F7F5F0 6px, #EBE6DC 6px, #EBE6DC 12px)', border: '1px solid #E2DCD1', nameColor: '#57524A', metaColor: '#6F685D', strike: 'none', label: '' }
+    };
+    const list = [
+      ['08:00', 30, 'Paulo Reis', 'Corte', 50, 'done'], ['08:30', 30, 'Henrique Dias', 'Barba', 40, 'done'],
+      ['09:00', 60, 'Marcelo Cunha', 'Corte + barba', 75, 'done'], ['10:00', 30, 'Igor Lopes', 'Corte', 50, 'done'],
+      ['10:30', 45, 'Renan Costa', 'Corte degradê', 55, 'done'], ['11:15', 30, 'Daniel Freitas', 'Barba', 40, 'noshow'],
+      ['12:00', 60, 'Almoço', '', 0, 'block'], ['13:00', 45, 'Sérgio Nunes', 'Corte degradê', 55, 'done'],
+      ['14:30', 45, 'Rafael Moura', 'Corte + barba', 75, 'next'], ['15:15', 30, 'Bruno Santos', 'Barba', 40, 'pend'],
+      ['17:00', 45, 'Felipe Araújo', 'Corte + barba', 75, 'conf'], ['18:00', 30, 'Fábio Melo', 'Corte', 50, 'conf']
+    ];
+    const items = list.map(([time, dur, name, service, price, st]) => {
+      const s = style[st];
+      const h = Math.round(dur * PX) - 3;
+      const tall = h >= 44;
+      return {
+        name, ...s,
+        range: fmt(toMin(time)) + '–' + fmt(toMin(time) + dur),
+        meta: st === 'block' ? 'horário bloqueado' : service + ' · ' + s.label,
+        price: st === 'block' ? '' : 'R$ ' + price,
+        showPrice: false,
+        isNext: st === 'next',
+        top: (Math.round((toMin(time) - 480) * PX) + 1) + 'px',
+        height: h + 'px',
+        dir: tall ? 'column' : 'row',
+        gap: tall ? '2px' : '10px',
+        pad: tall ? '6px 12px' : '0 12px',
+        title: time + ' · ' + name
+      };
+    });
+
+    return { accent, accentOnDark: mix(accent, 255, 0.35), accentSoft, accentText: mix(accent, 0, 0.35), hours, items };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input, select { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1460px; box-sizing: border-box; display: flex; background: #F5F3EE;">
+  <!-- ============ SIDEBAR ============ -->
+  <aside style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #171512; color: #A8A196; display: flex; flex-direction: column; padding: 20px 14px; gap: 18px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 6px;">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+      </div>
+      <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF; white-space: nowrap;">Barbearia Modelo</span>
+        <span style="font-size: 12px; color: #A8A196;">Plano Pro · ativo</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: 10px; background: #221F1B; border: 1px solid #2E2A25;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A8A196;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>Caixa aberto</span>
+        <span style="font-size: 17px; font-weight: 600; color: #FFFFFF;">R$ 1.140,00</span>
+      </div>
+      <button type="button" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #3A352F; background: transparent; color: #E9E4DA; font-size: 12px; font-weight: 600; cursor: pointer;">Fechar</button>
+    </div>
+
+    <nav aria-label="Menu principal" style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <a href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <span style="display: flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg></span>
+          <span style="flex-grow: 1;">Início</span>
+        </a>
+        <a href="Agenda-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span style="flex-grow: 1;">Agenda</span>
+          <span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #2E2A25; color: #E9E4DA; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">38</span>
+        </a>
+        <a href="WhatsApp-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+          <span style="flex-grow: 1;">WhatsApp</span>
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>
+        </a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Clientes</span>
+        <a href="Clientes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Clientes</a>
+        <a href="Assinantes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"></path><path d="M5 21h14"></path></svg>Assinantes</a>
+        <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; background: #2A2723; color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;"><svg style="color: {{accentOnDark}};" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"></circle><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"></path></svg>Fidelidade</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Catálogo</span>
+        <a href="Profissionais-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"></path></svg>Profissionais</a>
+        <a href="Servicos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>Serviços</a>
+        <a href="Produtos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.29 7 12 12l8.71-5"></path><path d="M12 22V12"></path></svg>Produtos</a>
+        <a href="Planos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path></svg>Planos</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Financeiro</span>
+        <a href="Caixa-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Fluxo de caixa</a>
+        <a href="Financeiro-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"></path><path d="M16 7h6v6"></path></svg>Fluxo &amp; POE</a>
+        <a href="Comissoes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>Comissões</a>
+        <a href="Indicadores-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>Indicadores</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Análises</span>
+        <a href="Ocupacao-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Ocupação</a>
+        <a href="Metas-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Metas</a>
+        <a href="Kanban-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7"></path><path d="M12 7v4"></path><path d="M16 7v9"></path></svg>Kanban</a>
+      </div>
+    </nav>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 14px; border-top: 1px solid #2E2A25;">
+      <a href="Meu-negocio-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"></path></svg>Meu negócio</a>
+      <a href="Config-geral-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"></path></svg>Configurações</a>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; border-radius: 10px; background: #221F1B;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #3A352F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0;">CA</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-size: 13px; font-weight: 600; color: #FFFFFF;">Carlos Almeida</span>
+          <span style="font-size: 12px; color: #A8A196;">Dono</span>
+        </div>
+        <button type="button" aria-label="Sair" style="width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: #A8A196; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></button>
+      </div>
+    </div>
+  </aside>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 18px;">
+
+    <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;">Fidelidade</h1>
+        <span style="font-size: 14px; color: #6F685D;">Cliente ganha pontos avaliando o atendimento e troca por desconto</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button type="button" style="height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>Atualizar</button>
+        <button type="button" style="height: 42px; padding: 0 16px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Avisar quem pode resgatar</button>
+      </div>
+    </header>
+
+    <div style="display: grid; grid-template-columns: 430px minmax(0, 1fr); gap: 20px;">
+      <section aria-labelledby="regras-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 id="regras-t" style="margin: 0; font-size: 15px; font-weight: 600;">Regras do programa</h2>
+          <button type="button" style="height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Editar regras</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <div style="padding: 10px 12px; border-radius: 10px; background: #F5F3EE; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 24px; font-weight: 700;">+10 pts</span>
+            <span style="font-size: 12px; color: #57524A;">por avaliação enviada</span>
+          </div>
+          <div style="padding: 10px 12px; border-radius: 10px; background: #F5F3EE; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 24px; font-weight: 700;">{{threshold}} pts</span>
+            <span style="font-size: 12px; color: #57524A;">para 1 resgate</span>
+          </div>
+          <div style="padding: 10px 12px; border-radius: 10px; background: #F5F3EE; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 24px; font-weight: 700; color: {{accentText}};">{{discount}}%</span>
+            <span style="font-size: 12px; color: #57524A;">de desconto</span>
+          </div>
+        </div>
+        <span style="font-size: 12px; color: #6F685D;">O link de avaliação vai no WhatsApp depois do atendimento. 5 avaliações = 1 desconto.</span>
+      </section>
+
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+        <div style="padding: 16px; border-radius: 16px; background: #1B1916; color: #FFFFFF; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;">
+          <span style="font-size: 13px; color: #C9C2B6;">Podem resgatar agora</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 34px; font-weight: 700; line-height: 1;">{{eligibleCount}}</span>
+          <span style="font-size: 12px; color: #C9C2B6;">já têm {{threshold}} pts ou mais</span>
+        </div>
+        <div style="padding: 16px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E7E2D8; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;">
+          <span style="font-size: 13px; color: #6F685D;">Falta 1 avaliação</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 34px; font-weight: 700; line-height: 1;">23</span>
+          <span style="font-size: 12px; color: #6F685D;">estão com 40 pts</span>
+        </div>
+        <div style="padding: 16px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E7E2D8; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;">
+          <span style="font-size: 13px; color: #6F685D;">Clientes com pontos</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 34px; font-weight: 700; line-height: 1;">214</span>
+          <span style="font-size: 12px; color: #6F685D;">{{pointsTotal}} pts guardados</span>
+        </div>
+        <div style="padding: 16px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E7E2D8; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;">
+          <span style="font-size: 13px; color: #6F685D;">Resgates em setembro</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 34px; font-weight: 700; line-height: 1;">{{redeemMonth}}</span>
+          <span style="font-size: 12px; color: #6F685D;">R$ 118 em descontos</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 20px; align-items: flex-start;">
+
+      <section aria-labelledby="ranking-t" style="flex-grow: 1; min-width: 0; background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #EFEBE3;">
+          <h2 id="ranking-t" style="margin: 0; font-size: 15px; font-weight: 600;">Ranking de pontos</h2>
+          <div role="group" aria-label="Filtrar clientes" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+            <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+              <button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="height: 32px; padding: 0 12px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{t.bg}}; color: {{t.fg}}; box-shadow: {{t.shadow}}; cursor: pointer;">{{t.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding: 12px 16px 0;">
+          <label style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FBFAF7;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6F685D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            <input type="search" aria-label="Buscar cliente" placeholder="Buscar por nome ou telefone" style="flex-grow: 1; border: 0; outline: none; background: transparent; font-size: 14px;">
+          </label>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 180px 116px; gap: 12px; align-items: center; padding: 14px 16px 10px; font-size: 12px; font-weight: 600; color: #6F685D; border-bottom: 1px solid #EFEBE3;">
+          <span>#</span><span>Cliente</span><span>Pontos</span><span></span>
+        </div>
+
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+          <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 180px 116px; gap: 12px; align-items: center; min-height: 62px; padding: 0 16px; border-bottom: 1px solid #F1EDE6; background: {{r.bg}};">
+            <span style="width: 28px; height: 28px; border-radius: 50%; background: {{r.rankBg}}; color: {{r.rankFg}}; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{r.rank}}</span>
+            <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.name}}</span>
+              <span style="font-size: 12px; color: #6F685D; white-space: nowrap;">{{r.sub}}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <span style="font-size: 15px; font-weight: 700;">{{r.points}}</span>
+                <span style="font-size: 12px; font-weight: {{r.hintWeight}}; color: {{r.hintColor}};">{{r.hint}}</span>
+              </div>
+              <div style="height: 6px; border-radius: 3px; background: #F1EDE6;"><div style="width: {{r.pct}}; height: 100%; border-radius: 3px; background: {{r.barColor}};"></div></div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+              <sc-if value="{{r.canRedeem}}" hint-placeholder-val="{{true}}">
+                <button type="button" onClick="{{r.pick}}" aria-label="{{r.aria}}" style="height: 36px; padding: 0 12px; border-radius: 9px; border: {{r.btnBorder}}; background: {{r.btnBg}}; color: {{r.btnFg}}; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"></rect><path d="M12 8v13"></path><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"></path><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"></path></svg>Resgatar</button>
+              </sc-if>
+              <sc-if value="{{r.isNear}}" hint-placeholder-val="{{false}}">
+                <button type="button" aria-label="{{r.aria}}" style="height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Lembrar</button>
+              </sc-if>
+              <sc-if value="{{r.isDone}}" hint-placeholder-val="{{false}}">
+                <span style="height: 26px; padding: 0 10px; border-radius: 13px; font-size: 12px; font-weight: 600; display: flex; align-items: center; background: #E8F4EC; color: #1D6B40;">Resgatado agora</span>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; font-size: 13px; color: #57524A; background: #F9F7F3;">
+          <span>{{footer}}</span>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" aria-label="Página anterior" disabled style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #EFEBE3; background: #FFFFFF; color: #B9B0A1; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+            <button type="button" aria-label="Próxima página" style="width: 36px; height: 36px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+          </div>
+        </div>
+      </section>
+
+      <div style="width: 372px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px;">
+        <aside aria-labelledby="resgate-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 18px 20px 14px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">{{sel.initials}}</div>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+              <h2 id="resgate-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 700;">{{sel.name}}</h2>
+              <span style="font-size: 13px; color: #6F685D;">{{sel.phone}}</span>
+            </div>
+          </div>
+
+          <sc-if value="{{sel.done}}" hint-placeholder-val="{{false}}">
+            <div role="status" style="margin: 0 20px; padding: 12px 14px; border-radius: 12px; background: #E8F4EC; border: 1px solid #BFDFCB; display: flex; gap: 10px;">
+              <svg style="flex-shrink: 0; margin-top: 1px;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1D6B40" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+              <span style="font-size: 13px; color: #1D6B40; line-height: 1.45;">{{sel.doneMsg}}</span>
+            </div>
+          </sc-if>
+
+          <div style="margin: 14px 20px 0; padding: 14px; border-radius: 12px; background: #F5F3EE; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+              <span style="font-size: 13px; color: #57524A;">Saldo</span>
+              <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700;">{{sel.balance}}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; border-top: 1px solid #E7E2D8;">
+              <div style="display: flex; justify-content: space-between; min-height: 34px; align-items: center; font-size: 14px; border-bottom: 1px solid #E7E2D8;"><span style="color: #6F685D;">Desconto</span><span style="font-weight: 600;">{{discount}}% no próximo atendimento</span></div>
+              <div style="display: flex; justify-content: space-between; min-height: 34px; align-items: center; font-size: 14px; border-bottom: 1px solid #E7E2D8;"><span style="color: #6F685D;">Sai do saldo</span><span style="font-weight: 600;">{{threshold}} pts</span></div>
+              <div style="display: flex; justify-content: space-between; min-height: 34px; align-items: center; font-size: 14px;"><span style="color: #6F685D;">Fica com</span><span style="font-weight: 600;">{{sel.after}}</span></div>
+            </div>
+          </div>
+
+          <div style="margin: 12px 20px 0; display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Próximo horário</span>
+            <span style="font-size: 14px; font-weight: 600;">{{sel.next}}</span>
+            <span style="font-size: 13px; color: #57524A;">{{sel.nextSub}}</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; padding: 16px 20px 18px; margin-top: 14px; border-top: 1px solid #EFEBE3;">
+            <sc-if value="{{sel.pending}}" hint-placeholder-val="{{true}}">
+              <button type="button" onClick="{{confirm}}" style="height: 44px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;">Confirmar resgate</button>
+            </sc-if>
+            <sc-if value="{{sel.pending}}" hint-placeholder-val="{{true}}">
+              <button type="button" style="height: 44px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; cursor: pointer;">Cancelar</button>
+            </sc-if>
+            <sc-if value="{{sel.done}}" hint-placeholder-val="{{false}}">
+              <button type="button" style="height: 44px; border-radius: 10px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Avisar cliente</button>
+            </sc-if>
+            <sc-if value="{{sel.done}}" hint-placeholder-val="{{false}}">
+              <button type="button" onClick="{{undo}}" style="height: 44px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; cursor: pointer;">Desfazer</button>
+            </sc-if>
+          </div>
+        </aside>
+
+        <section aria-labelledby="recentes-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column;">
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 16px 20px 10px;">
+            <h2 id="recentes-t" style="margin: 0; font-size: 15px; font-weight: 600;">Resgates recentes</h2>
+            <span style="font-size: 13px; color: #6F685D;">{{redeemMonthSub}}</span>
+          </div>
+          <sc-for list="{{recent}}" as="h" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 20px; border-top: 1px solid #F1EDE6;">
+              <div style="width: 42px; height: 38px; border-radius: 8px; background: #F5F3EE; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;">
+                <span style="font-size: 14px; font-weight: 700; line-height: 1;">{{h.day}}</span>
+                <span style="font-size: 10px; font-weight: 600; color: #6F685D; text-transform: uppercase;">{{h.month}}</span>
+              </div>
+              <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                <span style="font-size: 14px; font-weight: 600; white-space: nowrap;">{{h.name}}</span>
+                <span style="font-size: 12px; color: #6F685D; white-space: nowrap;">{{h.sub}}</span>
+              </div>
+              <span style="font-size: 14px; font-weight: 700;">{{h.value}}</span>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+    </div>
+
+    <section aria-labelledby="aval-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: grid; grid-template-columns: 300px minmax(0, 0.8fr) minmax(0, 1.2fr);">
+      <div style="padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; border-right: 1px solid #EFEBE3;">
+        <h2 id="aval-t" style="margin: 0; font-size: 15px; font-weight: 600;">O que os clientes acham</h2>
+        <div style="display: flex; align-items: baseline; gap: 14px;">
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 44px; font-weight: 700; letter-spacing: -0.03em; line-height: 1;">77</span>
+            <span style="font-size: 12px; color: #6F685D;">NPS</span>
+          </div>
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700; line-height: 1.2;">9,2</span>
+            <span style="font-size: 12px; color: #6F685D;">nota média</span>
+          </div>
+          <span style="align-self: center; height: 24px; padding: 0 9px; border-radius: 12px; font-size: 12px; font-weight: 600; display: flex; align-items: center; background: #E8F4EC; color: #1D6B40;">Excelente</span>
+        </div>
+        <span style="font-size: 13px; color: #57524A;">164 avaliações em setembro · 1.640 pts dados</span>
+        <div style="display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px;">
+          <div style="flex: 81 1 0; background: #1D6B40;"></div>
+          <div style="flex: 15 1 0; background: #C9C2B6;"></div>
+          <div style="flex: 4 1 0; background: #B42318;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #57524A;">
+          <span><strong style="color: #1D6B40;">133</strong> nota 9–10</span>
+          <span><strong>24</strong> nota 7–8</span>
+          <span><strong style="color: #B42318;">7</strong> até 6</span>
+        </div>
+      </div>
+
+      <div style="padding: 20px 22px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid #EFEBE3;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Nota por profissional</span>
+        <sc-for list="{{byBarber}}" as="b" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 40px;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #EFEBE3; color: #57524A; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">{{b.initials}}</div>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="font-weight: 600;">{{b.name}}</span><span style="color: #6F685D;">{{b.count}}</span></div>
+              <div style="height: 6px; border-radius: 3px; background: #F1EDE6;"><div style="width: {{b.pct}}; height: 100%; border-radius: 3px; background: #1B1916;"></div></div>
+            </div>
+            <span style="width: 34px; text-align: right; font-size: 15px; font-weight: 700;">{{b.score}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="padding: 20px 22px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Últimos comentários</span>
+          <a href="#" style="font-size: 13px; font-weight: 600; color: #57524A;">Ver as 164</a>
+        </div>
+        <sc-for list="{{comments}}" as="c" hint-placeholder-count="3">
+          <div style="display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid #F1EDE6;">
+            <span style="width: 34px; height: 34px; border-radius: 9px; background: {{c.scoreBg}}; color: {{c.scoreFg}}; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">{{c.score}}</span>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 14px; line-height: 1.4;">{{c.text}}</span>
+              <span style="font-size: 12px; color: #6F685D;">{{c.meta}}</span>
+            </div>
+            <sc-if value="{{c.low}}" hint-placeholder-val="{{false}}">
+              <button type="button" aria-label="{{c.aria}}" style="align-self: center; height: 36px; padding: 0 10px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer;">Responder</button>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":1440,"height":1460}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'podem', selected: 'c1', redeemed: {} };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const accentSoft = mix(accent, 255, 0.92);
+    const accentText = mix(accent, 0, 0.35);
+    const threshold = 50;
+    const discount = 10;
+    const redeemed = this.state.redeemed;
+    const redeemedCount = Object.keys(redeemed).length;
+
+    // [id, name, phone, balance, lastReview, next, nextSub]
+    const eligible = [
+      ['c1', 'Rafael Souza', '(41) 99731-2208', 80, 'avaliou ontem · nota 10', 'Sábado, 19/09 às 10h', 'Diego · Corte + barba · R$ 75 vira R$ 67,50'],
+      ['c2', 'Bruno Martins', '(41) 98820-4417', 70, 'avaliou 12/09 · nota 9', 'Nenhum horário marcado', 'O desconto fica guardado para a próxima comanda'],
+      ['c3', 'Thiago Lopes', '(41) 99102-7735', 60, 'avaliou 14/09 · nota 10', 'Quinta, 17/09 às 18h', 'Anderson · Corte degradê · R$ 55 vira R$ 49,50'],
+      ['c4', 'Felipe Araújo', '(41) 98456-1290', 60, 'avaliou 09/09 · nota 9', 'Nenhum horário marcado', 'O desconto fica guardado para a próxima comanda'],
+      ['c5', 'André Barbosa', '(41) 99677-0843', 50, 'avaliou hoje · nota 10', 'Sexta, 18/09 às 19h', 'Diego · Corte · R$ 50 vira R$ 45'],
+      ['c6', 'Caio Mendes', '(41) 98213-5562', 50, 'avaliou 11/09 · nota 8', 'Nenhum horário marcado', 'O desconto fica guardado para a próxima comanda'],
+      ['c7', 'Leonardo Dias', '(41) 99540-3318', 50, 'avaliou 05/09 · nota 10', 'Terça, 22/09 às 9h', 'Marcos · Barba · R$ 40 vira R$ 36'],
+      ['c8', 'Mateus Carvalho', '(41) 98877-6604', 50, 'avaliou 28/08 · nota 9', 'Nenhum horário marcado', 'O desconto fica guardado para a próxima comanda'],
+      ['c9', 'Renan Moreira', '(41) 99015-9927', 50, 'avaliou 22/08 · nota 10', 'Nenhum horário marcado', 'O desconto fica guardado para a próxima comanda']
+    ];
+    const near = [
+      ['n1', 'Vitor Lima', 40, 'veio 15/09 · ainda não avaliou'],
+      ['n2', 'Samuel Costa', 40, 'veio 14/09 · ainda não avaliou'],
+      ['n3', 'Eduardo Pinto', 40, 'avaliou 10/09 · nota 9'],
+      ['n4', 'João Pedro Alves', 40, 'veio 12/09 · ainda não avaliou'],
+      ['n5', 'Guilherme Reis', 40, 'avaliou 08/09 · nota 10'],
+      ['n6', 'Paulo Faria', 40, 'avaliou 03/09 · nota 9'],
+      ['n7', 'Ricardo Nogueira', 40, 'avaliou 30/08 · nota 10'],
+      ['n8', 'Fábio Tavares', 40, 'avaliou 26/08 · nota 8']
+    ];
+
+    const tabDefs = [['podem', 'Podem resgatar · ' + (9 - redeemedCount)], ['quase', 'Falta 1 avaliação · 23'], ['todos', 'Todos · 214']];
+    const tabs = tabDefs.map(([id, label]) => {
+      const on = this.state.tab === id;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A', shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none', pick: () => this.setState({ tab: id }) };
+    });
+
+    const rankColors = (i) => i === 0 ? [accent, '#FFFFFF'] : i < 3 ? ['#1B1916', '#FFFFFF'] : ['#F1EDE6', '#57524A'];
+    let rows;
+    if (this.state.tab === 'quase') {
+      rows = near.map(([id, name, bal, sub], i) => ({
+        rank: String(10 + i), rankBg: '#F1EDE6', rankFg: '#57524A',
+        name, sub, points: bal + ' pts', hint: 'faltam ' + (threshold - bal) + ' pts', hintColor: '#6F685D', hintWeight: '400',
+        pct: Math.min(100, bal / threshold * 100) + '%', barColor: '#B9B0A1',
+        canRedeem: false, isNear: true, isDone: false, bg: '#FFFFFF',
+        aria: 'Lembrar ' + name + ' pelo WhatsApp que falta 1 avaliação para o desconto'
+      }));
+    } else {
+      rows = eligible.map(([id, name, phone, bal0, sub], i) => {
+        const done = !!redeemed[id];
+        const bal = done ? bal0 - threshold : bal0;
+        const selected = this.state.selected === id;
+        const [rankBg, rankFg] = rankColors(i);
+        return {
+          rank: String(i + 1), rankBg, rankFg,
+          name, sub, points: bal + ' pts',
+          hint: done ? 'faltam ' + (threshold - bal) + ' pts' : 'pode resgatar',
+          hintColor: done ? '#6F685D' : '#1D6B40', hintWeight: done ? '400' : '600',
+          pct: Math.min(100, bal / threshold * 100) + '%', barColor: done ? '#B9B0A1' : '#1D6B40',
+          canRedeem: !done, isNear: false, isDone: done,
+          bg: selected ? accentSoft : '#FFFFFF',
+          btnBg: selected ? accent : '#FFFFFF', btnFg: selected ? '#FFFFFF' : '#1B1916', btnBorder: selected ? '0' : '1px solid #E2DCD1',
+          aria: 'Resgatar desconto para ' + name,
+          pick: () => this.setState({ selected: id })
+        };
+      });
+    }
+    const footer = this.state.tab === 'quase' ? 'Mostrando 1–8 de 23 com 40 pts' : this.state.tab === 'todos' ? 'Mostrando 1–9 de 214 clientes com pontos' : 'Mostrando os 9 que já podem resgatar';
+
+    const s = eligible.find((e) => e[0] === this.state.selected) || eligible[0];
+    const [sid, sname, sphone, sbal, , snext, snextSub] = s;
+    const sdone = !!redeemed[sid];
+    const sel = {
+      name: sname, phone: sphone,
+      initials: sname.split(' ').map((w) => w[0]).join('').slice(0, 2),
+      balance: (sdone ? sbal - threshold : sbal) + ' pts',
+      after: sdone ? (sbal - threshold) + ' pts (já descontado)' : (sbal - threshold) + ' pts',
+      next: snext, nextSub: snextSub,
+      pending: !sdone, done: sdone,
+      doneMsg: 'Resgate confirmado! ' + sname + ' ganhou ' + discount + '% de desconto. Saldo restante: ' + (sbal - threshold) + ' pts.'
+    };
+
+    const recent = [
+      ['15', 'set', 'Otávio Ramos', 'Corte + barba com Diego', '− R$ 7,50'],
+      ['14', 'set', 'Henrique Moura', 'Corte degradê com Anderson', '− R$ 5,50'],
+      ['12', 'set', 'Diogo Freire', 'Pigmentação com Vinícius', '− R$ 9,00'],
+      ['11', 'set', 'Sérgio Lacerda', 'Corte com Marcos', '− R$ 5,00'],
+      ['10', 'set', 'Alan Batista', 'Corte + barba com Diego', '− R$ 7,50']
+    ].map(([day, month, name, sub, value]) => ({ day, month, name, sub, value }));
+
+    const byBarber = [
+      ['DR', 'Diego', 9.4, 52], ['AS', 'Anderson', 9.3, 47], ['MT', 'Marcos', 9.0, 40], ['VP', 'Vinícius', 8.8, 25]
+    ].map(([initials, name, score, count]) => ({
+      initials, name, count: count + ' avaliações',
+      score: score.toFixed(1).replace('.', ','), pct: (score * 10) + '%'
+    }));
+
+    const comments = [
+      [10, 'Corte do jeito que eu pedi e ainda saí no horário.', 'Rafael Souza · com Diego · ontem', false],
+      [8, 'Gostei do corte, só a espera passou um pouco.', 'Caio Mendes · com Marcos · 11/09', false],
+      [5, 'Esperei 25 minutos além do meu horário.', 'Wagner Lemos · com Vinícius · 10/09', true]
+    ].map(([score, text, meta, low]) => ({
+      score: String(score), text, meta, low,
+      scoreBg: score >= 9 ? '#E8F4EC' : score >= 7 ? '#EFEBE3' : '#FBECEA',
+      scoreFg: score >= 9 ? '#1D6B40' : score >= 7 ? '#1B1916' : '#9B2C22',
+      aria: 'Responder ' + meta.split(' · ')[0] + ' pelo WhatsApp'
+    }));
+
+    const redeemMonth = String(17 + redeemedCount);
+    return {
+      accent, accentText,
+      accentOnDark: mix(accent, 255, 0.35),
+      threshold: String(threshold), discount: String(discount),
+      eligibleCount: String(9 - redeemedCount),
+      pointsTotal: (3960 - redeemedCount * threshold).toLocaleString('pt-BR'),
+      redeemMonth,
+      redeemMonthSub: redeemMonth + ' resgates em setembro · R$ 118 em descontos',
+      tabs, rows, footer, sel, recent, byBarber, comments,
+      confirm: () => this.setState({ redeemed: Object.assign({}, redeemed, { [sid]: true }) }),
+      undo: () => { const r = Object.assign({}, redeemed); delete r[sid]; this.setState({ redeemed: r }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

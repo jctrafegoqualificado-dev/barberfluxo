@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input { font-family: inherit; }
+  </style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1320px; box-sizing: border-box; background: #F5F3EE; overflow: hidden;">
+  <div style="box-sizing: border-box; padding: 16px 16px 110px; display: flex; flex-direction: column; gap: 14px;">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; height: 48px;">
+      <div style="display: flex; flex-direction: column;">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em;">Clientes</h1>
+      </div>
+      <button type="button" aria-label="Novo cliente" style="width: 44px; height: 44px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+    </div>
+
+    <label style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #E2DCD1; background: #FFFFFF;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6F685D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input type="search" aria-label="Buscar cliente" placeholder="Buscar por nome ou telefone" style="flex-grow: 1; border: 0; outline: none; background: transparent; font-size: 15px;">
+    </label>
+
+    <div role="group" aria-label="Grupos de clientes" style="display: flex; gap: 6px; overflow: hidden;">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="5">
+        <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="flex-shrink: 0; height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; font-size: 13px; font-weight: 600;">{{c.label}}</button>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: #FDF1E9; border: 1px solid #F3D3BD;">
+      <span style="font-size: 14px; font-weight: 600; color: #7A3410;">96 clientes passaram do tempo que costumam voltar</span>
+      <span style="font-size: 13px; color: #7A3410;">Juntos gastavam cerca de R$ 5.900 por mês.</span>
+      <button type="button" style="height: 44px; border-radius: 10px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Chamar todos de volta</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; overflow: hidden;">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+        <a href="{{r.href}}" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: {{r.divider}}; text-decoration: none; color: #1B1916;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: #EFEBE3; color: #57524A; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">{{r.initials}}</div>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; font-weight: 600;">{{r.name}}</span>
+            <span style="font-size: 12px; color: #6F685D;">{{r.sub}}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+            <span style="font-size: 13px; font-weight: 600; color: #9A4A13;">{{r.last}}</span>
+            <span style="font-size: 12px; color: #6F685D;">{{r.spent}}</span>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+
+  <nav aria-label="Navegação principal" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 8px 12px 20px; background: #FFFFFF; border-top: 1px solid #E7E2D8; display: flex; align-items: center; justify-content: space-around;">
+    <a href="Dashboard-celular.dc.html" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Início
+    </a>
+    <a href="Agenda-celular.dc.html" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>Agenda
+    </a>
+    <a href="Novo-agendamento.dc.html" aria-label="Novo agendamento" style="width: 52px; height: 52px; border-radius: 16px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; text-decoration: none;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+    </a>
+    <a href="#" aria-current="page" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #1B1916; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Clientes
+    </a>
+    <a href="#" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>Menu
+    </a>
+  </nav>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":390,"height":1320}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { chip: 'sumidos' };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+
+    const chips = [['todos', 'Todos'], ['sumidos', 'Sumidos · 96'], ['assinantes', 'Assinantes · 57'], ['aniversario', 'Aniversário · 38'], ['frequentes', 'Frequentes']]
+      .map(([id, label]) => {
+        const on = this.state.chip === id;
+        return { label, on, bg: on ? '#1B1916' : '#FFFFFF', fg: on ? '#FFFFFF' : '#57524A', border: on ? '#1B1916' : '#E2DCD1', pick: () => this.setState({ chip: id }) };
+      });
+
+    const rows = [
+      ['Gustavo Nunes', 'Diego · a cada 21 dias', 'há 38 dias', 'R$ 1.020', 'Ficha-cliente-celular.dc.html'],
+      ['Pedro Henrique', 'Marcos · a cada 30 dias', 'há 45 dias', 'R$ 495', '#'],
+      ['Lucas Andrade', 'Diego · a cada 20 dias', 'há 33 dias', 'R$ 540', '#'],
+      ['Daniel Freitas', 'Diego · 2 faltas', 'há 60 dias', 'R$ 160', '#'],
+      ['Heitor Campos', 'Marcos · a cada 25 dias', 'há 41 dias', 'R$ 270', '#'],
+      ['Jonas Leite', 'Vinícius · a cada 35 dias', 'há 52 dias', 'R$ 375', '#'],
+      ['Wesley Rocha', 'Anderson · a cada 28 dias', 'há 36 dias', 'R$ 990', '#'],
+      ['Otto Queiroz', 'Vinícius · a cada 18 dias', 'há 29 dias', 'R$ 400', '#']
+    ].map(([name, sub, last, spent, href], i) => ({
+      name, sub, last, href,
+      spent: spent + ' no total',
+      initials: name.split(' ').map((w) => w[0]).join('').slice(0, 2),
+      divider: i === 0 ? '0' : '1px solid #F1EDE6'
+    }));
+
+    return { accent, chips, rows };
+  }
+}
+</script>
+</body>
+</html>

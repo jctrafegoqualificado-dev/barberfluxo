@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { onlyDigits, phoneVariants } from "@/lib/phone";
 import { findClientOverlap } from "@/lib/appointments";
+import { notifyWaitlistSlotOpened, markWaitlistBooked } from "@/lib/waitlist";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +23,16 @@ export async function GET(req: NextRequest) {
       const endOfDay = new Date(date + "T23:59:59.999Z");
       where.date = { gte: startOfDay, lte: endOfDay };
     }
+    // Intervalo (visão Semana da agenda): ?from=AAAA-MM-DD&to=AAAA-MM-DD, no máximo 14 dias
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (!date && from && to) {
+      const ok = /^\d{4}-\d{2}-\d{2}$/;
+      if (!ok.test(from) || !ok.test(to) || to < from || (Date.parse(to) - Date.parse(from)) / 86_400_000 > 13) {
+        return NextResponse.json({ error: "Intervalo inválido (até 14 dias)" }, { status: 400 });
+      }
+      where.date = { gte: new Date(from + "T00:00:00Z"), lte: new Date(to + "T23:59:59.999Z") };
+    }
     if (barberId) where.barberId = barberId;
     if (payload.role === "BARBER") {
       const barber = await prisma.barber.findUnique({ where: { userId: payload.id } });
@@ -35,7 +46,7 @@ export async function GET(req: NextRequest) {
         barber: { include: { user: { select: { name: true } } } },
         service: true,
         services: { include: { service: { select: { id: true, name: true, price: true, duration: true } } } },
-        subscription: { select: { id: true, status: true, plan: { select: { name: true, planServices: { select: { serviceId: true } } } } } },
+        subscription: { select: { id: true, status: true, usesThisCycle: true, plan: { select: { name: true, maxUses: true, planServices: { select: { serviceId: true } } } } } },
       },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     });
@@ -252,6 +263,17 @@ export async function PATCH(req: NextRequest) {
     if (body.price !== undefined) updateData.price = body.price;
     if (extraPaymentMethod) updateData.extraPaymentMethod = extraPaymentMethod;
 
+    // Check-in ("Chegou"): true marca a hora de chegada, false desfaz.
+    if (typeof body.arrived === "boolean") updateData.arrivedAt = body.arrived ? new Date() : null;
+
+    // Gorjeta: 100% do barbeiro, fora do faturamento e da base de comissão.
+    if (body.tipAmount !== undefined) {
+      const tip = Math.max(0, Math.round(Number(body.tipAmount) * 100) / 100);
+      if (!Number.isFinite(tip)) return NextResponse.json({ error: "Gorjeta inválida" }, { status: 400 });
+      updateData.tipAmount = tip;
+      updateData.tipPaymentMethod = tip > 0 ? (body.tipPaymentMethod || paymentMethod || null) : null;
+    }
+
     // Aplica desconto se informado:
     // - Para assinante: o front já envia extraPrice descontado; aqui só salvamos discountPercent
     // - Para não-assinante: aplicamos o desconto sobre o price atual do appointment
@@ -270,6 +292,10 @@ export async function PATCH(req: NextRequest) {
     if (!previousState || previousState.barbershopId !== barbershopId) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
     }
+
+    // Hora da conclusão: o caixa do dia conta o atendimento por ela.
+    if (status === "DONE" && previousState.status !== "DONE") updateData.completedAt = new Date();
+    else if (status && status !== "DONE" && previousState.status === "DONE") updateData.completedAt = null;
 
     // Vincula assinatura retroativamente (cliente virou assinante após agendar)
     if (overrideSubscriptionId && !previousState.subscriptionId) {
@@ -366,6 +392,11 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    // ── Lista de espera: cancelamento abre vaga ──
+    if (status === "CANCELLED" && previousState.status !== "CANCELLED" && previousState.status !== "DONE") {
+      void notifyWaitlistSlotOpened({ barbershopId, date: appointment.date, barberId: appointment.barberId, startTime: appointment.startTime });
+    }
+
     // ── Audit: mudança de status ──
     if (status && previousState.status !== status) {
       void logAudit({
@@ -422,7 +453,7 @@ export async function POST(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     await requireActiveSubscription(barbershopId);
     const body = await req.json();
-    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, force, beneficiaryName } = body;
+    const { clientName, clientPhone, barberId, serviceId, serviceIds, date, startTime, force, beneficiaryName, noPlan } = body;
 
     // Aceita serviceIds (array multi-serviço) OU serviceId (legado, único)
     const ids: string[] = Array.isArray(serviceIds) && serviceIds.length > 0
@@ -488,6 +519,9 @@ export async function POST(req: NextRequest) {
           include: { plan: { include: { allowedBarbers: true } } },
         })
       : null;
+
+    // Assinante que passou do limite do plano e o dono escolheu cobrar como avulso
+    if (noPlan === true) subscription = null;
 
     // ── Sprint 1: Bloqueia se assinatura vencida ──
     if (subscription && new Date(subscription.nextBillingDate) < new Date()) {
@@ -593,6 +627,7 @@ export async function POST(req: NextRequest) {
       }
       const appt = await tx.appointment.create({
         data: {
+          source: "PANEL",
           date: appointmentDate,
           startTime,
           endTime,
@@ -665,7 +700,10 @@ export async function POST(req: NextRequest) {
       // Cliente existente + futuro: mantém o template atual (custom ou padrão)
       parts.push(shopInfo?.aiMensagemConfirmacaoAgendamento || defaultConfirmMsg);
     }
-    sendWhatsAppNotification(barbershopId, clientPhone, parts.join("\n\n")).catch(console.error);
+    // "Enviar confirmação pelo WhatsApp" desmarcado no painel → não manda (padrão: manda).
+    if (body.notifyClient !== false) {
+      sendWhatsAppNotification(barbershopId, clientPhone, parts.join("\n\n")).catch(console.error);
+    }
 
     // ── Automação de WhatsApp: aviso ao barbeiro (não notifica se o criador for o próprio barbeiro) ──
     void notifyBarberNewAppointment({
@@ -677,6 +715,9 @@ export async function POST(req: NextRequest) {
       servicesLabel: servicesStr,
       createdByUserId: payload.id,
     });
+
+    // Quem estava na lista de espera desse dia e foi encaixado sai da fila.
+    void markWaitlistBooked({ barbershopId, phone: clientPhone, date });
 
     return NextResponse.json({ appointment }, { status: 201 });
   } catch (e: unknown) {
@@ -735,6 +776,11 @@ export async function DELETE(req: NextRequest) {
     await prisma.appointment.delete({
       where: { id },
     });
+
+    // Excluir um horário que ainda ia acontecer também abre vaga para a lista de espera.
+    if (appt.status === "CONFIRMED" || appt.status === "PENDING") {
+      void notifyWaitlistSlotOpened({ barbershopId: appt.barbershopId, date: appt.date, barberId: appt.barberId, startTime: appt.startTime });
+    }
 
     // ── Audit: exclusão de agendamento ──
     void logAudit({

@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { currentMonthSP, monthStartSP } from "@/lib/monthResult";
 
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const now = new Date();
 
     const sales = await prisma.productSale.findMany({
       where: {
         barbershopId: payload.barbershopId!,
-        createdAt: { gte: startOfMonth(now), lte: endOfMonth(now) },
+        // Mês no fuso de São Paulo (no servidor UTC o mês começava às 21h do dia anterior)
+        createdAt: { gte: monthStartSP(currentMonthSP()) },
       },
       include: {
-        product: { select: { name: true, category: true } },
+        product: { select: { id: true, name: true, category: true, costPrice: true } },
+        client: { select: { name: true } },
         barber: { include: { user: { select: { name: true } } } },
       },
       orderBy: { createdAt: "desc" },

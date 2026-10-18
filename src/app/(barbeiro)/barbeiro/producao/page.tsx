@@ -1,224 +1,213 @@
 "use client";
-import { useEffect, useState } from "react";
-import { TrendingUp, Scissors, CreditCard, Package, ChevronLeft, ChevronRight, CheckCircle, UserX } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+import { Segmented } from "@/components/catalogo/SidePanel";
 
-interface ServiceRanking {
-  name: string; count: number; faturado: number;
+interface Item { id: string; date: string; time?: string; client: string | null; label: string; valor: number; comissao: number; gorjeta?: number; plano?: string; proprio?: boolean; qty?: number }
+interface Ganhos {
+  month: string; isCurrent: boolean; today: string;
+  rates: { commissionType: string; commission: number; productCommissionType: string; productCommission: number };
+  summary: {
+    total: number; servicos: number; produtos: number; gorjetas: number; vales: number; aReceber: number; assinatura: number;
+    avulsoFaturado: number; produtosVendidos: number; assinaturaServicos: number; ticketPote: number;
+    paid: { paidAt: string; amount: number } | null; subPaid: { paidAt: string; amount: number } | null;
+    valesList: { id: string; amount: number; description: string | null; createdAt: string }[];
+  };
+  forecast: number | null; previousSamePeriod: number | null;
+  kpis: { atendimentos: number; ticketMedio: number; comparecimento: number | null; noShow: number; avulsos: number; assinantes: number };
+  days: { date: string; value: number }[];
+  best: { date: string; value: number } | null;
+  services: { name: string; count: number; revenue: number }[];
+  items: { avulso: Item[]; assinatura: Item[]; produtos: Item[] };
 }
-interface DiaProd {
-  data: string; label: string; diaSemana: string; atendimentos: number; faturado: number;
-}
-interface Kpis {
-  atendimentos: number; totalAgendados: number; noShow: number; cancelled: number;
-  taxaComparecimento: number | null; faturado: number;
-  comissaoServicos: number; comissaoProdutos: number; totalComissao: number;
-  avulso: number; assinatura: number; produtos: number; faturadoProdutos: number;
-}
-interface ProducaoData {
-  mes: string; monthOffset: number;
-  barber: { commissionType: string; commission: number; productCommissionType: string; productCommission: number };
-  kpis: Kpis;
-  servicosRanking: ServiceRanking[];
-  producaoDiaria: DiaProd[];
-}
+type Tab = "avulso" | "assinatura" | "produtos";
 
-export default function ProducaoPage() {
+const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const WEEK = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+const brl = (v: number) => formatCurrency(v);
+const short = (v: number) => formatCurrency(v).replace(",00", "");
+const addMonth = (m: string, d: number) => { const [y, mm] = m.split("-").map(Number); const x = new Date(Date.UTC(y, mm - 1 + d, 1)); return `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, "0")}`; };
+const monthLabel = (m: string) => `${MONTHS[Number(m.slice(5)) - 1]} de ${m.slice(0, 4)}`;
+const ddmm = (k: string) => `${k.slice(8)}/${k.slice(5, 7)}`;
+const rate = (type: string, v: number) => (type === "FIXED" ? `${short(v)} fixo` : `${v}%`);
+
+export default function GanhosPage() {
   const { token } = useAuthStore();
-  const [data, setData] = useState<ProducaoData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [month, setMonth] = useState(0);
+  const [month, setMonth] = useState<string | null>(null);
+  const [d, setD] = useState<Ganhos | null>(null);
+  const [tab, setTab] = useState<Tab>("avulso");
+  const [shown, setShown] = useState(15);
 
-  async function load(m: number) {
-    setLoading(true);
-    const r = await fetch(`/api/barber/producao?month=${m}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setData(await r.json());
-    setLoading(false);
-  }
+  const load = useCallback(async () => {
+    setD(null);
+    const r = await fetch(`/api/barber/ganhos${month ? `?month=${month}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await r.json().catch(() => null);
+    if (r.ok && data) { setD(data); if (!month) setMonth(data.month); }
+  }, [month, token]);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { load(month); }, [month]);
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-    </div>
-  );
-  if (!data) return null;
-
-  const { kpis, servicosRanking, producaoDiaria, mes } = data;
-  const maxFaturado = Math.max(...producaoDiaria.map((d) => d.faturado), 1);
+  const m = d?.month ?? month;
+  const s = d?.summary;
+  const mName = m ? MONTHS[Number(m.slice(5)) - 1] : "";
+  const prevName = m ? MONTHS[Number(addMonth(m, -1).slice(5)) - 1] : "";
+  const delta = d && d.previousSamePeriod ? (s!.total - d.previousSamePeriod) / d.previousSamePeriod : null;
+  const maxDay = Math.max(1, ...(d?.days.map((x) => x.value) ?? [1]));
+  const maxSvc = Math.max(1, ...(d?.services.map((x) => x.count) ?? [1]));
+  const items = d ? d.items[tab] : [];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Minha Produção</h1>
-          <p className="text-zinc-500 text-sm mt-0.5 capitalize">{mes}</p>
+    <div className="flex flex-col gap-4 md:gap-5">
+      <header className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Seus ganhos</h1>
+          <span className="text-sm text-ink-3">Os mesmos números que o dono vê nas Comissões</span>
         </div>
-        <div className="flex items-center gap-2 bg-white border border-zinc-200 rounded-xl px-3 py-2">
-          <button onClick={() => setMonth((m) => m + 1)} className="p-1 rounded hover:bg-zinc-100 transition-colors">
-            <ChevronLeft className="w-4 h-4 text-zinc-500" />
-          </button>
-          <span className="text-sm font-medium text-zinc-700 min-w-[110px] text-center capitalize">{mes}</span>
-          <button onClick={() => { if (month > 0) setMonth((m) => m - 1); }}
-            disabled={month === 0}
-            className="p-1 rounded hover:bg-zinc-100 transition-colors disabled:opacity-30">
-            <ChevronRight className="w-4 h-4 text-zinc-500" />
-          </button>
-        </div>
-      </div>
+        {m && (
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => setMonth(addMonth(m, -1))} aria-label="Mês anterior" className="w-10 h-10 rounded-[10px] border border-control bg-surface inline-flex items-center justify-center hover:bg-surface-3"><ChevronLeft className="w-4 h-4" aria-hidden /></button>
+            <span className="min-w-[150px] text-center text-[15px] font-semibold first-letter:uppercase">{monthLabel(m)}</span>
+            <button type="button" onClick={() => setMonth(addMonth(m, 1))} disabled={d?.isCurrent ?? true} aria-label="Próximo mês" className="w-10 h-10 rounded-[10px] border border-control bg-surface inline-flex items-center justify-center hover:bg-surface-3 disabled:opacity-40"><ChevronRight className="w-4 h-4" aria-hidden /></button>
+          </div>
+        )}
+      </header>
 
-      {/* KPIs principais */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-primary rounded-xl p-4 text-white col-span-2 sm:col-span-1">
-          <p className="text-xs opacity-80 font-medium mb-1">Comissão total</p>
-          <p className="text-2xl font-black">{formatCurrency(kpis.totalComissao)}</p>
-          <p className="text-xs opacity-70 mt-0.5">serv. + produtos</p>
-        </div>
-        <div className="bg-white rounded-xl border border-zinc-100 p-4">
-          <div className="flex items-center gap-1 mb-1 text-zinc-400">
-            <Scissors className="w-3.5 h-3.5" />
-            <span className="text-xs">Atendimentos</span>
-          </div>
-          <p className="text-2xl font-bold text-zinc-900">{kpis.atendimentos}</p>
-          <p className="text-xs text-zinc-400">{kpis.avulso} avulsos · {kpis.assinatura} assinat.</p>
-        </div>
-        <div className="bg-white rounded-xl border border-zinc-100 p-4">
-          <div className="flex items-center gap-1 mb-1 text-zinc-400">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span className="text-xs">Faturado</span>
-          </div>
-          <p className="text-2xl font-bold text-zinc-900">{formatCurrency(kpis.faturado)}</p>
-          <p className="text-xs text-zinc-400">serviços</p>
-        </div>
-        <div className="bg-white rounded-xl border border-zinc-100 p-4">
-          <div className="flex items-center gap-1 mb-1 text-zinc-400">
-            <Package className="w-3.5 h-3.5" />
-            <span className="text-xs">Produtos</span>
-          </div>
-          <p className="text-2xl font-bold text-zinc-900">{kpis.produtos}</p>
-          <p className="text-xs text-zinc-400">{formatCurrency(kpis.faturadoProdutos)} vendidos</p>
-        </div>
-      </div>
-
-      {/* Taxa de comparecimento */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-xl border border-zinc-100 p-4 text-center">
-          <CheckCircle className="w-5 h-5 text-green-500 mx-auto mb-1" />
-          <p className="text-xl font-bold text-zinc-900">{kpis.atendimentos}</p>
-          <p className="text-xs text-zinc-400">realizados</p>
-        </div>
-        <div className="bg-white rounded-xl border border-zinc-100 p-4 text-center">
-          <UserX className="w-5 h-5 text-yellow-500 mx-auto mb-1" />
-          <p className="text-xl font-bold text-zinc-900">{kpis.noShow}</p>
-          <p className="text-xs text-zinc-400">não compareceram</p>
-        </div>
-        <div className={`rounded-xl border p-4 text-center ${
-          kpis.taxaComparecimento === null ? "bg-zinc-50 border-zinc-100" :
-          kpis.taxaComparecimento >= 80 ? "bg-green-50 border-green-100" :
-          kpis.taxaComparecimento >= 60 ? "bg-primary/10 border-primary/20" : "bg-red-50 border-red-100"
-        }`}>
-          <p className={`text-xl font-bold ${
-            kpis.taxaComparecimento === null ? "text-zinc-400" :
-            kpis.taxaComparecimento >= 80 ? "text-green-700" :
-            kpis.taxaComparecimento >= 60 ? "text-amber-700" : "text-red-600"
-          }`}>
-            {kpis.taxaComparecimento !== null ? `${kpis.taxaComparecimento}%` : "—"}
-          </p>
-          <p className="text-xs text-zinc-400">comparecimento</p>
-        </div>
-      </div>
-
-      {/* Comissões detalhadas */}
-      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
-        <h2 className="font-semibold text-zinc-900 mb-4">Detalhamento de Comissões</h2>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between py-3 border-b border-zinc-50">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Scissors className="w-4 h-4 text-primary/90" />
+      {!d || !s ? <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]"><div className="h-80 rounded-2xl bg-surface-3/60 animate-pulse" /><div className="h-80 rounded-2xl bg-surface-3/60 animate-pulse" /></div> : (
+        <>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-start">
+            {/* Comissão do mês */}
+            <section aria-label="Comissão do mês" className="rounded-2xl bg-ink text-white p-5 flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-[13px] text-night-text">{d.isCurrent ? "Sua comissão até hoje" : `Sua comissão em ${mName}`}</span>
+                <span className="font-display text-[38px] font-bold leading-none tracking-[-0.02em]">{short(s.total)}</span>
+                {d.isCurrent && (
+                  <span className="text-[13px] text-night-text">
+                    {delta != null && <>{delta >= 0 ? "↑" : "↓"} {Math.abs(Math.round(delta * 100))}% vs {prevName} no mesmo período · </>}
+                    previsão do mês <strong className="text-white">{short(d.forecast ?? s.total)}</strong>
+                  </span>
+                )}
               </div>
-              <div>
-                <p className="text-sm font-semibold text-zinc-900">Serviços</p>
-                <p className="text-xs text-zinc-400">{kpis.atendimentos} atendimentos · {formatCurrency(kpis.faturado)} faturado</p>
-              </div>
-            </div>
-            <p className="text-lg font-bold text-primary/90">{formatCurrency(kpis.comissaoServicos)}</p>
-          </div>
-          <div className="flex items-center justify-between py-3 border-b border-zinc-50">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-                <Package className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-zinc-900">Produtos</p>
-                <p className="text-xs text-zinc-400">{kpis.produtos} vendas · {formatCurrency(kpis.faturadoProdutos)} faturado</p>
-              </div>
-            </div>
-            <p className="text-lg font-bold text-primary/90">{formatCurrency(kpis.comissaoProdutos)}</p>
-          </div>
-          <div className="flex items-center justify-between pt-2">
-            <p className="font-bold text-zinc-900">Total a receber</p>
-            <p className="text-xl font-black text-primary/90">{formatCurrency(kpis.totalComissao)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Gráfico produção diária */}
-      {producaoDiaria.length > 0 && (
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
-          <h2 className="font-semibold text-zinc-900 mb-4">Produção por Dia</h2>
-          <div className="flex items-end gap-1 overflow-x-auto pb-2" style={{ minHeight: 100 }}>
-            {producaoDiaria.map((d) => {
-              const height = Math.round((d.faturado / maxFaturado) * 80);
-              return (
-                <div key={d.data} className="flex flex-col items-center gap-1 min-w-[36px]">
-                  <span className="text-xs text-zinc-400 whitespace-nowrap">{formatCurrency(d.faturado).replace("R$\u00a0", "")}</span>
-                  <div className="w-full flex items-end justify-center" style={{ height: 80 }}>
-                    <div
-                      className="w-full rounded-t-md bg-primary/80 hover:bg-primary transition-colors cursor-default"
-                      style={{ height: `${Math.max(height, 4)}%` }}
-                      title={`${d.atendimentos} atend.`}
-                    />
+              <div className="flex flex-col border-t border-night-line">
+                {[
+                  ["bg-white", "Serviços", `${rate(d.rates.commissionType, d.rates.commission)} dos avulsos${s.assinaturaServicos ? ` + ${s.assinaturaServicos} serviços de plano` : ""}`, short(s.servicos)],
+                  ["bg-primary", "Produtos", `${s.produtosVendidos} vendido${s.produtosVendidos === 1 ? "" : "s"}`, short(s.produtos)],
+                  ["bg-positive-strong", "Gorjetas", "100% suas", short(s.gorjetas)],
+                  ...(s.vales > 0 ? [["bg-danger-strong", "Vales já retirados", `${s.valesList.length} vale${s.valesList.length === 1 ? "" : "s"}`, `− ${short(s.vales)}`]] : []),
+                ].map(([dot, l, sub, v]) => (
+                  <div key={l} className="flex items-center gap-2.5 min-h-[44px] border-b border-night-line">
+                    <span className={cn("w-2 h-2 rounded-full shrink-0", dot)} />
+                    <span className="flex-1 min-w-0 text-sm truncate">{l} <span className="text-night-muted">· {sub}</span></span>
+                    <span className="text-sm font-semibold shrink-0">{v}</span>
                   </div>
-                  <span className="text-xs text-zinc-500 font-semibold">{d.label}</span>
-                  <span className="text-xs text-zinc-400">{d.diaSemana}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                ))}
+              </div>
+              <div className="flex justify-between items-baseline gap-3">
+                <span className="text-sm text-night-text">{s.paid && (s.subPaid || !s.assinatura) ? "Tudo pago" : s.paid || s.subPaid ? "Ainda a receber" : "A receber no fechamento"}</span>
+                <span className="font-display text-2xl font-bold">{short(s.aReceber)}</span>
+              </div>
+              {(s.paid || s.subPaid) && (
+                <p className="text-xs text-night-text -mt-2">
+                  {s.paid && <>Avulsos e produtos pagos em {ddmm(s.paid.paidAt.slice(0, 10))}. </>}
+                  {s.subPaid ? <>Assinaturas pagas em {ddmm(s.subPaid.paidAt.slice(0, 10))}.</> : s.paid ? <>Assinaturas: no fechamento do ciclo.</> : null}
+                </p>
+              )}
+            </section>
 
-      {/* Ranking de serviços */}
-      {servicosRanking.length > 0 && (
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm p-5">
-          <h2 className="font-semibold text-zinc-900 mb-4">Serviços Mais Realizados</h2>
-          <div className="space-y-3">
-            {servicosRanking.map((s, i) => {
-              const pct = Math.round((s.count / kpis.atendimentos) * 100);
-              return (
-                <div key={i} className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-zinc-400 w-5 text-right">{i + 1}</span>
-                  <div className="flex-1">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-zinc-800">{s.name}</span>
-                      <span className="text-xs text-zinc-400">{s.count}x · {formatCurrency(s.faturado)}</span>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-3 gap-2.5">
+                {[
+                  [String(d.kpis.atendimentos), "atendimentos"],
+                  [short(d.kpis.ticketMedio), "ticket médio"],
+                  [d.kpis.comparecimento == null ? "—" : `${Math.round(d.kpis.comparecimento * 100)}%`, d.kpis.noShow ? `compareceram · ${d.kpis.noShow} falta${d.kpis.noShow === 1 ? "" : "s"}` : "compareceram"],
+                ].map(([v, l]) => (
+                  <div key={l} className="rounded-2xl bg-surface border border-line p-3.5 flex flex-col gap-0.5 min-w-0">
+                    <span className="font-display text-xl md:text-2xl font-bold truncate">{v}</span>
+                    <span className="text-xs text-ink-3">{l}</span>
+                  </div>
+                ))}
+              </div>
+
+              <section aria-label="Atendimentos por tipo" className="rounded-2xl bg-surface border border-line p-4 flex flex-col gap-2.5">
+                <span className="text-sm font-semibold">Avulsos e assinantes</span>
+                <div className="flex h-2.5 gap-0.5 rounded-full overflow-hidden bg-track">
+                  {d.kpis.avulsos > 0 && <div className="bg-ink" style={{ flex: d.kpis.avulsos }} />}
+                  {d.kpis.assinantes > 0 && <div className="bg-primary" style={{ flex: d.kpis.assinantes }} />}
+                </div>
+                <div className="flex justify-between text-xs text-ink-2 gap-2 flex-wrap">
+                  <span><strong className="text-ink">{d.kpis.avulsos}</strong> avulsos</span>
+                  <span><strong className="text-ink">{d.kpis.assinantes}</strong> de assinantes · pelo pote{s.ticketPote ? ` (${brl(s.ticketPote)} por serviço)` : ""}</span>
+                </div>
+              </section>
+
+              <section aria-label="Serviços mais feitos" className="rounded-2xl bg-surface border border-line p-4 flex flex-col gap-2.5">
+                <span className="text-sm font-semibold">Serviços que você mais fez</span>
+                {d.services.length === 0 ? <p className="text-[13px] text-ink-3">Nenhum atendimento concluído.</p> : d.services.map((x) => (
+                  <div key={x.name} className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[13px] gap-2"><span className="font-semibold truncate">{x.name}</span><span className="text-ink-3 shrink-0">{x.count}× {x.revenue ? `· ${short(x.revenue)}` : ""}</span></div>
+                    <div className="h-1.5 rounded-full bg-track"><div className="h-full rounded-full bg-ink" style={{ width: `${(x.count / maxSvc) * 100}%` }} /></div>
+                  </div>
+                ))}
+              </section>
+            </div>
+          </div>
+
+          {/* Comissão por dia */}
+          <section aria-label="Comissão por dia" className="rounded-2xl bg-surface border border-line p-4 md:p-5 flex flex-col gap-3">
+            <div className="flex justify-between items-baseline gap-2 flex-wrap">
+              <span className="text-sm font-semibold">Comissão por dia</span>
+              {d.best && <span className="text-xs text-ink-3">melhor dia: {WEEK[new Date(`${d.best.date}T12:00:00Z`).getUTCDay()]} {Number(d.best.date.slice(8))} · {short(d.best.value)}</span>}
+            </div>
+            <div className="flex items-end gap-[3px] h-[130px]" role="img" aria-label="Comissão por dia do mês">
+              {d.days.map((x) => (
+                <div key={x.date} title={`${ddmm(x.date)} · ${x.value ? brl(x.value) : "sem atendimento"}`}
+                  className={cn("flex-1 rounded-t-[3px] min-w-0", x.date === d.today ? "bg-primary" : x.value ? "bg-bar" : "bg-track")}
+                  style={{ height: x.value ? `${Math.max(4, (x.value / maxDay) * 100)}%` : "3px" }} />
+              ))}
+            </div>
+            <div className="flex justify-between text-[11px] text-ink-3">
+              <span>1</span>
+              {d.days.length > 10 && <span>{Math.round(d.days.length / 2)}</span>}
+              <span className={cn(d.isCurrent && "text-primary font-semibold")}>{d.isCurrent ? "hoje" : d.days.length}</span>
+            </div>
+          </section>
+
+          {/* Extrato */}
+          <section aria-label="Extrato" className="rounded-2xl bg-surface border border-line overflow-hidden">
+            <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-line-2">
+              <span className="text-[15px] font-semibold">Extrato de {mName}</span>
+              <Segmented value={tab} onChange={(v) => { setTab(v); setShown(15); }} label="Tipo"
+                options={[["avulso", `Avulsos · ${d.items.avulso.length}`], ["assinatura", `Assinaturas · ${d.items.assinatura.length}`], ["produtos", `Produtos · ${d.items.produtos.length}`]]} />
+            </div>
+            {items.length === 0 ? <p className="px-4 py-8 text-center text-[13px] text-ink-3">Nada aqui neste mês.</p> : (
+              <div className="divide-y divide-line-3">
+                {items.slice(0, shown).map((x) => (
+                  <div key={x.id} className="flex items-center gap-3 px-4 min-h-[60px] py-2">
+                    <div className="w-12 shrink-0 flex flex-col">
+                      <span className="text-[13px] font-semibold">{ddmm(x.date)}</span>
+                      {x.time && <span className="text-[11px] text-ink-3">{x.time}</span>}
                     </div>
-                    <div className="w-full bg-zinc-100 rounded-full h-1.5">
-                      <div className="h-1.5 rounded-full bg-primary/80" style={{ width: `${pct}%` }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{tab === "produtos" ? x.label : x.client}</p>
+                      <p className="text-xs text-ink-3 truncate">
+                        {tab === "produtos" ? `${x.client ?? "venda avulsa"} · ${x.qty}×` : x.label}
+                        {x.plano && <> · <span className="text-primary font-semibold">{x.plano}{x.proprio ? " (comissão própria)" : ""}</span></>}
+                        {x.gorjeta ? <> · gorjeta {brl(x.gorjeta)}</> : null}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-ink-3">{brl(x.valor)}</p>
+                      <p className="text-sm font-bold">+{brl(x.comissao + (x.gorjeta ?? 0))}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-semibold text-zinc-500 w-8 text-right">{pct}%</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                ))}
+              </div>
+            )}
+            {items.length > shown && (
+              <button type="button" onClick={() => setShown((n) => n + 30)} className="w-full h-11 border-t border-line-2 text-[13px] font-semibold text-ink-2 hover:bg-surface-3">Mostrar mais ({items.length - shown})</button>
+            )}
+          </section>
+        </>
       )}
     </div>
   );

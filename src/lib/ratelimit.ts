@@ -105,6 +105,15 @@ export const phoneLookupOffOriginRatelimit: Limiter = redis
   ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "15 m"), prefix: "rl:phone-offorigin", analytics: false })
   : noopLimiter;
 
+// "Esqueci a senha": 3 pedidos por e-mail e 10 por IP a cada 15 minutos (evita encher a
+// caixa de alguém de e-mails e varrer quais e-mails têm conta)
+export const passwordResetRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, "15 m"), prefix: "rl:pw-reset", analytics: false })
+  : noopLimiter;
+export const passwordResetIpRatelimit: Limiter = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, "15 m"), prefix: "rl:pw-reset-ip", analytics: false })
+  : noopLimiter;
+
 // Helpers — extrai IP do request de forma segura
 export function getIp(req: { headers: { get(k: string): string | null } }): string {
   const forwarded = req.headers.get("x-forwarded-for");

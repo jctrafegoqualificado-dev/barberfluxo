@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { shopClientWhere } from "@/lib/shopClients";
 
 /**
  * GET /api/booking/{slug}/cliente?phone=...
@@ -47,14 +48,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
           },
           {
             // Vínculo com esta barbearia
-            OR: [
-              { appointments: { some: { barbershopId: shop.id } } },
-              { subscriptions: { some: { barbershopId: shop.id } } },
-            ],
+            ...shopClientWhere(shop.id),
           },
         ],
       },
-      select: { name: true },
+      select: {
+        name: true,
+        // Última visita concluída nesta barbearia: "Repita o último corte"
+        appointments: {
+          where: { barbershopId: shop.id, status: "DONE" },
+          orderBy: [{ date: "desc" }, { startTime: "desc" }],
+          take: 1,
+          select: { date: true, barberId: true, serviceId: true, services: { select: { serviceId: true } } },
+        },
+      },
     });
 
     if (!user) return NextResponse.json({ found: false });
@@ -64,7 +71,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     const firstName = parts[0] ?? "";
     const lastName = parts.slice(1).join(" ");
 
-    return NextResponse.json({ found: true, firstName, lastName });
+    const last = user.appointments[0];
+    const lastVisit = last
+      ? {
+          date: last.date.toISOString().slice(0, 10),
+          barberId: last.barberId,
+          serviceIds: last.services.length > 0 ? last.services.map((s) => s.serviceId) : last.serviceId ? [last.serviceId] : [],
+        }
+      : null;
+
+    return NextResponse.json({ found: true, firstName, lastName, lastVisit });
   } catch {
     return NextResponse.json({ found: false });
   }

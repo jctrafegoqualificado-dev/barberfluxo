@@ -11,10 +11,13 @@ import { SAAS_PLANS, formatBRL, type SaasPlanDef } from "@/lib/saasPlans";
 
 const PLANS = (Object.values(SAAS_PLANS) as SaasPlanDef[]).map((p) => ({
   value: p.key,
-  label: p.key,
+  label: p.label + (p.key === "BASIC" ? " (antigo)" : ""),
   price: p.monthlyPrice,
   desc: `${formatBRL(p.monthlyPrice)}/mês${p.legacy ? " (legado)" : ""}`,
 }));
+
+const STATUS_LABEL: Record<string, string> = { ACTIVE: "Em dia", TRIAL: "Sem pagamento", OVERDUE: "Atrasada", PAUSED: "Pausada", CANCELLED: "Cancelada", PENDING: "Sem pagamento" };
+const METHOD_LABEL: Record<string, string> = { PIX: "Pix", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito", BOLETO: "Boleto", CASH: "Dinheiro", ACCOUNT_MONEY: "Saldo Mercado Pago" };
 
 function planPrice(plan: string) {
   return PLANS.find(p => p.value === plan)?.desc ?? "—";
@@ -181,18 +184,18 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-ink border-t-transparent rounded-full animate-spin" />
     </div>
   );
   if (!data) {
     const notFound = loadError === "NOT_FOUND";
     return (
       <div className="max-w-5xl mx-auto p-8">
-        <Link href="/plataforma" className="inline-block mb-4 text-sm text-zinc-400 hover:text-white transition-colors">← Voltar</Link>
-        <div className={`rounded-2xl border p-8 text-center ${notFound ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-red-500/20 bg-red-500/5 text-red-400"}`}>
+        <Link href="/plataforma/clientes" className="inline-block mb-4 text-sm text-ink-3 hover:text-ink transition-colors">← Voltar</Link>
+        <div className={`rounded-2xl border p-8 text-center ${notFound ? "border-line bg-surface text-ink-2" : "border-danger/20 bg-danger-soft text-danger"}`}>
           <p className="font-semibold">{notFound ? "Assinante não encontrado." : (loadError || "Erro ao carregar os dados.")}</p>
           {!notFound && (
-            <button onClick={loadData} className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm rounded-lg transition-colors">
+            <button onClick={loadData} className="mt-4 px-4 py-2 bg-surface-2 hover:bg-surface-2 text-ink-2 text-sm rounded-lg transition-colors">
               Tentar novamente
             </button>
           )}
@@ -213,8 +216,8 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
       {feedback && (
         <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold ${
           feedback.type === "success"
-            ? "bg-emerald-500 text-white"
-            : "bg-red-500 text-white"
+            ? "bg-positive-strong text-white"
+            : "bg-danger-strong text-white"
         }`}>
           {feedback.type === "success" ? "✅ " : "❌ "}{feedback.msg}
         </div>
@@ -222,22 +225,22 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
 
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/plataforma" className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+        <Link href="/plataforma/clientes" className="p-2 hover:bg-surface-2 rounded-lg text-ink-3 hover:text-ink transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+          <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight flex items-center gap-3">
             {shop.name}
             <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase ${
-              shop.active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+              shop.active ? "bg-positive-soft text-positive" : "bg-danger-soft text-danger"
             }`}>
               {shop.active ? "Ativo" : "Bloqueado"}
             </span>
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">
+          <p className="text-ink-3 text-sm mt-1">
             Assinante desde {new Date(shop.createdAt).toLocaleDateString("pt-BR")}
             {lastPayment && (
-              <span className="ml-3 text-zinc-600">
+              <span className="ml-3 text-ink-4">
                 · Último pagamento: {new Date(lastPayment.paidAt || lastPayment.createdAt).toLocaleDateString("pt-BR")}
               </span>
             )}
@@ -247,7 +250,7 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
           <button
             onClick={handleGenerateMpLink}
             disabled={actionLoading === "mp-link"}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-ink hover:bg-ink/90 text-white transition-colors disabled:opacity-50"
           >
             <CreditCard className="w-4 h-4" />
             {actionLoading === "mp-link" ? "Gerando..." : "Gerar Link MP"}
@@ -257,8 +260,8 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
             disabled={actionLoading === "status"}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 ${
               shop.active
-                ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
-                : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                ? "bg-danger-soft text-danger hover:bg-danger-soft border border-danger/20"
+                : "bg-positive-soft text-positive hover:bg-positive-soft border border-positive/20"
             }`}
           >
             {shop.active
@@ -272,85 +275,85 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
       {/* Info + Plan + Financeiro */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Titular */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Informações do Titular</h3>
+        <div className="bg-surface border border-line rounded-2xl p-6 space-y-4">
+          <h3 className="text-xs font-bold text-ink-3 uppercase tracking-wider">Informações do Titular</h3>
           <div className="space-y-3">
-            <div className="flex items-center gap-3 text-zinc-300 text-sm">
-              <User className="w-4 h-4 text-zinc-500 shrink-0" /> {shop.owner?.name || "—"}
+            <div className="flex items-center gap-3 text-ink-2 text-sm">
+              <User className="w-4 h-4 text-ink-3 shrink-0" /> {shop.owner?.name || "—"}
             </div>
-            <div className="flex items-center gap-3 text-zinc-300 text-sm">
-              <Mail className="w-4 h-4 text-zinc-500 shrink-0" /> {shop.owner?.email || "—"}
+            <div className="flex items-center gap-3 text-ink-2 text-sm">
+              <Mail className="w-4 h-4 text-ink-3 shrink-0" /> {shop.owner?.email || "—"}
             </div>
-            <div className="flex items-center gap-3 text-zinc-300 text-sm">
-              <Phone className="w-4 h-4 text-zinc-500 shrink-0" /> {shop.owner?.phone || "Não informado"}
+            <div className="flex items-center gap-3 text-ink-2 text-sm">
+              <Phone className="w-4 h-4 text-ink-3 shrink-0" /> {shop.owner?.phone || "Não informado"}
             </div>
-            <div className="flex items-center gap-3 text-zinc-300 text-sm">
-              <Calendar className="w-4 h-4 text-zinc-500 shrink-0" />
+            <div className="flex items-center gap-3 text-ink-2 text-sm">
+              <Calendar className="w-4 h-4 text-ink-3 shrink-0" />
               Criado em {new Date(shop.createdAt).toLocaleDateString("pt-BR")}
             </div>
           </div>
         </div>
 
         {/* Plano */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Plano Atual</h3>
+        <div className="bg-surface border border-line rounded-2xl p-6 space-y-4">
+          <h3 className="text-xs font-bold text-ink-3 uppercase tracking-wider">Plano Atual</h3>
           <div className="flex items-center gap-3">
-            <Crown className={`w-10 h-10 ${["PREMIUM","ELITE"].includes(shop.saasPlan) ? "text-violet-400" : shop.saasPlan === "PRO" ? "text-amber-400" : "text-zinc-500"}`} />
+            <Crown className={`w-10 h-10 ${["PREMIUM","ELITE"].includes(shop.saasPlan) ? "text-ink-2" : shop.saasPlan === "PRO" ? "text-warning" : "text-ink-3"}`} />
             <div>
-              <p className="text-2xl font-black text-white">{shop.saasPlan}</p>
-              <p className="text-xs text-zinc-500">{planPrice(shop.saasPlan)}</p>
+              <p className="text-2xl font-bold text-ink">{PLANS.find((p) => p.value === shop.saasPlan)?.label ?? shop.saasPlan}</p>
+              <p className="text-xs text-ink-3">{planPrice(shop.saasPlan)}</p>
             </div>
           </div>
 
           {/* Badge de status */}
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${
-            shop.saasStatus === "ACTIVE"    ? "bg-emerald-500/10 text-emerald-400" :
-            shop.saasStatus === "TRIAL"     ? "bg-amber-500/10 text-amber-400" :
-            shop.saasStatus === "PAUSED"    ? "bg-blue-500/10 text-blue-400" :
-            shop.saasStatus === "CANCELLED" ? "bg-zinc-700 text-zinc-400" :
-            "bg-red-500/10 text-red-400"
+            shop.saasStatus === "ACTIVE"    ? "bg-positive-soft text-positive" :
+            shop.saasStatus === "TRIAL"     ? "bg-warning-soft text-warning" :
+            shop.saasStatus === "PAUSED"    ? "bg-surface-2 text-ink-2" :
+            shop.saasStatus === "CANCELLED" ? "bg-surface-2 text-ink-3" :
+            "bg-danger-soft text-danger"
           }`}>
             <span className="w-1.5 h-1.5 rounded-full bg-current" />
-            {shop.saasStatus ?? "TRIAL"}
+            {STATUS_LABEL[shop.saasStatus ?? "TRIAL"] ?? shop.saasStatus}
           </div>
 
-          <div className="pt-4 border-t border-zinc-800">
-            <label className="block text-xs font-medium text-zinc-500 mb-2">Alterar Plano</label>
+          <div className="pt-4 border-t border-line">
+            <label className="block text-xs font-medium text-ink-3 mb-2">Alterar Plano</label>
             <select
               value={shop.saasPlan}
               onChange={(e) => handleChangePlan(e.target.value)}
               disabled={actionLoading === "plan"}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none cursor-pointer text-sm"
+              className="w-full bg-ground border border-line rounded-xl px-4 py-3 text-ink focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer text-sm"
             >
               {PLANS.map(p => (
                 <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>
               ))}
             </select>
-            <p className="text-xs text-zinc-600 mt-1.5">Alterar plano ativa o status automaticamente.</p>
+            <p className="text-xs text-ink-4 mt-1.5">Alterar plano ativa o status automaticamente.</p>
           </div>
         </div>
 
         {/* Financeiro */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Resumo Financeiro</h3>
+        <div className="bg-surface border border-line rounded-2xl p-6 space-y-4">
+          <h3 className="text-xs font-bold text-ink-3 uppercase tracking-wider">Resumo Financeiro</h3>
           <div>
-            <p className="text-sm text-zinc-500">Total já recebido</p>
-            <p className="text-3xl font-black text-emerald-400">{formatCurrency(totalPaid)}</p>
+            <p className="text-sm text-ink-3">Total já recebido</p>
+            <p className="text-3xl font-bold text-positive">{formatCurrency(totalPaid)}</p>
           </div>
-          <div className="pt-4 border-t border-zinc-800 flex justify-between">
+          <div className="pt-4 border-t border-line flex justify-between">
             <div>
-              <p className="text-xs text-zinc-500">Pagamentos</p>
-              <p className="text-xl font-bold text-white">{paidCount}</p>
+              <p className="text-xs text-ink-3">Pagamentos</p>
+              <p className="text-xl font-bold text-ink">{paidCount}</p>
             </div>
             <div>
-              <p className="text-xs text-zinc-500">Ticket Médio</p>
-              <p className="text-xl font-bold text-white">{paidCount > 0 ? formatCurrency(totalPaid / paidCount) : "—"}</p>
+              <p className="text-xs text-ink-3">Ticket Médio</p>
+              <p className="text-xl font-bold text-ink">{paidCount > 0 ? formatCurrency(totalPaid / paidCount) : "—"}</p>
             </div>
           </div>
           {lastPayment && (
-            <div className="pt-3 border-t border-zinc-800">
-              <p className="text-xs text-zinc-500">Último pagamento</p>
-              <p className="text-sm font-semibold text-zinc-300">
+            <div className="pt-3 border-t border-line">
+              <p className="text-xs text-ink-3">Último pagamento</p>
+              <p className="text-sm font-semibold text-ink-2">
                 {new Date(lastPayment.paidAt || lastPayment.createdAt).toLocaleDateString("pt-BR")} · {formatCurrency(lastPayment.amount)}
               </p>
             </div>
@@ -359,27 +362,27 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Histórico de Pagamentos */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+      <div className="bg-surface border border-line rounded-2xl p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <BadgeDollarSign className="w-5 h-5 text-emerald-500" />
+            <h2 className="text-lg font-bold text-ink flex items-center gap-2">
+              <BadgeDollarSign className="w-5 h-5 text-positive" />
               Histórico de Pagamentos (Mensalidades SaaS)
             </h2>
-            <p className="text-sm text-zinc-500">Pagamentos da mensalidade IaDeBarbearia desta barbearia.</p>
+            <p className="text-sm text-ink-3">Pagamentos da mensalidade IaDeBarbearia desta barbearia.</p>
           </div>
           <button
             onClick={() => { setActivatePlan(shop.saasPlan); setShowPaymentModal(true); }}
-            className="flex items-center gap-2 bg-zinc-100 hover:bg-white text-zinc-900 font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+            className="flex items-center gap-2 bg-ink hover:bg-ink/90 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
           >
             <Plus className="w-4 h-4" /> Registrar Pagamento Manual
           </button>
         </div>
 
-        <div className="overflow-hidden border border-zinc-800 rounded-xl">
+        <div className="overflow-hidden border border-line rounded-xl">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-zinc-950 text-sm font-semibold text-zinc-400 border-b border-zinc-800">
+              <tr className="bg-ground text-sm font-semibold text-ink-3 border-b border-line">
                 <th className="p-4">Data</th>
                 <th className="p-4">Valor</th>
                 <th className="p-4">Método</th>
@@ -388,35 +391,35 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
                 <th className="p-4">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800 text-sm">
+            <tbody className="divide-y divide-line-2 text-sm">
               {payments.map((p: any) => {
                 // Extrai observação do externalId se for manual
                 const isManual = !p.externalId || p.externalId.startsWith("manual|");
                 const notes = p.externalId?.startsWith("manual|") ? p.externalId.replace("manual|", "") : null;
 
                 return (
-                  <tr key={p.id} className="hover:bg-zinc-800/30">
-                    <td className="p-4 text-zinc-300">
+                  <tr key={p.id} className="hover:bg-ground">
+                    <td className="p-4 text-ink-2">
                       {new Date(p.paidAt || p.createdAt).toLocaleDateString("pt-BR")}{" "}
-                      <span className="text-zinc-600 text-xs">
+                      <span className="text-ink-4 text-xs">
                         às {new Date(p.paidAt || p.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </td>
-                    <td className="p-4 font-bold text-white">{formatCurrency(p.amount)}</td>
-                    <td className="p-4 text-zinc-400">{p.method}</td>
-                    <td className="p-4 text-zinc-500 text-xs">{notes || "—"}</td>
+                    <td className="p-4 font-bold text-ink">{formatCurrency(p.amount)}</td>
+                    <td className="p-4 text-ink-3">{METHOD_LABEL[p.method] ?? p.method}</td>
+                    <td className="p-4 text-ink-3 text-xs">{notes || "—"}</td>
                     <td className="p-4">
                       {isManual
-                        ? <span className="text-zinc-400 text-xs font-bold bg-zinc-800 px-2 py-0.5 rounded-full">Manual</span>
-                        : <span className="text-indigo-400 text-xs font-bold bg-indigo-400/10 px-2 py-0.5 rounded-full">Mercado Pago</span>
+                        ? <span className="text-ink-3 text-xs font-bold bg-surface-2 px-2 py-0.5 rounded-full">Manual</span>
+                        : <span className="text-ink text-xs font-bold bg-surface-2 px-2 py-0.5 rounded-full">Mercado Pago</span>
                       }
                     </td>
                     <td className="p-4">
                       {p.status === "PAID"
-                        ? <span className="text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full text-xs font-bold">PAGO</span>
+                        ? <span className="text-positive bg-positive-soft px-2 py-1 rounded-full text-xs font-bold">PAGO</span>
                         : p.status === "PENDING"
-                        ? <span className="text-amber-400 bg-amber-400/10 px-2 py-1 rounded-full text-xs font-bold">PENDENTE</span>
-                        : <span className="text-red-400 bg-red-400/10 px-2 py-1 rounded-full text-xs font-bold">{p.status}</span>
+                        ? <span className="text-warning bg-warning-soft px-2 py-1 rounded-full text-xs font-bold">PENDENTE</span>
+                        : <span className="text-danger bg-danger-soft px-2 py-1 rounded-full text-xs font-bold">{p.status}</span>
                       }
                     </td>
                   </tr>
@@ -424,7 +427,7 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
               })}
               {payments.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-zinc-500">Nenhum pagamento registrado ainda.</td>
+                  <td colSpan={6} className="p-8 text-center text-ink-3">Nenhum pagamento registrado ainda.</td>
                 </tr>
               )}
             </tbody>
@@ -434,27 +437,27 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
 
       {/* Modal — Pagamento Manual */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-md space-y-4">
-            <h2 className="text-xl font-bold text-white">Registrar Pagamento Manual</h2>
-            <p className="text-sm text-zinc-400">Use quando o assinante pagou via PIX direto, transferência ou outro meio fora do Mercado Pago.</p>
+        <div className="fixed inset-0 bg-ink/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-surface border border-line rounded-2xl p-6 w-full max-w-md space-y-4">
+            <h2 className="text-xl font-bold text-ink">Registrar Pagamento Manual</h2>
+            <p className="text-sm text-ink-3">Use quando o assinante pagou via PIX direto, transferência ou outro meio fora do Mercado Pago.</p>
 
             <form onSubmit={handleRegisterPayment} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Valor Recebido (R$)</label>
+                <label className="block text-sm font-medium text-ink-3 mb-1">Valor Recebido (R$)</label>
                 <input
                   type="number" step="0.01" required
                   value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-ground border border-line rounded-xl px-4 py-3 text-ink focus:outline-none focus:border-primary transition-colors"
                   placeholder="Ex: 197.90"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">Forma de Pagamento</label>
+                <label className="block text-sm font-medium text-ink-3 mb-1">Forma de Pagamento</label>
                 <select
                   value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none"
+                  className="w-full bg-ground border border-line rounded-xl px-4 py-3 text-ink focus:outline-none focus:border-primary transition-colors appearance-none"
                 >
                   <option value="PIX">PIX</option>
                   <option value="CREDIT_CARD">Cartão de Crédito</option>
@@ -463,13 +466,13 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">
+                <label className="block text-sm font-medium text-ink-3 mb-1">
                   Ativar / confirmar plano
-                  <span className="text-zinc-600 font-normal ml-1">(marca como ATIVO)</span>
+                  <span className="text-ink-4 font-normal ml-1">(marca como ATIVO)</span>
                 </label>
                 <select
                   value={activatePlan} onChange={e => setActivatePlan(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none"
+                  className="w-full bg-ground border border-line rounded-xl px-4 py-3 text-ink focus:outline-none focus:border-primary transition-colors appearance-none"
                 >
                   {PLANS.map(p => (
                     <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>
@@ -478,13 +481,13 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">
-                  Observação <span className="text-zinc-600 font-normal">(opcional)</span>
+                <label className="block text-sm font-medium text-ink-3 mb-1">
+                  Observação <span className="text-ink-4 font-normal">(opcional)</span>
                 </label>
                 <input
                   type="text"
                   value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-ground border border-line rounded-xl px-4 py-3 text-ink focus:outline-none focus:border-primary transition-colors"
                   placeholder="Ex: Pago via Nubank, chave CPF"
                 />
               </div>
@@ -493,14 +496,14 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
                 <button
                   type="button"
                   onClick={() => setShowPaymentModal(false)}
-                  className="flex-1 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-medium transition-colors"
+                  className="flex-1 px-4 py-3 bg-surface-2 hover:bg-surface-2 text-ink rounded-xl font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading === "payment"}
-                  className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-3 bg-ink hover:bg-ink/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
                 >
                   {actionLoading === "payment" ? "Salvando..." : "Registrar e Ativar"}
                 </button>
@@ -512,43 +515,43 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
 
       {/* Modal — Link MP */}
       {showMpModal && mpCheckoutUrl && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4">
+        <div className="fixed inset-0 bg-ink/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-surface border border-line rounded-2xl p-6 w-full max-w-lg space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-indigo-400" />
+              <div className="w-10 h-10 bg-surface-2 rounded-xl flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-ink" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">Link de Assinatura Gerado!</h2>
-                <p className="text-sm text-zinc-400">Envie para o dono da barbearia autorizar o débito automático.</p>
+                <h2 className="text-xl font-bold text-ink">Link de Assinatura Gerado!</h2>
+                <p className="text-sm text-ink-3">Envie para o dono da barbearia autorizar o débito automático.</p>
               </div>
             </div>
-            <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
-              <p className="text-xs text-zinc-500 mb-2 font-medium">URL do Checkout Mercado Pago:</p>
-              <p className="text-xs text-indigo-300 break-all leading-relaxed">{mpCheckoutUrl}</p>
+            <div className="bg-ground border border-line rounded-xl p-4">
+              <p className="text-xs text-ink-3 mb-2 font-medium">URL do Checkout Mercado Pago:</p>
+              <p className="text-xs text-ink-2 break-all leading-relaxed">{mpCheckoutUrl}</p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={handleCopyLink}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors text-sm"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-ink hover:bg-ink/90 text-white rounded-xl font-medium transition-colors text-sm"
               >
                 {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copied ? "Copiado!" : "Copiar Link"}
               </button>
               <a
                 href={mpCheckoutUrl} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium transition-colors text-sm"
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-surface-2 hover:bg-surface-2 text-ink-2 rounded-xl font-medium transition-colors text-sm"
               >
                 <ExternalLink className="w-4 h-4" /> Abrir
               </a>
               <button
                 onClick={() => setShowMpModal(false)}
-                className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 rounded-xl font-medium transition-colors text-sm"
+                className="px-4 py-3 bg-surface-2 hover:bg-surface-2 text-ink-3 rounded-xl font-medium transition-colors text-sm"
               >
                 Fechar
               </button>
             </div>
-            <p className="text-xs text-zinc-500 text-center">
+            <p className="text-xs text-ink-3 text-center">
               💡 O cliente autoriza uma vez e o Mercado Pago cobra automaticamente todo mês.
             </p>
           </div>

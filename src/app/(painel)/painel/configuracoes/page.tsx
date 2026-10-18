@@ -1,1236 +1,499 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Clock, Copy, Check, Save, Settings, CreditCard, Bell, XCircle, Ban, CalendarClock, Calendar, Plus, Trash2, KeyRound, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, UserX, Tag, ChevronRight, Bot, RefreshCw, MessageSquare, Sparkles, HelpCircle } from "lucide-react";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Copy, ExternalLink, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
+import { cn, getInitials } from "@/lib/utils";
 import Button from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-
-const RETENTION_DEFAULT_MESSAGE = `Olá, {{nome}}! 😊\n\nSentimos sua falta! Faz {{dias}} dia{{plural}} que você não passa por aqui.\n\nQue tal agendar um horário? Estamos te esperando! ✂️`;
-
-const RETENTION_VARIABLES = [
-  { tag: "{{nome}}", desc: "Primeiro nome do cliente" },
-  { tag: "{{dias}}", desc: "Dias sem visita" },
-  { tag: "{{empresa}}", desc: "Nome do estabelecimento" },
-];
+import { Field, fieldCls } from "@/components/catalogo/SidePanel";
+import { ConfigNav, ConfigSection, Pills, ToggleRow, type NavSection } from "@/components/config/ConfigNav";
 
 const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-const DAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const ORDER = [1, 2, 3, 4, 5, 6, 0]; // segunda primeiro
+const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const RET_DEFAULT = "Olá, {{nome}}! 😊\n\nSentimos sua falta! Faz {{dias}} dias que você não passa por aqui.\n\nQue tal agendar um horário? Estamos te esperando na {{empresa}}! ✂️";
+const RET_VARS: [string, string][] = [["{{nome}}", "Nome do cliente"], ["{{dias}}", "Dias sem vir"], ["{{empresa}}", "Nome da barbearia"]];
 
-interface HourRow {
-  dayOfWeek: number;
-  isOpen: boolean;
-  openTime: string;
-  closeTime: string;
+interface Hour { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }
+interface Special { id: string; date: string; isClosed: boolean; openTime: string | null; closeTime: string | null; reason: string | null }
+interface Dados {
+  name: string; phone: string; contactEmail: string; instagram: string; cnpj: string;
+  zipCode: string; address: string; streetNumber: string; streetComplement: string; neighborhood: string; city: string; state: string;
+  ownerName: string; ownerEmail: string; slug: string;
 }
+interface Regras {
+  cancelByClientEnabled: boolean; minCancelHours: number; autoNoShowEnabled: boolean; autoNoShowHours: number; reminderMinutes: number;
+  discountServicesEnabled: boolean; discountServicesMax: number; discountProductsEnabled: boolean; discountProductsMax: number;
+}
+interface Retencao { retentionEnabled: boolean; retentionDays: number; retentionMessage: string }
 
-interface SpecialDayRow {
-  id: string;
-  date: string;
-  isClosed: boolean;
-  openTime: string | null;
-  closeTime: string | null;
-  reason: string | null;
-}
-
-function defaultHours(): HourRow[] {
-  return DAYS.map((_, i) => ({
-    dayOfWeek: i,
-    isOpen: i >= 1 && i <= 6,
-    openTime: "09:00",
-    closeTime: "20:00",
-  }));
-}
-
-const TIME_OPTIONS: string[] = [];
-for (let h = 0; h < 24; h++) {
-  for (const m of [0, 30]) {
-    TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-  }
-}
-
-function calcDuration(open: string, close: string): string {
-  const [oh, om] = open.split(":").map(Number);
-  const [ch, cm] = close.split(":").map(Number);
-  const diff = ch * 60 + cm - (oh * 60 + om);
-  if (diff <= 0) return "";
-  const h = Math.floor(diff / 60);
-  const m = diff % 60;
-  return `${h}h${m > 0 ? m + "min" : ""}`;
-}
+const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+const hText = (min: number) => (min <= 0 ? "—" : `${Math.floor(min / 60)}h${min % 60 ? String(min % 60).padStart(2, "0") : ""}`);
+const defaultHours = (): Hour[] => DAYS.map((_, i) => ({ dayOfWeek: i, isOpen: i >= 1 && i <= 6, openTime: "09:00", closeTime: "20:00" }));
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 export default function ConfiguracoesPage() {
-  const { token, user } = useAuthStore();
-  const [hours, setHours] = useState<HourRow[]>(defaultHours());
+  const { token } = useAuthStore();
+  const h = useMemo(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
-  // ── modal de senha ──
-  const [pwdModal, setPwdModal] = useState(false);
-  const [currentPwd, setCurrentPwd] = useState("");
-  const [newPwd, setNewPwd] = useState("");
-  const [confirmPwd, setConfirmPwd] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [pwdSaving, setPwdSaving] = useState(false);
-  const [pwdStatus, setPwdStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-
-  async function handlePasswordChange() {
-    if (newPwd !== confirmPwd) {
-      setPwdStatus({ type: "error", msg: "As senhas não coincidem." });
-      return;
-    }
-    if (newPwd.length < 6) {
-      setPwdStatus({ type: "error", msg: "A nova senha deve ter pelo menos 6 caracteres." });
-      return;
-    }
-    setPwdSaving(true);
-    setPwdStatus(null);
-    try {
-      const res = await fetch("/api/barbershop/profile/password", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "Erro");
-      setPwdStatus({ type: "success", msg: "Senha alterada com sucesso!" });
-      setTimeout(() => {
-        setPwdModal(false);
-        setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
-        setPwdStatus(null);
-      }, 1500);
-    } catch (e) {
-      setPwdStatus({ type: "error", msg: e instanceof Error ? e.message : "Erro ao alterar senha" });
-    } finally {
-      setPwdSaving(false);
-    }
-  }
-  const [loadingHours, setLoadingHours] = useState(true);
-  const [savingHours, setSavingHours] = useState(false);
-  const [hoursSaved, setHoursSaved] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [debitFee, setDebitFee] = useState("");
-  const [creditFee, setCreditFee] = useState("");
-  const [reminderMinutes, setReminderMinutes] = useState("60");
-  const [savingFees, setSavingFees] = useState(false);
-  const [feesSaved, setFeesSaved] = useState(false);
-  const [savingReminder, setSavingReminder] = useState(false);
-  const [reminderSaved, setReminderSaved] = useState(false);
-  const [cancelByClientEnabled, setCancelByClientEnabled] = useState(true);
-  const [minCancelHours, setMinCancelHours] = useState("0");
-  const [savingCancel, setSavingCancel] = useState(false);
-  const [cancelSaved, setCancelSaved] = useState(false);
-  const [blockOverdueEnabled, setBlockOverdueEnabled] = useState(false);
-  const [savingBlockOverdue, setSavingBlockOverdue] = useState(false);
-  const [blockOverdueSaved, setBlockOverdueSaved] = useState(false);
-  const [prebillingEnabled, setPrebillingEnabled] = useState(true);
-  const [prebillingDays, setPrebillingDays] = useState("5");
-  const [savingPrebilling, setSavingPrebilling] = useState(false);
-  const [prebillingSaved, setPrebillingSaved] = useState(false);
-  const [autoNoShowEnabled, setAutoNoShowEnabled] = useState(true);
-  const [autoNoShowHours, setAutoNoShowHours] = useState("24");
-  const [savingNoShow, setSavingNoShow] = useState(false);
-  const [noShowSaved, setNoShowSaved] = useState(false);
-  const [retentionEnabled, setRetentionEnabled] = useState(false);
-  const [retentionDays, setRetentionDays] = useState("45");
-  const [retentionMessage, setRetentionMessage] = useState("");
-  const [savingRetention, setSavingRetention] = useState(false);
-  const [retentionSaved, setRetentionSaved] = useState(false);
-  const [discountServicesEnabled, setDiscountServicesEnabled] = useState(false);
-  const [discountServicesMax, setDiscountServicesMax] = useState("20");
-  const [discountProductsEnabled, setDiscountProductsEnabled] = useState(false);
-  const [discountProductsMax, setDiscountProductsMax] = useState("20");
-  const [savingDiscount, setSavingDiscount] = useState(false);
-  const [discountSaved, setDiscountSaved] = useState(false);
-  const [specialDays, setSpecialDays] = useState<SpecialDayRow[]>([]);
-  const [newDay, setNewDay] = useState({ date: "", isClosed: true, openTime: "09:00", closeTime: "18:00", reason: "" });
-  const [addingDay, setAddingDay] = useState(false);
-  const [deletingDayId, setDeletingDayId] = useState<string | null>(null);
-  const slug = user?.barbershopSlug ?? "";
-
+  const [dados, setDados] = useState<Dados | null>(null);
+  const [dados0, setDados0] = useState<Dados | null>(null);
+  const [hours, setHours] = useState<Hour[]>(defaultHours());
+  const [hours0, setHours0] = useState<Hour[]>(defaultHours());
+  const [specials, setSpecials] = useState<Special[]>([]);
+  const [regras, setRegras] = useState<Regras | null>(null);
+  const [regras0, setRegras0] = useState<Regras | null>(null);
+  const [ret, setRet] = useState<Retencao | null>(null);
+  const [ret0, setRet0] = useState<Retencao | null>(null);
+  const [mp, setMp] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [active, setActive] = useState("dados");
 
   useEffect(() => {
-    fetch("/api/barbershop/financeiro", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.debitFee !== undefined) setDebitFee(String(d.debitFee));
-        if (d.creditFee !== undefined) setCreditFee(String(d.creditFee));
-        if (d.reminderMinutes !== undefined) setReminderMinutes(String(d.reminderMinutes));
-        if (d.cancelByClientEnabled !== undefined) setCancelByClientEnabled(Boolean(d.cancelByClientEnabled));
-        if (d.minCancelHours !== undefined) setMinCancelHours(String(d.minCancelHours));
-        if (d.blockOverdueEnabled !== undefined) setBlockOverdueEnabled(Boolean(d.blockOverdueEnabled));
-        if (d.prebillingReminderEnabled !== undefined) setPrebillingEnabled(Boolean(d.prebillingReminderEnabled));
-        if (d.prebillingReminderDays !== undefined) setPrebillingDays(String(d.prebillingReminderDays));
-        if (d.autoNoShowEnabled !== undefined) setAutoNoShowEnabled(Boolean(d.autoNoShowEnabled));
-        if (d.autoNoShowHours !== undefined) setAutoNoShowHours(String(d.autoNoShowHours));
-        if (d.discountServicesEnabled !== undefined) setDiscountServicesEnabled(Boolean(d.discountServicesEnabled));
-        if (d.discountServicesMax !== undefined) setDiscountServicesMax(String(d.discountServicesMax));
-        if (d.discountProductsEnabled !== undefined) setDiscountProductsEnabled(Boolean(d.discountProductsEnabled));
-        if (d.discountProductsMax !== undefined) setDiscountProductsMax(String(d.discountProductsMax));
+    const g = (u: string) => fetch(u, { headers: h }).then((r) => r.json()).catch(() => ({}));
+    Promise.all([g("/api/barbershop/profile"), g("/api/barbershop/financeiro"), g("/api/barbershop/retention"), g("/api/barbershop/horarios"), g("/api/barbershop/special-days"), g("/api/barbershop/settings"), g("/api/barbershop/payment-config")])
+      .then(([p, f, r, hr, sd, st, pc]) => {
+        const d: Dados = {
+          name: p.name ?? "", phone: p.phone ?? "", contactEmail: p.contactEmail ?? "", instagram: p.instagram ?? "", cnpj: p.cnpj ?? "",
+          zipCode: p.zipCode ?? "", address: p.address ?? "", streetNumber: p.streetNumber ?? "", streetComplement: p.streetComplement ?? "",
+          neighborhood: p.neighborhood ?? "", city: p.city ?? "", state: p.state ?? "", ownerName: p.ownerName ?? "", ownerEmail: p.ownerEmail ?? "", slug: p.slug ?? st.slug ?? "",
+        };
+        setDados(d); setDados0(d);
+        const rg: Regras = {
+          cancelByClientEnabled: f.cancelByClientEnabled ?? true, minCancelHours: Number(f.minCancelHours ?? 0),
+          autoNoShowEnabled: f.autoNoShowEnabled ?? true, autoNoShowHours: Number(f.autoNoShowHours ?? 24), reminderMinutes: Number(f.reminderMinutes ?? 60),
+          discountServicesEnabled: !!f.discountServicesEnabled, discountServicesMax: Number(f.discountServicesMax ?? 20),
+          discountProductsEnabled: !!f.discountProductsEnabled, discountProductsMax: Number(f.discountProductsMax ?? 20),
+        };
+        setRegras(rg); setRegras0(rg);
+        const rt: Retencao = { retentionEnabled: !!r.retentionEnabled, retentionDays: Number(r.retentionDays ?? 45), retentionMessage: r.retentionMessage || "" };
+        setRet(rt); setRet0(rt);
+        const filled = defaultHours().map((def) => (hr.hours ?? []).find((x: Hour) => x.dayOfWeek === def.dayOfWeek) ?? def);
+        setHours(filled); setHours0(filled);
+        setSpecials(sd.days ?? []);
+        setMp(!!pc.connected);
       });
+  }, [h]);
 
-    fetch("/api/barbershop/retention", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.retentionEnabled !== undefined) setRetentionEnabled(Boolean(d.retentionEnabled));
-        if (d.retentionDays !== undefined) setRetentionDays(String(d.retentionDays));
-        if (d.retentionMessage !== undefined) setRetentionMessage(d.retentionMessage || "");
-      });
+  // Seção visível (destaque na navegação)
+  useEffect(() => {
+    const ids = ["dados", "horarios", "agendamento", "descontos"];
+    const io = new IntersectionObserver((es) => {
+      const v = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (v) setActive(v.target.id);
+    }, { rootMargin: "-20% 0px -60% 0px" });
+    ids.forEach((id) => { const el = document.getElementById(id); if (el) io.observe(el); });
+    return () => io.disconnect();
+  }, [dados]);
 
-    fetch("/api/barbershop/horarios", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.hours?.length > 0) {
-          const filled = defaultHours().map((def) => {
-            const found = d.hours.find((h: HourRow) => h.dayOfWeek === def.dayOfWeek);
-            return found ?? def;
-          });
-          setHours(filled);
-        }
-        setLoadingHours(false);
-      });
+  const save = useCallback(async (key: string, url: string, method: string, body: unknown, done: () => void, ok = "Salvo") => {
+    setSaving(key);
+    const r = await fetch(url, { method, headers: h, body: JSON.stringify(body) });
+    setSaving(null);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast.error(d.error ?? "Não foi possível salvar."); return; }
+    toast.success(ok);
+    done();
+  }, [h]);
 
-    fetch("/api/barbershop/special-days", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => { if (d.days) setSpecialDays(d.days); });
+  const open = hours.filter((x) => x.isOpen);
+  const weekMin = open.reduce((s, x) => s + Math.max(0, toMin(x.closeTime) - toMin(x.openTime)), 0);
+  const firstOpen = open.length ? ORDER.map((i) => hours[i]).find((x) => x.isOpen) : null;
+  const hoursHint = open.length ? `${open.length} dias · ${firstOpen?.openTime.replace(":00", "h")} às ${firstOpen?.closeTime.replace(":00", "h")}` : "Fechado";
 
-  }, [token]);
+  const sections: NavSection[] = [
+    { id: "dados", label: "Dados da barbearia", hint: "Nome, contato e senha" },
+    { id: "horarios", label: "Horários", hint: hoursHint },
+    { id: "agendamento", label: "Agendamento online", hint: "Link, desmarcar e faltas" },
+    { id: "descontos", label: "Descontos", hint: regras?.discountServicesEnabled ? `Até ${regras.discountServicesMax}% em serviços` : "Sem desconto em serviços" },
+  ];
 
-  async function addSpecialDay() {
-    if (!newDay.date) return;
-    setAddingDay(true);
-    const res = await fetch("/api/barbershop/special-days", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(newDay),
+  return (
+    <div className="flex flex-col gap-5">
+      <header className="flex flex-col gap-1">
+        <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Configurações</h1>
+        <span className="text-sm text-ink-3">Como {dados?.name || "a barbearia"} funciona: horários, agendamento e regras do caixa</span>
+      </header>
+
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <ConfigNav current="geral" sections={sections} active={active} other={{ pagamentos: mp == null ? undefined : mp ? "Mercado Pago ligado" : "Mercado Pago desligado" }} />
+
+        <div className="flex-1 min-w-0 flex flex-col gap-5 w-full">
+          {!dados || !regras || !ret ? <div className="h-96 rounded-2xl bg-surface-3/60 animate-pulse" /> : (
+            <>
+              <DadosSection dados={dados} set={setDados} dirty={!same(dados, dados0)} saving={saving === "dados"}
+                onReset={() => setDados(dados0)}
+                onSave={() => save("dados", "/api/barbershop/profile", "PATCH", {
+                  name: dados.name.trim(), phone: dados.phone, contactEmail: dados.contactEmail, instagram: dados.instagram, cnpj: dados.cnpj,
+                  zipCode: dados.zipCode, address: dados.address, streetNumber: dados.streetNumber, streetComplement: dados.streetComplement,
+                  neighborhood: dados.neighborhood, city: dados.city, state: dados.state, ownerName: dados.ownerName.trim() || undefined,
+                }, () => setDados0(dados), "Dados salvos")} />
+
+              <HorariosSection hours={hours} setHours={setHours} weekMin={weekMin} dirty={!same(hours, hours0)} saving={saving === "horarios"}
+                onReset={() => setHours(hours0)}
+                onSave={() => {
+                  const bad = hours.find((x) => x.isOpen && toMin(x.closeTime) <= toMin(x.openTime));
+                  if (bad) { toast.error(`${DAYS[bad.dayOfWeek]}: o horário de fechar precisa ser depois do de abrir.`); return; }
+                  save("horarios", "/api/barbershop/horarios", "PUT", { hours }, () => setHours0(hours), "Horários salvos");
+                }}
+                specials={specials} setSpecials={setSpecials} h={h} />
+
+              <AgendamentoSection slug={dados.slug} shopName={dados.name} regras={regras} setRegras={setRegras} ret={ret} setRet={setRet}
+                dirty={!same(regras, regras0) || !same(ret, ret0)} saving={saving === "agendamento"}
+                onReset={() => { setRegras(regras0); setRet(ret0); }}
+                onSave={async () => {
+                  setSaving("agendamento");
+                  const [a, b] = await Promise.all([
+                    fetch("/api/barbershop/financeiro", { method: "PATCH", headers: h, body: JSON.stringify({
+                      cancelByClientEnabled: regras.cancelByClientEnabled, minCancelHours: regras.minCancelHours,
+                      autoNoShowEnabled: regras.autoNoShowEnabled, autoNoShowHours: regras.autoNoShowHours, reminderMinutes: regras.reminderMinutes,
+                    }) }),
+                    fetch("/api/barbershop/retention", { method: "PATCH", headers: h, body: JSON.stringify({
+                      retentionEnabled: ret.retentionEnabled, retentionDays: ret.retentionDays, retentionMessage: ret.retentionMessage.trim() || null,
+                    }) }),
+                  ]);
+                  setSaving(null);
+                  if (!a.ok || !b.ok) { toast.error("Parte não foi salva. Tente de novo."); return; }
+                  toast.success("Agendamento online salvo");
+                  setRegras0((r0) => r0 && { ...r0, cancelByClientEnabled: regras.cancelByClientEnabled, minCancelHours: regras.minCancelHours, autoNoShowEnabled: regras.autoNoShowEnabled, autoNoShowHours: regras.autoNoShowHours, reminderMinutes: regras.reminderMinutes });
+                  setRet0(ret);
+                }} />
+
+              <DescontosSection regras={regras} setRegras={setRegras}
+                dirty={["discountServicesEnabled", "discountServicesMax", "discountProductsEnabled", "discountProductsMax"].some((k) => regras[k as keyof Regras] !== regras0?.[k as keyof Regras])}
+                saving={saving === "descontos"}
+                onReset={() => regras0 && setRegras({ ...regras, discountServicesEnabled: regras0.discountServicesEnabled, discountServicesMax: regras0.discountServicesMax, discountProductsEnabled: regras0.discountProductsEnabled, discountProductsMax: regras0.discountProductsMax })}
+                onSave={() => save("descontos", "/api/barbershop/financeiro", "PATCH", {
+                  discountServicesEnabled: regras.discountServicesEnabled, discountServicesMax: regras.discountServicesMax,
+                  discountProductsEnabled: regras.discountProductsEnabled, discountProductsMax: regras.discountProductsMax,
+                }, () => setRegras0((r0) => r0 && { ...r0, discountServicesEnabled: regras.discountServicesEnabled, discountServicesMax: regras.discountServicesMax, discountProductsEnabled: regras.discountProductsEnabled, discountProductsMax: regras.discountProductsMax }), "Descontos salvos")} />
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SaveBar({ dirty, saving, onSave, onReset }: { dirty: boolean; saving: boolean; onSave: () => void; onReset: () => void }) {
+  return (
+    <>
+      {dirty && <span className="text-xs text-warning font-semibold mr-auto">Mudanças não salvas</span>}
+      {dirty && <Button variant="outline" size="sm" onClick={onReset}>Descartar</Button>}
+      <Button size="sm" disabled={!dirty} loading={saving} onClick={onSave}>Salvar</Button>
+    </>
+  );
+}
+
+function DadosSection({ dados, set, dirty, saving, onSave, onReset }: {
+  dados: Dados; set: (d: Dados) => void; dirty: boolean; saving: boolean; onSave: () => void; onReset: () => void;
+}) {
+  const { token } = useAuthStore();
+  const [pwdOpen, setPwdOpen] = useState(false);
+  const [pwd, setPwd] = useState({ current: "", next: "", again: "" });
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const f = (k: keyof Dados, v: string) => set({ ...dados, [k]: v });
+
+  async function cep(raw: string) {
+    const c = raw.replace(/\D/g, "");
+    f("zipCode", raw);
+    if (c.length !== 8) return;
+    const d = await fetch(`https://viacep.com.br/ws/${c}/json/`).then((r) => r.json()).catch(() => null);
+    if (!d || d.erro) { toast.error("CEP não encontrado."); return; }
+    set({ ...dados, zipCode: raw, address: d.logradouro || dados.address, neighborhood: d.bairro || dados.neighborhood, city: d.localidade || dados.city, state: d.uf || dados.state });
+  }
+
+  async function changePwd() {
+    if (pwd.next.length < 6) { toast.error("A nova senha precisa de pelo menos 6 caracteres."); return; }
+    if (pwd.next !== pwd.again) { toast.error("As senhas novas não são iguais."); return; }
+    setPwdSaving(true);
+    const r = await fetch("/api/barbershop/profile/password", {
+      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ currentPassword: pwd.current, newPassword: pwd.next }),
     });
-    const data = await res.json();
-    if (res.ok) {
-      setSpecialDays((prev) => {
-        const filtered = prev.filter((d) => d.date !== data.day.date);
-        return [...filtered, data.day].sort((a, b) => a.date.localeCompare(b.date));
-      });
-      setNewDay({ date: "", isClosed: true, openTime: "09:00", closeTime: "18:00", reason: "" });
-    }
-    setAddingDay(false);
-  }
-
-  async function deleteSpecialDay(id: string) {
-    setDeletingDayId(id);
-    await fetch(`/api/barbershop/special-days/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setSpecialDays((prev) => prev.filter((d) => d.id !== id));
-    setDeletingDayId(null);
-  }
-
-  function updateHour(dayOfWeek: number, field: keyof HourRow, value: string | boolean) {
-    setHours((prev) => prev.map((h) => (h.dayOfWeek === dayOfWeek ? { ...h, [field]: value } : h)));
-  }
-
-  async function saveHours() {
-    setSavingHours(true);
-    await fetch("/api/barbershop/horarios", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ hours }),
-    });
-    setSavingHours(false);
-    setHoursSaved(true);
-    setTimeout(() => setHoursSaved(false), 2500);
-  }
-
-  async function saveFees() {
-    setSavingFees(true);
-    await fetch("/api/barbershop/financeiro", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ debitFee: Number(debitFee), creditFee: Number(creditFee) }),
-    });
-    setSavingFees(false);
-    setFeesSaved(true);
-    setTimeout(() => setFeesSaved(false), 2500);
-  }
-
-  async function saveCancel() {
-    setSavingCancel(true);
-    await fetch("/api/barbershop/financeiro", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ cancelByClientEnabled, minCancelHours: Number(minCancelHours) }),
-    });
-    setSavingCancel(false);
-    setCancelSaved(true);
-    setTimeout(() => setCancelSaved(false), 2500);
-  }
-
-  async function saveBlockOverdue() {
-    setSavingBlockOverdue(true);
-    await fetch("/api/barbershop/financeiro", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ blockOverdueEnabled }),
-    });
-    setSavingBlockOverdue(false);
-    setBlockOverdueSaved(true);
-    setTimeout(() => setBlockOverdueSaved(false), 2500);
-  }
-
-  async function savePrebilling() {
-    setSavingPrebilling(true);
-    await fetch("/api/barbershop/financeiro", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ prebillingReminderEnabled: prebillingEnabled, prebillingReminderDays: Number(prebillingDays) }),
-    });
-    setSavingPrebilling(false);
-    setPrebillingSaved(true);
-    setTimeout(() => setPrebillingSaved(false), 2500);
-  }
-
-  async function saveReminder() {
-    setSavingReminder(true);
-    await fetch("/api/barbershop/financeiro", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ reminderMinutes: Number(reminderMinutes) }),
-    });
-    setSavingReminder(false);
-    setReminderSaved(true);
-    setTimeout(() => setReminderSaved(false), 2500);
-  }
-
-  async function saveNoShow() {
-    setSavingNoShow(true);
-    await fetch("/api/barbershop/financeiro", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ autoNoShowEnabled, autoNoShowHours: Number(autoNoShowHours) }),
-    });
-    setSavingNoShow(false);
-    setNoShowSaved(true);
-    setTimeout(() => setNoShowSaved(false), 2500);
-  }
-
-  async function saveRetention() {
-    setSavingRetention(true);
-    await fetch("/api/barbershop/retention", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ retentionEnabled, retentionDays: Number(retentionDays), retentionMessage: retentionMessage || null }),
-    });
-    setSavingRetention(false);
-    setRetentionSaved(true);
-    setTimeout(() => setRetentionSaved(false), 2500);
-  }
-
-  async function saveDiscount() {
-    setSavingDiscount(true);
-    await fetch("/api/barbershop/financeiro", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        discountServicesEnabled,
-        discountServicesMax: Number(discountServicesMax),
-        discountProductsEnabled,
-        discountProductsMax: Number(discountProductsMax),
-      }),
-    });
-    setSavingDiscount(false);
-    setDiscountSaved(true);
-    setTimeout(() => setDiscountSaved(false), 2500);
-  }
-
-  function copyLink() {
-    navigator.clipboard.writeText(`${window.location.origin}/agendar/${slug}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setPwdSaving(false);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast.error(d.error ?? "Não foi possível trocar a senha."); return; }
+    toast.success("Senha trocada");
+    setPwd({ current: "", next: "", again: "" });
+    setPwdOpen(false);
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Configurações</h1>
-        <p className="text-zinc-500 text-sm mt-1">Gerencie horários e informações do estabelecimento</p>
+    <ConfigSection id="dados" title="Dados da barbearia" subtitle="Aparecem na página de agendamento e nas mensagens do WhatsApp"
+      footer={<SaveBar dirty={dirty} saving={saving} onSave={onSave} onReset={onReset} />}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Nome da barbearia" value={dados.name} onChange={(e) => f("name", e.target.value)} />
+        <Field label="Telefone / WhatsApp" type="tel" value={dados.phone} onChange={(e) => f("phone", e.target.value)} placeholder="(11) 99999-9999" />
+        <Field label="E-mail de contato" type="email" value={dados.contactEmail} onChange={(e) => f("contactEmail", e.target.value)} />
+        <Field label="Instagram" value={dados.instagram} onChange={(e) => f("instagram", e.target.value)} placeholder="@suabarbearia" />
       </div>
+      <div className="grid gap-4 sm:grid-cols-[150px_minmax(0,1fr)_110px]">
+        <Field label="CEP" inputMode="numeric" value={dados.zipCode} onChange={(e) => cep(e.target.value)} placeholder="00000-000" />
+        <Field label="Endereço" value={dados.address} onChange={(e) => f("address", e.target.value)} hint="Digite o CEP e a rua, o bairro e a cidade são preenchidos sozinhos." />
+        <Field label="Número" value={dados.streetNumber} onChange={(e) => f("streetNumber", e.target.value)} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_80px]">
+        <Field label="Complemento" value={dados.streetComplement} onChange={(e) => f("streetComplement", e.target.value)} />
+        <Field label="Bairro" value={dados.neighborhood} onChange={(e) => f("neighborhood", e.target.value)} />
+        <Field label="Cidade" value={dados.city} onChange={(e) => f("city", e.target.value)} />
+        <Field label="UF" value={dados.state} onChange={(e) => f("state", e.target.value.toUpperCase().slice(0, 2))} />
+      </div>
+      <Field label="CNPJ · opcional" inputMode="numeric" value={dados.cnpj} onChange={(e) => f("cnpj", e.target.value)} className="sm:max-w-xs" />
 
-      {/* Link de agendamento */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-3 flex items-center gap-2">
-          <Settings className="w-4 h-4 text-primary" /> Link de Agendamento
-        </h2>
-        <p className="text-sm text-zinc-500 mb-3">Compartilhe com seus clientes para agendamento online:</p>
-        <div className="flex gap-2">
-          <input
-            readOnly
-            value={typeof window !== "undefined" ? `${window.location.origin}/agendar/${slug}` : ""}
-            className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 font-mono"
-          />
-          <Button variant="secondary" onClick={copyLink} size="sm">
-            {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Horários de funcionamento */}
-      <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold text-zinc-900">Horários de Funcionamento</h2>
+      <div className="rounded-xl bg-ground p-4 flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-surface-2 text-ink-2 font-bold text-sm flex items-center justify-center shrink-0">{getInitials(dados.ownerName || "D")}</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">Minha conta</p>
+            <p className="text-xs text-ink-3">Entra no sistema com {dados.ownerEmail}. Para trocar o e-mail, fale com o suporte.</p>
           </div>
-          <button
-            onClick={saveHours}
-            disabled={savingHours}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
-          >
-            {hoursSaved ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-            {hoursSaved ? "Salvo!" : savingHours ? "Salvando..." : "Salvar"}
-          </button>
+          <Button size="sm" variant="outline" onClick={() => setPwdOpen((v) => !v)} aria-expanded={pwdOpen}>{pwdOpen ? "Fechar" : "Trocar senha"}</Button>
         </div>
-
-        {loadingHours ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="animate-spin w-7 h-7 border-4 border-primary border-t-transparent rounded-full" />
+        <Field label="Seu nome" value={dados.ownerName} onChange={(e) => f("ownerName", e.target.value)} className="sm:max-w-sm" />
+        {pwdOpen && (
+          <div className="grid gap-3 sm:grid-cols-3 items-end">
+            <Field label="Senha atual" type="password" autoComplete="current-password" value={pwd.current} onChange={(e) => setPwd({ ...pwd, current: e.target.value })} />
+            <Field label="Nova senha" type="password" autoComplete="new-password" placeholder="Mínimo 6 caracteres" value={pwd.next} onChange={(e) => setPwd({ ...pwd, next: e.target.value })} />
+            <Field label="Repita a nova senha" type="password" autoComplete="new-password" value={pwd.again} onChange={(e) => setPwd({ ...pwd, again: e.target.value })} />
+            <Button size="sm" className="sm:col-span-3 justify-self-start" loading={pwdSaving} disabled={!pwd.current || !pwd.next} onClick={changePwd}>Trocar senha</Button>
           </div>
-        ) : (
-          <div className="divide-y divide-zinc-50">
-            {hours.map((row) => (
-              <div
-                key={row.dayOfWeek}
-                className={`px-5 py-3.5 flex items-center gap-4 transition-opacity ${!row.isOpen ? "opacity-50" : ""}`}
-              >
-                {/* Toggle */}
-                <button
-                  type="button"
-                  onClick={() => updateHour(row.dayOfWeek, "isOpen", !row.isOpen)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${row.isOpen ? "bg-primary" : "bg-zinc-200"}`}
-                >
-                  <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${row.isOpen ? "translate-x-5" : "translate-x-0"}`} />
-                </button>
+        )}
+      </div>
+    </ConfigSection>
+  );
+}
 
-                {/* Dia */}
-                <p className="w-20 shrink-0 text-sm font-semibold text-zinc-800">
-                  <span className="hidden sm:inline">{DAYS[row.dayOfWeek]}</span>
-                  <span className="sm:hidden">{DAYS_SHORT[row.dayOfWeek]}</span>
-                </p>
+function HorariosSection({ hours, setHours, weekMin, dirty, saving, onSave, onReset, specials, setSpecials, h }: {
+  hours: Hour[]; setHours: (h: Hour[]) => void; weekMin: number; dirty: boolean; saving: boolean; onSave: () => void; onReset: () => void;
+  specials: Special[]; setSpecials: (s: Special[]) => void; h: Record<string, string>;
+}) {
+  const [nd, setNd] = useState({ date: "", reason: "", isClosed: true, openTime: "09:00", closeTime: "18:00" });
+  const [adding, setAdding] = useState(false);
+  const today = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const todayDow = new Date(`${today}T12:00:00Z`).getUTCDay();
+  const upd = (d: number, patch: Partial<Hour>) => setHours(hours.map((x) => (x.dayOfWeek === d ? { ...x, ...patch } : x)));
+  const SCALE = [6 * 60, 22 * 60];
+  const pct = (m: number) => `${Math.min(100, Math.max(0, ((m - SCALE[0]) / (SCALE[1] - SCALE[0])) * 100))}%`;
+  const future = specials.filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
 
-                {row.isOpen ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      value={row.openTime}
-                      onChange={(e) => updateHour(row.dayOfWeek, "openTime", e.target.value)}
-                      className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                    >
-                      {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <span className="text-zinc-400 text-sm">até</span>
-                    <select
-                      value={row.closeTime}
-                      onChange={(e) => updateHour(row.dayOfWeek, "closeTime", e.target.value)}
-                      className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                    >
-                      {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <span className="text-xs text-zinc-400">{calcDuration(row.openTime, row.closeTime)}</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-zinc-400 italic">Fechado</span>
-                )}
+  async function add() {
+    if (!nd.date) { toast.error("Escolha a data."); return; }
+    setAdding(true);
+    const r = await fetch("/api/barbershop/special-days", { method: "POST", headers: h, body: JSON.stringify(nd) });
+    setAdding(false);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast.error(d.error ?? "Não foi possível adicionar."); return; }
+    setSpecials([...specials.filter((x) => x.date !== d.day.date), d.day]);
+    setNd({ date: "", reason: "", isClosed: true, openTime: "09:00", closeTime: "18:00" });
+    toast.success("Data adicionada");
+  }
+  async function remove(id: string) {
+    const r = await fetch(`/api/barbershop/special-days/${id}`, { method: "DELETE", headers: h });
+    if (!r.ok) { toast.error("Não foi possível remover."); return; }
+    setSpecials(specials.filter((x) => x.id !== id));
+  }
+
+  return (
+    <ConfigSection id="horarios" title="Horários de funcionamento" subtitle="Os clientes só conseguem marcar dentro destes horários. A ocupação também é calculada a partir deles."
+      footer={<SaveBar dirty={dirty} saving={saving} onSave={onSave} onReset={onReset} />}>
+      <div className="flex flex-col divide-y divide-line-3 rounded-xl border border-line-2">
+        {ORDER.map((i) => {
+          const x = hours[i];
+          const len = x.isOpen ? toMin(x.closeTime) - toMin(x.openTime) : 0;
+          return (
+            <div key={i} className="grid grid-cols-[44px_minmax(0,1fr)] sm:grid-cols-[44px_110px_minmax(0,auto)_56px_minmax(0,1fr)] gap-x-3 gap-y-2 items-center px-3 py-2.5">
+              <button type="button" role="switch" aria-checked={x.isOpen} aria-label={`Abre ${DAYS[i]}`} onClick={() => upd(i, { isOpen: !x.isOpen })}
+                className={cn("relative w-11 h-6 rounded-full transition-colors", x.isOpen ? "bg-positive-strong" : "bg-bar")}>
+                <span className={cn("absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", x.isOpen && "translate-x-5")} />
+              </button>
+              <span className="text-sm font-semibold flex items-center gap-1.5">{DAYS[i]}{i === todayDow && <span className="h-5 px-1.5 rounded-full bg-primary/10 text-primary text-[11px] inline-flex items-center">hoje</span>}</span>
+              <div className="col-start-2 sm:col-start-auto flex items-center gap-2">
+                {x.isOpen ? (
+                  <>
+                    <input type="time" value={x.openTime} onChange={(e) => upd(i, { openTime: e.target.value })} aria-label={`${DAYS[i]} abre`} className={cn(fieldCls, "h-10 w-[110px]")} />
+                    <span className="text-xs text-ink-3">até</span>
+                    <input type="time" value={x.closeTime} onChange={(e) => upd(i, { closeTime: e.target.value })} aria-label={`${DAYS[i]} fecha`} className={cn(fieldCls, "h-10 w-[110px]")} />
+                  </>
+                ) : <span className="text-sm text-ink-3">Fechado</span>}
+              </div>
+              <span className={cn("hidden sm:block text-[13px] text-right", len < 0 ? "text-danger font-semibold" : "text-ink-2")}>{x.isOpen ? (len > 0 ? hText(len) : "erro") : "—"}</span>
+              <div className="hidden sm:block relative h-2 rounded-full bg-track" aria-hidden>
+                {x.isOpen && len > 0 && <div className="absolute inset-y-0 rounded-full bg-ink" style={{ left: pct(toMin(x.openTime)), right: `calc(100% - ${pct(toMin(x.closeTime))})` }} />}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[13px] text-ink-2">Aberto {hours.filter((x) => x.isOpen).length} dias por semana · {hText(weekMin)} de agenda por semana, por profissional.</p>
+
+      <div className="flex flex-col gap-3 pt-4 border-t border-line-2">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-[15px] font-semibold">Feriados e dias diferentes</h3>
+          <span className="text-[13px] text-ink-3">Datas em que a barbearia fecha ou abre em outro horário. Valem só para aquele dia e já salvam ao adicionar.</span>
+        </div>
+        {future.length > 0 && (
+          <div className="flex flex-col divide-y divide-line-3 rounded-xl border border-line-2">
+            {future.map((s, idx) => (
+              <div key={s.id} className="flex items-center gap-3 px-3 py-2.5">
+                <div className="w-11 h-11 rounded-[10px] bg-ground flex flex-col items-center justify-center shrink-0">
+                  <span className="text-sm font-bold leading-none">{Number(s.date.slice(8))}</span>
+                  <span className="text-[10px] font-semibold text-ink-3 uppercase">{MONTHS[Number(s.date.slice(5, 7)) - 1]}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate flex items-center gap-1.5">{s.reason || (s.isClosed ? "Fechado" : "Horário diferente")}{idx === 0 && <span className="h-5 px-1.5 rounded-full bg-surface-2 text-ink-2 text-[11px] inline-flex items-center">próxima</span>}</p>
+                  <p className="text-xs text-ink-3">{DAYS[new Date(`${s.date}T12:00:00Z`).getUTCDay()]}</p>
+                </div>
+                <span className={cn("text-[13px] font-semibold shrink-0", s.isClosed ? "text-danger" : "text-ink-2")}>{s.isClosed ? "Fechado" : `${s.openTime} – ${s.closeTime}`}</span>
+                <button type="button" onClick={() => remove(s.id)} aria-label={`Remover ${s.date}`} className="w-9 h-9 rounded-lg text-ink-3 hover:bg-surface-3 flex items-center justify-center"><Trash2 className="w-4 h-4" aria-hidden /></button>
               </div>
             ))}
           </div>
         )}
+        <div className="rounded-xl bg-ground p-4 flex flex-col gap-3">
+          <span className="text-[13px] font-semibold">Adicionar data</span>
+          <div className="grid gap-3 sm:grid-cols-[170px_minmax(0,1fr)]">
+            <Field label="Data" type="date" min={today} value={nd.date} onChange={(e) => setNd({ ...nd, date: e.target.value })} />
+            <Field label="Motivo · opcional" value={nd.reason} onChange={(e) => setNd({ ...nd, reason: e.target.value })} placeholder="Ex.: feriado, evento, reforma" />
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold text-ink-2">Nesse dia</span>
+              <Pills label="Tipo de dia" value={nd.isClosed ? "closed" : "special"} onChange={(v) => setNd({ ...nd, isClosed: v === "closed" })} options={[["closed", "Fecha"], ["special", "Abre em outro horário"]]} />
+            </div>
+            {!nd.isClosed && (
+              <>
+                <Field label="Abre" type="time" value={nd.openTime} onChange={(e) => setNd({ ...nd, openTime: e.target.value })} className="w-[120px]" />
+                <Field label="Fecha" type="time" value={nd.closeTime} onChange={(e) => setNd({ ...nd, closeTime: e.target.value })} className="w-[120px]" />
+              </>
+            )}
+            <Button size="sm" variant="outline" className="h-11 ml-auto" loading={adding} onClick={add}>Adicionar data</Button>
+          </div>
+        </div>
+      </div>
+    </ConfigSection>
+  );
+}
+
+function AgendamentoSection({ slug, shopName, regras, setRegras, ret, setRet, dirty, saving, onSave, onReset }: {
+  slug: string; shopName: string; regras: Regras; setRegras: (r: Regras) => void; ret: Retencao; setRet: (r: Retencao) => void;
+  dirty: boolean; saving: boolean; onSave: () => void; onReset: () => void;
+}) {
+  const [origin, setOrigin] = useState("");
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const url = `${origin}/agendar/${slug}`;
+  const r = (patch: Partial<Regras>) => setRegras({ ...regras, ...patch });
+  const msg = ret.retentionMessage || RET_DEFAULT;
+  const preview = msg.replace(/\{\{nome\}\}/g, "Rafael").replace(/\{\{dias\}\}/g, String(ret.retentionDays)).replace(/\{\{empresa\}\}/g, shopName || "barbearia").replace(/\{\{plural\}\}/g, "s");
+  const insertVar = (v: string) => setRet({ ...ret, retentionMessage: (ret.retentionMessage || RET_DEFAULT) + (msg.endsWith(" ") || msg.endsWith("\n") ? "" : " ") + v });
+  const reminderOpts: [number, string][] = [[30, "30 min"], [60, "1 hora"], [120, "2 horas"], [180, "3 horas"], [1440, "1 dia"]];
+  const hrs = (n: number) => (n === 0 ? "a qualquer hora" : `até ${n} h antes`);
+
+  return (
+    <ConfigSection id="agendamento" title="Agendamento online" subtitle="Como o cliente marca, desmarca e é lembrado do horário"
+      footer={<SaveBar dirty={dirty} saving={saving} onSave={onSave} onReset={onReset} />}>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[13px] font-semibold text-ink-2">Link da sua página de agendamento</span>
+        <div className="flex gap-2">
+          <input readOnly value={url} aria-label="Link de agendamento" className={cn(fieldCls, "bg-ground")} onFocus={(e) => e.currentTarget.select()} />
+          <Button variant="outline" onClick={() => { navigator.clipboard?.writeText(url); toast.success("Link copiado"); }} aria-label="Copiar link"><Copy className="w-4 h-4" aria-hidden /></Button>
+          <a href={`/agendar/${slug}`} target="_blank" rel="noreferrer" className="h-11 px-3.5 rounded-[10px] border border-control text-sm font-semibold inline-flex items-center gap-1.5 shrink-0"><ExternalLink className="w-4 h-4" aria-hidden />Abrir</a>
+        </div>
+        <span className="text-xs text-ink-3">Dica: coloque na bio do Instagram e no status do WhatsApp.</span>
       </div>
 
-      {/* Taxas de cartão */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-primary" /> Taxas da Máquina de Cartão
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">Usadas para calcular receita líquida no financeiro</p>
-        <div className="flex gap-4 flex-wrap">
-          <div className="flex-1 min-w-[120px]">
-            <label className="block text-xs text-zinc-500 mb-1">Taxa Débito (%)</label>
-            <div className="flex items-center gap-1">
-              <input
-                type="number" min="0" max="10" step="0.1"
-                value={debitFee}
-                onChange={(e) => setDebitFee(e.target.value)}
-                placeholder="ex: 1.5"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <span className="text-zinc-400 text-sm">%</span>
+      <ToggleRow title="Cliente pode desmarcar pelo link" checked={regras.cancelByClientEnabled} onChange={(v) => r({ cancelByClientEnabled: v })}
+        text={regras.cancelByClientEnabled ? `O cliente desmarca sozinho ${hrs(regras.minCancelHours)}. O horário volta a ficar livre e a lista de espera é avisada.` : "Para desmarcar, o cliente precisa falar com a barbearia."}>
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold text-ink-2">Até quanto tempo antes do horário</span>
+          <Pills label="Antecedência para desmarcar" value={regras.minCancelHours} onChange={(v) => r({ minCancelHours: v })}
+            options={[[0, "A qualquer hora"], [1, "1 h"], [2, "2 h"], [4, "4 h"], [8, "8 h"], [12, "12 h"], [24, "24 h"], [48, "48 h"]]} />
+        </div>
+      </ToggleRow>
+
+      <ToggleRow title="Marcar falta sozinho" checked={regras.autoNoShowEnabled} onChange={(v) => r({ autoNoShowEnabled: v })}
+        text={regras.autoNoShowEnabled ? `Se ninguém fechar a comanda em ${regras.autoNoShowHours} h depois do horário, o atendimento vira falta.` : "Os horários ficam em aberto até alguém fechar a comanda ou marcar a falta."}>
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold text-ink-2">Prazo para o barbeiro fechar o atendimento</span>
+          <Pills label="Prazo para fechar o atendimento" value={regras.autoNoShowHours} onChange={(v) => r({ autoNoShowHours: v })}
+            options={[[4, "4 h"], [8, "8 h"], [12, "12 h"], [24, "24 h · recomendado"], [48, "48 h"], [72, "72 h"]]} />
+        </div>
+      </ToggleRow>
+
+      <div className="rounded-xl border border-line-2 p-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <h3 className="text-[15px] font-semibold">Lembrete antes do horário</h3>
+            <span className="text-[13px] text-ink-3">WhatsApp enviado antes do horário. Mensagem e confirmação ficam em Lembretes.</span>
+          </div>
+          <Link href="/painel/configuracoes/lembretes" className="text-[13px] font-semibold text-ink-2 underline underline-offset-2 shrink-0">Lembretes</Link>
+        </div>
+        <Pills label="Quanto tempo antes" value={regras.reminderMinutes} onChange={(v) => r({ reminderMinutes: v })}
+          options={reminderOpts.some(([v]) => v === regras.reminderMinutes) ? reminderOpts : [...reminderOpts, [regras.reminderMinutes, `${regras.reminderMinutes} min`]]} />
+      </div>
+
+      <ToggleRow title="Chamar de volta quem sumiu" checked={ret.retentionEnabled} onChange={(v) => setRet({ ...ret, retentionEnabled: v })}
+        text={ret.retentionEnabled ? `Manda um WhatsApp para quem está há ${ret.retentionDays} dias sem vir.` : "Desligado. Ligue para lembrar quem está sumido de voltar."}>
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold text-ink-2">Mandar quando o cliente está sem vir há</span>
+          <Pills label="Dias sem vir" value={ret.retentionDays} onChange={(v) => setRet({ ...ret, retentionDays: v })}
+            options={[[14, "14 dias"], [21, "21 dias"], [30, "30 dias"], [45, "45 dias · recomendado"], [60, "60 dias"], [90, "90 dias"]]} />
+        </div>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="flex flex-col gap-2">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold text-ink-2">Mensagem</span>
+              <textarea rows={6} value={msg} onChange={(e) => setRet({ ...ret, retentionMessage: e.target.value })} aria-label="Mensagem para quem sumiu" className={cn(fieldCls, "h-auto py-2.5")} />
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-ink-3">Toque para inserir:</span>
+              {RET_VARS.map(([v, l]) => <button key={v} type="button" onClick={() => insertVar(v)} className="h-7 px-2.5 rounded-full bg-surface-2 text-xs font-semibold">{l}</button>)}
+            </div>
+            <span className="text-xs text-ink-3">Vai no máximo uma vez a cada 30 dias para o mesmo cliente. Precisa do WhatsApp conectado.</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold text-ink-2">Como o cliente recebe</span>
+            <div className="rounded-xl bg-[#E6DED3] p-3">
+              <div className="rounded-lg bg-white px-3 py-2 text-[13px] leading-snug whitespace-pre-line shadow-sm">{preview}<span className="block text-right text-[10px] text-ink-4 mt-1">10:00</span></div>
             </div>
           </div>
-          <div className="flex-1 min-w-[120px]">
-            <label className="block text-xs text-zinc-500 mb-1">Taxa Crédito (%)</label>
-            <div className="flex items-center gap-1">
-              <input
-                type="number" min="0" max="10" step="0.1"
-                value={creditFee}
-                onChange={(e) => setCreditFee(e.target.value)}
-                placeholder="ex: 2.99"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <span className="text-zinc-400 text-sm">%</span>
-            </div>
-          </div>
         </div>
-        <div className="mt-3 flex justify-end">
-          <Button variant="primary" size="sm" onClick={saveFees} disabled={savingFees}>
-            {feesSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingFees ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar taxas</>}
-          </Button>
-        </div>
-      </Card>
+      </ToggleRow>
+    </ConfigSection>
+  );
+}
 
-      {/* ── Shortcut: Pagamentos Online ── */}
-      <Link href="/painel/configuracoes/pagamentos">
-        <Card className="hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#009ee3]/10 flex items-center justify-center shrink-0">
-              <CreditCard className="w-5 h-5 text-[#009ee3]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-zinc-900">Pagamentos Online</p>
-              <p className="text-xs text-zinc-400 mt-0.5">Mercado Pago · Pix · Cartão · Débito automático</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-primary transition-colors shrink-0" />
-          </div>
-        </Card>
-      </Link>
-
-      {/* ── Shortcut: Assistente IA ── */}
-      <Link href="/painel/configuracoes/assistente-ia">
-        <Card className="hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-              <Bot className="w-5 h-5 text-violet-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-zinc-900">Assistente IA</p>
-              <p className="text-xs text-zinc-400 mt-0.5">Personalidade · Tom de voz · Saudação do WhatsApp</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-primary transition-colors shrink-0" />
-          </div>
-        </Card>
-      </Link>
-
-      {/* Lembrete WhatsApp */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <Bell className="w-4 h-4 text-primary" /> Lembrete de Agendamento (WhatsApp)
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">O cliente recebe uma mensagem automática antes do horário marcado</p>
-        <div>
-          <label className="block text-xs text-zinc-500 mb-1">Enviar lembrete com quanto tempo de antecedência?</label>
-          <select
-            value={reminderMinutes}
-            onChange={(e) => setReminderMinutes(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-          >
-            <option value="30">30 minutos antes</option>
-            <option value="60">1 hora antes</option>
-            <option value="120">2 horas antes</option>
-            <option value="180">3 horas antes</option>
-            <option value="360">6 horas antes</option>
-            <option value="1440">24 horas antes (dia anterior)</option>
-          </select>
-        </div>
-        <div className="mt-3 flex justify-end">
-          <Button variant="primary" size="sm" onClick={saveReminder} disabled={savingReminder}>
-            {reminderSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingReminder ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Cancelamento pelo cliente */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <XCircle className="w-4 h-4 text-primary" /> Cancelamento pelo Cliente
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">Controle se os clientes podem cancelar os próprios agendamentos pelo link público</p>
-
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-800">Permitir cancelamento online</p>
-            <p className="text-xs text-zinc-400">
-              {cancelByClientEnabled ? "Clientes podem cancelar pela página de agendamento" : "Apenas a barbearia pode cancelar"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setCancelByClientEnabled((v) => !v)}
-            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${cancelByClientEnabled ? "bg-primary" : "bg-zinc-200"}`}
-          >
-            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${cancelByClientEnabled ? "translate-x-5" : "translate-x-0"}`} />
-          </button>
-        </div>
-
-        {cancelByClientEnabled && (
-          <div className="mb-4">
-            <label className="block text-xs text-zinc-500 mb-1">Antecedência mínima para cancelar</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={minCancelHours}
-                onChange={(e) => setMinCancelHours(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-              >
-                <option value="0">Sem restrição (qualquer hora)</option>
-                <option value="1">1 hora antes</option>
-                <option value="2">2 horas antes</option>
-                <option value="4">4 horas antes</option>
-                <option value="8">8 horas antes</option>
-                <option value="12">12 horas antes</option>
-                <option value="24">24 horas antes</option>
-                <option value="48">48 horas antes</option>
-              </select>
-            </div>
-            {Number(minCancelHours) > 0 && (
-              <p className="text-xs text-zinc-400 mt-1.5">
-                Clientes só poderão cancelar com pelo menos {minCancelHours}h de antecedência.
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <Button variant="primary" size="sm" onClick={saveCancel} disabled={savingCancel}>
-            {cancelSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingCancel ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Bloqueio de Assinante Inadimplente */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <Ban className="w-4 h-4 text-primary" /> Bloqueio de Assinante Inadimplente
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">
-          Controle se um cliente com assinatura <span className="font-medium text-zinc-600">em atraso</span> pode
-          continuar agendando pelo link público.
-        </p>
-
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-800">Bloquear agendamento de inadimplentes</p>
-            <p className="text-xs text-zinc-400">
-              {blockOverdueEnabled
-                ? "Cliente com assinatura em atraso NÃO consegue agendar até regularizar"
-                : "Cliente em atraso agenda normalmente, pagando o valor de avulso (sem o benefício do plano)"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setBlockOverdueEnabled((v) => !v)}
-            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${blockOverdueEnabled ? "bg-primary" : "bg-zinc-200"}`}
-          >
-            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${blockOverdueEnabled ? "translate-x-5" : "translate-x-0"}`} />
-          </button>
-        </div>
-
-        <div className="flex justify-end">
-          <Button variant="primary" size="sm" onClick={saveBlockOverdue} disabled={savingBlockOverdue}>
-            {blockOverdueSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingBlockOverdue ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Lembrete de Pré-vencimento da Assinatura */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <CalendarClock className="w-4 h-4 text-primary" /> Lembrete de Pré-vencimento da Assinatura
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">
-          Envia um WhatsApp alguns dias antes do vencimento para assinantes que pagam <span className="font-medium text-zinc-600">manualmente</span> (PIX, dinheiro, cartão),
-          reforçando a importância de manter em dia para não perder os benefícios. Quem tem débito automático (Mercado Pago) não recebe.
-        </p>
-
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-800">Ativar lembrete de pré-vencimento</p>
-            <p className="text-xs text-zinc-400">
-              {prebillingEnabled
-                ? `Assinantes manuais recebem um WhatsApp ${prebillingDays} dia(s) antes do vencimento`
-                : "Desativado — nenhum lembrete de pré-vencimento será enviado"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPrebillingEnabled((v) => !v)}
-            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${prebillingEnabled ? "bg-primary" : "bg-zinc-200"}`}
-          >
-            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${prebillingEnabled ? "translate-x-5" : "translate-x-0"}`} />
-          </button>
-        </div>
-
-        {prebillingEnabled && (
-          <div className="mb-4">
-            <label className="block text-xs text-zinc-500 mb-1">Quantos dias antes do vencimento?</label>
-            <select
-              value={prebillingDays}
-              onChange={(e) => setPrebillingDays(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-            >
-              <option value="3">3 dias antes</option>
-              <option value="5">5 dias antes (recomendado)</option>
-              <option value="7">7 dias antes</option>
-              <option value="10">10 dias antes</option>
-            </select>
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <Button variant="primary" size="sm" onClick={savePrebilling} disabled={savingPrebilling}>
-            {prebillingSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingPrebilling ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Marcação Automática de Ausência */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <UserX className="w-4 h-4 text-primary" /> Marcação Automática de Ausência
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">
-          Agendamentos não fechados são marcados como <span className="font-medium text-zinc-600">NO_SHOW</span> automaticamente após o tempo configurado.
-          O barbeiro tem até esse prazo para fechar o atendimento manualmente.
-        </p>
-
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-800">Ativar marcação automática</p>
-            <p className="text-xs text-zinc-400">
-              {autoNoShowEnabled
-                ? `Agendamentos não fechados viram NO_SHOW após ${autoNoShowHours}h`
-                : "Desativado — barbeiros fecham manualmente"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setAutoNoShowEnabled((v) => !v)}
-            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${autoNoShowEnabled ? "bg-primary" : "bg-zinc-200"}`}
-          >
-            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${autoNoShowEnabled ? "translate-x-5" : "translate-x-0"}`} />
-          </button>
-        </div>
-
-        {autoNoShowEnabled && (
-          <div className="mb-4">
-            <label className="block text-xs text-zinc-500 mb-1">Janela de tempo para o barbeiro fechar</label>
-            <select
-              value={autoNoShowHours}
-              onChange={(e) => setAutoNoShowHours(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-            >
-              <option value="4">4 horas</option>
-              <option value="8">8 horas</option>
-              <option value="12">12 horas</option>
-              <option value="24">24 horas (recomendado)</option>
-              <option value="48">48 horas</option>
-              <option value="72">72 horas</option>
-            </select>
-            <p className="text-xs text-zinc-400 mt-1.5">
-              Agendamentos de mais de {autoNoShowHours}h atrás ainda CONFIRMED/PENDING serão marcados como NO_SHOW no próximo ciclo.
-            </p>
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <Button variant="primary" size="sm" onClick={saveNoShow} disabled={savingNoShow}>
-            {noShowSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingNoShow ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Retenção de Clientes */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <RefreshCw className="w-4 h-4 text-primary" /> Retenção de Clientes
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">
-          Envia uma mensagem automática via WhatsApp para clientes que estão inativos há mais de N dias, incentivando um novo agendamento.
-        </p>
-
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-800">Ativar retenção automática</p>
-            <p className="text-xs text-zinc-400">
-              {retentionEnabled
-                ? `Clientes sem visita há +${retentionDays} dias receberão um WhatsApp`
-                : "Desativado — nenhuma mensagem de retenção será enviada"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setRetentionEnabled((v) => !v)}
-            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${retentionEnabled ? "bg-primary" : "bg-zinc-200"}`}
-          >
-            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${retentionEnabled ? "translate-x-5" : "translate-x-0"}`} />
-          </button>
-        </div>
-
-        {retentionEnabled && (
-          <div className="space-y-4 mb-4">
-            {/* Dias de inatividade */}
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Dias de inatividade para disparar</label>
-              <select
-                value={retentionDays}
-                onChange={(e) => setRetentionDays(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-              >
-                <option value="14">14 dias</option>
-                <option value="21">21 dias</option>
-                <option value="30">30 dias</option>
-                <option value="45">45 dias (recomendado)</option>
-                <option value="60">60 dias</option>
-                <option value="90">90 dias</option>
-              </select>
-              <p className="text-xs text-zinc-400 mt-1.5">
-                A mensagem é reenviada no máximo uma vez a cada 30 dias por cliente. Requer WhatsApp conectado.
-              </p>
-            </div>
-
-            {/* Mensagem personalizada */}
-            <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-purple-500" />
-                <p className="text-sm font-medium text-zinc-800">Mensagem Personalizada</p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {RETENTION_VARIABLES.map((v) => (
-                  <button
-                    key={v.tag}
-                    type="button"
-                    onClick={() => setRetentionMessage((prev) => prev + v.tag)}
-                    className="group relative text-xs font-mono px-2 py-1 rounded-lg bg-white text-zinc-600 hover:bg-primary/10 hover:text-primary transition-colors border border-zinc-200"
-                  >
-                    {v.tag}
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-36 bg-zinc-900 text-white text-[10px] p-1.5 rounded-lg text-center leading-tight shadow-xl z-50">
-                      {v.desc}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <textarea
-                value={retentionMessage}
-                onChange={(e) => setRetentionMessage(e.target.value)}
-                placeholder={RETENTION_DEFAULT_MESSAGE}
-                rows={4}
-                className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all bg-white"
-              />
-              <p className="text-[11px] text-zinc-400 flex items-center gap-1">
-                <HelpCircle className="w-3 h-3" />
-                Deixe em branco para usar a mensagem padrão do sistema.
-              </p>
-            </div>
-
-            {/* Preview */}
-            <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-green-500" />
-                <p className="text-sm font-medium text-zinc-800">Pré-visualização</p>
-              </div>
-              <div className="bg-[#e5ddd5] rounded-xl p-3">
-                <div className="bg-white rounded-xl p-3 max-w-xs shadow-sm">
-                  <p className="text-sm text-zinc-800 whitespace-pre-line leading-relaxed">
-                    {(retentionMessage || RETENTION_DEFAULT_MESSAGE)
-                      .replace(/\{\{nome\}\}/g, "Carlos")
-                      .replace(/\{\{dias\}\}/g, retentionDays)
-                      .replace(/\{\{plural\}\}/g, Number(retentionDays) === 1 ? "" : "s")
-                      .replace(/\{\{empresa\}\}/g, "Lord of Barba")}
-                  </p>
-                  <p className="text-[10px] text-zinc-400 text-right mt-1.5">14:30 ✓✓</p>
+function DescontosSection({ regras, setRegras, dirty, saving, onSave, onReset }: {
+  regras: Regras; setRegras: (r: Regras) => void; dirty: boolean; saving: boolean; onSave: () => void; onReset: () => void;
+}) {
+  const cards: { title: string; on: keyof Regras; max: keyof Regras; sample: string; price: number }[] = [
+    { title: "Serviços", on: "discountServicesEnabled", max: "discountServicesMax", sample: "num corte de R$ 50", price: 50 },
+    { title: "Produtos", on: "discountProductsEnabled", max: "discountProductsMax", sample: "numa pomada de R$ 45", price: 45 },
+  ];
+  return (
+    <ConfigSection id="descontos" title="Descontos na comanda" subtitle="O barbeiro pode dar desconto na hora de fechar o atendimento. Você define o máximo; ele decide quanto usar."
+      footer={<SaveBar dirty={dirty} saving={saving} onSave={onSave} onReset={onReset} />}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {cards.map((c) => {
+          const on = regras[c.on] as boolean;
+          const pct = regras[c.max] as number;
+          return (
+            <ToggleRow key={c.title} title={c.title} checked={on} onChange={(v) => setRegras({ ...regras, [c.on]: v })}
+              text={on ? `Até ${pct}% de desconto` : "Sem desconto"}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] font-semibold text-ink-2">Desconto máximo</span>
+                <div className="flex items-center rounded-[9px] border border-control">
+                  <button type="button" onClick={() => setRegras({ ...regras, [c.max]: Math.max(5, pct - 5) })} aria-label={`Diminuir desconto de ${c.title}`} className="w-9 h-9 text-lg">−</button>
+                  <span className="w-14 text-center text-sm font-semibold">{pct}%</span>
+                  <button type="button" onClick={() => setRegras({ ...regras, [c.max]: Math.min(100, pct + 5) })} aria-label={`Aumentar desconto de ${c.title}`} className="w-9 h-9 text-lg">+</button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <Button variant="primary" size="sm" onClick={saveRetention} disabled={savingRetention}>
-            {retentionSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingRetention ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar</>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Sistema de Descontos na Comanda */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <Tag className="w-4 h-4 text-primary" /> Descontos na Comanda
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">
-          Permite que o barbeiro aplique desconto no momento de fechar o atendimento.
-          Defina o teto máximo — o barbeiro decide o quanto usar, até esse limite.
-        </p>
-
-        {/* Desconto em Serviços */}
-        <div className="border border-zinc-100 rounded-xl p-4 mb-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-zinc-800">Desconto em Serviços</p>
-              <p className="text-xs text-zinc-400">
-                {discountServicesEnabled
-                  ? `Barbeiro pode dar até ${discountServicesMax}% de desconto em serviços`
-                  : "Desativado — sem desconto em serviços"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setDiscountServicesEnabled((v) => !v)}
-              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${discountServicesEnabled ? "bg-primary" : "bg-zinc-200"}`}
-            >
-              <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${discountServicesEnabled ? "translate-x-5" : "translate-x-0"}`} />
-            </button>
-          </div>
-
-          {discountServicesEnabled && (
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Desconto máximo permitido (%)</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number" min="1" max="100" step="1"
-                  value={discountServicesMax}
-                  onChange={(e) => setDiscountServicesMax(e.target.value)}
-                  className="w-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-center font-semibold"
-                />
-                <span className="text-zinc-400 text-sm">%</span>
-                <p className="text-xs text-zinc-400 ml-1">
-                  O barbeiro pode aplicar entre 0% e {discountServicesMax}%
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Desconto em Produtos */}
-        <div className="border border-zinc-100 rounded-xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-zinc-800">Desconto em Produtos</p>
-              <p className="text-xs text-zinc-400">
-                {discountProductsEnabled
-                  ? `Barbeiro pode dar até ${discountProductsMax}% de desconto em produtos`
-                  : "Desativado — sem desconto em produtos"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setDiscountProductsEnabled((v) => !v)}
-              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${discountProductsEnabled ? "bg-primary" : "bg-zinc-200"}`}
-            >
-              <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${discountProductsEnabled ? "translate-x-5" : "translate-x-0"}`} />
-            </button>
-          </div>
-
-          {discountProductsEnabled && (
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Desconto máximo permitido em produtos (%)</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number" min="1" max="100" step="1"
-                  value={discountProductsMax}
-                  onChange={(e) => setDiscountProductsMax(e.target.value)}
-                  className="w-24 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-center font-semibold"
-                />
-                <span className="text-zinc-400 text-sm">%</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 flex justify-end">
-          <Button variant="primary" size="sm" onClick={saveDiscount} disabled={savingDiscount}>
-            {discountSaved ? <><Check className="w-3.5 h-3.5 mr-1 inline" />Salvo!</> : savingDiscount ? "Salvando..." : <><Save className="w-3.5 h-3.5 mr-1 inline" />Salvar descontos</>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Feriados e Horários Especiais */}
-      <Card>
-        <h2 className="text-base font-semibold text-zinc-900 mb-1 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-primary" /> Feriados e Dias Especiais
-        </h2>
-        <p className="text-xs text-zinc-400 mb-4">Marque datas em que a barbearia estará fechada ou com horário diferente</p>
-
-        {/* Lista de dias cadastrados */}
-        {specialDays.length > 0 && (
-          <div className="space-y-2 mb-4">
-            {specialDays.map((d) => {
-              const [ano, mes, dia] = d.date.split("-");
-              return (
-                <div key={d.id} className="flex items-center justify-between gap-3 bg-zinc-50 border border-zinc-100 rounded-lg px-3 py-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-zinc-800">
-                      {dia}/{mes}/{ano}
-                      {d.reason && <span className="ml-2 text-zinc-500 font-normal">— {d.reason}</span>}
-                    </p>
-                    <p className="text-xs text-zinc-400">
-                      {d.isClosed ? "Fechado" : `Horário especial: ${d.openTime} – ${d.closeTime}`}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => deleteSpecialDay(d.id)}
-                    disabled={deletingDayId === d.id}
-                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Formulário para adicionar */}
-        <div className="space-y-3 border-t border-zinc-100 pt-4">
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="block text-xs text-zinc-500 mb-1">Data</label>
-              <input
-                type="date"
-                value={newDay.date}
-                onChange={(e) => setNewDay((v) => ({ ...v, date: e.target.value }))}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs text-zinc-500 mb-1">Motivo (opcional)</label>
-              <input
-                type="text"
-                value={newDay.reason}
-                onChange={(e) => setNewDay((v) => ({ ...v, reason: e.target.value }))}
-                placeholder="Ex: Natal, Feriado..."
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-zinc-600">Tipo:</span>
-            <button
-              type="button"
-              onClick={() => setNewDay((v) => ({ ...v, isClosed: true }))}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${newDay.isClosed ? "bg-red-100 text-red-700 border border-red-200" : "bg-zinc-100 text-zinc-500 border border-zinc-200"}`}
-            >
-              Fechado
-            </button>
-            <button
-              type="button"
-              onClick={() => setNewDay((v) => ({ ...v, isClosed: false }))}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!newDay.isClosed ? "bg-blue-100 text-blue-700 border border-blue-200" : "bg-zinc-100 text-zinc-500 border border-zinc-200"}`}
-            >
-              Horário especial
-            </button>
-          </div>
-
-          {!newDay.isClosed && (
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-xs text-zinc-500 mb-1">Abre</label>
-                <select
-                  value={newDay.openTime}
-                  onChange={(e) => setNewDay((v) => ({ ...v, openTime: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                >
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs text-zinc-500 mb-1">Fecha</label>
-                <select
-                  value={newDay.closeTime}
-                  onChange={(e) => setNewDay((v) => ({ ...v, closeTime: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                >
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={addSpecialDay}
-            disabled={!newDay.date || addingDay}
-          >
-            {addingDay ? "Salvando..." : <><Plus className="w-3.5 h-3.5 mr-1 inline" />Adicionar data</>}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Minha Conta */}
-      <Card>
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900 mb-1">Minha Conta</h2>
-            <p className="text-sm text-zinc-500">
-              Logado como:{" "}
-              <span className="font-medium text-zinc-900">{user?.email}</span>
-            </p>
-          </div>
-          <button
-            onClick={() => setPwdModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-          >
-            <KeyRound className="w-4 h-4" />
-            Alterar Senha
-          </button>
-        </div>
-      </Card>
-
-      <p className="text-xs text-zinc-400">
-        Os horários de funcionamento definem os slots disponíveis para agendamento dos clientes e o cálculo da taxa de ocupação.
-      </p>
-
-      {/* ══════════════ MODAL ALTERAR SENHA ══════════════ */}
-      {pwdModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 animate-in zoom-in-95 duration-200">
-            {/* header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Lock className="w-4 h-4 text-primary" />
-                </div>
-                <h3 className="font-bold text-zinc-900">Alterar Senha</h3>
-              </div>
-              <button
-                onClick={() => { setPwdModal(false); setPwdStatus(null); }}
-                className="p-2 rounded-lg hover:bg-zinc-100 transition-colors"
-              >
-                <span className="sr-only">Fechar</span>
-                <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* status */}
-            {pwdStatus && (
-              <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium ${
-                pwdStatus.type === "success"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-red-50 text-red-700"
-              }`}>
-                {pwdStatus.type === "success"
-                  ? <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  : <AlertCircle className="w-4 h-4 shrink-0" />}
-                {pwdStatus.msg}
-              </div>
-            )}
-
-            {/* campos */}
-            <div className="space-y-4">
-              {/* senha atual */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-zinc-700">Senha atual</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  <input
-                    type={showCurrent ? "text" : "password"}
-                    value={currentPwd}
-                    onChange={(e) => setCurrentPwd(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-4 py-3 pl-10 pr-10 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrent(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                  >
-                    {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* nova senha */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-zinc-700">Nova senha</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  <input
-                    type={showNew ? "text" : "password"}
-                    value={newPwd}
-                    onChange={(e) => setNewPwd(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
-                    className="w-full px-4 py-3 pl-10 pr-10 rounded-xl border border-zinc-200 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNew(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                  >
-                    {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {newPwd.length > 0 && (
-                  <div className="flex gap-1 mt-1">
-                    {[1, 2, 3, 4].map(i => (
-                      <div
-                        key={i}
-                        className={`h-1 flex-1 rounded-full transition-colors ${
-                          newPwd.length >= i * 3
-                            ? i <= 2 ? "bg-amber-400" : "bg-emerald-500"
-                            : "bg-zinc-200"
-                        }`}
-                      />
-                    ))}
-                    <span className="text-xs text-zinc-400 ml-1">
-                      {newPwd.length < 6 ? "Fraca" : newPwd.length < 9 ? "Média" : "Forte"}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* confirmar */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-zinc-700">Confirmar nova senha</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-                  <input
-                    type="password"
-                    value={confirmPwd}
-                    onChange={(e) => setConfirmPwd(e.target.value)}
-                    placeholder="Repita a nova senha"
-                    className={`w-full px-4 py-3 pl-10 rounded-xl border text-sm focus:ring-2 outline-none ${
-                      confirmPwd && confirmPwd !== newPwd
-                        ? "border-red-300 focus:ring-red-200"
-                        : "border-zinc-200 focus:ring-primary/20"
-                    }`}
-                  />
-                </div>
-                {confirmPwd && confirmPwd !== newPwd && (
-                  <p className="text-xs text-red-500">As senhas não coincidem.</p>
-                )}
-              </div>
-            </div>
-
-            {/* actions */}
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={() => { setPwdModal(false); setPwdStatus(null); }}
-                className="flex-1 py-3 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handlePasswordChange}
-                disabled={pwdSaving || !currentPwd || !newPwd || !confirmPwd}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {pwdSaving ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</>
-                ) : (
-                  <><Lock className="w-4 h-4" /> Alterar Senha</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+              <span className="text-xs text-ink-3 rounded-lg bg-ground px-3 py-2">Exemplo: {c.sample}, o desconto pode chegar a R$ {(c.price * pct / 100).toFixed(2).replace(".", ",")}.</span>
+            </ToggleRow>
+          );
+        })}
+      </div>
+    </ConfigSection>
   );
 }

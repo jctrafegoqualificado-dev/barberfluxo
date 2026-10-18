@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import MercadoPago, { Payment, PreApproval } from "mercadopago";
 import crypto from "crypto";
+import { nextSaasExpiry } from "@/lib/saasBilling";
 
 function verifySignature(req: NextRequest, rawBody: string): boolean {
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
@@ -55,6 +56,10 @@ export async function POST(req: NextRequest) {
 
       const status = mpPayment.status; // approved | pending | rejected | cancelled
 
+      // O MP repete notificações: o mesmo pagamento não entra duas vezes
+      const already = await prisma.payment.findFirst({ where: { externalId: String(data.id), barbershopId }, select: { id: true, status: true } });
+      if (already && (already.status === "PAID" || status !== "approved")) return NextResponse.json({ ok: true });
+
       if (status === "approved") {
         // Registra o pagamento e ativa a barbearia
         await prisma.payment.create({
@@ -68,9 +73,11 @@ export async function POST(req: NextRequest) {
           },
         });
 
+        // Cobrança automática é mensal: o vencimento avança um mês (somando ao que falta, se pagou
+        // antes de vencer). Antes não mudava, e no vencimento antigo a barbearia era marcada atrasada.
         await prisma.barbershop.update({
           where: { id: barbershopId },
-          data: { active: true, saasStatus: "ACTIVE" },
+          data: { active: true, saasStatus: "ACTIVE", saasExpiresAt: nextSaasExpiry(shop, "monthly") },
         });
 
         console.log(`[platform/webhook] Pagamento aprovado para ${shop.name}`);

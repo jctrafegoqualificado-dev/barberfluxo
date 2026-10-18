@@ -1,153 +1,153 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, format, getDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import {
+  addDaysKey as addDays, apptDuration, barberDayWindow, dowOf as dow, keyOf, makeShopWindow, nowSP, OCC_APPT_SELECT, pctOf as rate, periodRange,
+} from "@/lib/ocupacao";
 
-function timeToMinutes(t: string) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
+/**
+ * Ocupação: quanto do tempo das cadeiras virou atendimento (só comandas fechadas, DONE).
+ * Regras do cálculo em src/lib/ocupacao.ts (as mesmas das Metas de ocupação).
+ * ?periodo=semana|mes. Devolve também o período anterior inteiro, para comparar.
+ */
+
+const overlap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+
+type Appt = { barberId: string; date: Date; startTime: string; duration: number };
 
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
-    const { searchParams } = new URL(req.url);
-    const periodo = searchParams.get("periodo") || "mes"; // semana | mes
+    const periodo = req.nextUrl.searchParams.get("periodo") === "semana" ? "semana" : "mes";
 
-    const now = new Date();
-    const start = periodo === "semana" ? startOfWeek(now, { weekStartsOn: 1 }) : startOfMonth(now);
-    const end = periodo === "semana" ? endOfWeek(now, { weekStartsOn: 1 }) : endOfMonth(now);
+    const { today, nowMin } = nowSP();
+    const { start, end, prevStart, prevEnd } = periodRange(periodo, today);
 
-    const [openingHoursRaw, barbers, appointments] = await Promise.all([
-      prisma.openingHour.findMany({ where: { barbershopId, isOpen: true } }),
+    const [openingRaw, specialDays, barbers, apptsRaw] = await Promise.all([
+      prisma.openingHour.findMany({ where: { barbershopId } }),
+      prisma.specialDay.findMany({ where: { barbershopId, date: { gte: prevStart, lte: end } } }),
       prisma.barber.findMany({
-        where: { barbershopId, active: true },
-        include: { user: { select: { name: true } } },
+        where: { barbershopId, active: true, archivedAt: null },
+        select: { id: true, nickname: true, dayOff: true, workStart: true, workEnd: true, user: { select: { name: true } } },
+        orderBy: { createdAt: "asc" },
       }),
       prisma.appointment.findMany({
-        where: { barbershopId, date: { gte: start, lte: end }, status: "DONE" },
-        select: {
-          barberId: true,
-          date: true,
-          service: { select: { duration: true } },
-          services: { select: { duration: true, service: { select: { duration: true } } } },
-        },
+        where: { barbershopId, status: "DONE", date: { gte: new Date(prevStart + "T00:00:00Z"), lte: new Date(end + "T23:59:59Z") } },
+        select: OCC_APPT_SELECT,
       }),
     ]);
 
-    let openingHours = openingHoursRaw;
-    if (openingHours.length === 0) {
-      openingHours = [1, 2, 3, 4, 5, 6].map((day) => ({
-        id: "default",
-        barbershopId,
-        dayOfWeek: day,
-        openTime: "09:00",
-        closeTime: "20:00",
-        isOpen: true,
-      }));
-    }
+    const shopW = makeShopWindow(openingRaw, specialDays);
+    const weekly = shopW.weekly;
+    const shopWindow = shopW.at;
 
-    const minutesByDay: Record<number, number> = {};
-    for (const oh of openingHours) {
-      minutesByDay[oh.dayOfWeek] = timeToMinutes(oh.closeTime) - timeToMinutes(oh.openTime);
-    }
+    const appts: Appt[] = apptsRaw.map((a) => ({
+      barberId: a.barberId, date: a.date, startTime: a.startTime,
+      duration: apptDuration(a),
+    }));
+    const barberIds = new Set(barbers.map((b) => b.id));
 
-    // Dias úteis no período
-    const days = eachDayOfInterval({ start, end });
-    const diasUteis = days.filter((d) => minutesByDay[getDay(d)] !== undefined);
+    const window = (b: (typeof barbers)[number], key: string) => barberDayWindow(b, key, shopWindow, today, nowMin);
 
-    // Minutos disponíveis por barbeiro no período
-    const minDisponiveisPorBarbeiro = diasUteis.reduce((sum, d) => {
-      return sum + (minutesByDay[getDay(d)] || 0);
-    }, 0);
-
-    // Total disponível (todos os barbeiros × dias úteis)
-    const totalDisponivelGeral = minDisponiveisPorBarbeiro * barbers.length;
-
-    // Minutos ocupados por barbeiro
-    const barberStats: Record<string, { name: string; minOcupados: number; atendimentos: number }> = {};
-    for (const b of barbers) {
-      barberStats[b.id] = { name: b.user.name, minOcupados: 0, atendimentos: 0 };
-    }
-
-    let totalOcupadoGeral = 0;
-    for (const appt of appointments) {
-      if (barberStats[appt.barberId]) {
-        let duration = 0;
-        if (appt.services && appt.services.length > 0) {
-          duration = appt.services.reduce((sum, s) => sum + (s.duration ?? s.service?.duration ?? 0), 0);
-        } else {
-          duration = appt.service?.duration ?? 0;
+    /** Soma de um intervalo de dias [from, to] já passados. */
+    function compute(from: string, to: string) {
+      const last = to < today ? to : today;
+      const days: string[] = [];
+      for (let k = from; k <= last; k = addDays(k, 1)) days.push(k);
+      const perBarber: Record<string, { occ: number; avail: number; count: number }> = {};
+      for (const b of barbers) perBarber[b.id] = { occ: 0, avail: 0, count: 0 };
+      const perDay: Record<string, { occ: number; avail: number; count: number }> = {};
+      for (const k of days) {
+        perDay[k] = { occ: 0, avail: 0, count: 0 };
+        for (const b of barbers) {
+          const w = window(b, k);
+          if (w) { perDay[k].avail += w[1] - w[0]; perBarber[b.id].avail += w[1] - w[0]; }
         }
-        barberStats[appt.barberId].minOcupados += duration;
-        barberStats[appt.barberId].atendimentos += 1;
-        totalOcupadoGeral += duration;
+      }
+      for (const a of appts) {
+        const k = keyOf(a.date);
+        if (!perDay[k] || !barberIds.has(a.barberId)) continue;
+        perDay[k].occ += a.duration; perDay[k].count++;
+        perBarber[a.barberId].occ += a.duration; perBarber[a.barberId].count++;
+      }
+      const occ = Object.values(perDay).reduce((s, d) => s + d.occ, 0);
+      const avail = Object.values(perDay).reduce((s, d) => s + d.avail, 0);
+      return { days, perDay, perBarber, occ, avail, count: Object.values(perDay).reduce((s, d) => s + d.count, 0) };
+    }
+
+    const cur = compute(start, end);
+    const prev = compute(prevStart, prevEnd);
+
+    // Mapa dia da semana × hora, para a barbearia toda e por profissional
+    let minH = 24, maxH = 0;
+    for (let d = 0; d < 7; d++) {
+      const w = weekly[d];
+      if (w) { minH = Math.min(minH, Math.floor(w[0] / 60)); maxH = Math.max(maxH, Math.ceil(w[1] / 60)); }
+    }
+    for (const s of specialDays) if (!s.isClosed && s.openTime && s.closeTime) { minH = Math.min(minH, Math.floor(toMin(s.openTime) / 60)); maxH = Math.max(maxH, Math.ceil(toMin(s.closeTime) / 60)); }
+    if (minH >= maxH) { minH = 9; maxH = 20; }
+    const hours = Array.from({ length: maxH - minH }, (_, i) => minH + i);
+    const emptyGrid = () => Array.from({ length: 7 }, () => hours.map(() => [0, 0] as [number, number]));
+    const grids: Record<string, [number, number][][]> = { all: emptyGrid() };
+    for (const b of barbers) grids[b.id] = emptyGrid();
+    for (const k of cur.days) {
+      const d = dow(k);
+      for (const b of barbers) {
+        const w = window(b, k);
+        if (!w) continue;
+        hours.forEach((h, i) => {
+          const av = overlap(w[0], w[1], h * 60, h * 60 + 60);
+          grids[b.id][d][i][1] += av; grids.all[d][i][1] += av;
+        });
       }
     }
+    for (const a of appts) {
+      const k = keyOf(a.date);
+      if (!cur.perDay[k] || !barberIds.has(a.barberId) || !/^\d{2}:\d{2}$/.test(a.startTime)) continue;
+      const s = toMin(a.startTime), e = s + a.duration, d = dow(k);
+      hours.forEach((h, i) => {
+        const oc = overlap(s, e, h * 60, h * 60 + 60);
+        grids[a.barberId][d][i][0] += oc; grids.all[d][i][0] += oc;
+      });
+    }
+    const heat = Object.fromEntries(Object.entries(grids).map(([id, g]) => [id, g.map((row) => row.map(([o, a]) => rate(o, a)))]));
 
-    // Taxa geral
-    const taxaGeral = totalDisponivelGeral > 0
-      ? Math.min(Math.round((totalOcupadoGeral / totalDisponivelGeral) * 100), 100)
-      : 0;
+    // Dias do período (os que ainda não chegaram vêm como "future")
+    const porDia: { data: string; taxa: number | null; atendimentos: number; status: "open" | "closed" | "future" }[] = [];
+    for (let k = start; k <= end; k = addDays(k, 1)) {
+      if (k > today) porDia.push({ data: k, taxa: null, atendimentos: 0, status: shopWindow(k) ? "future" : "closed" });
+      else {
+        const v = cur.perDay[k];
+        porDia.push({ data: k, taxa: rate(v.occ, v.avail), atendimentos: v.count, status: v.avail > 0 ? "open" : "closed" });
+      }
+    }
+    const openDays = porDia.filter((d) => d.status === "open" && d.taxa != null && d.data !== today);
+    const ranked = [...openDays].sort((a, b) => (b.taxa ?? 0) - (a.taxa ?? 0));
 
-    // Por barbeiro
-    const porBarbeiro = Object.entries(barberStats).map(([id, b]) => ({
-      id,
-      name: b.name,
-      atendimentos: b.atendimentos,
-      minOcupados: b.minOcupados,
-      minDisponiveis: minDisponiveisPorBarbeiro,
-      taxa: minDisponiveisPorBarbeiro > 0
-        ? Math.min(Math.round((b.minOcupados / minDisponiveisPorBarbeiro) * 100), 100)
-        : 0,
-    })).sort((a, b) => b.taxa - a.taxa);
-
-    // Ocupação por dia (para gráfico)
-    const porDia = diasUteis.map((d) => {
-      const dateStr = format(d, "yyyy-MM-dd");
-      const dayOfWeek = getDay(d);
-      const minDisp = (minutesByDay[dayOfWeek] || 0) * barbers.length;
-      const minOcup = appointments
-        .filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dateStr)
-        .reduce((s, a) => {
-          let duration = 0;
-          if (a.services && a.services.length > 0) {
-            duration = a.services.reduce((sum, s) => sum + (s.duration ?? s.service?.duration ?? 0), 0);
-          } else {
-            duration = a.service?.duration ?? 0;
-          }
-          return s + duration;
-        }, 0);
-      const taxa = minDisp > 0 ? Math.min(Math.round((minOcup / minDisp) * 100), 100) : 0;
-      return {
-        data: dateStr,
-        label: `${["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][dayOfWeek]} ${format(d, "dd/MM")}`,
-        taxa,
-        atendimentos: appointments.filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dateStr).length,
-      };
-    });
-
-    // Melhor e pior dia
-    const diasComMovimento = porDia.filter((d) => d.atendimentos > 0);
-    const melhorDia = diasComMovimento.sort((a, b) => b.taxa - a.taxa)[0] || null;
-    const piorDia = diasComMovimento.sort((a, b) => a.taxa - b.taxa)[0] || null;
-
-    return NextResponse.json({
-      periodo,
-      taxaGeral,
-      totalOcupadoGeral,
-      totalDisponivelGeral,
-      totalAtendimentos: appointments.length,
-      diasUteis: diasUteis.length,
-      porBarbeiro,
+    const res = NextResponse.json({
+      periodo, start, end, today,
+      taxaGeral: rate(cur.occ, cur.avail) ?? 0,
+      taxaAnterior: rate(prev.occ, prev.avail),
+      totalOcupadoGeral: cur.occ,
+      totalDisponivelGeral: cur.avail,
+      totalAtendimentos: cur.count,
+      diasAbertos: porDia.filter((d) => d.status === "open").length,
+      porBarbeiro: barbers.map((b) => {
+        const v = cur.perBarber[b.id];
+        return { id: b.id, name: b.nickname || b.user.name, atendimentos: v.count, minOcupados: v.occ, minDisponiveis: v.avail, taxa: rate(v.occ, v.avail) ?? 0 };
+      }).sort((a, b) => b.taxa - a.taxa),
       porDia,
-      melhorDia,
-      piorDia,
+      melhorDia: ranked[0] ?? null,
+      piorDia: ranked.length > 1 ? ranked[ranked.length - 1] : null,
+      hours,
+      heat,
     });
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
-    return NextResponse.json({ error: msg }, { status: msg === "UNAUTHORIZED" ? 401 : 500 });
+    return NextResponse.json({ error: msg }, { status: msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500 });
   }
 }

@@ -30,7 +30,8 @@ export type AuditAction =
   | "GRANT_ACCESS"
   | "REVOKE_ACCESS"
   | "PLAN_CHANGE"
-  | "MANUAL_PAYMENT";
+  | "MANUAL_PAYMENT"
+  | "PAYMENT_UNDO"; // desfez a baixa de uma mensalidade
 
 export interface AuditParams {
   /** null/omitido para ações de plataforma sem barbearia (ex: gestão de admins) */

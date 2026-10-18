@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const { name, description, price, duration, active, imageUrl, commission, materialCost } = await req.json();
+    const { name, description, price, duration, active, imageUrl, commission, materialCost, onlineBooking } = await req.json();
 
     // 1. Valida posse com findFirst (cruza barbershopId)
     const existing = await prisma.service.findFirst({ 
@@ -29,7 +29,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         active,
         imageUrl: imageUrl || null,
         commission: commission !== null && commission !== undefined ? Number(commission) : null,
-        materialCost: Number(materialCost || 0)
+        materialCost: Number(materialCost || 0),
+        ...(typeof onlineBooking === "boolean" ? { onlineBooking } : {}),
       },
     });
 

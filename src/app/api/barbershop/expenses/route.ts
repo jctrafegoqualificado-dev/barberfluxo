@@ -56,25 +56,31 @@ export async function POST(req: NextRequest) {
     const {
       name, description, amount, category, type,
       isRecurring, dueDay, paymentMethod, month,
-      dueDate, notes, replicateMonths = 0,
+      dueDate, notes, replicateMonths = 0, paid,
     } = body;
 
-    if (!name || !amount || !month) {
-      return NextResponse.json({ error: "name, amount e month são obrigatórios" }, { status: 400 });
+    if (!name || !amount || !month || !/^\d{4}-\d{2}$/.test(month) || !(Number(amount) > 0)) {
+      return NextResponse.json({ error: "Informe o nome, um valor maior que zero e o mês." }, { status: 400 });
     }
 
     const created = [];
-    const totalMonths = isRecurring ? Math.max(1, replicateMonths || 1) : 1;
+    const totalMonths = isRecurring ? Math.min(24, Math.max(1, Number(replicateMonths) || 1)) : 1;
+    const [y0, m0] = month.split("-").map(Number);
 
     for (let i = 0; i < totalMonths; i++) {
-      const targetDate = addMonths(new Date(month + "-01"), i);
-      const targetMonth = format(targetDate, "yyyy-MM");
+      // Contas em UTC e vencimento ao meio-dia: o dia não "volta" no fuso de São Paulo
+      // (antes era meia-noite UTC e o vencimento aparecia um dia antes).
+      const y = y0 + Math.floor((m0 - 1 + i) / 12);
+      const m = (m0 - 1 + i) % 12;
+      const targetMonth = `${y}-${String(m + 1).padStart(2, "0")}`;
       let due: Date | null = null;
       if (dueDay) {
-        due = new Date(targetDate.getFullYear(), targetDate.getMonth(), dueDay);
+        const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+        due = new Date(Date.UTC(y, m, Math.min(Number(dueDay), lastDay), 12));
       } else if (dueDate && i === 0) {
-        due = new Date(dueDate);
+        due = new Date(String(dueDate).slice(0, 10) + "T12:00:00Z");
       }
+      const paidNow = !!paid && i === 0;
 
       const expense = await prisma.expense.create({
         data: {
@@ -84,7 +90,8 @@ export async function POST(req: NextRequest) {
           isRecurring: !!isRecurring,
           dueDay: dueDay ? Number(dueDay) : null,
           paymentMethod: paymentMethod ?? "PIX",
-          status: "PENDING",
+          status: paidNow ? "PAID" : "PENDING",
+          paidAt: paidNow ? new Date() : null,
           month: targetMonth,
           dueDate: due,
           notes,

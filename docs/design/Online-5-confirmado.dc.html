@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button { font-family: inherit; }
+  </style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1000px; box-sizing: border-box; background: #F5F3EE; overflow: hidden;">
+  <div style="box-sizing: border-box; padding: 40px 16px 32px; display: flex; flex-direction: column; gap: 20px;">
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;">
+      <div style="width: 76px; height: 76px; border-radius: 50%; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center;">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+      </div>
+      <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -0.02em;">Tudo certo, Gustavo!</h1>
+      <span style="font-size: 16px; color: #57524A;">Seu horário está reservado.</span>
+    </div>
+
+    <section aria-label="Detalhes do agendamento" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; overflow: hidden;">
+      <div style="padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed #D8D0C2;">
+        <span style="font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Hoje · quarta, 16 de setembro</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 36px; font-weight: 700;">16:00</span>
+      </div>
+      <div style="padding: 6px 18px;">
+        <div style="display: flex; justify-content: space-between; min-height: 42px; align-items: center; font-size: 15px;"><span style="color: #6F685D;">Serviço</span><span style="font-weight: 600;">Corte degradê · 45 min</span></div>
+        <div style="display: flex; justify-content: space-between; min-height: 42px; align-items: center; font-size: 15px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Profissional</span><span style="font-weight: 600;">Diego Ramos</span></div>
+        <div style="display: flex; justify-content: space-between; min-height: 42px; align-items: center; font-size: 15px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Valor</span><span style="font-weight: 600;">R$ 55 · pague na barbearia</span></div>
+        <div style="display: flex; justify-content: space-between; min-height: 42px; align-items: center; font-size: 15px; border-top: 1px solid #F1EDE6;"><span style="color: #6F685D;">Onde</span><span style="font-weight: 600;">[ENDEREÇO DA BARBEARIA]</span></div>
+      </div>
+    </section>
+
+    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #E8F4EC;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D6B40" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+      <span style="font-size: 14px; color: #1D6B40;">Mandamos a confirmação no seu WhatsApp. Às 15:00 chega o lembrete.</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+      <button type="button" style="height: 52px; border-radius: 12px; border: 1px solid #D8D0C2; background: #FFFFFF; color: #1B1916; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path><path d="M12 14v4"></path><path d="M10 16h4"></path></svg>Pôr na agenda</button>
+      <button type="button" style="height: 52px; border-radius: 12px; border: 1px solid #D8D0C2; background: #FFFFFF; color: #1B1916; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>Como chegar</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 6px;">
+      <a href="#" style="font-size: 15px; font-weight: 600; color: #57524A;">Remarcar ou cancelar</a>
+      <a href="Online-1-servico.dc.html" style="font-size: 15px; font-weight: 600; color: #57524A;">Agendar outro horário</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":390,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    return { accent };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { POOL_PAYMENT_SELECT, poolOf, poolRevenue, poolServices, poolSettings, subscriptionPaymentsWhere } from "@/lib/commissions";
 import { startOfMonth, endOfMonth, subMonths, eachDayOfInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -44,8 +45,8 @@ export async function GET(req: NextRequest) {
         include: { product: { select: { name: true, commissionType: true, commissionValue: true } } },
       }),
       prisma.payment.findMany({
-        where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: start, lte: end } },
-        select: { amount: true },
+        where: subscriptionPaymentsWhere(barber.barbershopId, start, end),
+        select: POOL_PAYMENT_SELECT,
       }),
       prisma.appointment.findMany({
         where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "DONE", date: { gte: start, lte: end } },
@@ -54,9 +55,9 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Pool de assinatura (mesma lógica do relatório de comissões) — cada serviço do plano conta 1
-    const totalSubRevenue = subPaymentsMonth.reduce((s, p) => s + p.amount, 0);
-    const totalSubServicos = totalPlanServices(allSubAppts);
-    const ticketMedioSub = totalSubServicos > 0 ? (totalSubRevenue * 0.5) / totalSubServicos : 0;
+    const totalSubRevenue = poolRevenue(subPaymentsMonth);
+    const totalSubServicos = poolServices(allSubAppts);
+    const ticketMedioSub = poolOf(totalSubRevenue, totalSubServicos, await poolSettings(barber.barbershopId)).ticket;
 
     const done = appointments.filter((a) => a.status === "DONE");
     const noShow = appointments.filter((a) => a.status === "NO_SHOW").length;
@@ -151,6 +152,7 @@ export async function GET(req: NextRequest) {
         comissaoServicos,
         comissaoProdutos,
         totalComissao,
+        gorjetas: done.reduce((s, a) => s + (a.tipAmount ?? 0), 0),
         avulso: done.filter((a) => !a.subscriptionId).length,
         assinatura: done.filter((a) => a.subscriptionId).length,
         produtos: productSales.length,

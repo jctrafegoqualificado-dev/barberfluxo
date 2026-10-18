@@ -10,7 +10,8 @@ import {
 // Componente raiz
 // ============================================================================
 
-export default function WhatsAppManager() {
+/** embedded: dentro do cartão "Conexão" da tela nova (sem título nem caixa própria). */
+export default function WhatsAppManager({ embedded = false }: { embedded?: boolean } = {}) {
   const { state, action, provision, refreshQrCode, disconnect } =
     useWhatsAppInstance();
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
@@ -22,8 +23,8 @@ export default function WhatsAppManager() {
     state.kind !== "error";
 
   return (
-    <div className="mx-auto max-w-2xl p-4 sm:p-6">
-      <header className="mb-6">
+    <div className={embedded ? "" : "mx-auto max-w-2xl p-4 sm:p-6"}>
+      {!embedded && <header className="mb-6">
         <div className="flex items-center gap-3 flex-wrap">
           <WhatsAppIcon className="h-7 w-7 text-emerald-600" />
           <h1 className="text-2xl font-semibold text-gray-900">WhatsApp</h1>
@@ -32,9 +33,9 @@ export default function WhatsAppManager() {
         <p className="mt-2 text-sm text-gray-600">
           Conecte um número de WhatsApp para enviar e receber mensagens do estabelecimento.
         </p>
-      </header>
+      </header>}
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={embedded ? "" : "rounded-lg border border-gray-200 bg-white p-6 shadow-sm"}>
         {state.kind === "loading" && <LoadingView />}
 
         {state.kind === "no_instance" && (
@@ -353,67 +354,29 @@ function ConnectedView({
   loading: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center text-center py-4">
-      <div className="rounded-full bg-emerald-50 p-3">
-        <CheckIcon className="h-8 w-8 text-emerald-600" />
-      </div>
-      <h2 className="mt-4 text-lg font-medium text-gray-900">
-        WhatsApp conectado
-      </h2>
-      <p className="mt-2 max-w-md text-sm text-gray-600">
-        Seu estabelecimento está pronto para enviar e receber mensagens.
-      </p>
-
-      <dl className="mt-5 w-full max-w-sm space-y-2 rounded-md bg-gray-50 p-3 text-left text-sm">
-        <div className="flex justify-between gap-3">
-          <dt className="text-gray-500">Instância</dt>
-          <dd className="font-mono text-gray-900 truncate">{instanceName}</dd>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3 rounded-xl bg-ground p-3.5">
+        <div className="w-10 h-10 rounded-full bg-positive-soft flex items-center justify-center shrink-0">
+          <CheckIcon className="h-5 w-5 text-positive" />
         </div>
-        {lastConnectedAt && (
-          <div className="flex justify-between gap-3">
-            <dt className="text-gray-500">Conectado em</dt>
-            <dd className="text-gray-900">
-              {new Date(lastConnectedAt).toLocaleString("pt-BR")}
-            </dd>
-          </div>
-        )}
-      </dl>
-
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">WhatsApp conectado</p>
+          <p className="text-xs text-ink-3 truncate">
+            {lastConnectedAt ? `desde ${new Date(lastConnectedAt).toLocaleDateString("pt-BR")}` : "pronto para enviar e receber"} · {instanceName}
+          </p>
+        </div>
+      </div>
       {!confirmOpen ? (
-        <button
-          type="button"
-          onClick={onAskDisconnect}
-          className="mt-5 rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
-        >
+        <button type="button" onClick={onAskDisconnect} className="self-start text-[13px] font-semibold text-danger underline underline-offset-2">
           Desconectar
         </button>
       ) : (
-        <div
-          role="alertdialog"
-          aria-label="Confirmar desconexão"
-          className="mt-5 w-full max-w-sm rounded-md border border-red-200 bg-red-50 p-3 text-left"
-        >
-          <p className="text-sm text-red-900">
-            Tem certeza? O estabelecimento parará de enviar e receber mensagens até
-            reconectar.
-          </p>
-          <div className="mt-3 flex gap-2 justify-end">
-            <button
-              type="button"
-              onClick={onCancelDisconnect}
-              disabled={loading}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-60"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={onConfirmDisconnect}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
-            >
-              {loading && <Spinner className="h-3.5 w-3.5" />}
-              Sim, desconectar
+        <div role="alertdialog" aria-label="Confirmar desconexão" className="rounded-xl border border-danger/25 bg-danger-soft p-3.5 flex flex-col gap-2.5">
+          <p className="text-[13px] text-danger">Tem certeza? A barbearia para de enviar lembretes e a IA para de responder até reconectar.</p>
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={onCancelDisconnect} disabled={loading} className="h-9 px-3 rounded-[9px] border border-control bg-surface text-[13px] font-semibold disabled:opacity-60">Cancelar</button>
+            <button type="button" onClick={onConfirmDisconnect} disabled={loading} className="h-9 px-3 rounded-[9px] bg-danger-strong text-white text-[13px] font-semibold inline-flex items-center gap-1.5 disabled:opacity-60">
+              {loading && <Spinner className="h-3.5 w-3.5" />}Sim, desconectar
             </button>
           </div>
         </div>

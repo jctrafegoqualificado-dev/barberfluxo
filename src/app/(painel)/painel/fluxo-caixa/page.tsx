@@ -1,536 +1,405 @@
 "use client";
-
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ArrowDownToLine, ArrowUpFromLine, Plus, Unlock, Undo2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
-import {
-  Loader2, DollarSign, ArrowUpRight, ArrowDownRight,
-  Lock, Unlock, Plus, X, Clock, Banknote, CreditCard, Wallet,
-  CheckCircle2, AlertCircle,
-} from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { cn, formatCurrency } from "@/lib/utils";
+import { Modal } from "@/components/ui/Modal";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CASH_CHANGED } from "@/components/financeiro/CashWidget";
+import type { CashSummary } from "@/lib/cashSummary";
+import { parseMoney } from "@/lib/finance";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface CashEntry {
-  id: string;
-  type: "INCOME" | "EXPENSE";
-  category: string;
-  description: string;
-  amount: number;
-  paymentMethod: string;
-  createdAt: string;
+interface Closing {
+  id: string; openedAt: string; closedAt: string | null; closingBalance: number | null; expectedBalance: number | null;
+  totalIn: number | null; closedByName: string | null; notes: string | null; difference: number | null;
 }
+type Data = CashSummary & { closings: Closing[] };
+type EntryMode = "retirar" | "colocar" | "entrada";
 
-interface CashSession {
-  id: string;
-  status: "OPEN" | "CLOSED";
-  openingBalance: number;
-  closingBalance?: number;
-  createdAt: string;
-  closedAt?: string;
-  notes?: string;
-  entries: CashEntry[];
-}
+const brl = (v: number) => formatCurrency(v);
+const brl0 = (v: number) => formatCurrency(v).replace(",00", "");
+const tz = { timeZone: "America/Sao_Paulo" } as const;
+const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { ...tz, hour: "2-digit", minute: "2-digit" });
+const dayKey = (iso: string) => new Intl.DateTimeFormat("sv", tz).format(new Date(iso));
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const shortDay = (iso: string) =>
+  new Date(iso).toLocaleDateString("pt-BR", { ...tz, weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmt(v: number) {
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-const METHOD_LABELS: Record<string, string> = {
-  CASH: "Dinheiro", PIX: "PIX", CREDIT: "Crédito", DEBIT: "Débito",
-  CREDIT_CARD: "Crédito", DEBIT_CARD: "Débito", BOLETO: "Boleto",
+const NOTES: Record<string, (d: Data, fee: number) => string> = {
+  PIX: () => "cai na conta na hora",
+  CASH: (d) => `${brl0(d.drawer.expected)} na gaveta agora`,
+  CREDIT: (_d, fee) => (fee > 0 ? `taxa de ${brl(fee)}` : "maquininha"),
+  DEBIT: (_d, fee) => (fee > 0 ? `taxa de ${brl(fee)}` : "maquininha"),
+  OTHER: () => "boleto, cobrança automática…",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  SUPRIMENTO: "Suprimento", SANGRIA: "Sangria", VENDA: "Venda",
-  SERVICO: "Serviço", OUTROS: "Outros",
-};
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function FluxoCaixaPage() {
-  const token = useAuthStore(s => s.token);
-  const [session, setSession] = useState<CashSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showOpen, setShowOpen] = useState(false);
-  const [showClose, setShowClose] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
+export default function CaixaPage() {
+  const { token } = useAuthStore();
+  const [data, setData] = useState<Data | null>(null);
+  const [mode, setMode] = useState<EntryMode | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [undo, setUndo] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/barbershop/cashflow", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setSession(data.session ?? null);
-    } finally {
-      setLoading(false);
-    }
+    const r = await fetch("/api/barbershop/cashflow", { headers: { Authorization: `Bearer ${token}` } });
+    if (r.ok) setData(await r.json());
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Computed values
-  const entries = session?.entries ?? [];
-  const totalIncome = entries.filter(e => e.type === "INCOME").reduce((s, e) => s + e.amount, 0);
-  const totalExpense = entries.filter(e => e.type === "EXPENSE").reduce((s, e) => s + e.amount, 0);
-  const currentBalance = (session?.openingBalance ?? 0) + totalIncome - totalExpense;
-  const isOpen = session?.status === "OPEN";
+  const changed = () => { load(); window.dispatchEvent(new Event(CASH_CHANGED)); };
 
-  if (loading) {
+  async function removeEntry(id: string) {
+    setUndo(null);
+    const r = await fetch(`/api/barbershop/cashflow/entries?id=${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) toast.error((await r.json().catch(() => ({}))).error ?? "Não foi possível desfazer.");
+    changed();
+  }
+
+  if (!data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex flex-col gap-4 animate-pulse" aria-busy>
+        <div className="h-9 w-56 rounded bg-surface-2" />
+        <div className="grid lg:grid-cols-[1fr_380px] gap-5"><div className="h-80 rounded-2xl bg-surface-2" /><div className="h-80 rounded-2xl bg-surface-2" /></div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6 pb-24">
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-zinc-900">Fluxo de Caixa</h1>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Abertura, movimentações e fechamento do caixa diário
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {!isOpen ? (
-            <button
-              onClick={() => setShowOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-600 text-white font-bold text-sm hover:opacity-90 transition-opacity shadow-sm"
-            >
-              <Unlock className="w-4 h-4" /> Abrir Caixa
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => setShowAdd(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:opacity-90 transition-opacity shadow-sm"
-              >
-                <Plus className="w-4 h-4" /> Lançamento
-              </button>
-              <button
-                onClick={() => setShowClose(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm hover:opacity-90 transition-opacity shadow-sm"
-              >
-                <Lock className="w-4 h-4" /> Fechar Caixa
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+  const s = data.session;
+  const open = s?.status === "OPEN";
+  const staleDay = open && dayKey(s!.openedAt) !== dayKey(new Date().toISOString());
+  const moves = showAll ? data.moves : data.moves.slice(0, 10);
 
-      {/* ── No session ── */}
-      {!session && (
-        <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-16 flex flex-col items-center justify-center gap-4 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center">
-            <Banknote className="w-8 h-8 text-zinc-300" />
-          </div>
-          <h2 className="font-bold text-zinc-900 text-lg">Nenhum caixa aberto</h2>
-          <p className="text-sm text-zinc-400 max-w-sm">
-            Abra o caixa para começar a registrar entradas e saídas do dia. 
-            Informe o valor inicial em dinheiro (troco).
-          </p>
-          <button
-            onClick={() => setShowOpen(true)}
-            className="mt-2 flex items-center gap-2 px-6 py-3 rounded-xl bg-green-600 text-white font-bold text-sm hover:opacity-90 transition-opacity"
-          >
-            <Unlock className="w-4 h-4" /> Abrir Caixa Agora
-          </button>
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Cabeçalho */}
+      <header className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Caixa de hoje</h1>
+          <span className="text-sm text-ink-3">
+            {open
+              ? `Aberto ${staleDay ? `em ${shortDay(s!.openedAt)}` : ""} às ${hhmm(s!.openedAt)}${s!.openedByName ? ` por ${s!.openedByName.split(" ")[0]}` : ""} com ${brl0(s!.openingBalance)} de troco`
+              : "Caixa fechado"}
+          </span>
         </div>
+        {open && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" onClick={() => setMode("retirar")} className="h-[42px] px-3.5 rounded-[10px] border border-control bg-surface text-sm font-semibold inline-flex items-center gap-2 hover:bg-surface-3">
+              <ArrowUpFromLine className="w-4 h-4" aria-hidden /> Retirar dinheiro
+            </button>
+            <button type="button" onClick={() => setMode("colocar")} className="h-[42px] px-3.5 rounded-[10px] border border-control bg-surface text-sm font-semibold inline-flex items-center gap-2 hover:bg-surface-3">
+              <ArrowDownToLine className="w-4 h-4" aria-hidden /> Colocar dinheiro
+            </button>
+            <button type="button" onClick={() => setMode("entrada")} className="h-[42px] px-4 rounded-[10px] bg-primary text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-primary/90">
+              <Plus className="w-4 h-4" aria-hidden /> Lançar entrada
+            </button>
+          </div>
+        )}
+      </header>
+
+      {staleDay && (
+        <p className="rounded-xl bg-warning-soft text-warning text-[13px] px-4 py-3" role="status">
+          Este caixa está aberto desde {shortDay(s!.openedAt)}. Feche e confira a gaveta para começar o de hoje.
+        </p>
       )}
 
-      {/* ── Active session ── */}
-      {session && (
-        <>
-          {/* Status bar */}
-          <div className={`rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 ${
-            isOpen
-              ? "bg-gradient-to-r from-green-600 to-green-500 text-white"
-              : "bg-zinc-100 text-zinc-700"
-          }`}>
-            <div className="flex items-center gap-3 flex-1">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                isOpen ? "bg-white/20" : "bg-zinc-200"
-              }`}>
-                {isOpen ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-              </div>
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
+        <div className="flex flex-col gap-5 min-w-0">
+          {/* Entrou */}
+          <section className="bg-surface border border-line rounded-2xl p-5 flex flex-col gap-4">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
               <div>
-                <p className="font-black text-sm">
-                  Caixa {isOpen ? "Aberto" : "Fechado"}
-                </p>
-                <p className={`text-xs ${isOpen ? "text-green-100" : "text-zinc-400"}`}>
-                  Aberto em {format(new Date(session.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                  {session.closedAt && (
-                    <> · Fechado em {format(new Date(session.closedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</>
-                  )}
-                </p>
+                <p className="text-[13px] font-semibold text-ink-3">{open ? (staleDay ? "Entrou neste caixa" : "Entrou hoje") : "Entrou hoje"}</p>
+                <p className="font-display text-[34px] font-bold leading-tight">{brl0(data.totalIn)}</p>
               </div>
+              <span className="text-[13px] text-ink-3">
+                {data.movesCount} {data.movesCount === 1 ? "lançamento" : "lançamentos"}
+                {data.tips > 0 && ` · inclui ${brl0(data.tips)} de gorjeta`}
+              </span>
             </div>
-            {session.notes && (
-              <p className={`text-xs italic ${isOpen ? "text-green-100" : "text-zinc-400"}`}>
-                {session.notes}
-              </p>
-            )}
-          </div>
-
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <Wallet className="w-4 h-4 text-blue-500" />
-                </div>
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Saldo Inicial</span>
-              </div>
-              <p className="text-xl font-black text-zinc-900">{fmt(session.openingBalance)}</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-                  <ArrowUpRight className="w-4 h-4 text-green-600" />
-                </div>
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Entradas</span>
-              </div>
-              <p className="text-xl font-black text-green-600">{fmt(totalIncome)}</p>
-              <p className="text-[10px] text-zinc-400 mt-0.5">{entries.filter(e => e.type === "INCOME").length} lançamento(s)</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
-                  <ArrowDownRight className="w-4 h-4 text-red-500" />
-                </div>
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Saídas</span>
-              </div>
-              <p className="text-xl font-black text-red-500">{fmt(totalExpense)}</p>
-              <p className="text-[10px] text-zinc-400 mt-0.5">{entries.filter(e => e.type === "EXPENSE").length} lançamento(s)</p>
-            </div>
-            <div className="bg-zinc-900 rounded-2xl border border-zinc-700 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 text-primary" />
-                </div>
-                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Saldo Atual</span>
-              </div>
-              <p className={`text-2xl font-black ${currentBalance >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {fmt(currentBalance)}
-              </p>
-              {session.closingBalance !== undefined && session.closingBalance !== null && !isOpen && (
-                <p className="text-[10px] text-zinc-400 mt-0.5">
-                  Fechamento informado: {fmt(session.closingBalance)}
-                  {Math.abs(currentBalance - session.closingBalance) > 0.01 && (
-                    <span className="text-amber-400 ml-1">
-                      (diferença: {fmt(Math.abs(currentBalance - session.closingBalance))})
-                    </span>
-                  )}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Entries list */}
-          <div className="bg-white rounded-2xl border border-zinc-150 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-zinc-100">
-              <h2 className="font-bold text-zinc-900 text-sm">Movimentações</h2>
-              <p className="text-xs text-zinc-400 mt-0.5">Todos os lançamentos desta sessão</p>
-            </div>
-            {entries.length === 0 ? (
-              <div className="py-16 text-center text-zinc-400">
-                <Clock className="w-8 h-8 mx-auto mb-3 text-zinc-200" />
-                <p className="font-bold text-sm">Nenhuma movimentação ainda</p>
-                <p className="text-xs text-zinc-300 mt-1">Clique em &quot;Lançamento&quot; para registrar</p>
+            {data.byMethod.length > 0 ? (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {data.byMethod.map((m) => {
+                  const pct = data.totalIn > 0 ? Math.round((m.amount / data.totalIn) * 100) : 0;
+                  return (
+                    <div key={m.method} className="rounded-xl border border-line-2 p-3.5 flex flex-col gap-2">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-semibold">{m.label}</span>
+                        <span className="text-[15px] font-bold">{brl0(m.amount)}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-track overflow-hidden" aria-hidden>
+                        <div className="h-full rounded-full bg-ink" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-ink-3">{pct}% · {NOTES[m.method](data, m.fee)}</span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              <div className="divide-y divide-zinc-50">
-                {entries.map(entry => (
-                  <div key={entry.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-zinc-50/50 transition-colors">
-                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${
-                      entry.type === "INCOME"
-                        ? "bg-green-50 text-green-600 border-green-200"
-                        : "bg-red-50 text-red-500 border-red-200"
-                    }`}>
-                      {entry.type === "INCOME"
-                        ? <ArrowUpRight className="w-4 h-4" />
-                        : <ArrowDownRight className="w-4 h-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-zinc-900 truncate">{entry.description}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded-full font-medium">
-                          {CATEGORY_LABELS[entry.category] ?? entry.category}
-                        </span>
-                        <span className="text-[10px] bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded-full font-medium">
-                          {METHOD_LABELS[entry.paymentMethod] ?? entry.paymentMethod}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-zinc-400 shrink-0 hidden sm:block">
-                      {format(new Date(entry.createdAt), "HH:mm")}
-                    </span>
-                    <p className={`text-sm font-black shrink-0 ${
-                      entry.type === "INCOME" ? "text-green-600" : "text-red-500"
-                    }`}>
-                      {entry.type === "INCOME" ? "+" : "−"}{fmt(entry.amount)}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-[13px] text-ink-3">Nada entrou ainda. Os atendimentos concluídos na agenda aparecem aqui sozinhos.</p>
             )}
-          </div>
-        </>
-      )}
+          </section>
 
-      {/* ── Modals ── */}
-      {showOpen && <OpenCashModal onClose={() => setShowOpen(false)} onSaved={load} />}
-      {showClose && session && <CloseCashModal sessionId={session.id} currentBalance={currentBalance} onClose={() => setShowClose(false)} onSaved={load} />}
-      {showAdd && session && <AddEntryModal sessionId={session.id} onClose={() => setShowAdd(false)} onSaved={load} />}
-    </div>
-  );
-}
-
-// ─── Open Cash Modal ──────────────────────────────────────────────────────────
-function OpenCashModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const token = useAuthStore(s => s.token);
-  const [amount, setAmount] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await fetch("/api/barbershop/cashflow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ openingBalance: parseFloat(amount.replace(",", ".")) || 0 }),
-      });
-      onSaved();
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
-          <div>
-            <h3 className="font-black text-zinc-900">Abrir Caixa</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">Informe o valor inicial (troco)</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div>
-            <label className="text-xs font-bold text-zinc-600 mb-1 block">Valor inicial (R$)</label>
-            <input
-              value={amount} onChange={e => setAmount(e.target.value)}
-              placeholder="0,00" type="text" inputMode="decimal" autoFocus
-              className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-lg font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500"
-            />
-            <p className="text-[11px] text-zinc-400 mt-1.5 text-center">Deixe 0 se não houver troco</p>
-          </div>
-          <button type="submit" disabled={loading}
-            className="w-full py-3 rounded-xl bg-green-600 text-white font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
-            {loading ? "Abrindo..." : "Abrir Caixa"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ─── Close Cash Modal ─────────────────────────────────────────────────────────
-function CloseCashModal({ sessionId, currentBalance, onClose, onSaved }: {
-  sessionId: string; currentBalance: number; onClose: () => void; onSaved: () => void;
-}) {
-  const token = useAuthStore(s => s.token);
-  const [amount, setAmount] = useState(currentBalance.toFixed(2).replace(".", ","));
-  const [notes, setNotes] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await fetch("/api/barbershop/cashflow", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          sessionId,
-          closingBalance: parseFloat(amount.replace(",", ".")) || 0,
-          notes: notes || undefined,
-        }),
-      });
-      onSaved();
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const closingVal = parseFloat(amount.replace(",", ".")) || 0;
-  const diff = closingVal - currentBalance;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
-          <div>
-            <h3 className="font-black text-zinc-900">Fechar Caixa</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">Confira o valor e finalize</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div className="bg-zinc-50 rounded-xl p-4 text-center">
-            <p className="text-xs font-bold text-zinc-500 uppercase mb-1">Saldo esperado</p>
-            <p className="text-2xl font-black text-zinc-900">{fmt(currentBalance)}</p>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-zinc-600 mb-1 block">Valor real no caixa (R$)</label>
-            <input
-              value={amount} onChange={e => setAmount(e.target.value)}
-              placeholder="0,00" type="text" inputMode="decimal" autoFocus
-              className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-lg font-bold text-center focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-            />
-          </div>
-          {Math.abs(diff) > 0.01 && (
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold ${
-              diff > 0 ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"
-            }`}>
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {diff > 0 ? `Sobra de ${fmt(diff)}` : `Falta de ${fmt(Math.abs(diff))}`}
+          {/* Movimentações */}
+          <section className="bg-surface border border-line rounded-2xl overflow-hidden">
+            <div className="flex items-baseline justify-between gap-3 px-5 pt-4 pb-3 border-b border-line-2">
+              <h2 className="text-[15px] font-semibold">Movimentações {staleDay ? "deste caixa" : "de hoje"}</h2>
+              <span className="text-xs text-ink-3">mais recentes primeiro</span>
             </div>
-          )}
-          <div>
-            <label className="text-xs font-bold text-zinc-600 mb-1 block">Observações (opcional)</label>
-            <textarea
-              value={notes} onChange={e => setNotes(e.target.value)}
-              rows={2} placeholder="Notas sobre o fechamento..."
-              className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 resize-none"
-            />
-          </div>
-          <button type="submit" disabled={loading}
-            className="w-full py-3 rounded-xl bg-red-500 text-white font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-            {loading ? "Fechando..." : "Fechar Caixa"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ─── Add Entry Modal ──────────────────────────────────────────────────────────
-function AddEntryModal({ sessionId, onClose, onSaved }: {
-  sessionId: string; onClose: () => void; onSaved: () => void;
-}) {
-  const token = useAuthStore(s => s.token);
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    type: "INCOME" as "INCOME" | "EXPENSE",
-    category: "VENDA",
-    description: "",
-    amount: "",
-    paymentMethod: "CASH",
-  });
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await fetch("/api/barbershop/cashflow/entry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          sessionId,
-          ...form,
-          amount: parseFloat(form.amount.replace(",", ".")) || 0,
-        }),
-      });
-      onSaved();
-      onClose();
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
-          <div>
-            <h3 className="font-black text-zinc-900">Novo Lançamento</h3>
-            <p className="text-xs text-zinc-400 mt-0.5">Adicionar movimento ao caixa</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Tipo */}
-          <div className="grid grid-cols-2 gap-2">
-            {(["INCOME", "EXPENSE"] as const).map(t => (
-              <button key={t} type="button" onClick={() => set("type", t)}
-                className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                  form.type === t
-                    ? t === "INCOME" ? "bg-green-600 text-white" : "bg-red-500 text-white"
-                    : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
-                }`}>
-                {t === "INCOME" ? "↑ Entrada" : "↓ Saída"}
+            {data.moves.length === 0 ? (
+              <p className="px-5 py-8 text-[13px] text-ink-3 text-center">Nenhuma movimentação ainda.</p>
+            ) : (
+              <ul className="divide-y divide-line-3">
+                {moves.map((m) => (
+                  <li key={m.id} className="flex items-center gap-3 px-5 py-2.5 min-h-[56px]">
+                    <span className="w-11 text-xs text-ink-3 shrink-0">{hhmm(m.at)}</span>
+                    <span aria-hidden className={cn("w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+                      m.dir === "in" ? "bg-positive-soft text-positive" : m.dir === "out" ? "bg-surface-3 text-ink-2" : "bg-danger-soft text-danger")}>
+                      {m.dir === "in" ? "+" : m.dir === "out" ? "−" : "×"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{m.desc}</p>
+                      <p className="text-xs text-ink-3 truncate">{m.sub}</p>
+                    </div>
+                    <span className="hidden sm:block text-xs text-ink-3 w-28 text-right truncate">{m.method}</span>
+                    <span className={cn("text-sm font-semibold w-24 text-right shrink-0",
+                      m.dir === "in" ? "text-positive" : m.dir === "out" ? "text-ink" : "text-ink-4")}>
+                      {m.dir === "in" ? "+ " : m.dir === "out" ? "− " : ""}{brl(m.amount)}
+                    </span>
+                    {open && m.entryId ? (
+                      <button type="button" onClick={() => setUndo(m.entryId!)} aria-label={`Desfazer ${m.desc}`}
+                        className="w-8 h-8 rounded-lg text-ink-4 hover:bg-surface-3 hover:text-ink flex items-center justify-center shrink-0">
+                        <Undo2 className="w-4 h-4" aria-hidden />
+                      </button>
+                    ) : <span className="w-8 shrink-0" />}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {data.moves.length > moves.length && (
+              <button type="button" onClick={() => setShowAll(true)} className="w-full h-11 border-t border-line-2 text-[13px] font-semibold text-ink-2 hover:bg-surface-3">
+                Ver todos os {data.moves.length} lançamentos
               </button>
-            ))}
-          </div>
-          <div>
-            <label className="text-xs font-bold text-zinc-600 mb-1 block">Descrição *</label>
-            <input required value={form.description} onChange={e => set("description", e.target.value)}
-              placeholder="Ex: Sangria, Suprimento, Venda avulsa..."
-              className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-bold text-zinc-600 mb-1 block">Valor (R$) *</label>
-              <input required value={form.amount} onChange={e => set("amount", e.target.value)}
-                placeholder="0,00" type="text" inputMode="decimal"
-                className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-zinc-600 mb-1 block">Forma de pag.</label>
-              <select value={form.paymentMethod} onChange={e => set("paymentMethod", e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30">
-                {Object.entries(METHOD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-zinc-600 mb-1 block">Categoria</label>
-            <select value={form.category} onChange={e => set("category", e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30">
-              {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </div>
-          <button type="submit" disabled={loading}
-            className={`w-full py-3 rounded-xl text-white font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2 ${
-              form.type === "INCOME" ? "bg-green-600" : "bg-red-500"
-            }`}>
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            {loading ? "Salvando..." : form.type === "INCOME" ? "Registrar Entrada" : "Registrar Saída"}
-          </button>
-        </form>
+            )}
+          </section>
+        </div>
+
+        {/* Fechar (ou abrir) */}
+        <div className="flex flex-col gap-5 lg:sticky lg:top-6">
+          {open ? <FecharCaixa data={data} onClosed={changed} /> : <AbrirCaixa onOpened={changed} />}
+
+          {data.closings.length > 0 && (
+            <section className="bg-surface border border-line rounded-2xl p-5 flex flex-col gap-2.5">
+              <h2 className="text-[15px] font-semibold">Últimos fechamentos</h2>
+              <ul className="flex flex-col divide-y divide-line-3">
+                {data.closings.map((c) => {
+                  const d = c.difference;
+                  const label = d === null ? (c.closingBalance !== null ? `contou ${brl(c.closingBalance)}` : "—")
+                    : Math.abs(d) < 0.01 ? "Conferiu certinho" : d > 0 ? `Sobraram ${brl(d)}` : `Faltaram ${brl(-d)}`;
+                  return (
+                    <li key={c.id} className="flex items-center justify-between gap-3 py-2 text-[13px]">
+                      <span className="min-w-0 truncate">
+                        <span className="font-semibold">{c.closedAt ? cap(shortDay(c.closedAt)) : "—"}</span>
+                        {c.totalIn !== null && <span className="text-ink-3"> · {brl0(c.totalIn)}</span>}
+                      </span>
+                      <span className={cn("font-semibold shrink-0",
+                        d === null ? "text-ink-3" : Math.abs(d) < 0.01 ? "text-positive" : d > 0 ? "text-ink-2" : "text-danger-strong")}
+                        title={c.notes ?? undefined}>
+                        {label}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+        </div>
       </div>
+
+      {mode && s && <LancamentoModal mode={mode} sessionId={s.id} drawer={data.drawer.expected} onClose={() => setMode(null)} onSaved={() => { setMode(null); changed(); }} />}
+      <ConfirmDialog isOpen={!!undo} title="Desfazer lançamento?" message="Ele sai do caixa e da conferência da gaveta."
+        confirmLabel="Desfazer" onConfirm={() => undo && removeEntry(undo)} onCancel={() => setUndo(null)} />
     </div>
+  );
+}
+
+/* ─── Fechar o caixa: conferir a gaveta ─── */
+function FecharCaixa({ data, onClosed }: { data: Data; onClosed: () => void }) {
+  const { token } = useAuthStore();
+  const [counted, setCounted] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const d = data.drawer;
+  const value = counted.trim() ? parseMoney(counted) : null;
+  const diff = value === null ? null : Math.round((value - d.expected) * 100) / 100;
+
+  async function close() {
+    setConfirm(false);
+    setSaving(true);
+    const r = await fetch("/api/barbershop/cashflow", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sessionId: data.session!.id, closingBalance: value ?? 0, notes }),
+    });
+    setSaving(false);
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) { toast.error(res.error ?? "Não foi possível fechar o caixa."); return; }
+    const df = res.difference ?? 0;
+    toast.success(Math.abs(df) < 0.01 ? "Caixa fechado. Conferiu certinho!" : `Caixa fechado. ${df > 0 ? "Sobraram" : "Faltaram"} ${brl(Math.abs(df))}.`);
+    onClosed();
+  }
+
+  const rows: [string, string, string?][] = [
+    ["Troco de abertura", brl(d.opening)],
+    ["Entradas em dinheiro", `+ ${brl(d.cashIn)}`],
+    ["Retiradas", `− ${brl(d.cashOut)}`],
+  ];
+
+  return (
+    <section id="fechar" className="bg-surface border border-line rounded-2xl p-5 flex flex-col gap-4 scroll-mt-6">
+      <div>
+        <h2 className="font-display text-xl font-bold">Fechar o caixa</h2>
+        <p className="text-[13px] text-ink-3">Conte o dinheiro da gaveta e confira</p>
+      </div>
+      <div className="flex flex-col text-sm">
+        {rows.map(([l, v]) => (
+          <div key={l} className="flex justify-between py-1.5 border-b border-line-3"><span className="text-ink-3">{l}</span><span>{v}</span></div>
+        ))}
+        <div className="flex justify-between pt-2.5 font-semibold"><span>Deveria ter na gaveta</span><span>{brl(d.expected)}</span></div>
+      </div>
+      <div>
+        <label htmlFor="cx-contado" className="block text-[13px] font-semibold text-ink-2 mb-1.5">Quanto tem na gaveta?</label>
+        <div className="flex items-center h-12 rounded-[10px] border border-control bg-surface px-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+          <span className="text-ink-3 text-sm mr-2">R$</span>
+          <input id="cx-contado" value={counted} onChange={(e) => setCounted(e.target.value)} inputMode="decimal" placeholder="0,00"
+            className="flex-1 min-w-0 bg-transparent outline-none text-lg font-semibold" />
+        </div>
+      </div>
+      {diff !== null && (
+        <p className={cn("rounded-[10px] px-3.5 py-2.5 text-[13px]",
+          Math.abs(diff) < 0.01 ? "bg-positive-soft text-positive" : diff > 0 ? "bg-surface-3 text-ink-2" : "bg-danger-soft text-danger")}>
+          <span className="font-semibold">
+            {Math.abs(diff) < 0.01 ? "Conferiu certinho" : diff > 0 ? `Sobram ${brl(diff)}` : `Faltam ${brl(-diff)}`}
+          </span>
+          {Math.abs(diff) >= 0.01 && " · explique abaixo, se souber"}
+        </p>
+      )}
+      <div>
+        <label htmlFor="cx-obs" className="block text-[13px] font-semibold text-ink-2 mb-1.5">Observação</label>
+        <textarea id="cx-obs" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} maxLength={500}
+          placeholder="Ex.: troco a mais para um cliente"
+          className="w-full rounded-[10px] border border-control bg-surface px-3.5 py-2.5 text-sm resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+      </div>
+      <Button variant="secondary" size="lg" loading={saving} disabled={value === null} onClick={() => setConfirm(true)}>Fechar caixa</Button>
+      <ConfirmDialog isOpen={confirm} type="info" title="Fechar o caixa?"
+        message={`Na gaveta: ${brl(value ?? 0)}. Deveria ter ${brl(d.expected)}. Depois de fechar não dá para lançar mais nada neste caixa.`}
+        confirmLabel="Fechar caixa" onConfirm={close} onCancel={() => setConfirm(false)} />
+    </section>
+  );
+}
+
+/* ─── Abrir o caixa ─── */
+function AbrirCaixa({ onOpened }: { onOpened: () => void }) {
+  const { token } = useAuthStore();
+  const [troco, setTroco] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function openCash() {
+    setSaving(true);
+    const r = await fetch("/api/barbershop/cashflow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ openingBalance: parseMoney(troco) }),
+    });
+    setSaving(false);
+    if (!r.ok) { toast.error((await r.json().catch(() => ({}))).error ?? "Não foi possível abrir o caixa."); return; }
+    setTroco("");
+    onOpened();
+  }
+
+  return (
+    <section className="bg-surface border border-line rounded-2xl p-5 flex flex-col gap-4">
+      <div>
+        <h2 className="font-display text-xl font-bold">Abrir o caixa</h2>
+        <p className="text-[13px] text-ink-3">Conte o troco que está na gaveta para começar o dia.</p>
+      </div>
+      <div className="flex items-center h-12 rounded-[10px] border border-control bg-surface px-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+        <span className="text-ink-3 text-sm mr-2">R$</span>
+        <input value={troco} onChange={(e) => setTroco(e.target.value)} inputMode="decimal" placeholder="0,00" aria-label="Troco de abertura"
+          className="flex-1 min-w-0 bg-transparent outline-none text-lg font-semibold" />
+      </div>
+      <Button size="lg" loading={saving} onClick={openCash}><Unlock className="w-4 h-4" aria-hidden /> Abrir caixa</Button>
+    </section>
+  );
+}
+
+/* ─── Retirar / colocar dinheiro / lançar entrada ─── */
+const MODES: Record<EntryMode, { title: string; desc: string; placeholder: string; type: "INCOME" | "EXPENSE"; category: string }> = {
+  retirar: { title: "Retirar dinheiro", desc: "Dinheiro que sai da gaveta.", placeholder: "Ex.: compra de toalhas, depósito no banco", type: "EXPENSE", category: "SANGRIA" },
+  colocar: { title: "Colocar dinheiro", desc: "Dinheiro que entra na gaveta sem ser venda.", placeholder: "Ex.: mais troco", type: "INCOME", category: "SUPRIMENTO" },
+  entrada: { title: "Lançar entrada", desc: "Algo que entrou fora da agenda.", placeholder: "Ex.: venda avulsa", type: "INCOME", category: "OUTROS" },
+};
+const METHOD_OPTIONS = [["CASH", "Dinheiro"], ["PIX", "Pix"], ["CREDIT_CARD", "Crédito"], ["DEBIT_CARD", "Débito"]] as const;
+
+function LancamentoModal({ mode, sessionId, drawer, onClose, onSaved }: { mode: EntryMode; sessionId: string; drawer: number; onClose: () => void; onSaved: () => void }) {
+  const { token } = useAuthStore();
+  const m = MODES[mode];
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("CASH");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const tooMuch = mode === "retirar" && parseMoney(amount) > Math.max(0, drawer) + 0.001;
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    const r = await fetch("/api/barbershop/cashflow/entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sessionId, type: m.type, category: m.category, description, amount: parseMoney(amount), paymentMethod: mode === "entrada" ? method : "CASH" }),
+    });
+    setSaving(false);
+    if (!r.ok) { setError((await r.json().catch(() => ({}))).error ?? "Não foi possível lançar."); return; }
+    onSaved();
+  }
+
+  return (
+    <Modal open onClose={onClose} title={m.title} description={m.desc}>
+      <div className="flex flex-col gap-3.5">
+        <Input label="Valor (R$)" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="0,00" autoFocus />
+        <Input label="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={m.placeholder} maxLength={120} />
+        {mode === "entrada" && (
+          <div>
+            <span className="block text-[13px] font-semibold text-ink-2 mb-1.5">Forma de pagamento</span>
+            <div role="radiogroup" aria-label="Forma de pagamento" className="grid grid-cols-4 gap-2">
+              {METHOD_OPTIONS.map(([v, l]) => (
+                <button key={v} type="button" role="radio" aria-checked={method === v} onClick={() => setMethod(v)}
+                  className={cn("h-11 rounded-[10px] border text-[13px] font-semibold",
+                    method === v ? "bg-ink text-white border-ink" : "bg-surface border-control text-ink hover:bg-surface-3")}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {mode === "retirar" && (
+          <p className={cn("text-[13px]", tooMuch ? "text-danger" : "text-ink-3")} role={tooMuch ? "alert" : undefined}>
+            Na gaveta agora: {brl(Math.max(0, drawer))}.{tooMuch && " Não dá para retirar mais do que isso."}
+          </p>
+        )}
+        {error && <p className="text-[13px] text-danger bg-danger-soft rounded-[10px] px-3 py-2.5" role="alert">{error}</p>}
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" size="lg" className="flex-1" onClick={onClose}>Cancelar</Button>
+          <Button size="lg" className="flex-[1.5]" loading={saving} disabled={!description.trim() || !(parseMoney(amount) > 0) || tooMuch} onClick={save}>
+            {m.title}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }

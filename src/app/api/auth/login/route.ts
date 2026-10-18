@@ -31,7 +31,12 @@ export async function POST(req: NextRequest) {
       console.warn("[login] rate-limit indisponível, permitindo requisição:", rlErr);
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    // E-mail como foi cadastrado; se não achar, sem diferenciar maiúsculas ("Joao@..." = "joao@...")
+    const typed = typeof email === "string" ? email.trim() : "";
+    const user = typed
+      ? (await prisma.user.findUnique({ where: { email: typed } })) ??
+        (await prisma.user.findFirst({ where: { email: { equals: typed, mode: "insensitive" } } }))
+      : null;
     if (!user) {
       return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 });
     }

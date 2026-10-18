@@ -2,10 +2,11 @@
 
 :root {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #171717;
-  --primary: 255, 95, 0;
-  --secondary: 251, 191, 36;
+  --background: #f5f3ee;
+  --foreground: #1b1916;
+  /* Cor da marca da barbearia (configurável). O layout do painel sobrescreve com a cor salva. */
+  --primary: 201, 79, 12;
+  --secondary: 161, 98, 7;
 }
 
 @theme inline {
@@ -13,12 +14,72 @@
   --color-foreground: var(--foreground);
   --color-primary: rgb(var(--primary));
   --color-secondary: rgb(var(--secondary));
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-face), var(--font-body), ui-sans-serif, sans-serif;
   --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * Paleta do redesign (canvas "Barber Fluxo — Redesign", docs/design/LEIA-ME-HANDOFF.md).
+ * Uso: bg-ground, bg-surface, text-ink, text-ink-2, border-line, bg-positive-soft…
+ */
+@theme {
+  /* Fundos */
+  --color-ground: #f5f3ee;        /* fundo da página */
+  --color-surface: #ffffff;       /* cards */
+  --color-surface-2: #efebe3;     /* superfície alternativa */
+  --color-surface-3: #f1ede6;
+
+  /* Texto */
+  --color-ink: #1b1916;           /* principal / fundo escuro */
+  --color-ink-2: #57524a;         /* secundário */
+  --color-ink-3: #6f685d;         /* terciário */
+  --color-ink-4: #8a8378;         /* rótulos e dicas */
+
+  /* Bordas */
+  --color-line: #e7e2d8;          /* cards */
+  --color-line-2: #efebe3;        /* divisórias internas */
+  --color-line-3: #f1ede6;
+  --color-control: #e2dcd1;       /* campos e botões secundários */
+
+  /* Gráficos */
+  --color-track: #eae6dd;
+  --color-bar: #cfc6b7;
+  --color-bar-soft: #d8d0c2;
+
+  /* Menu lateral (escuro) */
+  --color-night: #171512;
+  --color-night-2: #221f1b;
+  --color-night-3: #2a2723;
+  --color-night-line: #2e2a25;
+  --color-night-text: #c9c2b6;
+  --color-night-muted: #a8a196;
+
+  /* Estados */
+  --color-positive: #1d6b40;
+  --color-positive-strong: #1f9d5a;
+  --color-positive-soft: #e8f4ec;
+  --color-warning: #6e5210;
+  --color-warning-soft: #f5eedc;
+  --color-danger: #9b2c22;
+  --color-danger-strong: #c2362b;
+  --color-danger-soft: #fbecea;
+
+  /* Raios do design: 10px botões, 14px cards, 18px cards de destaque */
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-hero: 18px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  /* Sem tabular-nums global: na Schibsted ele alarga também vírgula, ponto e dois-pontos
+     ("R$ 45 , 00"). Use a classe `tabular-nums` só em valores e horários alinhados em coluna. */
+}
+
+/* Títulos usam a fonte de destaque */
+h1, h2, h3 {
+  font-family: var(--font-display-face), var(--font-body), ui-sans-serif, sans-serif;
 }

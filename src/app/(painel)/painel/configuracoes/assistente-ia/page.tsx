@@ -1,96 +1,129 @@
 "use client";
-import { useEffect, useState } from "react";
-import {
-  Bot, Save, Loader2, CheckCircle, Sparkles,
-  MessageSquare, Info, AlertTriangle, User, Globe,
-  Power, BellOff, Clock, CalendarCheck, X, FileText,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
+import { cn } from "@/lib/utils";
 import Button from "@/components/ui/Button";
+import { ConfigSection } from "@/components/config/ConfigNav";
+import { fieldCls } from "@/components/catalogo/SidePanel";
+import WhatsAppTabs from "@/components/whatsapp/WhatsAppTabs";
+import PhonePreview, { type Bubble } from "@/components/whatsapp/PhonePreview";
+import { HANDOFF_TRIGGERS, DEFAULT_HANDOFF_TRIGGERS } from "@/lib/whatsapp/handoffTriggers";
 
-const PERSONALITY_PLACEHOLDER = `Descreva como seu assistente deve se comunicar com os clientes.
+/** Pontos de partida do "Jeito de falar": preenchem a personalidade, que o dono ajusta. */
+const TONES = {
+  parceiro: {
+    label: "Parceiro", hint: "Descontraído, de igual para igual",
+    personality: "Fala como um amigo da barbearia: leve, direto e bem-humorado, sem exagerar na gíria. Chama o cliente pelo nome.",
+    replies: ["Fala, Gustavo! Beleza? Tem sim: com o Diego às 15:45 ou 16:00. Qual fica melhor?", "Fechou! Degradê hoje às 16:00 com o Diego. Te mando um lembrete antes."],
+  },
+  profissional: {
+    label: "Profissional", hint: "Educado e objetivo",
+    personality: "Cordial e objetivo. Trata o cliente com educação, confirma os detalhes e evita gírias.",
+    replies: ["Olá, Gustavo! Temos horários hoje com o Diego às 15:45 e às 16:00. Qual prefere?", "Agendamento confirmado: corte degradê hoje, às 16:00, com o Diego. Enviaremos um lembrete antes."],
+  },
+  premium: {
+    label: "Premium", hint: "Caprichado e acolhedor",
+    personality: "Atendimento de barbearia clássica: acolhedor, caprichado nas palavras, valoriza a experiência do cliente.",
+    replies: ["Boa tarde, Gustavo! Será um prazer te receber. O Diego tem disponibilidade às 15:45 ou às 16:00. Qual horário te atende melhor?", "Perfeito, está reservado: degradê hoje às 16:00 com o Diego. Até logo, e qualquer coisa estou por aqui."],
+  },
+} as const;
+type Tone = keyof typeof TONES;
 
-Exemplos:
-• "Somos uma barbearia descontraída de bairro. Chame o cliente de 'parceiro'. Seja direto e simpático."
-• "Barbearia executiva, trato formal. Use 'senhor/senhora'. Seja objetivo e profissional."
-• "Ambiente jovem, linguagem casual. Use emojis com moderação. Sempre ofereça alternativas de horário."`;
+interface Form {
+  aiAssistantName: string; aiIdioma: string; aiPersonality: string; aiGreetingDirective: string;
+  aiObservacoesAdicionais: string; aiHandoffTriggers: string[];
+  aiMensagemBoasVindas: string; aiMensagemAusencia: string; aiMensagemConfirmacaoAgendamento: string; aiMensagemCancelamento: string;
+}
+type MsgKey = "aiMensagemBoasVindas" | "aiMensagemAusencia" | "aiMensagemConfirmacaoAgendamento" | "aiMensagemCancelamento";
 
-const GREETING_PLACEHOLDER = `Descreva o tom da primeira mensagem do dia.
+const MESSAGES: [MsgKey, string, string, string][] = [
+  ["aiMensagemBoasVindas", "Boas-vindas", "Primeira mensagem para quem chama", "Olá! Seja bem-vindo à barbearia. Posso te ajudar a marcar um horário ou tirar uma dúvida."],
+  ["aiMensagemAusencia", "Fora do horário", "Quando a barbearia está fechada", "Estamos fechados agora, mas já posso deixar seu horário marcado."],
+  ["aiMensagemConfirmacaoAgendamento", "Horário confirmado", "Depois de marcar", "Prontinho! Seu horário está confirmado. Te esperamos no dia combinado."],
+  ["aiMensagemCancelamento", "Cancelamento", "Quando o cliente desmarca", "Seu horário foi cancelado. Quando quiser remarcar é só chamar aqui."],
+];
 
-Exemplos:
-• "Cumprimente com entusiasmo e pergunte em que pode ajudar."
-• "Apresente-se pelo nome e diga que está à disposição para agendar."`;
+const EMPTY: Form = {
+  aiAssistantName: "", aiIdioma: "pt-BR", aiPersonality: "", aiGreetingDirective: "", aiObservacoesAdicionais: "",
+  aiHandoffTriggers: [], aiMensagemBoasVindas: "", aiMensagemAusencia: "", aiMensagemConfirmacaoAgendamento: "", aiMensagemCancelamento: "",
+};
+
+function Counter({ n, max }: { n: number; max: number }) {
+  return <span className={cn("text-xs text-right", n >= max * 0.95 ? "text-warning" : "text-ink-3")}>{n} de {max}</span>;
+}
 
 export default function AssistenteIAPage() {
   const { token } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const [assistantName, setAssistantName] = useState("");
-  const [personality, setPersonality] = useState("");
-  const [greetingDirective, setGreetingDirective] = useState("");
-  const [idioma, setIdioma] = useState("pt-BR");
-  const [atendimentoAtivo, setAtendimentoAtivo] = useState(true);
-  const [mensagemBoasVindas, setMensagemBoasVindas] = useState("");
-  const [mensagemAusencia, setMensagemAusencia] = useState("");
-  const [mensagemConfirmacao, setMensagemConfirmacao] = useState("");
-  const [mensagemCancelamento, setMensagemCancelamento] = useState("");
-  const [observacoesAdicionais, setObservacoesAdicionais] = useState("");
+  const [shopName, setShopName] = useState("");
+  const [aiOn, setAiOn] = useState(true);
+  const [form, setForm] = useState<Form>(EMPTY);
+  const [saved, setSaved] = useState<Form>(EMPTY);
+  const [editing, setEditing] = useState<MsgKey | null>(null);
 
   useEffect(() => {
-    async function load() {
+    (async () => {
       try {
-        const res = await fetch("/api/barbershop/ai-config", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setAssistantName(data.aiAssistantName ?? "");
-          setPersonality(data.aiPersonality ?? "");
-          setGreetingDirective(data.aiGreetingDirective ?? "");
-          setIdioma(data.aiIdioma ?? "pt-BR");
-          setAtendimentoAtivo(data.aiAtendimentoAtivo ?? true);
-          setMensagemBoasVindas(data.aiMensagemBoasVindas ?? "");
-          setMensagemAusencia(data.aiMensagemAusencia ?? "");
-          setMensagemConfirmacao(data.aiMensagemConfirmacaoAgendamento ?? "");
-          setMensagemCancelamento(data.aiMensagemCancelamento ?? "");
-          setObservacoesAdicionais(data.aiObservacoesAdicionais ?? "");
+        const res = await fetch("/api/barbershop/ai-config", { headers: { Authorization: `Bearer ${token}` } });
+        const d = await res.json().catch(() => null);
+        if (res.ok && d) {
+          const f: Form = {
+            aiAssistantName: d.aiAssistantName ?? "", aiIdioma: d.aiIdioma ?? "pt-BR",
+            aiPersonality: d.aiPersonality ?? "", aiGreetingDirective: d.aiGreetingDirective ?? "",
+            aiObservacoesAdicionais: d.aiObservacoesAdicionais ?? "",
+            // Nunca configurado: começa com as situações mais comuns marcadas
+            aiHandoffTriggers: d.aiHandoffTriggers?.length || d.aiPersonality ? d.aiHandoffTriggers ?? [] : DEFAULT_HANDOFF_TRIGGERS,
+            aiMensagemBoasVindas: d.aiMensagemBoasVindas ?? "", aiMensagemAusencia: d.aiMensagemAusencia ?? "",
+            aiMensagemConfirmacaoAgendamento: d.aiMensagemConfirmacaoAgendamento ?? "", aiMensagemCancelamento: d.aiMensagemCancelamento ?? "",
+          };
+          setForm(f);
+          setSaved({ ...f, aiHandoffTriggers: d.aiHandoffTriggers ?? [] });
+          setShopName(d.name ?? "");
+          setAiOn(d.aiAtendimentoAtivo ?? true);
+        } else {
+          // Sem os dados, salvar apagaria tudo: não mostra o formulário
+          setLoadError(d?.error ?? `Erro ${res.status}`);
         }
+      } catch {
+        setLoadError("Sem conexão com o servidor");
       } finally {
         setLoading(false);
       }
-    }
-    load();
+    })();
   }, [token]);
 
-  async function handleSave() {
+  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const dirty = JSON.stringify(form) !== JSON.stringify(saved);
+  const tone = (Object.keys(TONES) as Tone[]).find((t) => TONES[t].personality === form.aiPersonality.trim()) ?? null;
+  const displayName = form.aiAssistantName.trim() || shopName || "Sua barbearia";
+
+  const preview = useMemo<Bubble[]>(() => {
+    const replies = TONES[tone ?? "profissional"].replies;
+    const b: Bubble[] = [{ from: "client", text: "boa tarde, tem horário hoje à tarde pra degradê?" }];
+    if (form.aiMensagemBoasVindas.trim()) b.push({ from: "shop", text: form.aiMensagemBoasVindas.trim() });
+    b.push({ from: "shop", text: replies[0] }, { from: "client", text: "16h" });
+    b.push({ from: "shop", text: form.aiMensagemConfirmacaoAgendamento.trim() || replies[1] });
+    return b;
+  }, [tone, form.aiMensagemBoasVindas, form.aiMensagemConfirmacaoAgendamento]);
+
+  async function save() {
     setSaving(true);
-    setSaved(false);
     try {
       const res = await fetch("/api/barbershop/ai-config", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          aiAssistantName: assistantName || null,
-          aiPersonality: personality || null,
-          aiGreetingDirective: greetingDirective || null,
-          aiIdioma: idioma || null,
-          aiAtendimentoAtivo: atendimentoAtivo,
-          aiMensagemBoasVindas: mensagemBoasVindas || null,
-          aiMensagemAusencia: mensagemAusencia || null,
-          aiMensagemConfirmacaoAgendamento: mensagemConfirmacao || null,
-          aiMensagemCancelamento: mensagemCancelamento || null,
-          aiObservacoesAdicionais: observacoesAdicionais || null,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(form), // aiAtendimentoAtivo fica de fora: liga/desliga na Visão geral
       });
-      if (res.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      }
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Não foi possível salvar");
+      setSaved(form);
+      setEditing(null);
+      toast.success("Atendente atualizado. Vale para as próximas conversas.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar");
     } finally {
       setSaving(false);
     }
@@ -98,399 +131,153 @@ export default function AssistenteIAPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32 text-zinc-400">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="flex flex-col gap-5">
+        <WhatsAppTabs current="ia" subtitle="Ensine o atendente a falar como a sua barbearia" />
+        <div className="h-96 rounded-2xl bg-surface border border-line animate-pulse" />
       </div>
     );
   }
 
-  const previewName = assistantName || "Assistente";
-  const previewPersonality = personality || "(nenhuma personalidade configurada — o assistente usará um comportamento neutro)";
-  const previewGreeting = greetingDirective || "(nenhuma diretriz — o assistente cumprimentará de forma padrão)";
+  if (loadError) {
+    return (
+      <div className="flex flex-col gap-5">
+        <WhatsAppTabs current="ia" subtitle="Ensine o atendente a falar como a sua barbearia" />
+        <div role="alert" className="rounded-2xl bg-danger-soft text-danger px-5 py-4 text-sm flex flex-col gap-2 items-start">
+          <span><strong>Não foi possível carregar o atendente.</strong> Nada foi alterado. ({loadError})</span>
+          <button type="button" onClick={() => window.location.reload()} className="font-semibold underline">Tentar de novo</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
-          <Bot className="w-6 h-6 text-primary" />
-          Assistente IA
-        </h1>
-        <p className="text-zinc-500 text-sm mt-1">
-          Configure como o assistente de WhatsApp se comunica com os seus clientes.
-        </p>
-      </div>
+    <div className="flex flex-col gap-5">
+      <WhatsAppTabs current="ia" subtitle="Ensine o atendente a falar como a sua barbearia" />
 
-      {/* Info box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
-        <Info className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
-        <div className="text-xs text-blue-800 space-y-1">
-          <p className="font-bold">Como funciona</p>
-          <p>
-            Quando um cliente manda mensagem no WhatsApp da sua barbearia, o assistente IA
-            lê estas configurações e responde com a personalidade que você definiu aqui —
-            incluindo agendamentos, serviços e horários disponíveis em tempo real.
-          </p>
-        </div>
-      </div>
-
-      {/* Toggle principal — Atendimento Ativo */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${atendimentoAtivo ? "bg-green-50" : "bg-zinc-100"}`}>
-              <Power className={`w-5 h-5 ${atendimentoAtivo ? "text-green-600" : "text-zinc-400"}`} />
-            </div>
-            <div>
-              <h3 className="font-bold text-zinc-900">Assistente ativo</h3>
-              <p className="text-xs text-zinc-500">
-                {atendimentoAtivo
-                  ? "O assistente está respondendo mensagens no WhatsApp."
-                  : "O assistente está pausado — mensagens não serão respondidas automaticamente."}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setAtendimentoAtivo(!atendimentoAtivo)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              atendimentoAtivo ? "bg-green-500" : "bg-zinc-300"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                atendimentoAtivo ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* Idioma */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center">
-            <Globe className="w-5 h-5 text-sky-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Idioma</h3>
-            <p className="text-xs text-zinc-500">Idioma em que o assistente responde os clientes.</p>
-          </div>
-        </div>
-        <select
-          value={idioma}
-          onChange={(e) => setIdioma(e.target.value)}
-          className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all bg-white"
-        >
-          <option value="pt-BR">Português (Brasil)</option>
-          <option value="en-US">English (US)</option>
-          <option value="es-ES">Español</option>
-        </select>
-      </div>
-
-      {/* Nome do assistente */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
-            <User className="w-5 h-5 text-violet-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Nome do Assistente</h3>
-            <p className="text-xs text-zinc-500">Como o assistente se apresenta para o cliente.</p>
-          </div>
-        </div>
-        <div>
-          <input
-            type="text"
-            value={assistantName}
-            onChange={(e) => setAssistantName(e.target.value.slice(0, 50))}
-            placeholder="Ex: Barba Bot, Assistente da Barbearia X, Júlio..."
-            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-          />
-          <div className="flex justify-between mt-1.5">
-            <p className="text-xs text-zinc-400">Deixe em branco para usar o nome da barbearia.</p>
-            <span className={`text-xs ${assistantName.length >= 45 ? "text-amber-500" : "text-zinc-400"}`}>
-              {assistantName.length}/50
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Personalidade */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Personalidade e Tom de Voz</h3>
-            <p className="text-xs text-zinc-500">
-              Este texto vai direto para o assistente como instrução de comportamento. Seja específico.
-            </p>
-          </div>
-        </div>
-        <textarea
-          value={personality}
-          onChange={(e) => setPersonality(e.target.value.slice(0, 500))}
-          placeholder={PERSONALITY_PLACEHOLDER}
-          rows={6}
-          className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        />
-        <div className="flex justify-between">
-          <p className="text-xs text-zinc-400">Máximo 500 caracteres.</p>
-          <span className={`text-xs ${personality.length >= 480 ? "text-amber-500" : "text-zinc-400"}`}>
-            {personality.length}/500
-          </span>
-        </div>
-      </div>
-
-      {/* Diretriz de saudação */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Diretriz de Saudação</h3>
-            <p className="text-xs text-zinc-500">
-              Como o assistente deve se comportar na primeira mensagem do cliente no dia.{" "}
-              <strong className="text-zinc-600">Isso é um estilo, não uma mensagem literal.</strong>
-            </p>
-          </div>
-        </div>
-        <textarea
-          value={greetingDirective}
-          onChange={(e) => setGreetingDirective(e.target.value.slice(0, 200))}
-          placeholder={GREETING_PLACEHOLDER}
-          rows={3}
-          className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        />
-        <div className="flex justify-between">
-          <p className="text-xs text-zinc-400">Máximo 200 caracteres.</p>
-          <span className={`text-xs ${greetingDirective.length >= 190 ? "text-amber-500" : "text-zinc-400"}`}>
-            {greetingDirective.length}/200
-          </span>
-        </div>
-      </div>
-
-      {/* Mensagem de Boas-Vindas */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Mensagem de Boas-Vindas</h3>
-            <p className="text-xs text-zinc-500">
-              Mensagem enviada no <strong className="text-zinc-600">primeiro contato</strong> do cliente com o WhatsApp. Texto literal.
-            </p>
-          </div>
-        </div>
-        <textarea
-          value={mensagemBoasVindas}
-          onChange={(e) => setMensagemBoasVindas(e.target.value.slice(0, 500))}
-          placeholder="Ex: Olá! Seja bem-vindo à Barbearia X 💈 Posso te ajudar a agendar um horário ou tirar dúvidas. Como posso ajudar?"
-          rows={3}
-          className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        />
-        <div className="flex justify-between">
-          <p className="text-xs text-zinc-400">Máximo 500 caracteres.</p>
-          <span className={`text-xs ${mensagemBoasVindas.length >= 480 ? "text-amber-500" : "text-zinc-400"}`}>
-            {mensagemBoasVindas.length}/500
-          </span>
-        </div>
-      </div>
-
-      {/* Mensagem de Ausência */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-            <BellOff className="w-5 h-5 text-amber-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Mensagem de Ausência</h3>
-            <p className="text-xs text-zinc-500">
-              Enviada quando o cliente escreve <strong className="text-zinc-600">fora do horário de atendimento</strong>.
-            </p>
-          </div>
-        </div>
-        <textarea
-          value={mensagemAusencia}
-          onChange={(e) => setMensagemAusencia(e.target.value.slice(0, 500))}
-          placeholder="Ex: Olá! No momento estamos fora do horário de atendimento. Retornaremos em breve. Nosso horário é de seg. a sáb., das 9h às 19h."
-          rows={3}
-          className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        />
-        <div className="flex justify-between">
-          <p className="text-xs text-zinc-400">Máximo 500 caracteres.</p>
-          <span className={`text-xs ${mensagemAusencia.length >= 480 ? "text-amber-500" : "text-zinc-400"}`}>
-            {mensagemAusencia.length}/500
-          </span>
-        </div>
-      </div>
-
-      {/* Mensagem de Confirmação */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-            <CalendarCheck className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Mensagem de Confirmação de Agendamento</h3>
-            <p className="text-xs text-zinc-500">
-              Enviada após o cliente confirmar um agendamento com sucesso.
-            </p>
-          </div>
-        </div>
-        <textarea
-          value={mensagemConfirmacao}
-          onChange={(e) => setMensagemConfirmacao(e.target.value.slice(0, 500))}
-          placeholder="Ex: Ótimo! Seu agendamento foi confirmado ✅ Te esperamos no dia e horário combinados. Qualquer dúvida é só chamar!"
-          rows={3}
-          className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        />
-        <div className="flex justify-between">
-          <p className="text-xs text-zinc-400">Máximo 500 caracteres.</p>
-          <span className={`text-xs ${mensagemConfirmacao.length >= 480 ? "text-amber-500" : "text-zinc-400"}`}>
-            {mensagemConfirmacao.length}/500
-          </span>
-        </div>
-      </div>
-
-      {/* Mensagem de Cancelamento */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
-            <X className="w-5 h-5 text-red-500" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Mensagem de Cancelamento</h3>
-            <p className="text-xs text-zinc-500">
-              Enviada quando um agendamento é cancelado.
-            </p>
-          </div>
-        </div>
-        <textarea
-          value={mensagemCancelamento}
-          onChange={(e) => setMensagemCancelamento(e.target.value.slice(0, 500))}
-          placeholder="Ex: Seu agendamento foi cancelado. Quando quiser remarcar é só chamar aqui, temos horários disponíveis!"
-          rows={3}
-          className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        />
-        <div className="flex justify-between">
-          <p className="text-xs text-zinc-400">Máximo 500 caracteres.</p>
-          <span className={`text-xs ${mensagemCancelamento.length >= 480 ? "text-amber-500" : "text-zinc-400"}`}>
-            {mensagemCancelamento.length}/500
-          </span>
-        </div>
-      </div>
-
-      {/* Observações Adicionais */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-zinc-500" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Observações Adicionais</h3>
-            <p className="text-xs text-zinc-500">
-              Instruções extras ou regras específicas que o assistente deve seguir. Ex: "Nunca diga o preço pelo WhatsApp."
-            </p>
-          </div>
-        </div>
-        <textarea
-          value={observacoesAdicionais}
-          onChange={(e) => setObservacoesAdicionais(e.target.value.slice(0, 1000))}
-          placeholder="Ex: Não agende para menores de 12 anos sem responsável. Não faça descontos via WhatsApp. Sempre confirme o nome do barbeiro preferido."
-          rows={4}
-          className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-        />
-        <div className="flex justify-between">
-          <p className="text-xs text-zinc-400">Máximo 1000 caracteres.</p>
-          <span className={`text-xs ${observacoesAdicionais.length >= 980 ? "text-amber-500" : "text-zinc-400"}`}>
-            {observacoesAdicionais.length}/1000
-          </span>
-        </div>
-      </div>
-
-      {/* Preview do system prompt */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center">
-            <Bot className="w-5 h-5 text-zinc-500" />
-          </div>
-          <div>
-            <h3 className="font-bold text-zinc-900">Pré-visualização</h3>
-            <p className="text-xs text-zinc-500">
-              Aproximação de como o assistente receberá as instruções.
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-zinc-950 rounded-xl p-4 font-mono text-xs text-zinc-300 space-y-2 leading-relaxed">
-          <p><span className="text-zinc-500">// system prompt</span></p>
-          <p>
-            <span className="text-violet-400">Você é </span>
-            <span className="text-green-400">{previewName}</span>
-            <span className="text-violet-400">, assistente da barbearia.</span>
-          </p>
-          <p>
-            <span className="text-sky-400">Idioma: </span>
-            <span className="text-zinc-300">{idioma}</span>
-            {" "}<span className="text-zinc-500">| Atendimento: </span>
-            <span className={atendimentoAtivo ? "text-green-400" : "text-red-400"}>
-              {atendimentoAtivo ? "ativo" : "pausado"}
-            </span>
-          </p>
-          {personality && (
-            <p>
-              <span className="text-blue-400">Personalidade: </span>
-              <span className="text-zinc-300">{personality}</span>
-            </p>
-          )}
-          {!personality && (
-            <p className="text-zinc-600 italic">{previewPersonality}</p>
-          )}
-          <p>
-            <span className="text-amber-400">Saudação: </span>
-            <span className="text-zinc-300 italic">{greetingDirective || previewGreeting}</span>
-          </p>
-          {observacoesAdicionais && (
-            <p>
-              <span className="text-orange-400">Obs: </span>
-              <span className="text-zinc-300">{observacoesAdicionais}</span>
-            </p>
-          )}
-          <p>
-            <span className="text-zinc-500">// + horários de funcionamento + serviços + slots injetados pelo N8N</span>
-          </p>
-        </div>
-      </div>
-
-      {/* Aviso se campos vazios */}
-      {!personality && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
-          <div className="text-xs text-amber-800">
-            <p className="font-bold mb-1">Assistente sem personalidade configurada</p>
-            <p>
-              O assistente vai funcionar, mas responderá de forma neutra e genérica.
-              Preencha a Personalidade para que ele fale com a identidade da sua barbearia.
-            </p>
-          </div>
+      {!aiOn && (
+        <div role="status" className="rounded-xl bg-warning-soft text-warning px-4 py-3 text-[13px]">
+          O atendente está desligado: as mensagens não estão sendo respondidas. Ligue na{" "}
+          <Link href="/painel/whatsapp" className="font-semibold underline">Visão geral</Link>.
         </div>
       )}
 
-      {/* Salvar */}
-      <div className="flex items-center gap-3">
-        <Button onClick={handleSave} loading={saving} className="px-8">
-          {saved ? <CheckCircle className="w-4 h-4 mr-1.5" /> : <Save className="w-4 h-4 mr-1.5" />}
-          {saved ? "Salvo com Sucesso!" : "Salvar Configurações"}
-        </Button>
-        {saved && (
-          <span className="text-sm text-green-600 font-medium animate-pulse">
-            ✓ Alterações aplicadas
-          </span>
-        )}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
+        <div className="flex flex-col gap-4 min-w-0">
+          <ConfigSection title="Quem responde">
+            <div className="grid gap-3.5 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+              <label className="flex flex-col gap-1.5 min-w-0">
+                <span className="text-[13px] font-semibold text-ink-2">Nome do atendente</span>
+                <input className={fieldCls} value={form.aiAssistantName} maxLength={50} placeholder={shopName ? `Atendimento ${shopName}` : "Ex.: Atendimento da barbearia"}
+                  onChange={(e) => set("aiAssistantName", e.target.value)} />
+                <span className="text-xs text-ink-3">Em branco, usa o nome da barbearia.</span>
+              </label>
+              <label className="flex flex-col gap-1.5 min-w-0">
+                <span className="text-[13px] font-semibold text-ink-2">Idioma</span>
+                <select className={fieldCls} value={form.aiIdioma} onChange={(e) => set("aiIdioma", e.target.value)}>
+                  <option value="pt-BR">Português (Brasil)</option>
+                  <option value="en-US">English (US)</option>
+                  <option value="es-ES">Español</option>
+                </select>
+              </label>
+            </div>
+          </ConfigSection>
+
+          <ConfigSection title="Jeito de falar" subtitle="Escolha um ponto de partida e ajuste do seu jeito.">
+            <div role="radiogroup" aria-label="Tom de voz" className="grid gap-2.5 sm:grid-cols-3">
+              {(Object.keys(TONES) as Tone[]).map((t) => (
+                <button key={t} type="button" role="radio" aria-checked={tone === t} onClick={() => set("aiPersonality", TONES[t].personality)}
+                  className={cn("flex flex-col gap-1 px-3.5 py-3 rounded-xl text-left border",
+                    tone === t ? "border-primary ring-1 ring-primary bg-primary/5" : "border-control bg-surface hover:bg-surface-2")}>
+                  <span className="text-sm font-semibold">{TONES[t].label}</span>
+                  <span className="text-xs text-ink-3">{TONES[t].hint}</span>
+                </button>
+              ))}
+            </div>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold text-ink-2">Personalidade</span>
+              <textarea rows={3} maxLength={500} value={form.aiPersonality} onChange={(e) => set("aiPersonality", e.target.value)}
+                placeholder="Ex.: Somos uma barbearia de bairro. Trate o cliente pelo nome, seja direto e simpático."
+                className={cn(fieldCls, "h-auto py-2.5 resize-none leading-relaxed")} />
+              <Counter n={form.aiPersonality.length} max={500} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold text-ink-2">Como cumprimentar</span>
+              <input className={fieldCls} maxLength={200} value={form.aiGreetingDirective} onChange={(e) => set("aiGreetingDirective", e.target.value)}
+                placeholder="Ex.: Cumprimente pelo nome e pergunte em que pode ajudar" />
+              <span className="text-xs text-ink-3">É um estilo para a primeira mensagem do dia, não um texto fixo.</span>
+            </label>
+          </ConfigSection>
+
+          <ConfigSection title="Regras da casa" subtitle="O que a IA nunca deve fazer e quando deve chamar você">
+            <label className="flex flex-col gap-1.5">
+              <textarea rows={3} maxLength={1000} aria-label="Regras da casa" value={form.aiObservacoesAdicionais}
+                onChange={(e) => set("aiObservacoesAdicionais", e.target.value)}
+                placeholder="Ex.: Não agendar menores de 12 anos sem responsável. Sempre perguntar se o cliente tem barbeiro preferido."
+                className={cn(fieldCls, "h-auto py-2.5 resize-none leading-relaxed")} />
+              <Counter n={form.aiObservacoesAdicionais.length} max={1000} />
+            </label>
+            <div className="flex flex-col gap-2">
+              <span className="text-[13px] font-semibold text-ink-2">Passar a conversa para você quando o cliente</span>
+              <div className="flex flex-wrap gap-2">
+                {HANDOFF_TRIGGERS.map(([k, label]) => {
+                  const on = form.aiHandoffTriggers.includes(k);
+                  return (
+                    <button key={k} type="button" aria-pressed={on}
+                      onClick={() => set("aiHandoffTriggers", on ? form.aiHandoffTriggers.filter((x) => x !== k) : [...form.aiHandoffTriggers, k])}
+                      className={cn("h-9 px-3.5 rounded-full border text-[13px] font-semibold", on ? "bg-ink text-white border-ink" : "bg-surface border-control text-ink-2")}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-xs text-ink-3">
+                A conversa aparece em &quot;Precisa de você&quot; na Visão geral e a IA para de responder esse cliente. Ela também chama você quando não souber responder.
+              </span>
+            </div>
+          </ConfigSection>
+
+          <section aria-labelledby="msg-t" className="bg-surface border border-line rounded-2xl overflow-hidden">
+            <div className="px-5 md:px-6 pt-5 pb-3 flex flex-col gap-1">
+              <h2 id="msg-t" className="text-[17px] font-semibold">Mensagens prontas</h2>
+              <span className="text-[13px] text-ink-3">Textos fixos para momentos da conversa. Em branco, a IA escreve do jeito dela.</span>
+            </div>
+            {MESSAGES.map(([k, title, when, example]) => (
+              <div key={k} className="px-5 md:px-6 py-3.5 border-t border-line-2 flex flex-col gap-2.5">
+                <div className="flex items-center gap-3.5">
+                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold">{title} <span className="font-normal text-ink-3">· {when}</span></span>
+                    {editing !== k && (
+                      <span className={cn("text-[13px] truncate", form[k] ? "text-ink-2" : "text-ink-4 italic")}>{form[k] || "A IA escreve na hora"}</span>
+                    )}
+                  </div>
+                  <button type="button" aria-label={`${editing === k ? "Fechar" : "Editar"} mensagem de ${title}`}
+                    onClick={() => setEditing(editing === k ? null : k)}
+                    className="h-[34px] px-3 rounded-[9px] border border-control bg-surface text-xs font-semibold hover:bg-surface-2 shrink-0">
+                    {editing === k ? "Pronto" : "Editar"}
+                  </button>
+                </div>
+                {editing === k && (
+                  <label className="flex flex-col gap-1.5">
+                    <textarea rows={3} maxLength={500} autoFocus value={form[k]} onChange={(e) => set(k, e.target.value)} placeholder={`Ex.: ${example}`}
+                      aria-label={`Mensagem de ${title}`} className={cn(fieldCls, "h-auto py-2.5 resize-none leading-relaxed")} />
+                    <Counter n={form[k].length} max={500} />
+                  </label>
+                )}
+              </div>
+            ))}
+          </section>
+        </div>
+
+        <aside aria-label="Prévia da conversa" className="flex flex-col gap-3 lg:sticky lg:top-6">
+          <div className="flex justify-between items-baseline gap-3">
+            <span className="text-[15px] font-semibold">Prévia</span>
+            <span className="text-xs text-ink-3">{tone ? "exemplo com o tom escolhido" : "exemplo; o texto real segue a sua personalidade"}</span>
+          </div>
+          <PhonePreview name={displayName} bubbles={preview} />
+          <Button onClick={save} loading={saving} disabled={!dirty} className="h-[46px]">
+            {dirty ? "Salvar" : "Tudo salvo"}
+          </Button>
+        </aside>
       </div>
     </div>
   );

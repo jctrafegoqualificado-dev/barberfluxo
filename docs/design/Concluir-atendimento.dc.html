@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #D9D4CB; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 600px; height: 1040px; box-sizing: border-box; padding: 20px; background: #D9D4CB; display: flex;">
+  <div role="dialog" aria-labelledby="conc-t" style="flex-grow: 1; background: #FFFFFF; border-radius: 18px; box-shadow: 0 20px 50px rgba(27,25,22,0.18); display: flex; flex-direction: column; overflow: hidden;">
+
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #EFEBE3;">
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <h2 id="conc-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700;">Concluir atendimento</h2>
+        <span style="font-size: 14px; color: #57524A;">Rafael Moura · 14:30 com Diego</span>
+      </div>
+      <a href="Agenda-desktop.dc.html" aria-label="Fechar" style="width: 40px; height: 40px; border-radius: 10px; color: #57524A; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 20px; padding: 18px 24px; flex-grow: 1;">
+
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px;">
+          <span style="font-size: 13px; font-weight: 600;">Serviços</span>
+          <button type="button" style="border: 0; background: transparent; padding: 0; font-size: 13px; font-weight: 600; color: #57524A; text-decoration: underline; cursor: pointer;">Alterar</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 46px; border-top: 1px solid #F1EDE6;">
+          <span style="flex-grow: 1; font-size: 14px;">Corte + barba <span style="color: #6F685D;">· 45 min</span></span>
+          <span style="font-size: 14px; font-weight: 600;">R$ 75,00</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px;">
+          <span style="font-size: 13px; font-weight: 600;">Produtos</span>
+          <button type="button" style="border: 0; background: transparent; padding: 0; font-size: 13px; font-weight: 600; color: #57524A; text-decoration: underline; cursor: pointer;">+ Adicionar produto</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-top: 1px solid #F1EDE6;">
+          <div style="flex-grow: 1; display: flex; flex-direction: column;">
+            <span style="font-size: 14px;">Pomada modeladora</span>
+            <span style="font-size: 12px; color: #6F685D;">R$ 45,00 · 8 em estoque</span>
+          </div>
+          <div style="display: flex; align-items: center; border: 1px solid #E2DCD1; border-radius: 9px;">
+            <button type="button" onClick="{{dec}}" aria-label="Diminuir quantidade" style="width: 36px; height: 36px; border: 0; background: transparent; font-size: 18px; cursor: pointer;">−</button>
+            <span style="width: 26px; text-align: center; font-size: 14px; font-weight: 600;">{{qty}}</span>
+            <button type="button" onClick="{{inc}}" aria-label="Aumentar quantidade" style="width: 36px; height: 36px; border: 0; background: transparent; font-size: 18px; cursor: pointer;">+</button>
+          </div>
+          <span style="width: 78px; text-align: right; font-size: 14px; font-weight: 600;">{{productTotal}}</span>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 13px; font-weight: 600;">Desconto nos serviços</span>
+          <div role="group" aria-label="Desconto" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+            <sc-for list="{{discounts}}" as="d" hint-placeholder-count="4">
+              <button type="button" onClick="{{d.pick}}" aria-pressed="{{d.on}}" style="flex-grow: 1; flex-basis: 0; height: 36px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{d.bg}}; color: {{d.fg}}; box-shadow: {{d.shadow}}; cursor: pointer;">{{d.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <label for="gorjeta" style="font-size: 13px; font-weight: 600;">Gorjeta para Diego</label>
+          <div style="display: flex; align-items: center; height: 44px; border: 1px solid #E2DCD1; border-radius: 10px; padding: 0 12px; gap: 6px;">
+            <span style="font-size: 14px; color: #6F685D;">R$</span>
+            <input id="gorjeta" type="text" inputmode="decimal" value="10,00" style="flex-grow: 1; min-width: 0; border: 0; outline: none; font-size: 15px; font-weight: 600; background: transparent;">
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 13px; font-weight: 600;">Como o cliente pagou?</span>
+        <div role="radiogroup" aria-label="Forma de pagamento" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{methods}}" as="m" hint-placeholder-count="5">
+            <button type="button" role="radio" aria-checked="{{m.on}}" disabled="{{m.disabled}}" onClick="{{m.pick}}" style="height: 74px; border-radius: 10px; border: {{m.border}}; background: {{m.bg}}; color: {{m.fg}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: {{m.cursor}};">
+              <span style="font-size: 14px; font-weight: 600;">{{m.label}}</span>
+              <span style="font-size: 11px; opacity: 0.85;">{{m.note}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: #F5F3EE;">
+        <div style="display: flex; justify-content: space-between; font-size: 14px; color: #57524A;"><span>Serviços</span><span>R$ 75,00</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px; color: #57524A;"><span>Produtos</span><span>{{productTotal}}</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px; color: #57524A;"><span>Desconto</span><span>{{discountValue}}</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px; color: #57524A;"><span>Gorjeta</span><span>R$ 10,00</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 8px; border-top: 1px solid #E2DCD1;">
+          <span style="font-size: 15px; font-weight: 600;">Total</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700;">{{total}}</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px 20px; border-top: 1px solid #EFEBE3;">
+      <button type="button" style="height: 46px; padding: 0 14px; border: 0; background: transparent; color: #B42318; font-size: 14px; font-weight: 600; cursor: pointer;">Marcar como falta</button>
+      <div style="display: flex; gap: 8px;">
+        <a href="Agenda-desktop.dc.html" style="height: 48px; padding: 0 18px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Voltar</a>
+        <a href="Agenda-desktop.dc.html" style="height: 48px; padding: 0 22px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Concluir · {{total}}</a>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":600,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { method: 'PIX', discount: 0, qty: 1 };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const brl = (v) => 'R$ ' + v.toFixed(2).replace('.', ',');
+
+    const services = 75, product = 45 * this.state.qty, tip = 10;
+    const discount = services * this.state.discount / 100;
+    const total = services + product - discount + tip;
+
+    const discounts = [0, 5, 10, 20].map((p) => {
+      const on = this.state.discount === p;
+      return {
+        label: p === 0 ? 'Sem' : p + '%', on,
+        bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A',
+        shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none',
+        pick: () => this.setState({ discount: p })
+      };
+    });
+
+    const methods = [
+      ['PIX', 'Pix', 'na hora'], ['CASH', 'Dinheiro', 'vai pro caixa'], ['CREDIT_CARD', 'Crédito', 'maquininha'],
+      ['DEBIT_CARD', 'Débito', 'maquininha'], ['SUBSCRIPTION', 'Clube', 'sem plano']
+    ].map(([id, label, note]) => {
+      const disabled = id === 'SUBSCRIPTION';
+      const on = this.state.method === id;
+      return {
+        label, note, on, disabled,
+        border: on ? '2px solid #1B1916' : '1px solid #E2DCD1',
+        bg: on ? '#1B1916' : (disabled ? '#F7F5F0' : '#FFFFFF'),
+        fg: on ? '#FFFFFF' : (disabled ? '#8A8378' : '#1B1916'),
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        pick: () => { if (!disabled) this.setState({ method: id }); }
+      };
+    });
+
+    return {
+      accent, discounts, methods,
+      qty: String(this.state.qty),
+      inc: () => this.setState({ qty: Math.min(8, this.state.qty + 1) }),
+      dec: () => this.setState({ qty: Math.max(0, this.state.qty - 1) }),
+      productTotal: brl(product),
+      discountValue: discount ? '− ' + brl(discount) : 'R$ 0,00',
+      total: brl(total)
+    };
+  }
+}
+</script>
+</body>
+</html>

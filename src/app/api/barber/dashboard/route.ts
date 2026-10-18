@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { POOL_PAYMENT_SELECT, poolOf, poolRevenue, poolServices, poolSettings, subscriptionPaymentsWhere } from "@/lib/commissions";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { SUBSCRIPTION_APPT_INCLUDE, subscriptionCommission, totalPlanServices } from "@/lib/subscriptionServices";
 
@@ -53,8 +54,8 @@ export async function GET(req: NextRequest) {
         select: { total: true, quantity: true, product: { select: { commissionType: true, commissionValue: true } } },
       }),
       prisma.payment.findMany({
-        where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "PAID", paidAt: { gte: monthStart, lte: monthEnd } },
-        select: { amount: true },
+        where: subscriptionPaymentsWhere(barber.barbershopId, monthStart, monthEnd),
+        select: POOL_PAYMENT_SELECT,
       }),
       prisma.appointment.findMany({
         where: { barbershopId: barber.barbershopId, subscriptionId: { not: null }, status: "DONE", date: { gte: monthStart, lte: monthEnd } },
@@ -67,9 +68,9 @@ export async function GET(req: NextRequest) {
     }
 
     // Pool de assinatura (mesma lógica do relatório de comissões) — cada serviço do plano conta 1
-    const totalSubRevenue = subPaymentsMonth.reduce((s, p) => s + p.amount, 0);
-    const totalSubServicos = totalPlanServices(allSubAppts);
-    const ticketMedioSub = totalSubServicos > 0 ? (totalSubRevenue * 0.5) / totalSubServicos : 0;
+    const totalSubRevenue = poolRevenue(subPaymentsMonth);
+    const totalSubServicos = poolServices(allSubAppts);
+    const ticketMedioSub = poolOf(totalSubRevenue, totalSubServicos, await poolSettings(barber.barbershopId)).ticket;
 
     const monthFaturado = monthAppts.reduce((s, a) => s + a.price, 0);
     const monthComissaoServicos = monthAppts.reduce((s, a) => {

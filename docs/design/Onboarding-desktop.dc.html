@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input, textarea, select { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1040px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F3EE;">
+
+  <!-- ============ TOPO ============ -->
+  <header style="height: 72px; flex-shrink: 0; box-sizing: border-box; padding: 0 48px; display: flex; align-items: center; justify-content: space-between; background: #FFFFFF; border-bottom: 1px solid #E7E2D8;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="width: 38px; height: 38px; border-radius: 10px; background: {{accent}}; display: flex; align-items: center; justify-content: center;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg></span>
+      <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 19px; font-weight: 700;">IA de Barbearia</span>
+      <span style="margin-left: 8px; padding-left: 16px; border-left: 1px solid #E7E2D8; font-size: 14px; color: #6F685D;">Configuração inicial</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <span style="font-size: 13px; color: #6F685D;">Tudo é salvo a cada passo</span>
+      <a href="Main.dc.html" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; text-decoration: none;">Terminar depois</a>
+    </div>
+  </header>
+
+  <div style="flex-grow: 1; min-height: 0; box-sizing: border-box; padding: 32px 48px; display: grid; grid-template-columns: 280px minmax(0, 1fr) 380px; gap: 32px; align-items: start;">
+
+    <!-- ============ PASSOS ============ -->
+    <nav aria-label="Passos da configuração" style="display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: #57524A;"><strong style="color: #1B1916;">{{progressLabel}}</strong><span>{{remaining}}</span></div>
+        <div style="height: 6px; border-radius: 3px; background: #E7E2D8;"><div style="width: {{progressPct}}; height: 100%; border-radius: 3px; background: {{accent}};"></div></div>
+      </div>
+      <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column;">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="8">
+          <li style="display: flex; gap: 12px;">
+            <div style="display: flex; flex-direction: column; align-items: center; width: 32px; flex-shrink: 0;">
+              <span style="width: 32px; height: 32px; border-radius: 50%; background: {{s.dotBg}}; color: {{s.dotFg}}; border: {{s.dotBorder}}; box-sizing: border-box; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{s.done}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                <sc-if value="{{s.notDone}}" hint-placeholder-val="{{true}}">{{s.num}}</sc-if>
+              </span>
+              <span style="width: 2px; flex-grow: 1; min-height: 14px; background: {{s.line}};"></span>
+            </div>
+            <button type="button" onClick="{{s.pick}}" aria-current="{{s.current}}" style="flex-grow: 1; min-height: 56px; margin-bottom: 6px; padding: 5px 10px 8px; border: 0; border-radius: 10px; background: {{s.bg}}; color: #1B1916; text-align: left; display: flex; flex-direction: column; gap: 2px; cursor: pointer;">
+              <span style="font-size: 14px; font-weight: {{s.weight}}; color: {{s.fg}};">{{s.label}}</span>
+              <span style="font-size: 12px; color: #6F685D;">{{s.summary}}</span>
+            </button>
+          </li>
+        </sc-for>
+      </ol>
+    </nav>
+
+    <!-- ============ PASSO ATUAL ============ -->
+    <section aria-labelledby="step-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+      <div style="padding: 24px 28px 18px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid #EFEBE3;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">{{stepKicker}}</span>
+        <h1 id="step-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em;">{{stepTitle}}</h1>
+        <span style="font-size: 14px; color: #6F685D;">{{stepSub}}</span>
+      </div>
+
+      <div style="padding: 22px 28px; display: flex; flex-direction: column; gap: 18px;">
+
+        <!-- 1 · CONTA -->
+        <sc-if value="{{s0}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; background: #E8F4EC; color: #1D6B40; font-size: 14px; font-weight: 600;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Conta criada. Você pode corrigir qualquer dado aqui.
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Seu nome
+              <input type="text" value="Carlos Almeida" style="height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Nome da barbearia
+              <input type="text" value="Barbearia Modelo" style="height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">E-mail de acesso
+              <input type="email" value="[E-MAIL DO DONO]" style="height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Seu WhatsApp
+              <input type="tel" value="[WHATSAPP DO DONO]" style="height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+            </label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; border: 1px solid #E7E2D8; background: #F9F7F3;">
+            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 12px; color: #6F685D;">Plano escolhido</span>
+              <span style="font-size: 15px; font-weight: 600;">Gestão + Atendente de IA · R$ 197,90/mês</span>
+              <span style="font-size: 12px; color: #6F685D;">Sem adesão e sem fidelidade. A cobrança começa quando você confirmar o pagamento.</span>
+            </div>
+            <a href="Minha-assinatura-desktop.dc.html" style="font-size: 13px; font-weight: 600; color: #57524A;">Trocar plano</a>
+          </div>
+        </sc-if>
+
+        <!-- 2 · DADOS DA BARBEARIA -->
+        <sc-if value="{{s1}}" hint-placeholder-val="{{false}}">
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Nome que o cliente vê
+            <input type="text" value="Barbearia Modelo" style="height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">WhatsApp da barbearia
+            <input type="tel" value="[WHATSAPP DA BARBEARIA]" style="height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+            <span style="font-size: 12px; font-weight: 400; color: #6F685D;">É o número em que o cliente fala com vocês.</span>
+          </label>
+          <div style="display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 14px;">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">CEP
+              <input type="text" inputmode="numeric" value="[CEP]" style="height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+              <span style="display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #1D6B40;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>[CIDADE — UF]</span>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Endereço
+              <input type="text" value="[ENDEREÇO DA BARBEARIA]" style="height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 15px; font-weight: 400;">
+            </label>
+          </div>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Instagram <span style="font-weight: 400; color: #6F685D;">opcional</span>
+            <span style="display: flex; align-items: center; gap: 4px; height: 46px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; box-sizing: border-box;"><span style="color: #6F685D; font-weight: 400;">@</span><input type="text" value="[INSTAGRAM]" style="flex-grow: 1; min-width: 0; border: 0; outline: none; font-size: 15px;"></span>
+          </label>
+        </sc-if>
+
+        <!-- 3 · COR E LOGO -->
+        <sc-if value="{{s2}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <span id="cor-l" style="font-size: 13px; font-weight: 600;">Cor da barbearia</span>
+            <div role="radiogroup" aria-labelledby="cor-l" style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <sc-for list="{{colors}}" as="c" hint-placeholder-count="6">
+                <button type="button" role="radio" aria-checked="{{c.on}}" aria-label="{{c.name}}" onClick="{{c.pick}}" style="width: 48px; height: 48px; border-radius: 12px; border: {{c.ring}}; padding: 3px; background: #FFFFFF; box-sizing: border-box; cursor: pointer;"><span style="display: block; width: 100%; height: 100%; border-radius: 8px; background: {{c.hex}};"></span></button>
+              </sc-for>
+            </div>
+            <span style="font-size: 12px; color: #6F685D;">Usada nos botões da sua página de agendamento. A prévia ao lado muda na hora.</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 12px; border: 1px dashed #B9B0A1;">
+            <span style="width: 64px; height: 64px; border-radius: 14px; background: #F5F3EE; color: #8A8378; display: flex; align-items: center; justify-content: center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"></path></svg></span>
+            <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: 600;">Logo <span style="font-weight: 400; color: #6F685D;">opcional</span></span>
+              <span style="font-size: 12px; color: #6F685D;">PNG ou JPG, quadrado de preferência</span>
+            </div>
+            <button type="button" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m17 8-5-5-5 5"></path><path d="M12 3v12"></path></svg>Enviar logo</button>
+          </div>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Frase curta sobre a barbearia <span style="font-weight: 400; color: #6F685D;">opcional</span>
+            <textarea rows="3" style="resize: none; padding: 10px 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 14px; font-weight: 400; line-height: 1.5;">Corte, barba e pigmentação com hora marcada. Café por conta da casa.</textarea>
+          </label>
+        </sc-if>
+
+        <!-- 4 · HORÁRIOS -->
+        <sc-if value="{{s3}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; font-weight: 600;">Dias e horários de atendimento</span>
+            <button type="button" style="height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="14" height="14" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>Usar o horário de segunda em todos</button>
+          </div>
+          <div style="display: flex; flex-direction: column; border: 1px solid #EFEBE3; border-radius: 12px;">
+            <sc-for list="{{hours}}" as="h" hint-placeholder-count="7">
+              <div style="display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 0 14px; border-top: {{h.divider}};">
+                <button type="button" role="switch" aria-checked="{{h.open}}" aria-label="{{h.aria}}" onClick="{{h.toggle}}" style="width: 44px; height: 26px; flex-shrink: 0; border-radius: 13px; border: 0; padding: 3px; background: {{h.switchBg}}; display: flex; justify-content: {{h.switchJustify}}; cursor: pointer;"><span style="width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF;"></span></button>
+                <span style="width: 90px; font-size: 14px; font-weight: 600; color: {{h.dayColor}};">{{h.day}}</span>
+                <sc-if value="{{h.open}}" hint-placeholder-val="{{true}}">
+                  <div style="flex-grow: 1; display: flex; align-items: center; gap: 10px;">
+                    <input type="time" value="{{h.from}}" aria-label="{{h.fromAria}}" style="width: 120px; height: 40px; padding: 0 10px; border-radius: 9px; border: 1px solid #D8D0C2; font-size: 14px;">
+                    <span style="font-size: 13px; color: #6F685D;">até</span>
+                    <input type="time" value="{{h.to}}" aria-label="{{h.toAria}}" style="width: 120px; height: 40px; padding: 0 10px; border-radius: 9px; border: 1px solid #D8D0C2; font-size: 14px;">
+                  </div>
+                </sc-if>
+                <sc-if value="{{h.closed}}" hint-placeholder-val="{{false}}">
+                  <span style="flex-grow: 1; font-size: 14px; color: #8A8378;">Fechado</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <span style="font-size: 12px; color: #6F685D;">Feriados e dias com horário diferente você ajusta depois, em Configurações.</span>
+        </sc-if>
+
+        <!-- 5 · SERVIÇOS -->
+        <sc-if value="{{s4}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <span style="font-size: 13px; font-weight: 600;">Marque o que você faz e ajuste preço e tempo</span>
+            <span style="font-size: 13px; color: #57524A;">{{svcCount}}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; border: 1px solid #EFEBE3; border-radius: 12px; overflow: hidden;">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 120px 110px; gap: 12px; padding: 9px 14px; background: #F9F7F3; font-size: 12px; font-weight: 600; color: #6F685D;">
+              <span>Serviço</span><span>Preço</span><span>Duração</span>
+            </div>
+            <sc-for list="{{services}}" as="v" hint-placeholder-count="7">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 120px 110px; gap: 12px; align-items: center; min-height: 58px; padding: 0 14px; border-top: 1px solid #F1EDE6; background: {{v.rowBg}};">
+                <button type="button" role="checkbox" aria-checked="{{v.on}}" onClick="{{v.toggle}}" style="min-height: 44px; border: 0; padding: 0; background: transparent; color: {{v.fg}}; display: flex; align-items: center; gap: 12px; text-align: left; font-size: 15px; font-weight: 600; cursor: pointer;">
+                  <span style="width: 22px; height: 22px; flex-shrink: 0; box-sizing: border-box; border-radius: 6px; border: {{v.checkBorder}}; background: {{v.checkBg}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                  {{v.name}}
+                </button>
+                <span style="display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 9px; border: 1px solid {{v.inputBorder}}; background: {{v.inputBg}};"><span style="font-size: 13px; color: #6F685D;">R$</span><input type="text" inputmode="decimal" value="{{v.price}}" aria-label="{{v.priceAria}}" style="width: 100%; min-width: 0; border: 0; outline: none; background: transparent; font-size: 14px; color: {{v.fg}};"></span>
+                <span style="display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 9px; border: 1px solid {{v.inputBorder}}; background: {{v.inputBg}};"><input type="text" inputmode="numeric" value="{{v.dur}}" aria-label="{{v.durAria}}" style="width: 100%; min-width: 0; border: 0; outline: none; background: transparent; font-size: 14px; color: {{v.fg}};"><span style="font-size: 13px; color: #6F685D;">min</span></span>
+              </div>
+            </sc-for>
+          </div>
+          <button type="button" style="height: 48px; border-radius: 12px; border: 1px dashed #B9B0A1; background: transparent; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Adicionar serviço que não está na lista</button>
+          <sc-if value="{{noServices}}" hint-placeholder-val="{{false}}">
+            <div role="alert" style="padding: 10px 14px; border-radius: 10px; background: #FBECEA; color: #9B2C22; font-size: 14px;">Marque pelo menos 1 serviço para continuar.</div>
+          </sc-if>
+        </sc-if>
+
+        <!-- 6 · EQUIPE -->
+        <sc-if value="{{s5}}" hint-placeholder-val="{{false}}">
+          <div role="radiogroup" aria-label="Quem atende" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+            <sc-for list="{{teamModes}}" as="m" hint-placeholder-count="2">
+              <button type="button" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 12px; border: {{m.border}}; background: {{m.bg}}; color: #1B1916; text-align: left; cursor: pointer;">
+                <span style="font-size: 15px; font-weight: 600;">{{m.label}}</span>
+                <span style="font-size: 13px; color: #6F685D;">{{m.hint}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <sc-if value="{{hasTeam}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; border: 1px solid #EFEBE3; border-radius: 12px; overflow: hidden;">
+              <div style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) 90px; gap: 12px; padding: 9px 14px; background: #F9F7F3; font-size: 12px; font-weight: 600; color: #6F685D;">
+                <span>Profissional</span><span>E-mail de acesso</span><span>Comissão</span>
+              </div>
+              <sc-for list="{{team}}" as="t" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr) 90px; gap: 12px; align-items: center; min-height: 58px; padding: 0 14px; border-top: 1px solid #F1EDE6;">
+                  <span style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600;"><span style="width: 32px; height: 32px; border-radius: 50%; background: #EFEBE3; color: #57524A; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">{{t.initials}}</span>{{t.name}}</span>
+                  <span style="font-size: 13px; color: #57524A;">{{t.email}}</span>
+                  <span style="display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 10px; box-sizing: border-box; border-radius: 9px; border: 1px solid #D8D0C2;"><input type="text" value="40" aria-label="{{t.commAria}}" style="width: 100%; min-width: 0; border: 0; outline: none; font-size: 14px;"><span style="font-size: 13px; color: #6F685D;">%</span></span>
+                </div>
+              </sc-for>
+            </div>
+            <button type="button" style="height: 46px; border-radius: 12px; border: 1px dashed #B9B0A1; background: transparent; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Adicionar profissional</button>
+            <div style="display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px; background: #F5EEDC; color: #6E5210; font-size: 13px; line-height: 1.5;">
+              <svg style="flex-shrink: 0; margin-top: 2px;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+              <span>No plano com Atendente de IA, 2 barbeiros já estão inclusos. Do 3º em diante são + R$ 33,90 por mês cada. Com 4 barbeiros, sua mensalidade fica em R$ 265,70.</span>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <!-- 7 · WHATSAPP -->
+        <sc-if value="{{s6}}" hint-placeholder-val="{{false}}">
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 24px; align-items: start;">
+            <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px;">
+              <sc-for list="{{waSteps}}" as="w" hint-placeholder-count="4">
+                <li style="display: flex; gap: 12px; font-size: 14px; line-height: 1.45;">
+                  <span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #1B1916; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{w.n}}</span>
+                  <span>{{w.text}}</span>
+                </li>
+              </sc-for>
+            </ol>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+              <div role="img" aria-label="Código para conectar o WhatsApp" style="width: 210px; height: 210px; box-sizing: border-box; padding: 14px; border-radius: 14px; border: 1px solid #E7E2D8; background: #FFFFFF; display: grid; grid-template-columns: repeat(21, minmax(0, 1fr));">
+                <sc-for list="{{qr}}" as="q" hint-placeholder-count="441">
+                  <span style="background: {{q.c}};"></span>
+                </sc-for>
+              </div>
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6F685D;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #C9A227;"></span>Esperando a leitura do código</span>
+            </div>
+          </div>
+          <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; background: #F9F7F3; font-size: 14px; cursor: pointer;">
+            <input type="checkbox" checked style="width: 18px; height: 18px; margin: 1px 0 0; accent-color: #1B1916;">
+            <span style="display: flex; flex-direction: column; gap: 2px;"><strong style="font-weight: 600;">Ligar o atendente de IA assim que conectar</strong><span style="font-size: 13px; color: #6F685D;">Ele responde, marca horário e manda lembrete. Você pode desligar quando quiser.</span></span>
+          </label>
+        </sc-if>
+
+        <!-- 8 · PRONTO -->
+        <sc-if value="{{s7}}" hint-placeholder-val="{{false}}">
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+            <sc-for list="{{doneTiles}}" as="d" hint-placeholder-count="4">
+              <div style="padding: 14px; border-radius: 12px; border: 1px solid #E7E2D8; display: flex; flex-direction: column; gap: 3px;">
+                <span style="font-size: 12px; color: #6F685D;">{{d.label}}</span>
+                <span style="font-size: 15px; font-weight: 600;">{{d.value}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 12px; background: #1B1916; color: #FFFFFF;">
+            <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #C9C2B6;">Seu link de agendamento</span>
+            <div style="display: flex; gap: 8px;">
+              <span style="flex-grow: 1; min-width: 0; height: 44px; padding: 0 12px; box-sizing: border-box; border-radius: 10px; background: #2A2723; font-size: 15px; display: flex; align-items: center;">[DOMÍNIO]/barbearia-modelo</span>
+              <button type="button" onClick="{{copy}}" style="height: 44px; padding: 0 16px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;">{{copyLabel}}</button>
+              <a href="Online-1-servico.dc.html" aria-label="Abrir a página de agendamento" style="width: 44px; height: 44px; border-radius: 10px; border: 1px solid #3A352F; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></a>
+            </div>
+            <span style="font-size: 13px; color: #C9C2B6;">Coloque na bio do Instagram e mande para os clientes pelo WhatsApp.</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 13px; font-weight: 600;">Quando der, vale fazer também</span>
+            <a href="Clientes-desktop.dc.html" style="display: flex; justify-content: space-between; align-items: center; min-height: 44px; border-bottom: 1px solid #F1EDE6; font-size: 14px; text-decoration: none;">Importar sua lista de clientes<span style="color: #6F685D;">Clientes</span></a>
+            <a href="Planos-desktop.dc.html" style="display: flex; justify-content: space-between; align-items: center; min-height: 44px; border-bottom: 1px solid #F1EDE6; font-size: 14px; text-decoration: none;">Criar planos de assinatura para clientes<span style="color: #6F685D;">Planos</span></a>
+            <a href="Atendente-IA-desktop.dc.html" style="display: flex; justify-content: space-between; align-items: center; min-height: 44px; font-size: 14px; text-decoration: none;">Ensinar o jeito de falar do atendente<span style="color: #6F685D;">WhatsApp</span></a>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 28px; border-top: 1px solid #EFEBE3; background: #FBFAF7;">
+        <sc-if value="{{showBack}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{back}}" style="height: 46px; padding: 0 16px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>Voltar</button>
+        </sc-if>
+        <sc-if value="{{hideBack}}" hint-placeholder-val="{{false}}"><span></span></sc-if>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <sc-if value="{{canSkip}}" hint-placeholder-val="{{false}}">
+            <button type="button" onClick="{{next}}" style="height: 46px; padding: 0 14px; border-radius: 10px; border: 0; background: transparent; color: #57524A; font-size: 14px; font-weight: 600; cursor: pointer;">Pular por agora</button>
+          </sc-if>
+          <sc-if value="{{notLast}}" hint-placeholder-val="{{true}}">
+            <button type="button" onClick="{{next}}" style="height: 46px; padding: 0 22px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;">{{nextLabel}}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+          </sc-if>
+          <sc-if value="{{isLast}}" hint-placeholder-val="{{false}}">
+            <a href="Main.dc.html" style="height: 46px; padding: 0 22px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; text-decoration: none;">Entrar no painel<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+          </sc-if>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PRÉVIA ============ -->
+    <aside aria-label="Prévia da página de agendamento" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <span style="font-size: 15px; font-weight: 600;">Como o cliente vê</span>
+        <span style="font-size: 12px; color: #6F685D;">atualiza enquanto você preenche</span>
+      </div>
+      <div style="border-radius: 30px; background: #1B1916; padding: 10px;">
+        <div style="border-radius: 22px; overflow: hidden; background: #F5F3EE; display: flex; flex-direction: column;">
+          <div style="background: #221F1B; color: #FFFFFF; padding: 18px 16px 16px; display: flex; align-items: center; gap: 12px;">
+            <span style="width: 48px; height: 48px; border-radius: 13px; background: {{shopColor}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg></span>
+            <span style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 19px; font-weight: 700;">Barbearia Modelo</span>
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #C9C2B6;"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{todayDot}};"></span>{{todayLabel}}</span>
+            </span>
+          </div>
+          <div style="padding: 14px 12px 16px; display: flex; flex-direction: column; gap: 8px;">
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 17px; font-weight: 700; padding: 0 2px;">O que você vai fazer?</span>
+            <sc-for list="{{previewServices}}" as="p" hint-placeholder-count="6">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 11px 12px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E7E2D8;">
+                <span style="display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 14px; font-weight: 600;">{{p.name}}</span><span style="font-size: 12px; color: #6F685D;">{{p.dur}}</span></span>
+                <span style="font-size: 14px; font-weight: 700;">{{p.price}}</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{noServices}}" hint-placeholder-val="{{false}}">
+              <span style="padding: 18px 8px; font-size: 13px; color: #8A8378; text-align: center;">Nenhum serviço marcado ainda</span>
+            </sc-if>
+            <div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 2px 0;">
+              <span style="font-size: 12px; color: #6F685D;">{{hoursLine}}</span>
+              <span style="font-size: 12px; color: #6F685D;">{{teamLine}}</span>
+            </div>
+            <span style="height: 46px; margin-top: 4px; border-radius: 12px; background: {{shopColor}}; color: #FFFFFF; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center;">Continuar</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      step: 4,
+      color: 'marca',
+      open: [true, true, true, true, true, true, false],
+      picked: ['corte', 'degrade', 'barba', 'combo', 'sobrancelha', 'pigmentacao'],
+      team: true,
+      copied: false
+    };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const st = this.state;
+    const step = st.step;
+    const TOTAL = 8;
+
+    // ---- catálogo ----
+    const catalog = [
+      ['corte', 'Corte', 50, 30], ['degrade', 'Corte degradê', 55, 45], ['barba', 'Barba', 40, 30],
+      ['combo', 'Corte + barba', 75, 45], ['sobrancelha', 'Sobrancelha', 15, 15],
+      ['pigmentacao', 'Pigmentação', 90, 60], ['hidratacao', 'Hidratação', 35, 20]
+    ];
+    const chosen = catalog.filter((c) => st.picked.includes(c[0]));
+    const services = catalog.map(([id, name, price, dur]) => {
+      const on = st.picked.includes(id);
+      return {
+        name, on, price: String(price), dur: String(dur),
+        priceAria: 'Preço de ' + name, durAria: 'Duração de ' + name,
+        rowBg: on ? '#FFFFFF' : '#FBFAF7',
+        fg: on ? '#1B1916' : '#8A8378',
+        checkBorder: on ? '0' : '2px solid #D8D0C2', checkBg: on ? '#1B1916' : '#FFFFFF',
+        inputBorder: on ? '#D8D0C2' : '#EFEBE3', inputBg: on ? '#FFFFFF' : 'transparent',
+        toggle: () => this.setState({ picked: on ? st.picked.filter((p) => p !== id) : [...st.picked, id] })
+      };
+    });
+
+    // ---- horários ----
+    const days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    const hours = days.map((day, i) => {
+      const open = st.open[i];
+      return {
+        day, open, closed: !open, from: '09:00', to: '20:00',
+        divider: i === 0 ? '0' : '1px solid #F1EDE6',
+        dayColor: open ? '#1B1916' : '#8A8378',
+        aria: 'Aberto ' + (i === 6 ? 'no domingo' : 'na ' + day.toLowerCase()),
+        fromAria: 'Abre ' + day, toAria: 'Fecha ' + day,
+        switchBg: open ? '#1F9D5A' : '#D8D0C2', switchJustify: open ? 'flex-end' : 'flex-start',
+        toggle: () => { const next = st.open.slice(); next[i] = !open; this.setState({ open: next }); }
+      };
+    });
+    const openDays = days.filter((_, i) => st.open[i]);
+    const short = { Segunda: 'seg', 'Terça': 'ter', Quarta: 'qua', Quinta: 'qui', Sexta: 'sex', 'Sábado': 'sáb', Domingo: 'dom' };
+    const allWeekdaysToSat = st.open.slice(0, 6).every(Boolean);
+    const hoursSummary = openDays.length === 0 ? 'Nenhum dia aberto'
+      : allWeekdaysToSat && openDays.length === 6 ? 'Seg a sáb, 9h às 20h'
+      : openDays.map((d) => short[d]).join(', ') + ' · 9h às 20h';
+
+    // ---- cores ----
+    const palette = [['marca', accent, 'Cor da marca'], ['ouro', '#A16207', 'Dourado'], ['verde', '#2F6B4F', 'Verde'], ['azul', '#1F4E8C', 'Azul'], ['vinho', '#9B2C22', 'Vinho'], ['preto', '#1B1916', 'Preto']];
+    const colors = palette.map(([id, hex, name]) => {
+      const on = st.color === id;
+      return { hex, name, on, ring: on ? '2px solid #1B1916' : '1px solid #E2DCD1', pick: () => this.setState({ color: id }) };
+    });
+    const shopColor = (palette.find((p) => p[0] === st.color) || palette[0])[1];
+
+    // ---- equipe ----
+    const barbers = [['Diego Ramos', 'DR'], ['Anderson Silva', 'AS'], ['Marcos Teixeira', 'MT'], ['Vinícius Prado', 'VP']];
+    const team = barbers.map(([name, initials]) => ({ name, initials, email: '[E-MAIL DE ' + name.split(' ')[0].toUpperCase() + ']', commAria: 'Comissão de ' + name }));
+    const teamModes = [[false, 'Só eu atendo', 'Você é o único profissional'], [true, 'Tenho equipe', 'Cada um com acesso e comissão']].map(([val, label, hint]) => {
+      const on = st.team === val;
+      return { label, hint, on, border: on ? '2px solid ' + accent : '1px solid #E2DCD1', bg: on ? mix(accent, 255, 0.93) : '#FFFFFF', pick: () => this.setState({ team: val }) };
+    });
+
+    // ---- passos ----
+    const defs = [
+      ['Sua conta', 'Carlos Almeida · Gestão + IA'],
+      ['Dados da barbearia', 'Barbearia Modelo'],
+      ['Cor e logo', 'Cor escolhida · sem logo'],
+      ['Horários', hoursSummary],
+      ['Serviços', chosen.length + (chosen.length === 1 ? ' serviço' : ' serviços')],
+      ['Equipe', st.team ? '4 profissionais' : 'Só você'],
+      ['WhatsApp', 'Conectar o número · opcional'],
+      ['Pronto', 'Seu link de agendamento']
+    ];
+    const titles = [
+      ['Confira sua conta', 'Os dados que você usou no cadastro.'],
+      ['Dados da barbearia', 'O básico para o cliente te achar e falar com você.'],
+      ['Cor e logo', 'Deixe a página de agendamento com a cara da barbearia.'],
+      ['Horários de funcionamento', 'A agenda só oferece horários dentro destes dias.'],
+      ['Serviços', 'Já trouxemos os mais comuns. Mude o que for diferente aí.'],
+      ['Quem atende', 'Cada profissional tem a própria agenda e comissão.'],
+      ['Conectar o WhatsApp', 'Para mandar confirmações e lembretes, e para o atendente de IA responder.'],
+      ['Tudo pronto, Carlos!', 'A Barbearia Modelo já pode receber agendamentos.']
+    ];
+    const steps = defs.map(([label, summary], i) => {
+      const done = i < step, cur = i === step;
+      return {
+        label, summary: cur ? 'agora' : summary, num: String(i + 1), done, notDone: !done,
+        current: cur ? 'step' : 'false',
+        dotBg: done ? '#1B1916' : cur ? accent : '#FFFFFF',
+        dotFg: done || cur ? '#FFFFFF' : '#6F685D',
+        dotBorder: done || cur ? '0' : '1px solid #D8D0C2',
+        line: i === defs.length - 1 ? 'transparent' : (done ? '#1B1916' : '#E2DCD1'),
+        bg: cur ? '#FFFFFF' : 'transparent',
+        fg: done || cur ? '#1B1916' : '#57524A',
+        weight: cur ? '700' : '600',
+        pick: () => this.setState({ step: i })
+      };
+    });
+
+    const qr = [];
+    for (let y = 0; y < 21; y++) {
+      for (let x = 0; x < 21; x++) {
+        const inFinder = (fx, fy) => x >= fx && x < fx + 7 && y >= fy && y < fy + 7;
+        let on;
+        const f = [[0, 0], [14, 0], [0, 14]].find(([fx, fy]) => inFinder(fx, fy));
+        if (f) {
+          const dx = x - f[0], dy = y - f[1];
+          on = dx === 0 || dy === 0 || dx === 6 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4);
+        } else {
+          on = ((x * 7 + y * 13 + x * y * 3) % 5) < 2;
+        }
+        qr.push({ c: on ? '#1B1916' : '#FFFFFF' });
+      }
+    }
+
+    const remainingMin = Math.max(0, (TOTAL - 1 - step)) * 1;
+    const noServices = chosen.length === 0;
+    const go = (d) => () => {
+      if (d > 0 && step === 4 && noServices) return;
+      this.setState({ step: Math.min(TOTAL - 1, Math.max(0, step + d)) });
+    };
+
+    return {
+      accent,
+      steps,
+      progressLabel: 'Passo ' + (step + 1) + ' de ' + TOTAL,
+      progressPct: Math.round((step / (TOTAL - 1)) * 100) + '%',
+      remaining: step === TOTAL - 1 ? 'concluído' : 'faltam uns ' + Math.max(1, remainingMin) + ' min',
+      stepKicker: 'Passo ' + (step + 1) + ' · ' + defs[step][0],
+      stepTitle: titles[step][0], stepSub: titles[step][1],
+      s0: step === 0, s1: step === 1, s2: step === 2, s3: step === 3, s4: step === 4, s5: step === 5, s6: step === 6, s7: step === 7,
+      colors, hours, services, svcCount: chosen.length + ' de ' + catalog.length + ' marcados', noServices,
+      teamModes, hasTeam: st.team, team,
+      waSteps: [
+        'Pegue o celular com o WhatsApp da barbearia.',
+        'Toque nos três pontinhos e depois em Aparelhos conectados.',
+        'Toque em Conectar um aparelho.',
+        'Aponte a câmera para o código ao lado.'
+      ].map((text, i) => ({ n: String(i + 1), text })),
+      qr,
+      doneTiles: [
+        ['Barbearia', 'Barbearia Modelo'], ['Aberta', hoursSummary],
+        ['Serviços', chosen.length + ' no cardápio'], ['Equipe', st.team ? 'Diego, Anderson, Marcos e Vinícius' : 'Só você']
+      ].map(([label, value]) => ({ label, value })),
+      copyLabel: st.copied ? 'Copiado' : 'Copiar link',
+      copy: () => this.setState({ copied: true }),
+      showBack: step > 0, hideBack: step === 0,
+      canSkip: step === 6,
+      notLast: step < TOTAL - 1, isLast: step === TOTAL - 1,
+      nextLabel: step === 6 ? 'Já conectei' : step === 5 ? 'Salvar equipe' : 'Continuar',
+      back: go(-1), next: go(1),
+      shopColor,
+      todayDot: st.open[2] ? '#4CC38A' : '#8A8378',
+      todayLabel: st.open[2] ? 'Aberto agora · fecha às 20h' : 'Fechado hoje',
+      previewServices: chosen.slice(0, 6).map(([, name, price, dur]) => ({ name, price: 'R$ ' + price, dur: dur + ' min' })),
+      hoursLine: 'Horários: ' + hoursSummary.charAt(0).toLowerCase() + hoursSummary.slice(1),
+      teamLine: st.team ? 'Com Diego, Anderson, Marcos ou Vinícius' : 'Atendimento com Carlos'
+    };
+  }
+}
+</script>
+</body>
+</html>

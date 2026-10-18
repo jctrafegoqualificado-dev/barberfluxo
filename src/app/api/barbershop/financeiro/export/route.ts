@@ -1,71 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { buildMonthResult, currentMonthSP } from "@/lib/monthResult";
 
+const STATUS: Record<string, string> = { RECEIVED: "Recebido", PAID: "Pago", PENDING: "A pagar", OVERDUE: "Atrasada" };
+
+/** Célula de CSV: separador ";" (Excel em português) e aspas quando precisa. */
+function cell(v: string | number) {
+  const s = typeof v === "number" ? v.toFixed(2).replace(".", ",") : v;
+  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// GET ?month=YYYY-MM — planilha do mês (as mesmas movimentações da tela Resultado do mês)
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
-    const barbershopId = payload.barbershopId!;
-    const { searchParams } = new URL(req.url);
-    const month = searchParams.get("month") || format(new Date(), "yyyy-MM");
+    const param = req.nextUrl.searchParams.get("month");
+    const month = param && /^\d{4}-\d{2}$/.test(param) ? param : currentMonthSP();
+    const r = await buildMonthResult(payload.barbershopId!, month);
 
-    const startDate = startOfMonth(new Date(month + "-01T12:00:00Z"));
-    const endDate = endOfMonth(new Date(month + "-01T12:00:00Z"));
+    const day = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const lines = [
+      ["Data", "Tipo", "Descrição", "Detalhe", "Forma de pagamento", "Situação", "Valor (R$)"].join(";"),
+      ...r.moves.map((m) => [
+        day(m.date), m.dir === "in" ? "Entrada" : "Saída", cell(m.desc), cell(m.sub), cell(m.method), STATUS[m.status],
+        cell(m.dir === "in" ? m.amount : -m.amount),
+      ].join(";")),
+      "",
+      ["Resumo", "", "", "", "", "", ""].join(";"),
+      ["", "Entrou", "", "", "", "", cell(r.entrou.total)].join(";"),
+      ["", "Comissões", "", "", "", "", cell(-r.comissoes)].join(";"),
+      ["", "Despesas pagas", "", "", "", "", cell(-r.despesas)].join(";"),
+      ["", "Taxas de maquininha", "", "", "", "", cell(-r.taxas.total)].join(";"),
+      ["", "Sobrou", "", "", "", "", cell(r.sobrou)].join(";"),
+    ];
 
-    // Buscar despesas do mês
-    const expenses = await prisma.expense.findMany({
-      where: { barbershopId, month },
-      orderBy: { createdAt: "asc" },
-    });
-
-    // Buscar receitas avulsas do mês
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        barbershopId,
-        status: "DONE",
-        subscriptionId: null, // Apenas avulsos
-        date: { gte: startDate, lte: endDate },
-      },
-      include: { service: true, barber: { include: { user: true } } },
-      orderBy: { date: "asc" },
-    });
-
-    // Buscar assinaturas ativas para MRR
-    const subscriptions = await prisma.subscription.findMany({
-      where: { barbershopId, status: "ACTIVE" },
-      include: { plan: true },
-    });
-    
-    // Calcular receitas de assinaturas proporcionalmente
-    const totalAssinaturas = subscriptions.reduce((s, sub) => s + sub.plan.price, 0);
-
-    // Gerar CSV
-    let csv = "Data,Tipo,Categoria,Descricao,Valor(R$),Forma de Pagamento,Status\n";
-
-    // 1. Receitas Avulsas
-    for (const appt of appointments) {
-      const dataStr = format(appt.date, "dd/MM/yyyy");
-      const desc = `${appt.service?.name || "Servico"} - ${appt.barber?.user?.name || ""}`;
-      csv += `${dataStr},ENTRADA,SERVICOS,${desc},${appt.price.toFixed(2)},${appt.paymentMethod || "CASH"},PAGO\n`;
-    }
-
-    // 2. Receitas Recorrentes (Assinaturas)
-    if (totalAssinaturas > 0) {
-      csv += `01/${month.split("-")[1]}/${month.split("-")[0]},ENTRADA,ASSINATURAS,Receita Recorrente (MRR),${totalAssinaturas.toFixed(2)},-,PAGO\n`;
-    }
-
-    // 3. Despesas
-    for (const exp of expenses) {
-      const dataStr = exp.paidAt ? format(exp.paidAt, "dd/MM/yyyy") : (exp.dueDay ? `${String(exp.dueDay).padStart(2, "0")}/${month.split("-")[1]}/${month.split("-")[0]}` : "-");
-      csv += `${dataStr},SAIDA,${exp.category},${exp.name},${exp.amount.toFixed(2)},${exp.paymentMethod || "-"},${exp.status}\n`;
-    }
-
-    return new NextResponse(csv, {
+    // BOM para o Excel abrir com acentos
+    return new NextResponse("﻿" + lines.join("\r\n"), {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="fechamento_${month}.csv"`,
+        "Content-Disposition": `attachment; filename="financeiro_${month}.csv"`,
       },
     });
   } catch (e: unknown) {

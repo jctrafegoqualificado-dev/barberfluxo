@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hashPassword } from "@/lib/auth";
+import { syncRecurringAmount } from "@/lib/saasRecurring";
 import { z } from "zod";
 import { logAudit, getClientIp } from "@/lib/audit";
 import { parseBarberHours } from "@/lib/barberHours";
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
  * Agendamentos futuros bloqueiam a exclusão: precisam ser cancelados ou
  * transferidos antes, senão o cliente fica com um horário órfão.
  */
-export async function DELETE(req: NextRequest) {
+async function handleDELETE(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const { barberId } = await req.json();
@@ -183,7 +184,7 @@ async function countUserTiesOutsideBarberProfile(userId: string) {
   return ownedShop + appointments + subscriptions + productSales + contacts + reviews + points + retentions;
 }
 
-export async function PATCH(req: NextRequest) {
+async function handlePATCH(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const {
@@ -291,7 +292,7 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const payload = requireAuth(req, ["OWNER"]);
     const barbershopId = payload.barbershopId!;
@@ -400,3 +401,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+/**
+ * Cadastrar, ativar/desativar (férias) e excluir mudam quantos barbeiros a barbearia paga:
+ * com cobrança automática no MP, o valor da assinatura acompanha (src/lib/saasRecurring.ts).
+ */
+async function withRecurringSync(req: NextRequest, handler: (req: NextRequest) => Promise<NextResponse>) {
+  const res = await handler(req);
+  if (res.ok) {
+    try {
+      const { barbershopId } = requireAuth(req, ["OWNER"]);
+      if (barbershopId) await syncRecurringAmount(barbershopId);
+    } catch { /* sem dono autenticado: nada a sincronizar */ }
+  }
+  return res;
+}
+
+export const POST = (req: NextRequest) => withRecurringSync(req, handlePOST);
+export const PATCH = (req: NextRequest) => withRecurringSync(req, handlePATCH);
+export const DELETE = (req: NextRequest) => withRecurringSync(req, handleDELETE);

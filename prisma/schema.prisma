@@ -33,9 +33,25 @@ model User {
   subscriptions    Subscription[]
   productSales     ProductSale[]     @relation("ClientProductSales")
   whatsappContacts WhatsAppContact[]
+  clientNotes      ClientNote[]
+  shopLinks        ShopClient[]
   reviews          Review[]          @relation("ClientReviews")
   loyaltyPoints    LoyaltyPoint[]    @relation("ClientLoyaltyPoints")
   clientRetentions ClientRetention[]
+  passwordResets   PasswordResetToken[]
+}
+
+// "Esqueci a senha": só o hash do token; vale 1 hora e serve uma vez.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Barbershop {
@@ -77,6 +93,9 @@ model Barbershop {
   reminderMinutes Int     @default(60)
   reminderEnabled Boolean @default(false)
   reminderMessage String? // Template: "Olá {{nome}}, seu horário de {{servico}} é amanhã às {{hora}}!"
+  // Lembrete pede SIM/NÃO: SIM confirma, NÃO cancela e libera a vaga (lista de espera).
+  // A resposta chega pelo n8n em /api/v1/barbershops/[slug]/reminder-reply.
+  reminderAskConfirmation Boolean @default(true)
 
   cancelByClientEnabled Boolean @default(true)
   minCancelHours        Int     @default(0)
@@ -105,6 +124,7 @@ model Barbershop {
   aiMensagemConfirmacaoAgendamento String?  @db.Text  // Após confirmar agendamento
   aiMensagemCancelamento           String?  @db.Text  // Após cancelar agendamento
   aiObservacoesAdicionais          String?  @db.Text  // Instruções extras / regras adicionais
+  aiHandoffTriggers                String[] @default([]) // Quando a IA passa a conversa (src/lib/whatsapp/handoffTriggers.ts)
 
   autoNoShowEnabled Boolean @default(true)
   autoNoShowHours   Int     @default(24)
@@ -154,6 +174,10 @@ model Barbershop {
   auditLogs        AuditLog[]
   paymentGateway   PaymentGatewayConfig?
   clientRetentions ClientRetention[]
+  clientNotes      ClientNote[]
+  teamNotices      TeamNotice[]
+  waitlistEntries  WaitlistEntry[]
+  clientLinks      ShopClient[]
 }
 
 model WhatsAppInstance {
@@ -219,6 +243,8 @@ model Barber {
   commissionVales    CommissionVale[]
   reviews            Review[]
   allowedPlans       Plan[] @relation("PlanAllowedBarbers")
+  noticeReads        TeamNoticeRead[]
+  waitlistEntries    WaitlistEntry[]
 
   @@index([barbershopId])
   @@index([barbershopId, active])
@@ -235,6 +261,8 @@ model Service {
   commission  Float?
   materialCost Float   @default(0)
   active      Boolean  @default(true)
+  // false = some do link de agendamento online; continua agendável pelo painel.
+  onlineBooking Boolean @default(true)
   createdAt   DateTime @default(now())
 
   barbershopId String
@@ -258,6 +286,18 @@ model Appointment {
   extraPrice         Float    @default(0)
   extraPaymentMethod String?
   discountPercent    Float    @default(0) // % de desconto aplicado na comanda (sobre price para avulsos, sobre extraPrice para assinantes)
+  // Gorjeta dada ao barbeiro na comanda. Vai 100% para ele: não entra no faturamento
+  // da barbearia nem na base de comissão.
+  tipAmount          Float    @default(0)
+  tipPaymentMethod   String?
+  // Check-in: quando o cliente chegou na barbearia (botão "Chegou" da agenda).
+  arrivedAt          DateTime?
+  // Quando o próprio cliente confirmou presença (ex.: respondeu SIM ao lembrete).
+  confirmedAt        DateTime?
+  confirmedVia       String?   // WHATSAPP
+  // Quando foi concluído (comanda fechada) — o caixa do dia usa esta hora.
+  completedAt        DateTime?
+  source             String?   // AI | LINK | PANEL — de onde veio o agendamento (antigos: null)
   notes              String?
   price              Float
   reminderSent  Boolean  @default(false)
@@ -287,6 +327,8 @@ model Appointment {
 
   @@index([barbershopId, date])
   @@index([barbershopId, status, date])
+  @@index([barbershopId, completedAt])
+  @@index([barbershopId, source, createdAt])
   @@index([status])
   @@index([clientId])
   @@index([mpPaymentId]) // busca rápida no webhook de pagamento avulso
@@ -561,6 +603,12 @@ model WhatsAppContact {
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
 
+  // Atendimento humano: a IA passou a conversa para a barbearia (ou o dono pausou).
+  // Enquanto aiPausedUntil estiver no futuro, o n8n não responde esse contato.
+  aiPausedUntil   DateTime?
+  handoffAt       DateTime?
+  handoffReason   String?
+
   barbershopId String
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
 
@@ -723,6 +771,14 @@ model AuditLog {
 // Configuração editável dos planos do SaaS (preço/nome/descrição).
 // Fonte da verdade em runtime; src/lib/saasPlans.ts guarda os defaults/fallback.
 // key = BASIC | PRO | ELITE | PREMIUM (espelha o enum SaasPlan).
+// Configurações da própria plataforma (chave/valor), editadas em /plataforma/configuracoes.
+// Chaves em src/lib/platformSettings.ts.
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
 model SaasPlanConfig {
   id                 String   @id @default(cuid())
   key                String   @unique
@@ -730,6 +786,9 @@ model SaasPlanConfig {
   tagline            String   @default("")
   monthlyPrice       Float    @default(0)
   annualPriceMonthly Float?   // preço mensal equivalente no plano anual; null = sem anual
+  includedBarbers          Int    @default(0) // barbeiros já inclusos no preço
+  extraBarberMonthly       Float  @default(0) // cada barbeiro a mais, por mês (0 = sem extra)
+  extraBarberAnnualMonthly Float?             // idem no plano anual (valor mensal equivalente)
   isPaid             Boolean  @default(false)
   legacy             Boolean  @default(false)
   active             Boolean  @default(true)
@@ -777,6 +836,11 @@ model CashFlowSession {
   closingBalance Float?
   status         String    @default("OPEN") // OPEN | CLOSED
   notes          String?
+  // Quem abriu/fechou e a conferência do fechamento (gaveta esperada × contada)
+  openedByName    String?
+  closedByName    String?
+  expectedBalance Float?
+  totalIn         Float?   // quanto entrou no período do caixa (todas as formas)
   createdAt      DateTime  @default(now())
 
   barbershopId   String
@@ -814,4 +878,95 @@ model ClientRetention {
 
   @@unique([clientId, barbershopId])
   @@index([barbershopId])
+}
+
+// ===================== OBSERVAÇÕES DO CLIENTE =====================
+
+// Anotação da barbearia sobre o cliente ("gosta de degradê médio, prefere depois das 17h").
+// Por barbearia porque o cadastro do cliente (User) é compartilhado entre barbearias.
+model ClientNote {
+  id           String     @id @default(cuid())
+  content      String     @db.Text
+  updatedAt    DateTime   @updatedAt
+  updatedBy    String?    // nome de quem editou por último
+
+  clientId     String
+  client       User       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, barbershopId])
+}
+
+// Cliente cadastrado ou importado pela barbearia ("Novo cliente", "Importar planilha").
+// Quem já agendou ou assinou pertence à barbearia por esses vínculos; este cobre quem
+// ainda não tem nenhum dos dois — antes ele era criado e sumia da lista.
+model ShopClient {
+  id           String     @id @default(cuid())
+  source       String     @default("MANUAL") // MANUAL | IMPORT
+  createdAt    DateTime   @default(now())
+
+  clientId     String
+  client       User       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, barbershopId])
+  @@index([barbershopId])
+}
+
+// ===================== RECADOS DA EQUIPE =====================
+
+// Recado do dono para a equipe ("sábado abrimos às 7h"). Aparece no início do barbeiro.
+model TeamNotice {
+  id           String     @id @default(cuid())
+  content      String     @db.Text
+  authorId     String?
+  authorName   String?
+  createdAt    DateTime   @default(now())
+
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  reads        TeamNoticeRead[]
+
+  @@index([barbershopId, createdAt])
+}
+
+// Quem já leu cada recado — o dono vê "lido por 2 de 3".
+model TeamNoticeRead {
+  id       String     @id @default(cuid())
+  readAt   DateTime   @default(now())
+
+  noticeId String
+  notice   TeamNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  barberId String
+  barber   Barber     @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([noticeId, barberId])
+}
+
+// ===================== LISTA DE ESPERA =====================
+
+// Cliente que não achou horário num dia e pediu para ser avisado se abrir vaga.
+// Quando um agendamento daquele dia é cancelado, os primeiros da fila recebem um WhatsApp
+// com o link; quem agendar primeiro leva. Ver src/lib/waitlist.ts.
+model WaitlistEntry {
+  id           String     @id @default(cuid())
+  date         String     // "2026-10-16" — dia desejado
+  clientName   String
+  clientPhone  String     // só dígitos
+  serviceIds   Json?      // serviços que o cliente escolheu no link
+  anyBarber    Boolean    @default(false) // serve qualquer profissional
+  status       String     @default("WAITING") // WAITING | NOTIFIED | BOOKED | CANCELLED
+  notifiedAt   DateTime?
+  notifiedSlot String?    // "16:00 com Pedro" — a vaga avisada por último
+  createdAt    DateTime   @default(now())
+
+  barbershopId String
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  barberId     String?
+  barber       Barber?    @relation(fields: [barberId], references: [id], onDelete: SetNull)
+
+  @@index([barbershopId, date, status])
+  @@index([clientPhone])
 }

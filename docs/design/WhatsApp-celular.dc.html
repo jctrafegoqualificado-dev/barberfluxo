@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button { font-family: inherit; }
+  </style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1300px; box-sizing: border-box; background: #F5F3EE; overflow: hidden;">
+  <div style="box-sizing: border-box; padding: 16px 16px 110px; display: flex; flex-direction: column; gap: 14px;">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; height: 48px;">
+      <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em;">WhatsApp</h1>
+      <span style="height: 28px; padding: 0 10px; border-radius: 14px; background: #E8F4EC; color: #1D6B40; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #1F9D5A;"></span>Conectado</span>
+    </div>
+
+    <section aria-label="Atendente de IA" style="background: #1B1916; color: #FFFFFF; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 15px; font-weight: 600;">Atendente de IA</span>
+        <button type="button" role="switch" aria-checked="{{aiOn}}" aria-label="Atendente de IA ligado" onClick="{{toggleAi}}" style="width: 52px; height: 30px; border-radius: 15px; border: 0; padding: 3px; background: {{switchBg}}; display: flex; justify-content: {{switchJustify}};"><span style="width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF;"></span></button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700;">31</span><span style="font-size: 12px; color: #C9C2B6;">conversas</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700; color: {{accentOnDark}};">11</span><span style="font-size: 12px; color: #C9C2B6;">horários marcados</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700;">2</span><span style="font-size: 12px; color: #C9C2B6;">precisam de você</span></div>
+      </div>
+    </section>
+
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600;">Precisam de você</h2>
+      <span style="font-size: 13px; color: #6F685D;">2 conversas</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: #FFFFFF; border: 1px solid #F3D3BD;">
+        <div style="display: flex; justify-content: space-between;"><span style="font-size: 15px; font-weight: 600;">Pedro Henrique</span><span style="font-size: 12px; color: #6F685D;">13:52</span></div>
+        <span style="font-size: 14px; color: #57524A;">Pediu desconto para levar os 2 filhos</span>
+        <button type="button" style="height: 44px; border-radius: 10px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 600;">Responder</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: #FFFFFF; border: 1px solid #F3D3BD;">
+        <div style="display: flex; justify-content: space-between;"><span style="font-size: 15px; font-weight: 600;">Lucas Andrade</span><span style="font-size: 12px; color: #6F685D;">11:55</span></div>
+        <span style="font-size: 14px; color: #57524A;">Quer saber se tem horário domingo</span>
+        <button type="button" style="height: 44px; border-radius: 10px; border: 0; background: #1B1916; color: #FFFFFF; font-size: 14px; font-weight: 600;">Responder</button>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600;">A IA resolveu</h2>
+      <span style="font-size: 13px; color: #6F685D;">hoje</span>
+    </div>
+    <div style="display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; overflow: hidden;">
+      <sc-for list="{{convs}}" as="c" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: {{c.divider}};">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="display: flex; justify-content: space-between;"><span style="font-size: 14px; font-weight: 600;">{{c.name}}</span><span style="font-size: 12px; color: #6F685D;">{{c.time}}</span></span>
+            <span style="font-size: 13px; color: #57524A;">{{c.summary}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+      <a href="Atendente-IA-desktop.dc.html" style="height: 56px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E7E2D8; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; text-decoration: none;">Ajustar atendente</a>
+      <a href="Lembretes-desktop.dc.html" style="height: 56px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E7E2D8; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; text-decoration: none;">Lembretes</a>
+    </div>
+  </div>
+
+  <nav aria-label="Navegação principal" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; box-sizing: border-box; padding: 8px 12px 20px; background: #FFFFFF; border-top: 1px solid #E7E2D8; display: flex; align-items: center; justify-content: space-around;">
+    <a href="Dashboard-celular.dc.html" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Início</a>
+    <a href="Agenda-celular.dc.html" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>Agenda</a>
+    <a href="Novo-agendamento.dc.html" aria-label="Novo agendamento" style="width: 52px; height: 52px; border-radius: 16px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; text-decoration: none;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></a>
+    <a href="Financeiro-celular.dc.html" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #6F685D; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Caixa</a>
+    <a href="#" aria-current="page" style="width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #1B1916; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>Menu</a>
+  </nav>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":390,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { ai: true };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const convs = [
+      ['Gustavo Nunes', '13:40', 'Agendou degradê hoje 16:00 com Diego'],
+      ['Rodrigo Alves', '13:12', 'Tirou dúvida sobre cartão e endereço'],
+      ['Henrique Dias', '12:48', 'Agendou corte amanhã 09:00 com Marcos'],
+      ['Diogo Assis', '12:30', 'Remarcou para sexta 17h'],
+      ['Otto Queiroz', '11:20', 'Agendou corte hoje 18:30 com Vinícius']
+    ].map(([name, time, summary], i) => ({ name, time, summary, divider: i === 0 ? '0' : '1px solid #F1EDE6' }));
+    const on = this.state.ai;
+    return {
+      accent, accentOnDark: mix(accent, 255, 0.4),
+      aiOn: on, switchBg: on ? '#1F9D5A' : '#57524A', switchJustify: on ? 'flex-end' : 'flex-start',
+      toggleAi: () => this.setState({ ai: !on }),
+      convs
+    };
+  }
+}
+</script>
+</body>
+</html>

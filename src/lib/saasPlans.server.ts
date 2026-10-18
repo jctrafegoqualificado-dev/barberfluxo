@@ -41,6 +41,9 @@ export async function loadSaasPlans(): Promise<PlansMap> {
         // hasAI é capacidade do produto (não editável pelo CEO) — vem sempre do default estático.
         hasAI: SAAS_PLANS[key].hasAI,
         legacy: r.legacy || undefined,
+        includedBarbers: r.includedBarbers ?? SAAS_PLANS[key].includedBarbers,
+        extraBarberMonthly: r.extraBarberMonthly ?? SAAS_PLANS[key].extraBarberMonthly,
+        extraBarberAnnualMonthly: r.extraBarberAnnualMonthly ?? null,
       };
     }
     return merged;
@@ -68,6 +71,9 @@ export async function ensureSaasPlansSeeded(): Promise<void> {
           annualPriceMonthly: def.annualPriceMonthly,
           isPaid: def.isPaid,
           legacy: def.legacy ?? false,
+          includedBarbers: def.includedBarbers,
+          extraBarberMonthly: def.extraBarberMonthly,
+          extraBarberAnnualMonthly: def.extraBarberAnnualMonthly,
           sortOrder: DEFAULT_SORT[def.key] ?? 0,
         },
       });
@@ -75,4 +81,9 @@ export async function ensureSaasPlansSeeded(): Promise<void> {
   } catch (err) {
     console.warn("[saasPlans] seed falhou:", (err as Error).message);
   }
+}
+
+/** Barbeiros que contam na mensalidade: ativos e não arquivados. */
+export async function billableBarbers(barbershopId: string): Promise<number> {
+  return prisma.barber.count({ where: { barbershopId, active: true, archivedAt: null } });
 }

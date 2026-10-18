@@ -7,7 +7,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const payload = requireAuth(req, ["OWNER", "BARBER"]);
     const barbershopId = payload.barbershopId!;
     const { id } = await params;
-    const { quantity, clientId, paymentMethod } = await req.json();
+    const { quantity, clientId, paymentMethod, barberId: bodyBarberId } = await req.json();
     const qty = Number(quantity) || 1;
 
     // 1. Valida posse e busca estoque
@@ -22,6 +22,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (payload.role === "BARBER") {
       const barber = await prisma.barber.findUnique({ where: { userId: payload.id } });
       barberId = barber?.id || null;
+    } else if (typeof bodyBarberId === "string" && bodyBarberId) {
+      // Dono vendendo pela comanda ou pela tela de produtos: quem vendeu recebe a comissão.
+      // Antes a venda do dono ficava sem profissional e a comissão de produto se perdia.
+      const barber = await prisma.barber.findFirst({ where: { id: bodyBarberId, barbershopId }, select: { id: true } });
+      barberId = barber?.id ?? null;
     }
 
     const sale = await prisma.productSale.create({

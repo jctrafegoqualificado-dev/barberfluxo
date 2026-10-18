@@ -11,7 +11,11 @@ const DEFAULT_MESSAGE = `Olá {{nome}}! 😊
 
 Lembramos que você tem um horário de *{{servico}}* marcado para *{{data}}* às *{{hora}}* com *{{profissional}}* no(a) *{{empresa}}*.
 
-Podemos confirmar sua presença? Responda com *SIM* para confirmar ou *NÃO* para cancelar.`;
+Até lá!`;
+
+// Com "Pedir confirmação" ligado, a mensagem sempre termina pedindo SIM/NÃO —
+// a resposta é tratada em /api/v1/barbershops/[slug]/reminder-reply (n8n).
+const CONFIRMATION_QUESTION = "Podemos confirmar sua presença? Responda com *SIM* para confirmar ou *NÃO* para cancelar.";
 
 /**
  * Reminder Cron Job — Multi-Tenant
@@ -61,6 +65,7 @@ export async function GET(req: NextRequest) {
         name: true,
         reminderMinutes: true,
         reminderMessage: true,
+        reminderAskConfirmation: true,
         saasPlan: true,
         saasStatus: true,
         saasExpiresAt: true,
@@ -121,7 +126,10 @@ export async function GET(req: NextRequest) {
 
       console.log(`📱 [Reminder Job] ${shop.name}: ${eligible.length} reminders to send`);
 
-      const messageTemplate = shop.reminderMessage || DEFAULT_MESSAGE;
+      const baseTemplate = shop.reminderMessage || DEFAULT_MESSAGE;
+      const messageTemplate = shop.reminderAskConfirmation && !/\bSIM\b/i.test(baseTemplate)
+        ? `${baseTemplate}\n\n${CONFIRMATION_QUESTION}`
+        : baseTemplate;
 
       for (const appt of eligible) {
         const clientPhone = appt.client?.phone;

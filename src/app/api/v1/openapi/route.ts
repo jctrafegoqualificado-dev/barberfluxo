@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       { name: "Catalog", description: "Serviços, preços e barbeiros" },
       { name: "Scheduling", description: "Horários disponíveis e agendamentos" },
       { name: "Subscriptions", description: "Planos de assinatura e situação do assinante" },
+      { name: "Conversation", description: "Resposta ao lembrete (SIM/NÃO) e passagem da conversa para a barbearia" },
     ],
     paths: {
       "/api/v1/barbershops/{slug}": {
@@ -256,6 +257,64 @@ export async function GET(req: NextRequest) {
             },
             "404": { description: "Agendamento não encontrado" },
             "409": { description: "Já cancelado ou concluído" },
+          },
+        },
+      },
+      "/api/v1/barbershops/{slug}/reminder-reply": {
+        post: {
+          tags: ["Conversation"],
+          summary: "Repassa a resposta do cliente ao lembrete (SIM confirma, NÃO cancela)",
+          description:
+            "Chame com toda mensagem curta recebida depois de um lembrete. Sempre 200. CONFIRMED/CANCELLED/CANCEL_BLOCKED: envie `replyText` e encerre. NOT_UNDERSTOOD/NOT_FOUND/DISABLED: não era resposta ao lembrete, siga com a IA. CANCEL_BLOCKED já passa a conversa para a barbearia.",
+          parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["phone"], properties: { phone: { type: "string", description: "Telefone do cliente (com ou sem DDI/máscara)" }, text: { type: "string", description: "Mensagem do cliente como chegou" }, answer: { type: "string", enum: ["YES", "NO"], description: "Opcional: se o n8n já interpretou" } } } } },
+          },
+          responses: {
+            "200": {
+              description: "OK",
+              content: { "application/json": { schema: { type: "object", properties: {
+                result: { type: "string", enum: ["CONFIRMED", "CANCELLED", "CANCEL_BLOCKED", "NOT_UNDERSTOOD", "NOT_FOUND", "DISABLED"] },
+                replyText: { type: "string", nullable: true },
+                appointment: { type: "object", nullable: true, properties: { id: { type: "string" }, date: { type: "string" }, startTime: { type: "string" }, barberName: { type: "string" } } },
+              } } } },
+            },
+            "400": { description: "phone ausente ou answer inválido" },
+            "404": { description: "Barbearia não encontrada" },
+          },
+        },
+      },
+      "/api/v1/barbershops/{slug}/handoff": {
+        post: {
+          tags: ["Conversation"],
+          summary: "Passa a conversa para a barbearia e pausa a IA para esse cliente",
+          description:
+            "O contato aparece em \"Precisam de você\" no painel. A IA fica pausada por pauseHours (padrão 12, máx. 72) ou até o dono devolver.",
+          parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["phone", "reason"], properties: { phone: { type: "string", description: "Telefone do cliente (com ou sem DDI/máscara)" }, reason: { type: "string", description: "Por que precisa da barbearia (aparece para o dono)" }, name: { type: "string" }, pauseHours: { type: "number" } } } } },
+          },
+          responses: {
+            "200": { description: "OK", content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, aiPausedUntil: { type: "string", format: "date-time" } } } } } },
+            "400": { description: "phone ou reason ausente" },
+            "404": { description: "Barbearia não encontrada" },
+          },
+        },
+      },
+      "/api/v1/barbershops/{slug}/ai-status": {
+        get: {
+          tags: ["Conversation"],
+          summary: "A IA pode responder este cliente? (consultar antes de cada resposta)",
+          parameters: [
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
+            { name: "phone", in: "query", required: true, schema: { type: "string" } },
+          ],
+          responses: {
+            "200": { description: "OK", content: { "application/json": { schema: { type: "object", properties: { aiPaused: { type: "boolean" }, until: { type: "string", nullable: true }, reason: { type: "string", nullable: true } } } } } },
+            "400": { description: "phone ausente" },
+            "404": { description: "Barbearia não encontrada" },
           },
         },
       },

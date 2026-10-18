@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input, select { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1640px; box-sizing: border-box; display: flex; background: #F5F3EE;">
+  <!-- ============ SIDEBAR ============ -->
+  <aside style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #171512; color: #A8A196; display: flex; flex-direction: column; padding: 20px 14px; gap: 18px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 6px;">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+      </div>
+      <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF; white-space: nowrap;">Barbearia Modelo</span>
+        <span style="font-size: 12px; color: #A8A196;">Plano Pro · ativo</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: 10px; background: #221F1B; border: 1px solid #2E2A25;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A8A196;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>Caixa aberto</span>
+        <span style="font-size: 17px; font-weight: 600; color: #FFFFFF;">R$ 1.140,00</span>
+      </div>
+      <button type="button" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #3A352F; background: transparent; color: #E9E4DA; font-size: 12px; font-weight: 600; cursor: pointer;">Fechar</button>
+    </div>
+
+    <nav aria-label="Menu principal" style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <a href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <span style="display: flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg></span>
+          <span style="flex-grow: 1;">Início</span>
+        </a>
+        <a href="Agenda-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span style="flex-grow: 1;">Agenda</span>
+          <span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #2E2A25; color: #E9E4DA; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">38</span>
+        </a>
+        <a href="WhatsApp-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+          <span style="flex-grow: 1;">WhatsApp</span>
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>
+        </a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Clientes</span>
+        <a href="Clientes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Clientes</a>
+        <a href="Assinantes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"></path><path d="M5 21h14"></path></svg>Assinantes</a>
+        <a href="Fidelidade-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"></circle><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"></path></svg>Fidelidade</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Catálogo</span>
+        <a href="Profissionais-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"></path></svg>Profissionais</a>
+        <a href="Servicos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>Serviços</a>
+        <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; background: #2A2723; color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;"><svg style="color: {{accentOnDark}};" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.29 7 12 12l8.71-5"></path><path d="M12 22V12"></path></svg>Produtos</a>
+        <a href="Planos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path></svg>Planos</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Financeiro</span>
+        <a href="Caixa-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Fluxo de caixa</a>
+        <a href="Financeiro-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"></path><path d="M16 7h6v6"></path></svg>Fluxo &amp; POE</a>
+        <a href="Comissoes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>Comissões</a>
+        <a href="Indicadores-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>Indicadores</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Análises</span>
+        <a href="Ocupacao-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Ocupação</a>
+        <a href="Metas-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Metas</a>
+        <a href="Kanban-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7"></path><path d="M12 7v4"></path><path d="M16 7v9"></path></svg>Kanban</a>
+      </div>
+    </nav>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 14px; border-top: 1px solid #2E2A25;">
+      <a href="Meu-negocio-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"></path></svg>Meu negócio</a>
+      <a href="Config-geral-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"></path></svg>Configurações</a>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; border-radius: 10px; background: #221F1B;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #3A352F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0;">CA</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-size: 13px; font-weight: 600; color: #FFFFFF;">Carlos Almeida</span>
+          <span style="font-size: 12px; color: #A8A196;">Dono</span>
+        </div>
+        <button type="button" aria-label="Sair" style="width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: #A8A196; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></button>
+      </div>
+    </div>
+  </aside>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 18px;">
+
+    <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;">Produtos</h1>
+        <span style="font-size: 14px; color: #6F685D;">{{headerSub}}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="width: 250px; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#57524A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><path d="M8 7v10"></path><path d="M12 7v10"></path><path d="M17 7v10"></path></svg>
+          <input type="text" aria-label="Código de barras" placeholder="Bipar código de barras para vender" style="flex-grow: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 14px;">
+        </label>
+        <button type="button" style="height: 42px; padding: 0 16px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Novo produto</button>
+      </div>
+    </header>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+      <div style="background: #1B1916; color: #FFFFFF; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 13px; color: #C9C2B6;">Vendas em setembro</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 700;">{{kpiSales}}</span>
+        <span style="font-size: 12px; color: #C9C2B6;">{{kpiUnits}}</span>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 13px; color: #57524A;">Lucro com produtos</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700;">{{kpiProfit}}</span>
+        <span style="font-size: 12px; color: #6F685D;">{{kpiProfitSub}}</span>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 13px; color: #57524A;">Na prateleira</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700;">{{kpiStock}}</span>
+        <span style="font-size: 12px; color: #6F685D;">{{kpiStockSub}}</span>
+      </div>
+      <div style="background: {{lowBg}}; border: 1px solid {{lowBorder}}; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: {{lowFg}};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>Estoque baixo</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700; color: {{lowFg}};">{{lowCount}}</span>
+        <span style="font-size: 12px; color: {{lowFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{lowNames}}</span>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; display: flex; gap: 20px; min-height: 0;">
+
+      <!-- ============ LEFT ============ -->
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+
+        <section aria-label="Produtos" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #EFEBE3;">
+            <div role="group" aria-label="Visão" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+              <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+                <button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="height: 34px; padding: 0 14px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{t.bg}}; color: {{t.fg}}; box-shadow: {{t.shadow}}; cursor: pointer; white-space: nowrap;">{{t.label}}</button>
+              </sc-for>
+            </div>
+            <sc-if value="{{isStock}}" hint-placeholder-val="{{true}}">
+              <div role="group" aria-label="Categoria" style="display: flex; gap: 6px;">
+                <sc-for list="{{cats}}" as="c" hint-placeholder-count="5">
+                  <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; font-size: 13px; font-weight: 600; cursor: pointer;">{{c.label}}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{isSales}}" hint-placeholder-val="{{false}}">
+              <span style="font-size: 13px; color: #6F685D;">01 a 16 de setembro</span>
+            </sc-if>
+          </div>
+
+          <!-- Estoque -->
+          <sc-if value="{{isStock}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: grid; grid-template-columns: minmax(0, 2fr) 1fr 0.7fr 0.8fr 0.8fr 78px; gap: 12px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: #6F685D; border-bottom: 1px solid #EFEBE3;">
+                <span>Produto</span><span>Estoque</span><span style="text-align: right;">Preço</span><span style="text-align: right;">Lucro</span><span style="text-align: right;">Vendidos</span><span></span>
+              </div>
+              <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column;">
+                  <div style="display: flex; justify-content: space-between; padding: 14px 16px 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;"><span>{{g.label}}</span><span style="text-transform: none; letter-spacing: 0; font-weight: 500;">{{g.sum}}</span></div>
+                  <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+                    <div style="display: grid; grid-template-columns: minmax(0, 2fr) 1fr 0.7fr 0.8fr 0.8fr 78px; gap: 12px; align-items: center; min-height: 66px; padding: 0 16px; border-bottom: 1px solid #F1EDE6; background: {{r.bg}}; opacity: {{r.opacity}};">
+                      <button type="button" onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 52px; padding: 0; border: 0; background: transparent; color: #1B1916; text-align: left; cursor: pointer;">
+                        <span style="width: 40px; height: 40px; border-radius: 10px; background: {{r.iconBg}}; color: {{r.iconFg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.29 7 12 12l8.71-5"></path><path d="M12 22V12"></path></svg></span>
+                        <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                          <span style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; white-space: nowrap;">{{r.name}}
+                            <sc-if value="{{r.hasTag}}" hint-placeholder-val="{{false}}"><span style="height: 20px; padding: 0 7px; border-radius: 10px; font-size: 11px; font-weight: 600; display: flex; align-items: center; background: #EFEBE3; color: #57524A;">{{r.tag}}</span></sc-if>
+                          </span>
+                          <span style="font-size: 12px; color: #6F685D; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.desc}}</span>
+                        </span>
+                      </button>
+                      <span style="display: flex; flex-direction: column; gap: 5px;">
+                        <span style="font-size: 13px; font-weight: {{r.stockWeight}}; color: {{r.stockColor}};">{{r.stock}}</span>
+                        <sc-if value="{{r.hasBar}}" hint-placeholder-val="{{true}}"><span style="display: block; height: 5px; border-radius: 3px; background: #F1EDE6;"><span style="display: block; width: {{r.stockPct}}; height: 100%; border-radius: 3px; background: {{r.stockBar}};"></span></span></sc-if>
+                      </span>
+                      <span style="font-size: 14px; font-weight: 600; text-align: right;">{{r.price}}</span>
+                      <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;"><span style="font-size: 13px; font-weight: 600; color: #1D6B40;">{{r.margin}}</span><span style="font-size: 12px; color: #6F685D;">{{r.cost}}</span></span>
+                      <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;"><span style="font-size: 14px; font-weight: 600;">{{r.sold}}</span><span style="font-size: 12px; color: #6F685D;">{{r.soldValue}}</span></span>
+                      <sc-if value="{{r.canSell}}" hint-placeholder-val="{{true}}">
+                        <button type="button" onClick="{{r.sell}}" aria-label="{{r.sellAria}}" style="height: 36px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; cursor: pointer;">Vender</button>
+                      </sc-if>
+                      <sc-if value="{{r.cannotSell}}" hint-placeholder-val="{{false}}">
+                        <span style="font-size: 12px; color: #8A8378; text-align: center;">inativo</span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+              <span style="padding: 12px 16px; font-size: 12px; color: #6F685D;">Lucro = preço de venda menos o preço de custo, por unidade.</span>
+            </div>
+          </sc-if>
+
+          <!-- Vendas -->
+          <sc-if value="{{isSales}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: grid; grid-template-columns: 110px minmax(0, 2fr) minmax(0, 1.2fr) 0.9fr; gap: 12px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: #6F685D; border-bottom: 1px solid #EFEBE3;">
+                <span>Quando</span><span>Produto</span><span>Vendido por</span><span style="text-align: right;">Total</span>
+              </div>
+              <sc-for list="{{sales}}" as="s" hint-placeholder-count="10">
+                <div style="display: grid; grid-template-columns: 110px minmax(0, 2fr) minmax(0, 1.2fr) 0.9fr; gap: 12px; align-items: center; min-height: 56px; padding: 0 16px; border-bottom: 1px solid #F1EDE6;">
+                  <span style="font-size: 13px; color: #57524A;">{{s.when}}</span>
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;"><span style="font-size: 14px; font-weight: 600; white-space: nowrap;">{{s.product}}</span><span style="font-size: 12px; color: #6F685D;">{{s.qty}}</span></span>
+                  <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13px;">{{s.barber}}</span><span style="font-size: 12px; color: #6F685D;">{{s.method}}</span></span>
+                  <span style="font-size: 14px; font-weight: 600; text-align: right;">{{s.total}}</span>
+                </div>
+              </sc-for>
+              <div style="display: flex; justify-content: space-between; align-items: center; min-height: 52px; padding: 0 16px; background: #F9F7F3; font-size: 14px;">
+                <span style="color: #57524A;">Total do mês · {{kpiUnits}}</span>
+                <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700;">{{kpiSales}}</span>
+              </div>
+              <a href="#" style="display: flex; align-items: center; justify-content: center; height: 46px; font-size: 13px; font-weight: 600; color: #57524A; text-decoration: none;">Ver as 41 vendas de setembro</a>
+            </div>
+          </sc-if>
+        </section>
+
+        <section aria-labelledby="repor-t" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 16px 18px 10px;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <h2 id="repor-t" style="margin: 0; font-size: 16px; font-weight: 600;">Precisa repor</h2>
+              <span style="font-size: 13px; color: #6F685D;">Sugestão para chegar ao fim do mês, pelo ritmo de vendas de setembro</span>
+            </div>
+            <button type="button" style="height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>Mandar lista pro fornecedor</button>
+          </div>
+          <sc-for list="{{reorder}}" as="o" hint-placeholder-count="3">
+            <div style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.4fr) 0.9fr 0.9fr; gap: 12px; align-items: center; min-height: 54px; padding: 0 18px; border-top: 1px solid #F1EDE6;">
+              <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px; font-weight: 600;">{{o.name}}</span><span style="font-size: 12px; color: #6F685D;">{{o.pace}}</span></span>
+              <span style="font-size: 13px; font-weight: 600; color: {{o.lastColor}};">{{o.last}}</span>
+              <span style="font-size: 13px; text-align: right;">{{o.buy}}</span>
+              <span style="font-size: 13px; font-weight: 600; text-align: right;">{{o.cost}}</span>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+
+      <!-- ============ RIGHT: product ============ -->
+      <aside aria-labelledby="prod-t" style="width: 440px; flex-shrink: 0; background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="display: flex; align-items: center; gap: 14px; padding: 18px 22px 14px;">
+          <div style="width: 56px; height: 56px; border-radius: 12px; background: {{sel.iconBg}}; color: {{sel.iconFg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.29 7 12 12l8.71-5"></path><path d="M12 22V12"></path></svg></div>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <h2 id="prod-t" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 700;">{{sel.name}}</h2>
+            <span style="font-size: 13px; color: #6F685D;">{{sel.sub}}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            <span style="font-size: 13px; font-weight: 600; color: #57524A;">{{sel.activeLabel}}</span>
+            <button type="button" role="switch" aria-checked="{{sel.active}}" aria-label="Produto à venda" onClick="{{toggleActive}}" style="width: 48px; height: 28px; border-radius: 14px; border: 0; padding: 3px; background: {{sel.activeBg}}; display: flex; justify-content: {{sel.activeJustify}}; cursor: pointer;"><span style="width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF;"></span></button>
+          </div>
+        </div>
+
+        <!-- Stock box -->
+        <div style="margin: 0 22px; border-radius: 14px; border: 1px solid {{sel.boxBorder}}; background: {{sel.boxBg}}; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px;">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <span style="display: flex; align-items: baseline; gap: 6px;"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 700; color: {{sel.boxFg}};">{{sel.stockNumber}}</span><span style="font-size: 14px; color: {{sel.boxFg}};">{{sel.stockUnit}}</span></span>
+              <span style="font-size: 13px; color: {{sel.boxSubFg}};">{{sel.stockHint}}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+              <span style="font-size: 12px; color: {{sel.boxSubFg}};">Vendidos em setembro</span>
+              <span style="font-size: 16px; font-weight: 700; color: {{sel.boxFg}};">{{sel.soldLine}}</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px; background: #FFFFFF; border-top: 1px solid {{sel.boxBorder}};">
+            <div role="group" aria-label="Movimentar estoque" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+              <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+                <button type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="flex: 1; height: 36px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{m.bg}}; color: {{m.fg}}; box-shadow: {{m.shadow}}; cursor: pointer;">{{m.label}}</button>
+              </sc-for>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+              <span style="font-size: 13px; font-weight: 600;">Quantidade</span>
+              <div style="display: flex; align-items: center; border: 1px solid #E2DCD1; border-radius: 9px;">
+                <button type="button" onClick="{{dec}}" aria-label="Diminuir quantidade" style="width: 40px; height: 40px; border: 0; background: transparent; font-size: 18px; cursor: pointer;">−</button>
+                <span style="min-width: 44px; text-align: center; font-size: 16px; font-weight: 700;">{{qty}}</span>
+                <button type="button" onClick="{{inc}}" aria-label="Aumentar quantidade" style="width: 40px; height: 40px; border: 0; background: transparent; font-size: 18px; cursor: pointer;">+</button>
+              </div>
+            </div>
+            <sc-if value="{{isSell}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 600;">Pagamento</span>
+                <div role="group" aria-label="Forma de pagamento" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
+                  <sc-for list="{{payments}}" as="p" hint-placeholder-count="4">
+                    <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.on}}" style="height: 38px; border-radius: 9px; border: 1px solid {{p.border}}; background: {{p.bg}}; color: {{p.fg}}; font-size: 13px; font-weight: 600; cursor: pointer;">{{p.label}}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{isIn}}" hint-placeholder-val="{{false}}">
+              <label style="display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 600;">Custo de cada unidade
+                <span style="display: flex; align-items: center; gap: 6px; width: 130px; height: 40px; padding: 0 10px; box-sizing: border-box; border-radius: 9px; border: 1px solid #D8D0C2;"><span style="color: #6F685D; font-weight: 400;">R$</span><input type="text" inputmode="decimal" value="{{sel.costField}}" style="width: 100%; min-width: 0; border: 0; outline: none; font-size: 14px;"></span>
+              </label>
+            </sc-if>
+            <button type="button" onClick="{{confirm}}" style="height: 46px; border-radius: 10px; border: 0; background: {{confirmBg}}; color: #FFFFFF; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; cursor: pointer;"><span>{{confirmLabel}}</span><span>{{confirmValue}}</span></button>
+          </div>
+        </div>
+
+        <!-- Edit -->
+        <div style="display: flex; flex-direction: column; gap: 14px; padding: 22px 22px 0;">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Cadastro</span>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Nome
+            <input type="text" value="{{sel.name}}" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 14px; font-weight: 400;">
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Descrição <span style="font-weight: 400; color: #6F685D;">opcional</span>
+            <input type="text" value="{{sel.desc}}" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 14px; font-weight: 400;">
+          </label>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Código de barras
+              <input type="text" inputmode="numeric" value="{{sel.barcode}}" placeholder="Bipe aqui" style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 14px; font-weight: 400;">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Foto (link)
+              <input type="url" placeholder="https://..." style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 14px; font-weight: 400;">
+            </label>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <span style="font-size: 13px; font-weight: 600;">Categoria</span>
+            <div role="group" aria-label="Categoria do produto" style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <sc-for list="{{selCats}}" as="c" hint-placeholder-count="4">
+                <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; font-size: 13px; font-weight: 600; cursor: pointer;">{{c.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 22px 22px 0;">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Estoque</span>
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 10px 0 14px; border-radius: 10px; border: 1px solid #E2DCD1;">
+            <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px; font-weight: 600;">Controlar estoque</span><span style="font-size: 12px; color: #6F685D;">{{sel.trackHint}}</span></span>
+            <button type="button" role="switch" aria-checked="{{sel.tracked}}" aria-label="Controlar estoque deste produto" onClick="{{toggleTrack}}" style="width: 48px; height: 28px; flex-shrink: 0; border-radius: 14px; border: 0; padding: 3px; background: {{sel.trackBg}}; display: flex; justify-content: {{sel.trackJustify}}; cursor: pointer;"><span style="width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF;"></span></button>
+          </div>
+          <sc-if value="{{sel.tracked}}" hint-placeholder-val="{{true}}">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;">
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Quantidade atual
+                <span style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2;"><input type="text" inputmode="numeric" value="{{sel.stockField}}" style="flex-grow: 1; min-width: 0; border: 0; outline: none; font-size: 14px;"><span style="color: #6F685D; font-weight: 400;">un.</span></span>
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Avisar quando chegar em
+                <span style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2;"><input type="text" inputmode="numeric" value="3" style="flex-grow: 1; min-width: 0; border: 0; outline: none; font-size: 14px;"><span style="color: #6F685D; font-weight: 400;">un.</span></span>
+              </label>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 22px 22px 0;">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Preço</span>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Preço de venda
+              <span style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2;"><span style="color: #6F685D; font-weight: 400;">R$</span><input type="text" inputmode="decimal" value="{{sel.priceField}}" style="flex-grow: 1; min-width: 0; border: 0; outline: none; font-size: 14px;"></span>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600;">Preço de custo
+              <span style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2;"><span style="color: #6F685D; font-weight: 400;">R$</span><input type="text" inputmode="decimal" value="{{sel.costField}}" style="flex-grow: 1; min-width: 0; border: 0; outline: none; font-size: 14px;"></span>
+            </label>
+          </div>
+          <span style="font-size: 13px; color: #1D6B40; font-weight: 600;">{{sel.marginLine}}</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 22px 22px 20px;">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6F685D;">Comissão de quem vende</span>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div role="group" aria-label="Tipo de comissão" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+              <sc-for list="{{comTypes}}" as="t" hint-placeholder-count="2">
+                <button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="height: 36px; padding: 0 12px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{t.bg}}; color: {{t.fg}}; box-shadow: {{t.shadow}}; cursor: pointer; white-space: nowrap;">{{t.label}}</button>
+              </sc-for>
+            </div>
+            <label style="flex-grow: 1; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2;">
+              <sc-if value="{{sel.isFixed}}" hint-placeholder-val="{{false}}"><span style="color: #6F685D;">R$</span></sc-if>
+              <input type="text" inputmode="decimal" aria-label="Valor da comissão" value="{{sel.comField}}" style="flex-grow: 1; min-width: 0; border: 0; outline: none; font-size: 14px;">
+              <sc-if value="{{sel.isPct}}" hint-placeholder-val="{{true}}"><span style="color: #6F685D;">%</span></sc-if>
+            </label>
+          </div>
+          <span style="font-size: 12px; color: #6F685D;">{{sel.comLine}}</span>
+        </div>
+
+        <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px 18px; border-top: 1px solid #EFEBE3; background: #FBFAF7;">
+          <button type="button" style="height: 44px; padding: 0; border: 0; background: transparent; color: #B42318; font-size: 14px; font-weight: 600; cursor: pointer;">Excluir produto</button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" style="height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #E2DCD1; background: #FFFFFF; color: #1B1916; font-size: 14px; font-weight: 600; cursor: pointer;">Descartar</button>
+            <button type="button" style="height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;">Salvar</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":1440,"height":1640}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      sel: 'pomada',
+      tab: 'estoque',
+      cat: 'all',
+      mode: 'sell',
+      qty: 1,
+      pay: 'CREDIT_CARD',
+      stock: { pomada: 8, matte: 3, shampoo: 12, oleo: 2, balm: 6, mascara: 10, pente: 0, cera: 4 },
+      sold: { pomada: 14, matte: 6, shampoo: 4, oleo: 9, balm: 4, mascara: 3, pente: 6, cera: 0 },
+      tracked: { pomada: true, matte: true, shampoo: true, oleo: true, balm: true, mascara: true, pente: false, cera: true },
+      active: { pomada: true, matte: true, shampoo: true, oleo: true, balm: true, mascara: true, pente: true, cera: false },
+      category: { pomada: 'CABELO', matte: 'CABELO', shampoo: 'CABELO', oleo: 'BARBA', balm: 'BARBA', mascara: 'SKINCARE', pente: 'GERAL', cera: 'CABELO' },
+      comType: { pomada: 'PERCENTAGE', matte: 'PERCENTAGE', shampoo: 'PERCENTAGE', oleo: 'PERCENTAGE', balm: 'PERCENTAGE', mascara: 'PERCENTAGE', pente: 'PERCENTAGE', cera: 'PERCENTAGE' }
+    };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const accentSoft = mix(accent, 255, 0.9);
+    const S = this.state;
+    const brl = (v) => 'R$ ' + (Number.isInteger(v) ? v.toLocaleString('pt-BR') : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    const field = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const DAYS_SO_FAR = 16;
+    const LOW = 3;
+
+    // id, name, description, price, cost, barcode, commission value
+    const catalog = [
+      ['pomada', 'Pomada modeladora', 'Fixação média, efeito brilho', 45, 22, '7891234560012', 15],
+      ['matte', 'Pomada efeito seco', 'Fixação forte, sem brilho', 49, 24, '7891234560029', 15],
+      ['shampoo', 'Shampoo anticaspa', 'Uso diário, 250 ml', 38, 17, '7891234560036', 15],
+      ['oleo', 'Óleo para barba', 'Hidrata e perfuma, 30 ml', 42, 18, '7891234560043', 15],
+      ['balm', 'Balm para barba', 'Alinha os fios e tira o frizz', 39, 16, '7891234560050', 15],
+      ['mascara', 'Máscara facial de carvão', 'Limpa os poros, 120 g', 30, 12, '7891234560067', 15],
+      ['pente', 'Pente de madeira', 'Para barba e bigode', 20, 7, '', 15],
+      ['cera', 'Cera em pó', 'Saiu de linha no fornecedor', 35, 15, '7891234560074', 15]
+    ];
+    const CATS = [['CABELO', 'Cabelo'], ['BARBA', 'Barba'], ['SKINCARE', 'Skincare'], ['GERAL', 'Geral']];
+    const catLabel = (k) => CATS.find((c) => c[0] === k)[1];
+
+    const isLow = (id) => S.active[id] && S.tracked[id] && S.stock[id] <= LOW;
+    const salesTotal = catalog.reduce((a, c) => a + S.sold[c[0]] * c[3], 0);
+    const unitsTotal = catalog.reduce((a, c) => a + S.sold[c[0]], 0);
+    const grossProfit = catalog.reduce((a, c) => a + S.sold[c[0]] * (c[3] - c[4]), 0);
+    const commissions = Math.round(catalog.reduce((a, c) => a + S.sold[c[0]] * c[3] * c[6] / 100, 0));
+    const shelf = catalog.filter((c) => S.active[c[0]] && S.tracked[c[0]]);
+    const shelfUnits = shelf.reduce((a, c) => a + S.stock[c[0]], 0);
+    const shelfCost = shelf.reduce((a, c) => a + S.stock[c[0]] * c[4], 0);
+    const low = catalog.filter((c) => isLow(c[0]));
+
+    const tabs = [['estoque', 'Estoque'], ['vendas', 'Vendas do mês']].map(([id, label]) => {
+      const on = S.tab === id;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A', shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none', pick: () => this.setState({ tab: id }) };
+    });
+    const cats = [['all', 'Todos'], ...CATS].map(([id, label]) => {
+      const on = S.cat === id;
+      return { label, on, bg: on ? '#1B1916' : '#FFFFFF', fg: on ? '#FFFFFF' : '#57524A', border: on ? '#1B1916' : '#D8D0C2', pick: () => this.setState({ cat: id }) };
+    });
+
+    const toRow = (c) => {
+      const [id, name, desc, price, cost] = c;
+      const on = S.sel === id;
+      const act = S.active[id];
+      const tracked = S.tracked[id];
+      const st = S.stock[id];
+      const lowNow = isLow(id);
+      const out = tracked && st === 0;
+      return {
+        name, desc: c[5] ? desc : desc + ' · sem código', on,
+        hasTag: !act, tag: 'Inativo',
+        stock: !tracked ? 'Sem controle' : (out ? 'Esgotado' : (lowNow ? 'Só ' + st + ' un.' : st + ' un.')),
+        stockColor: !tracked ? '#8A8378' : (lowNow || out ? '#B42318' : '#1B1916'),
+        stockWeight: lowNow || out ? '700' : '500',
+        hasBar: tracked,
+        stockPct: Math.min(100, Math.round(st / 12 * 100)) + '%',
+        stockBar: lowNow || out ? '#B42318' : '#1D6B40',
+        price: brl(price),
+        margin: '+' + Math.round((price - cost) / price * 100) + '%',
+        cost: 'custo ' + brl(cost),
+        sold: S.sold[id] ? S.sold[id] + ' un.' : '—',
+        soldValue: S.sold[id] ? brl(S.sold[id] * price) : '',
+        bg: on ? accentSoft : '#FFFFFF',
+        opacity: act ? '1' : '0.7',
+        iconBg: on ? accent : '#F5F3EE', iconFg: on ? '#FFFFFF' : '#57524A',
+        canSell: act, cannotSell: !act,
+        sellAria: 'Vender ' + name,
+        pick: () => this.setState({ sel: id }),
+        sell: () => this.setState({ sel: id, mode: 'sell', qty: 1 })
+      };
+    };
+    const groups = CATS.filter(([k]) => S.cat === 'all' || S.cat === k).map(([k, label]) => {
+      const items = catalog.filter((c) => S.category[c[0]] === k);
+      const units = items.reduce((a, c) => a + S.sold[c[0]], 0);
+      const rev = items.reduce((a, c) => a + S.sold[c[0]] * c[3], 0);
+      return { label, has: items.length > 0, sum: units ? units + ' vendidos · ' + brl(rev) : 'nenhuma venda', rows: items.map(toRow) };
+    }).filter((g) => g.has);
+
+    const methods = { PIX: 'Pix', CREDIT_CARD: 'Crédito', DEBIT_CARD: 'Débito', CASH: 'Dinheiro' };
+    const sales = [
+      ['Hoje, 11:50', 'Pomada modeladora', 1, 45, 'Diego Ramos', 'CREDIT_CARD'],
+      ['Hoje, 10:20', 'Óleo para barba', 1, 42, 'Anderson Silva', 'PIX'],
+      ['Ontem, 19:05', 'Pomada efeito seco', 1, 49, 'Marcos Teixeira', 'PIX'],
+      ['Ontem, 17:40', 'Pente de madeira', 2, 20, 'Vinícius Prado', 'CASH'],
+      ['Ontem, 15:10', 'Pomada modeladora', 1, 45, 'Anderson Silva', 'DEBIT_CARD'],
+      ['14/09, 18:30', 'Balm para barba', 1, 39, 'Diego Ramos', 'PIX'],
+      ['14/09, 16:05', 'Shampoo anticaspa', 1, 38, 'Diego Ramos', 'CREDIT_CARD'],
+      ['14/09, 11:25', 'Máscara facial de carvão', 1, 30, 'Marcos Teixeira', 'CASH'],
+      ['12/09, 19:40', 'Óleo para barba', 2, 42, 'Diego Ramos', 'CREDIT_CARD'],
+      ['12/09, 17:15', 'Pomada modeladora', 2, 45, 'Anderson Silva', 'PIX']
+    ].map(([when, product, q, unit, barber, m]) => ({ when, product, barber, qty: q + ' × ' + brl(unit), method: methods[m], total: brl(q * unit) }));
+
+    const reorder = catalog.filter((c) => S.active[c[0]] && S.tracked[c[0]] && S.sold[c[0]] > 0)
+      .map((c) => {
+        const [id, name, , , cost] = c;
+        const perDay = S.sold[id] / DAYS_SO_FAR;
+        const daysLeft = perDay > 0 ? Math.floor(S.stock[id] / perDay) : 99;
+        const need = Math.max(0, Math.ceil(perDay * 30) - S.stock[id]);
+        return { id, name, daysLeft, need, cost, perDay };
+      })
+      .filter((o) => o.daysLeft <= 14)
+      .sort((a, b) => a.daysLeft - b.daysLeft)
+      .map((o) => ({
+        name: o.name,
+        pace: 'vende ' + (Math.round(o.perDay * 7 * 10) / 10).toLocaleString('pt-BR') + ' por semana',
+        last: S.stock[o.id] === 0 ? 'Esgotado' : 'Acaba em uns ' + o.daysLeft + ' dias',
+        lastColor: o.daysLeft <= 7 ? '#B42318' : '#6E5210',
+        buy: 'comprar ' + o.need,
+        cost: brl(o.need * o.cost)
+      }));
+
+    const c = catalog.find((x) => x[0] === S.sel);
+    const [id, name, desc, price, cost, barcode, comValue] = c;
+    const act = S.active[id];
+    const tracked = S.tracked[id];
+    const st = S.stock[id];
+    const lowNow = isLow(id);
+    const perDay = S.sold[id] / DAYS_SO_FAR;
+    const daysLeft = perDay > 0 ? Math.floor(st / perDay) : null;
+    const isPct = S.comType[id] === 'PERCENTAGE';
+    const comPerUnit = isPct ? Math.round(price * comValue) / 100 : comValue;
+    const sel = {
+      name, desc, barcode,
+      sub: catLabel(S.category[id]) + (barcode ? ' · cód. ' + barcode : ' · sem código de barras'),
+      active: act, activeLabel: act ? 'À venda' : 'Inativo',
+      activeBg: act ? '#1F9D5A' : '#CFC8BC', activeJustify: act ? 'flex-end' : 'flex-start',
+      iconBg: accentSoft, iconFg: mix(accent, 0, 0.35),
+      boxBg: lowNow ? '#FBECEA' : '#F9F7F3', boxBorder: lowNow ? '#F2C9C4' : '#EFEBE3',
+      boxFg: lowNow ? '#9B2C22' : '#1B1916', boxSubFg: lowNow ? '#9B2C22' : '#6F685D',
+      stockNumber: tracked ? String(st) : '—',
+      stockUnit: tracked ? (st === 1 ? 'em estoque' : 'em estoque') : 'sem controle',
+      stockHint: !tracked ? 'Vende sem baixar estoque' : (st === 0 ? 'Esgotado' : (daysLeft !== null ? 'Dá para uns ' + daysLeft + ' dias no ritmo atual' : 'Sem vendas neste mês')),
+      soldLine: S.sold[id] + ' un. · ' + brl(S.sold[id] * price),
+      tracked, trackBg: tracked ? '#1F9D5A' : '#CFC8BC', trackJustify: tracked ? 'flex-end' : 'flex-start',
+      trackHint: tracked ? 'Cada venda tira do estoque e avisa quando estiver acabando' : 'Para itens que você não conta, como brindes',
+      stockField: String(st),
+      priceField: field(price), costField: field(cost),
+      marginLine: 'Lucro de ' + brl(price - cost) + ' por unidade (' + Math.round((price - cost) / price * 100) + '%)',
+      isPct, isFixed: !isPct,
+      comField: isPct ? String(comValue) : field(comValue),
+      comLine: 'Quem vende ganha ' + brl(comPerUnit) + ' por unidade. Entra nas comissões do mês.'
+    };
+
+    const modes = [['sell', 'Registrar venda'], ['in', 'Dar entrada']].map(([m, label]) => {
+      const on = S.mode === m;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A', shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none', pick: () => this.setState({ mode: m, qty: 1 }) };
+    });
+    const payments = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'].map((k) => {
+      const on = S.pay === k;
+      return { label: methods[k], on, bg: on ? '#1B1916' : '#FFFFFF', fg: on ? '#FFFFFF' : '#57524A', border: on ? '#1B1916' : '#D8D0C2', pick: () => this.setState({ pay: k }) };
+    });
+    const isSell = S.mode === 'sell';
+    const maxSell = tracked ? Math.max(1, st) : 99;
+    const confirm = () => {
+      if (isSell) {
+        if (!act || (tracked && st < S.qty)) return;
+        this.setState({ stock: { ...S.stock, [id]: tracked ? st - S.qty : st }, sold: { ...S.sold, [id]: S.sold[id] + S.qty }, qty: 1 });
+      } else {
+        this.setState({ stock: { ...S.stock, [id]: st + S.qty }, tracked: { ...S.tracked, [id]: true }, qty: 1 });
+      }
+    };
+    const comTypes = [['PERCENTAGE', 'Porcentagem'], ['FIXED', 'Valor fixo']].map(([k, label]) => {
+      const on = S.comType[id] === k;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A', shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none', pick: () => this.setState({ comType: { ...S.comType, [id]: k } }) };
+    });
+    const selCats = CATS.map(([k, label]) => {
+      const on = S.category[id] === k;
+      return { label, on, bg: on ? '#1B1916' : '#FFFFFF', fg: on ? '#FFFFFF' : '#57524A', border: on ? '#1B1916' : '#D8D0C2', pick: () => this.setState({ category: { ...S.category, [id]: k } }) };
+    });
+
+    const activeCount = catalog.filter((x) => S.active[x[0]]).length;
+    return {
+      accent,
+      accentOnDark: mix(accent, 255, 0.35),
+      headerSub: catalog.length + ' cadastrados · ' + activeCount + ' à venda',
+      kpiSales: brl(salesTotal),
+      kpiUnits: unitsTotal + ' unidades vendidas',
+      kpiProfit: brl(grossProfit),
+      kpiProfitSub: brl(grossProfit - commissions) + ' depois das comissões (' + brl(commissions) + ')',
+      kpiStock: shelfUnits + ' un.',
+      kpiStockSub: brl(shelfCost) + ' em mercadoria, pelo preço de custo',
+      lowCount: String(low.length),
+      lowNames: low.length ? low.map((x) => x[1]).join(', ') : 'Tudo em dia',
+      lowBg: low.length ? '#FBECEA' : '#FFFFFF', lowBorder: low.length ? '#F2C9C4' : '#E7E2D8', lowFg: low.length ? '#9B2C22' : '#57524A',
+      tabs, cats, groups, sales, reorder,
+      isStock: S.tab === 'estoque', isSales: S.tab === 'vendas',
+      sel, modes, payments, comTypes, selCats,
+      isSell, isIn: !isSell,
+      qty: String(S.qty),
+      dec: () => this.setState({ qty: Math.max(1, S.qty - 1) }),
+      inc: () => this.setState({ qty: isSell ? Math.min(maxSell, S.qty + 1) : Math.min(200, S.qty + 1) }),
+      confirm,
+      confirmBg: isSell ? accent : '#1B1916',
+      confirmLabel: isSell ? 'Confirmar venda' : 'Registrar entrada',
+      confirmValue: isSell ? brl(S.qty * price) : '+' + S.qty + ' un. · ' + brl(S.qty * cost),
+      toggleActive: () => this.setState({ active: { ...S.active, [id]: !act } }),
+      toggleTrack: () => this.setState({ tracked: { ...S.tracked, [id]: !tracked } })
+    };
+  }
+}
+</script>
+</body>
+</html>

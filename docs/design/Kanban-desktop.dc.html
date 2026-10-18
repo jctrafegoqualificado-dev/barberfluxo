@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Schibsted Grotesk', system-ui, sans-serif; color: #1B1916; background: #F5F3EE; font-variant-numeric: tabular-nums; }
+    a { color: #1B1916; } a:hover { color: #57524A; }
+    button, input, select, textarea { font-family: inherit; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1360px; box-sizing: border-box; display: flex; background: #F5F3EE;">
+  <!-- ============ SIDEBAR ============ -->
+  <aside style="width: 248px; flex-shrink: 0; box-sizing: border-box; background: #171512; color: #A8A196; display: flex; flex-direction: column; padding: 20px 14px; gap: 18px;">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 6px;">
+      <div style="width: 40px; height: 40px; border-radius: 10px; background: {{accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>
+      </div>
+      <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; font-weight: 700; color: #FFFFFF; white-space: nowrap;">Barbearia Modelo</span>
+        <span style="font-size: 12px; color: #A8A196;">Plano Pro · ativo</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: 10px; background: #221F1B; border: 1px solid #2E2A25;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A8A196;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>Caixa aberto</span>
+        <span style="font-size: 17px; font-weight: 600; color: #FFFFFF;">R$ 1.140,00</span>
+      </div>
+      <button type="button" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #3A352F; background: transparent; color: #E9E4DA; font-size: 12px; font-weight: 600; cursor: pointer;">Fechar</button>
+    </div>
+
+    <nav aria-label="Menu principal" style="display: flex; flex-direction: column; gap: 14px; flex-grow: 1;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <a href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <span style="display: flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg></span>
+          <span style="flex-grow: 1;">Início</span>
+        </a>
+        <a href="Agenda-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span style="flex-grow: 1;">Agenda</span>
+          <span style="min-width: 22px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #2E2A25; color: #E9E4DA; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">38</span>
+        </a>
+        <a href="WhatsApp-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+          <span style="flex-grow: 1;">WhatsApp</span>
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #4CC38A;"></span>
+        </a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Clientes</span>
+        <a href="Clientes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Clientes</a>
+        <a href="Assinantes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"></path><path d="M5 21h14"></path></svg>Assinantes</a>
+        <a href="Fidelidade-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"></circle><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"></path></svg>Fidelidade</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Catálogo</span>
+        <a href="Profissionais-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"></path></svg>Profissionais</a>
+        <a href="Servicos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M20 4 8.12 15.88"></path><path d="M14.47 14.48 20 20"></path><path d="M8.12 8.12 12 12"></path></svg>Serviços</a>
+        <a href="Produtos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.29 7 12 12l8.71-5"></path><path d="M12 22V12"></path></svg>Produtos</a>
+        <a href="Planos-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"></path><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"></path></svg>Planos</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Financeiro</span>
+        <a href="Caixa-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg>Fluxo de caixa</a>
+        <a href="Financeiro-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"></path><path d="M16 7h6v6"></path></svg>Fluxo &amp; POE</a>
+        <a href="Comissoes-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>Comissões</a>
+        <a href="Indicadores-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>Indicadores</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A8378;">Análises</span>
+        <a href="Ocupacao-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Ocupação</a>
+        <a href="Metas-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>Metas</a>
+        <a href="#" aria-current="page" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; background: #2A2723; color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none;"><svg style="color: {{accentOnDark}};" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M8 7v7"></path><path d="M12 7v4"></path><path d="M16 7v9"></path></svg>Kanban</a>
+      </div>
+    </nav>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 14px; border-top: 1px solid #2E2A25;">
+      <a href="Meu-negocio-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"></path></svg>Meu negócio</a>
+      <a href="Config-geral-desktop.dc.html" style="display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 10px; border-radius: 8px; color: #C9C2B6; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"></path></svg>Configurações</a>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; border-radius: 10px; background: #221F1B;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #3A352F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0;">CA</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-size: 13px; font-weight: 600; color: #FFFFFF;">Carlos Almeida</span>
+          <span style="font-size: 12px; color: #A8A196;">Dono</span>
+        </div>
+        <button type="button" aria-label="Sair" style="width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: #A8A196; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg></button>
+      </div>
+    </div>
+  </aside>
+  <main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 32px 32px; display: flex; flex-direction: column; gap: 18px;">
+
+    <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em;">Tarefas da equipe</h1>
+        <span style="font-size: 14px; color: #6F685D;">{{openCount}} abertas · <span style="color: #B42318; font-weight: 600;">{{overdueCount}} vencidas</span> · {{doneCount}} feitas esta semana</span>
+      </div>
+      <span style="max-width: 360px; font-size: 13px; color: #6F685D; text-align: right; line-height: 1.45;">Cada profissional vê as tarefas dele e as da equipe no celular e marca como feita por lá.</span>
+    </header>
+
+    <section aria-label="Adicionar tarefa" style="background: #FFFFFF; border: 1px solid #E7E2D8; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="flex-grow: 1; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; background: #FBFAF7;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6F685D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+          <input type="text" aria-label="O que precisa ser feito" placeholder="O que precisa ser feito? Ex.: Organizar a recepção" value="{{draft}}" style="flex-grow: 1; border: 0; outline: none; background: transparent; font-size: 15px;">
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 13px; color: #57524A;">
+          Quem faz
+          <select aria-label="Quem faz" style="border: 0; outline: none; background: transparent; font-size: 14px; font-weight: 600; color: #1B1916;">
+            <option>Equipe toda</option><option>Diego Ramos</option><option>Anderson Silva</option><option>Marcos Teixeira</option><option>Vinícius Prado</option>
+          </select>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 13px; color: #57524A;">
+          Prazo
+          <input type="date" aria-label="Prazo" value="2026-09-18" min="2026-09-16" style="border: 0; outline: none; background: transparent; font-size: 14px; font-weight: 600; color: #1B1916;">
+        </label>
+        <div role="radiogroup" aria-label="Prioridade" style="display: flex; padding: 4px; gap: 2px; border-radius: 10px; background: #EAE6DD;">
+          <sc-for list="{{priorities}}" as="p" hint-placeholder-count="3">
+            <button type="button" role="radio" aria-checked="{{p.on}}" onClick="{{p.pick}}" style="height: 36px; padding: 0 12px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 600; background: {{p.bg}}; color: {{p.fg}}; box-shadow: {{p.shadow}}; cursor: pointer;">{{p.label}}</button>
+          </sc-for>
+        </div>
+        <button type="button" onClick="{{add}}" style="height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: {{accent}}; color: #FFFFFF; font-size: 14px; font-weight: 600; cursor: pointer;">Adicionar</button>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <button type="button" onClick="{{toggleDetails}}" aria-expanded="{{showDetails}}" style="height: 36px; padding: 0 10px; margin-left: -10px; border: 0; border-radius: 8px; background: transparent; color: #57524A; font-size: 13px; font-weight: 600; cursor: pointer;">{{detailsLabel}}</button>
+        <sc-if value="{{justAdded}}" hint-placeholder-val="{{false}}">
+          <span role="status" style="font-size: 13px; color: #1D6B40; font-weight: 600;">Tarefa adicionada em A fazer</span>
+        </sc-if>
+      </div>
+      <sc-if value="{{showDetails}}" hint-placeholder-val="{{false}}">
+        <textarea rows="2" aria-label="Detalhes da tarefa" placeholder="Detalhes para quem vai fazer (opcional)" style="resize: none; padding: 10px 12px; border-radius: 10px; border: 1px solid #D8D0C2; font-size: 14px; line-height: 1.5;"></textarea>
+      </sc-if>
+    </section>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+      <div role="group" aria-label="Filtrar por pessoa" style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <sc-for list="{{people}}" as="f" hint-placeholder-count="6">
+          <button type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="height: 36px; padding: 0 12px 0 {{f.padLeft}}; border-radius: 18px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: {{f.fg}}; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <sc-if value="{{f.hasAvatar}}" hint-placeholder-val="{{true}}"><span style="width: 26px; height: 26px; border-radius: 50%; background: {{f.avBg}}; color: {{f.avFg}}; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{f.initials}}</span></sc-if>
+            {{f.label}}
+            <span style="font-size: 12px; opacity: 0.7;">{{f.count}}</span>
+          </button>
+        </sc-for>
+      </div>
+      <button type="button" onClick="{{toggleOverdue}}" aria-pressed="{{onlyOverdue}}" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid {{overdueBorder}}; background: {{overdueBg}}; color: {{overdueFg}}; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>Só vencidas</button>
+    </div>
+
+    <div style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start;">
+      <sc-for list="{{columns}}" as="col" hint-placeholder-count="3">
+        <section aria-label="{{col.label}}" style="background: #EAE6DD; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 640px; box-sizing: border-box;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 2px 6px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: {{col.dot}};"></span>
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{col.label}}</h2>
+              <span style="min-width: 22px; height: 22px; padding: 0 7px; box-sizing: border-box; border-radius: 11px; background: #FFFFFF; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;">{{col.count}}</span>
+              <sc-if value="{{col.hasOverdue}}" hint-placeholder-val="{{false}}">
+                <span style="height: 22px; padding: 0 8px; border-radius: 11px; background: #FBECEA; color: #9B2C22; font-size: 12px; font-weight: 600; display: flex; align-items: center;">{{col.overdue}}</span>
+              </sc-if>
+            </div>
+            <button type="button" aria-label="{{col.addAria}}" style="width: 36px; height: 36px; border-radius: 9px; border: 0; background: transparent; color: #57524A; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+          </div>
+
+          <sc-for list="{{col.cards}}" as="c" hint-placeholder-count="4">
+            <article style="background: #FFFFFF; border: 1px solid {{c.border}}; border-radius: 12px; padding: 12px 12px 8px 14px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                <h3 style="margin: 0; padding-top: 6px; font-size: 14px; font-weight: 600; line-height: 1.35; color: {{c.titleColor}}; text-decoration: {{c.strike}};">{{c.title}}</h3>
+                <button type="button" onClick="{{c.remove}}" aria-label="{{c.removeAria}}" style="flex-shrink: 0; width: 36px; height: 36px; margin: -2px -4px 0 0; border-radius: 9px; border: 0; background: transparent; color: #8A8378; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+              </div>
+              <sc-if value="{{c.hasDesc}}" hint-placeholder-val="{{false}}">
+                <p style="margin: -4px 0 0; font-size: 13px; color: #6F685D; line-height: 1.45;">{{c.desc}}</p>
+              </sc-if>
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <span style="height: 24px; padding: 0 8px; border-radius: 12px; background: {{c.prioBg}}; color: {{c.prioFg}}; font-size: 12px; font-weight: 600; display: flex; align-items: center;">{{c.prio}}</span>
+                <sc-if value="{{c.hasDue}}" hint-placeholder-val="{{true}}">
+                  <span style="height: 24px; padding: 0 8px; border-radius: 12px; background: {{c.dueBg}}; color: {{c.dueFg}}; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg>{{c.due}}</span>
+                </sc-if>
+                <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: #57524A;">
+                  <span style="width: 24px; height: 24px; border-radius: 50%; background: {{c.avBg}}; color: {{c.avFg}}; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{c.initials}}</span>{{c.who}}
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #F1EDE6; padding-top: 4px;">
+                <sc-if value="{{c.canPrev}}" hint-placeholder-val="{{false}}">
+                  <button type="button" onClick="{{c.prev}}" style="height: 36px; padding: 0 8px; margin-left: -6px; border: 0; border-radius: 8px; background: transparent; color: #57524A; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>{{c.prevLabel}}</button>
+                </sc-if>
+                <span style="flex-grow: 1;"></span>
+                <sc-if value="{{c.canNext}}" hint-placeholder-val="{{true}}">
+                  <button type="button" onClick="{{c.next}}" style="height: 36px; padding: 0 10px; border: 1px solid #E2DCD1; border-radius: 8px; background: #FFFFFF; color: #1B1916; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; cursor: pointer;">{{c.nextLabel}}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+                </sc-if>
+              </div>
+            </article>
+          </sc-for>
+
+          <sc-if value="{{col.empty}}" hint-placeholder-val="{{false}}">
+            <div style="padding: 28px 12px; border-radius: 12px; border: 1px dashed #CFC7B8; text-align: center; font-size: 13px; color: #6F685D;">Nenhuma tarefa aqui</div>
+          </sc-if>
+        </section>
+      </sc-for>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#C94F0C","options":["#C94F0C","#A16207","#2F6B4F","#1F4E8C"],"section":"Marca"},"$preview":{"width":1440,"height":1360}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      filter: 'all', onlyOverdue: false, prio: 'NORMAL', showDetails: false, added: false,
+      tasks: [
+        { id: 1, title: 'Pedir confirmação ao Bruno (15:15)', desc: 'Barba com o Diego, ainda sem confirmação no WhatsApp', status: 'todo', prio: 'HIGH', who: 'DR', day: 16 },
+        { id: 2, title: 'Trocar lâmpada da cadeira 3', desc: 'Está piscando desde sábado', status: 'todo', prio: 'HIGH', who: 'VP', day: 14 },
+        { id: 3, title: 'Repor pomada no balcão', desc: 'Levar 6 potes do estoque (tem 8) para a vitrine', status: 'todo', prio: 'NORMAL', who: 'DR', day: 16 },
+        { id: 4, title: 'Afiar navalhas', desc: '', status: 'todo', prio: 'NORMAL', who: 'MT', day: 17 },
+        { id: 5, title: 'Preparar a loja para sábado às 7h', desc: 'No dia 19 abrimos mais cedo: café, toalhas extras e agenda impressa', status: 'todo', prio: 'NORMAL', who: null, day: 18 },
+        { id: 6, title: 'Ligar para 10 clientes sumidos', desc: 'Lista em Clientes, grupo Sumidos', status: 'doing', prio: 'HIGH', who: 'AS', day: 15 },
+        { id: 7, title: 'Organizar a recepção', desc: '', status: 'doing', prio: 'NORMAL', who: 'AS', day: 16 },
+        { id: 8, title: 'Postar fotos dos cortes da semana', desc: 'Instagram e status do WhatsApp', status: 'doing', prio: 'LOW', who: 'VP', day: 18 },
+        { id: 9, title: 'Conferir estoque de lâminas', desc: '', status: 'done', prio: 'NORMAL', who: 'MT', day: 15 },
+        { id: 10, title: 'Lavar e dobrar toalhas', desc: '', status: 'done', prio: 'LOW', who: null, day: 15 },
+        { id: 11, title: 'Limpar máquinas e pentes', desc: '', status: 'done', prio: 'NORMAL', who: 'DR', day: 14 }
+      ]
+    };
+  }
+  renderVals() {
+    const raw = this.props.accent ?? '#C94F0C';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#C94F0C';
+    const mix = (h, target, t) => {
+      const n = parseInt(h.slice(1), 16);
+      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      return '#' + ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('');
+    };
+    const TODAY = 16;
+    const NAMES = { DR: 'Diego', AS: 'Anderson', MT: 'Marcos', VP: 'Vinícius' };
+    const ORDER = ['todo', 'doing', 'done'];
+    const LABEL = { todo: 'A fazer', doing: 'Fazendo', done: 'Feito' };
+    const tasks = this.state.tasks;
+    const isOverdue = (t) => t.status !== 'done' && t.day !== null && t.day < TODAY;
+
+    const setTasks = (next) => this.setState({ tasks: next, added: false });
+    const move = (id, dir) => setTasks(tasks.map((t) => t.id === id ? Object.assign({}, t, { status: ORDER[ORDER.indexOf(t.status) + dir] }) : t));
+    const remove = (id) => setTasks(tasks.filter((t) => t.id !== id));
+
+    const open = tasks.filter((t) => t.status !== 'done');
+    const people = [['all', 'Todos', ''], ['DR', 'Diego', 'DR'], ['AS', 'Anderson', 'AS'], ['MT', 'Marcos', 'MT'], ['VP', 'Vinícius', 'VP'], ['team', 'Equipe toda', 'EQ']].map(([id, label, initials]) => {
+      const on = this.state.filter === id;
+      const count = id === 'all' ? open.length : open.filter((t) => (id === 'team' ? t.who === null : t.who === id)).length;
+      return {
+        label, on, count: String(count), initials, hasAvatar: !!initials, padLeft: initials ? '5px' : '14px',
+        bg: on ? '#1B1916' : '#FFFFFF', fg: on ? '#FFFFFF' : '#1B1916', border: on ? '#1B1916' : '#E2DCD1',
+        avBg: on ? '#3A352F' : '#EFEBE3', avFg: on ? '#FFFFFF' : '#57524A',
+        pick: () => this.setState({ filter: id })
+      };
+    });
+
+    const PRIO = { HIGH: ['Alta', '#FBECEA', '#9B2C22'], NORMAL: ['Normal', '#F1EDE6', '#57524A'], LOW: ['Baixa', '#F9F7F3', '#8A8378'] };
+    const visible = tasks.filter((t) => {
+      const f = this.state.filter;
+      const byPerson = f === 'all' || (f === 'team' ? t.who === null : t.who === f);
+      return byPerson && (!this.state.onlyOverdue || isOverdue(t));
+    });
+
+    const columns = ORDER.map((key, idx) => {
+      const list = visible.filter((t) => t.status === key);
+      const over = list.filter(isOverdue).length;
+      const cards = list.map((t) => {
+        const late = isOverdue(t);
+        const done = t.status === 'done';
+        const dd = String(t.day).padStart(2, '0') + '/09';
+        let due = dd, dueBg = '#F1EDE6', dueFg = '#57524A';
+        if (late) { due = 'Venceu ' + dd; dueBg = '#FBECEA'; dueFg = '#9B2C22'; }
+        else if (!done && t.day === TODAY) { due = 'Hoje'; dueBg = '#F5EEDC'; dueFg = '#6E5210'; }
+        else if (!done && t.day === TODAY + 1) { due = 'Amanhã'; dueBg = '#F5EEDC'; dueFg = '#6E5210'; }
+        return {
+          title: t.title, desc: t.desc, hasDesc: !!t.desc && !done,
+          prio: PRIO[t.prio][0], prioBg: PRIO[t.prio][1], prioFg: PRIO[t.prio][2],
+          hasDue: t.day !== null, due, dueBg, dueFg,
+          who: t.who ? NAMES[t.who] : 'Equipe toda',
+          initials: t.who || 'EQ',
+          avBg: t.who ? '#EFEBE3' : '#1B1916', avFg: t.who ? '#57524A' : '#FFFFFF',
+          border: late ? '#EDC3BD' : '#E7E2D8',
+          titleColor: done ? '#6F685D' : '#1B1916',
+          strike: done ? 'line-through' : 'none',
+          canPrev: idx > 0, canNext: idx < 2,
+          prevLabel: idx === 2 ? 'Reabrir' : (idx === 1 ? 'Voltar para A fazer' : ''),
+          nextLabel: idx === 0 ? 'Começar' : 'Marcar feito',
+          prev: () => move(t.id, -1), next: () => move(t.id, 1),
+          remove: () => remove(t.id), removeAria: 'Excluir tarefa ' + t.title
+        };
+      });
+      return {
+        label: LABEL[key], count: String(list.length),
+        dot: key === 'todo' ? '#8A8378' : (key === 'doing' ? accent : '#1D6B40'),
+        hasOverdue: over > 0, overdue: over + (over === 1 ? ' vencida' : ' vencidas'),
+        addAria: 'Adicionar tarefa em ' + LABEL[key],
+        cards, empty: cards.length === 0
+      };
+    });
+
+    const priorities = [['LOW', 'Baixa'], ['NORMAL', 'Normal'], ['HIGH', 'Alta']].map(([id, label]) => {
+      const on = this.state.prio === id;
+      return { label, on, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#1B1916' : '#57524A', shadow: on ? '0 1px 2px rgba(27,25,22,0.12)' : 'none', pick: () => this.setState({ prio: id }) };
+    });
+
+    const alreadyAdded = tasks.some((t) => t.id === 99);
+    const add = () => {
+      if (alreadyAdded) return;
+      this.setState({
+        tasks: [{ id: 99, title: 'Comprar café e copos para sábado', desc: '', status: 'todo', prio: this.state.prio, who: null, day: 18 }].concat(tasks),
+        added: true, filter: 'all', onlyOverdue: false
+      });
+    };
+
+    return {
+      accent, accentOnDark: mix(accent, 255, 0.35),
+      openCount: String(open.length),
+      overdueCount: String(tasks.filter(isOverdue).length),
+      doneCount: String(tasks.filter((t) => t.status === 'done').length),
+      draft: alreadyAdded ? '' : 'Comprar café e copos para sábado',
+      priorities, add, justAdded: this.state.added,
+      showDetails: this.state.showDetails,
+      detailsLabel: this.state.showDetails ? 'Esconder detalhes' : '+ Adicionar detalhes',
+      toggleDetails: () => this.setState({ showDetails: !this.state.showDetails }),
+      people, columns,
+      onlyOverdue: this.state.onlyOverdue,
+      toggleOverdue: () => this.setState({ onlyOverdue: !this.state.onlyOverdue }),
+      overdueBg: this.state.onlyOverdue ? '#FBECEA' : '#FFFFFF',
+      overdueFg: this.state.onlyOverdue ? '#9B2C22' : '#1B1916',
+      overdueBorder: this.state.onlyOverdue ? '#EDC3BD' : '#E2DCD1'
+    };
+  }
+}
+</script>
+</body>
+</html>

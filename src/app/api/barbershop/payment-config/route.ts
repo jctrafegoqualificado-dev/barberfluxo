@@ -64,11 +64,21 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // Quantos assinantes vivos pagam no débito automático x na mão (tela Pagamentos)
+    const live = await prisma.subscription.groupBy({
+      by: ["authorizationStatus"],
+      where: { barbershopId, status: { in: ["ACTIVE", "OVERDUE"] } },
+      _count: { _all: true },
+    });
+    const total = live.reduce((s, g) => s + g._count._all, 0);
+    const auto = live.find((g) => g.authorizationStatus === "AUTHORIZED")?._count._all ?? 0;
+    const subscribers = { total, auto, manual: total - auto };
+
     if (!config) {
-      return NextResponse.json({ connected: false, config: null });
+      return NextResponse.json({ connected: false, config: null, subscribers });
     }
 
-    return NextResponse.json({ connected: true, config });
+    return NextResponse.json({ connected: true, config, subscribers });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Erro interno";
     const status = msg === "UNAUTHORIZED" ? 401 : msg === "FORBIDDEN" ? 403 : 500;

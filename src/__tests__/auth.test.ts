@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // vi.hoisted garante que as variáveis estejam disponíveis dentro das factories de vi.mock
-const { mockUserFindUnique, mockBarbershopFindUnique, mockBarberFindUnique } = vi.hoisted(() => ({
+const { mockUserFindUnique, mockUserFindFirst, mockBarbershopFindUnique, mockBarberFindUnique } = vi.hoisted(() => ({
   mockUserFindUnique: vi.fn(),
+  // Login tenta o e-mail sem diferenciar maiúsculas quando a busca exata não acha
+  mockUserFindFirst: vi.fn(),
   mockBarbershopFindUnique: vi.fn(),
   mockBarberFindUnique: vi.fn(),
 }));
@@ -14,7 +16,7 @@ const { mockBcryptCompare } = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { findUnique: mockUserFindUnique },
+    user: { findUnique: mockUserFindUnique, findFirst: mockUserFindFirst },
     barbershop: { findUnique: mockBarbershopFindUnique },
     barber: { findUnique: mockBarberFindUnique },
   },
@@ -57,6 +59,7 @@ const OWNER = {
 describe("POST /api/auth/login", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUserFindFirst.mockResolvedValue(null);
     mockBarbershopFindUnique.mockResolvedValue(null);
     mockBarberFindUnique.mockResolvedValue(null);
   });

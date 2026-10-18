@@ -1,291 +1,233 @@
 "use client";
-import { useEffect, useState } from "react";
-import {
-  Bell, BellOff, Clock, MessageSquare, Save, Loader2,
-  CheckCircle, HelpCircle, Sparkles, AlertTriangle, Scissors
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
+import { cn } from "@/lib/utils";
 import Button from "@/components/ui/Button";
+import { ConfigSection, Pills } from "@/components/config/ConfigNav";
+import { Switch, fieldCls } from "@/components/catalogo/SidePanel";
+import WhatsAppTabs from "@/components/whatsapp/WhatsAppTabs";
+import PhonePreview, { type Bubble } from "@/components/whatsapp/PhonePreview";
 
-const TIMING_OPTIONS = [
-  { value: 30,   label: "30 minutos antes" },
-  { value: 60,   label: "1 hora antes" },
-  { value: 120,  label: "2 horas antes" },
-  { value: 240,  label: "4 horas antes" },
-  { value: 720,  label: "12 horas antes" },
-  { value: 1440, label: "24 horas antes" },
-  { value: 2880, label: "48 horas antes" },
+const LEADS: [number, string][] = [[30, "30 min"], [60, "1 hora"], [120, "2 horas"], [240, "4 horas"], [720, "12 horas"], [1440, "24 horas"], [2880, "48 horas"]];
+
+// Mesmos textos do cron (src/app/api/cron/reminders/route.ts), para a prévia bater com o que o cliente recebe.
+const DEFAULT_MESSAGE = "Olá {{nome}}! 😊\n\nLembramos que você tem um horário de *{{servico}}* marcado para *{{data}}* às *{{hora}}* com *{{profissional}}* no(a) *{{empresa}}*.\n\nAté lá!";
+const CONFIRMATION_QUESTION = "Podemos confirmar sua presença? Responda com *SIM* para confirmar ou *NÃO* para cancelar.";
+
+const VARIABLES: [string, string][] = [
+  ["{{nome}}", "Nome do cliente"], ["{{servico}}", "Serviço"], ["{{data}}", "Data"], ["{{hora}}", "Horário"],
+  ["{{profissional}}", "Profissional"], ["{{empresa}}", "Nome da barbearia"],
 ];
 
-const DEFAULT_MESSAGE = "Olá {{nome}}! 😊\n\nLembramos que você tem um horário de *{{servico}}* marcado para *{{data}}* às *{{hora}}*.\n\nPodemos confirmar sua presença?";
+interface Form { enabled: boolean; minutes: number; message: string; askConfirmation: boolean; notifyBarber: boolean }
+interface Stats { sent: number; confirmed: number; cancelledByReply: number; noShows: number; total: number }
 
-const VARIABLES = [
-  { tag: "{{nome}}", desc: "Nome do cliente" },
-  { tag: "{{servico}}", desc: "Nome do serviço agendado" },
-  { tag: "{{data}}", desc: "Data do agendamento" },
-  { tag: "{{hora}}", desc: "Horário de início" },
-  { tag: "{{profissional}}", desc: "Nome do profissional" },
-  { tag: "{{empresa}}", desc: "Nome do estabelecimento" },
-];
+/** Exemplo da prévia: horário às 16:00. Diz quando o lembrete chega. */
+function arrival(minutes: number) {
+  const total = 16 * 60 - minutes;
+  const daysBefore = total < 0 ? Math.ceil(-total / 1440) : 0;
+  const m = ((total % 1440) + 1440) % 1440;
+  const t = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  return daysBefore === 0 ? `chega às ${t}` : daysBefore === 1 ? `chega na véspera, às ${t}` : `chega ${daysBefore} dias antes, às ${t}`;
+}
+
+function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="bg-surface border border-line rounded-[14px] px-[18px] py-4 flex flex-col gap-1 min-w-0">
+      <span className="text-[13px] text-ink-2">{label}</span>
+      <span className="font-display text-[26px] font-bold leading-tight">
+        {value}{sub && <span className="ml-1.5 font-sans text-sm font-medium text-ink-3">{sub}</span>}
+      </span>
+    </div>
+  );
+}
 
 export default function LembretesPage() {
   const { token } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const [enabled, setEnabled] = useState(false);
-  const [minutes, setMinutes] = useState(60);
-  const [message, setMessage] = useState("");
-  const [notifyBarber, setNotifyBarber] = useState(true);
+  const [shopName, setShopName] = useState("");
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [form, setForm] = useState<Form>({ enabled: false, minutes: 60, message: "", askConfirmation: true, notifyBarber: true });
+  const [saved, setSaved] = useState<Form | null>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    async function load() {
+    (async () => {
       try {
-        const res = await fetch("/api/barbershop/reminders", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setEnabled(data.reminderEnabled ?? false);
-          setMinutes(data.reminderMinutes ?? 60);
-          setMessage(data.reminderMessage || "");
-          setNotifyBarber(data.notifyBarberOnNewAppointment ?? true);
+        const res = await fetch("/api/barbershop/reminders", { headers: { Authorization: `Bearer ${token}` } });
+        const d = await res.json().catch(() => null);
+        if (res.ok && d) {
+          const f: Form = {
+            enabled: d.reminderEnabled ?? false, minutes: d.reminderMinutes ?? 60, message: d.reminderMessage ?? "",
+            askConfirmation: d.reminderAskConfirmation ?? true, notifyBarber: d.notifyBarberOnNewAppointment ?? true,
+          };
+          setForm(f);
+          setSaved(f);
+          setShopName(d.name ?? "");
+          setStats(d.stats ?? null);
         }
-      } catch {
-        // silently fail on load
       } finally {
         setLoading(false);
       }
-    }
-    load();
+    })();
   }, [token]);
 
-  async function handleSave() {
+  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const dirty = !!saved && JSON.stringify(form) !== JSON.stringify(saved);
+
+  /** Insere a variável onde está o cursor (ou no fim). */
+  function insert(tag: string) {
+    const el = textRef.current;
+    const base = form.message || DEFAULT_MESSAGE;
+    const start = el && form.message ? el.selectionStart : base.length;
+    const end = el && form.message ? el.selectionEnd : base.length;
+    const next = base.slice(0, start) + tag + base.slice(end);
+    set("message", next);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(start + tag.length, start + tag.length);
+    });
+  }
+
+  // Data de exemplo da prévia: daqui a 2 dias
+  const [sample] = useState(() => new Date(Date.now() + 2 * 86_400_000)
+    .toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" }));
+
+  const bubbles = useMemo<Bubble[]>(() => {
+    const base = form.message.trim() || DEFAULT_MESSAGE;
+    const text = (form.askConfirmation && !/\bSIM\b/i.test(base) ? `${base}\n\n${CONFIRMATION_QUESTION}` : base)
+      .replace(/\{\{nome\}\}/g, "Gustavo").replace(/\{\{servico\}\}/g, "Corte degradê").replace(/\{\{data\}\}/g, sample)
+      .replace(/\{\{hora\}\}/g, "16:00").replace(/\{\{profissional\}\}/g, "Diego").replace(/\{\{empresa\}\}/g, shopName || "Sua barbearia");
+    const b: Bubble[] = [{ from: "shop", text }];
+    if (form.askConfirmation) {
+      b.push({ from: "client", text: "SIM" }, { from: "shop", text: `Perfeito, Gustavo! Seu horário ${sample.slice(0, 5)} às 16:00 com Diego está confirmado. Até lá! 💈` });
+    }
+    return b;
+  }, [form.message, form.askConfirmation, sample, shopName]);
+
+  async function save() {
     setSaving(true);
-    setSaved(false);
     try {
       const res = await fetch("/api/barbershop/reminders", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          reminderEnabled: enabled,
-          reminderMinutes: minutes,
-          reminderMessage: message || null,
-          notifyBarberOnNewAppointment: notifyBarber,
+          reminderEnabled: form.enabled, reminderMinutes: form.minutes, reminderMessage: form.message.trim() || null,
+          reminderAskConfirmation: form.askConfirmation, notifyBarberOnNewAppointment: form.notifyBarber,
         }),
       });
-      if (res.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      }
-    } catch {
-      // handle error
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Não foi possível salvar");
+      setSaved(form);
+      toast.success("Lembretes salvos");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar");
     } finally {
       setSaving(false);
     }
   }
 
-  // Preview da mensagem com variáveis substituídas
-  const previewMsg = (message || DEFAULT_MESSAGE)
-    .replace("{{nome}}", "Maria")
-    .replace("{{servico}}", "Progressiva")
-    .replace("{{data}}", "17/05/2026")
-    .replace("{{hora}}", "14:30")
-    .replace("{{profissional}}", "Ana")
-    .replace("{{empresa}}", "Espaço Beleza");
-
+  const header = <WhatsAppTabs current="lembretes" subtitle="Lembretes automáticos para diminuir faltas" />;
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32 text-zinc-400">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="flex flex-col gap-5">
+        {header}
+        <div className="h-96 rounded-2xl bg-surface border border-line animate-pulse" />
       </div>
     );
   }
 
+  const month = new Date().toLocaleDateString("pt-BR", { month: "long", timeZone: "America/Sao_Paulo" });
+  const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 100)}%` : "—");
+
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
-          <Bell className="w-6 h-6 text-primary" />
-          Lembretes Automáticos
-        </h1>
-        <p className="text-zinc-500 text-sm mt-1">
-          Configure o envio automático de lembretes via WhatsApp para reduzir faltas e cancelamentos.
-        </p>
-      </div>
+    <div className="flex flex-col gap-5">
+      {header}
 
-      {/* Toggle Principal */}
-      <div className={`rounded-2xl border-2 p-6 transition-all ${enabled ? "border-green-200 bg-green-50/50" : "border-zinc-200 bg-zinc-50/50"}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${enabled ? "bg-green-100" : "bg-zinc-200"}`}>
-              {enabled ? <Bell className="w-6 h-6 text-green-600" /> : <BellOff className="w-6 h-6 text-zinc-400" />}
-            </div>
-            <div>
-              <h2 className="font-bold text-zinc-900 text-lg">
-                {enabled ? "Lembretes Ativados" : "Lembretes Desativados"}
-              </h2>
-              <p className="text-sm text-zinc-500">
-                {enabled
-                  ? "O sistema está enviando lembretes automáticos para seus clientes."
-                  : "Ative para começar a lembrar seus clientes automaticamente via WhatsApp."}
-              </p>
-            </div>
-          </div>
-          
-          <button
-            onClick={() => setEnabled(!enabled)}
-            className={`relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${enabled ? "bg-green-500 focus:ring-green-400" : "bg-zinc-300 focus:ring-zinc-400"}`}
-          >
-            <span className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${enabled ? "translate-x-6" : "translate-x-0"}`} />
-          </button>
+      {stats && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Kpi label={`Lembretes enviados em ${month}`} value={String(stats.sent)}
+            sub={stats.cancelledByReply ? `${stats.cancelledByReply} ${stats.cancelledByReply === 1 ? "vaga liberada" : "vagas liberadas"} com NÃO` : undefined} />
+          <Kpi label="Clientes que confirmaram pela mensagem" value={pct(stats.confirmed, stats.sent)} sub={stats.sent ? `${stats.confirmed} de ${stats.sent}` : undefined} />
+          <Kpi label="Faltas no mês" value={String(stats.noShows)} sub={stats.total ? `de ${stats.total} atendimentos · ${pct(stats.noShows, stats.total)}` : undefined} />
         </div>
-      </div>
-
-      {/* Aviso ao barbeiro sobre novos agendamentos — independente dos lembretes de cliente */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${notifyBarber ? "bg-blue-100" : "bg-zinc-200"}`}>
-              <Scissors className={`w-6 h-6 ${notifyBarber ? "text-blue-600" : "text-zinc-400"}`} />
-            </div>
-            <div>
-              <h2 className="font-bold text-zinc-900 text-lg">Avisar barbeiro sobre novos agendamentos</h2>
-              <p className="text-sm text-zinc-500 max-w-md">
-                O barbeiro recebe um aviso no WhatsApp sempre que marcam com ele — pelo link público, pelo painel ou pelo assistente. Não avisa quando é o próprio barbeiro que registra o horário.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setNotifyBarber(!notifyBarber)}
-            className={`relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 shrink-0 ${notifyBarber ? "bg-green-500 focus:ring-green-400" : "bg-zinc-300 focus:ring-zinc-400"}`}
-          >
-            <span className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${notifyBarber ? "translate-x-6" : "translate-x-0"}`} />
-          </button>
-        </div>
-      </div>
-
-      {enabled && (
-        <>
-          {/* Timing */}
-          <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-zinc-900">Tempo de Antecedência</h3>
-                <p className="text-xs text-zinc-500">Quanto tempo antes do horário o cliente receberá o lembrete.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {TIMING_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setMinutes(opt.value)}
-                  className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all border-2 ${
-                    minutes === opt.value
-                      ? "border-primary bg-primary/10 text-primary shadow-sm"
-                      : "border-zinc-150 bg-white text-zinc-600 hover:border-zinc-300"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Mensagem Personalizada */}
-          <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-zinc-900">Mensagem Personalizada</h3>
-                <p className="text-xs text-zinc-500">Customize a mensagem que o cliente receberá. Use as variáveis abaixo.</p>
-              </div>
-            </div>
-
-            {/* Variáveis disponíveis */}
-            <div className="flex flex-wrap gap-2">
-              {VARIABLES.map((v) => (
-                <button
-                  key={v.tag}
-                  onClick={() => setMessage((prev) => prev + v.tag)}
-                  className="group relative text-xs font-mono px-2.5 py-1.5 rounded-lg bg-zinc-100 text-zinc-600 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer border border-zinc-200"
-                >
-                  {v.tag}
-                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block w-36 bg-zinc-900 text-white text-[10px] p-1.5 rounded-lg text-center leading-tight shadow-xl z-50">
-                    {v.desc}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={DEFAULT_MESSAGE}
-              rows={5}
-              className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-            />
-
-            <p className="text-[11px] text-zinc-400 flex items-center gap-1">
-              <HelpCircle className="w-3 h-3" />
-              Deixe em branco para usar a mensagem padrão do sistema.
-            </p>
-          </div>
-
-          {/* Preview */}
-          <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-zinc-900">Pré-visualização</h3>
-                <p className="text-xs text-zinc-500">Assim será a mensagem recebida pelo cliente no WhatsApp.</p>
-              </div>
-            </div>
-
-            <div className="bg-[#e5ddd5] rounded-2xl p-4">
-              <div className="bg-white rounded-xl p-4 max-w-sm shadow-sm">
-                <p className="text-sm text-zinc-800 whitespace-pre-line leading-relaxed">{previewMsg}</p>
-                <p className="text-[10px] text-zinc-400 text-right mt-2">14:30 ✓✓</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Info */}
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
-            <div className="text-xs text-amber-800 space-y-1">
-              <p className="font-bold">Importante:</p>
-              <p>O sistema envia os lembretes automaticamente com base no tempo configurado acima. Para funcionar, o WhatsApp do estabelecimento precisa estar conectado no painel.</p>
-            </div>
-          </div>
-        </>
       )}
 
-      {/* Botão Salvar */}
-      <div className="flex items-center gap-3">
-        <Button onClick={handleSave} loading={saving} className="px-8">
-          {saved ? <CheckCircle className="w-4 h-4 mr-1.5" /> : <Save className="w-4 h-4 mr-1.5" />}
-          {saved ? "Salvo com Sucesso!" : "Salvar Configurações"}
-        </Button>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
+        <div className="flex flex-col gap-4 min-w-0">
+          <ConfigSection title="Lembrete para o cliente" subtitle="Enviado automaticamente pelo WhatsApp antes do horário"
+            aside={<Switch checked={form.enabled} onChange={(v) => set("enabled", v)} label="Lembrete para o cliente" />}>
+            {!form.enabled ? (
+              <p className="text-[13px] text-ink-3">Desligado: ninguém recebe lembrete. Ligue para diminuir as faltas.</p>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2">
+                  <span className="text-[13px] font-semibold text-ink-2">Quanto tempo antes</span>
+                  <Pills value={form.minutes} onChange={(v) => set("minutes", v)} options={LEADS} label="Antecedência" />
+                </div>
 
-        {saved && (
-          <span className="text-sm text-green-600 font-medium animate-pulse">
-            ✓ Alterações aplicadas
-          </span>
-        )}
+                <label className="flex items-start gap-3 px-3.5 py-3 rounded-xl bg-ground cursor-pointer">
+                  <input type="checkbox" checked={form.askConfirmation} onChange={(e) => set("askConfirmation", e.target.checked)}
+                    className="mt-0.5 w-[18px] h-[18px] accent-[#1B1916] shrink-0" />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold">Pedir confirmação</span>
+                    <span className="text-[13px] text-ink-2">
+                      O cliente responde SIM ou NÃO. Se disser não, o horário é liberado na agenda e a lista de espera é avisada.
+                      Se as suas regras não deixam cancelar, a conversa vai para &quot;Precisa de você&quot;.
+                    </span>
+                  </span>
+                </label>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[13px] font-semibold text-ink-2">Mensagem</span>
+                  <textarea ref={textRef} rows={5} aria-label="Mensagem do lembrete" value={form.message} placeholder={DEFAULT_MESSAGE}
+                    onChange={(e) => set("message", e.target.value)} className={cn(fieldCls, "h-auto py-3 resize-none leading-relaxed")} />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-ink-3">Toque para inserir:</span>
+                    {VARIABLES.map(([tag, desc]) => (
+                      <button key={tag} type="button" title={desc} onClick={() => insert(tag)}
+                        className="h-[30px] px-2.5 rounded-lg border border-dashed border-bar bg-surface text-xs font-semibold hover:bg-surface-2">
+                        {desc}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs text-ink-3">
+                    Em branco, usa a mensagem padrão.{" "}
+                    {form.message && (
+                      <button type="button" onClick={() => set("message", "")} className="font-semibold text-ink-2 underline">Voltar para a padrão</button>
+                    )}
+                  </span>
+                </div>
+              </>
+            )}
+          </ConfigSection>
+
+          <section aria-labelledby="bar-t" className="bg-surface border border-line rounded-2xl px-5 md:px-6 py-5 flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1 min-w-0">
+              <h2 id="bar-t" className="text-[17px] font-semibold">Avisar o barbeiro</h2>
+              <span className="text-[13px] text-ink-3">
+                O barbeiro recebe uma mensagem quando marcam com ele (pelo link, pelo painel ou pela IA). Não avisa quando é ele mesmo que marca.
+              </span>
+            </div>
+            <Switch checked={form.notifyBarber} onChange={(v) => set("notifyBarber", v)} label="Avisar o barbeiro" />
+          </section>
+        </div>
+
+        <aside aria-label="Prévia do lembrete" className="flex flex-col gap-3 lg:sticky lg:top-6">
+          <div className="flex justify-between items-baseline gap-3">
+            <span className="text-[15px] font-semibold">Como o cliente recebe</span>
+            {form.enabled && <span className="text-xs text-ink-3">Horário às 16:00 · {arrival(form.minutes)}</span>}
+          </div>
+          <div className={cn(!form.enabled && "opacity-50")}>
+            <PhonePreview name={shopName || "Sua barbearia"} bubbles={bubbles} />
+          </div>
+          <p className="text-xs text-ink-3">Para enviar, o WhatsApp da barbearia precisa estar conectado.</p>
+          <Button onClick={save} loading={saving} disabled={!dirty} className="h-[46px]">
+            {dirty ? "Salvar lembretes" : "Tudo salvo"}
+          </Button>
+        </aside>
       </div>
     </div>
   );

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { notifyWaitlistSlotOpened } from "@/lib/waitlist";
+import { logAudit } from "@/lib/audit";
 
-export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ slug: string; id: string }> }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string; id: string }> }) {
   try {
     const { slug, id } = await params;
     const shop = await prisma.barbershop.findUnique({
@@ -21,7 +23,7 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ s
 
     const existing = await prisma.appointment.findFirst({
       where: { id, barbershopId: shop.id },
-      select: { id: true, status: true, date: true, startTime: true },
+      select: { id: true, status: true, date: true, startTime: true, barberId: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
@@ -52,6 +54,17 @@ export async function PATCH(_req: NextRequest, { params }: { params: Promise<{ s
       data: { status: "CANCELLED" },
       select: { id: true, status: true },
     });
+
+    // Motivo opcional dado pelo cliente na tela "meus horários" (vai para o histórico).
+    const body = await req.json().catch(() => ({}));
+    const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 200) : "";
+    void logAudit({
+      barbershopId: shop.id, action: "CANCEL", entity: "Appointment", entityId: id,
+      diff: { before: { status: existing.status }, after: { status: "CANCELLED", via: body?.via === "RESCHEDULE" ? "Remarcado pelo cliente" : "Cancelado pelo cliente", ...(reason ? { reason } : {}) } },
+    });
+
+    // Lista de espera: a vaga liberada é avisada para quem está na fila do dia.
+    void notifyWaitlistSlotOpened({ barbershopId: shop.id, date: existing.date, barberId: existing.barberId, startTime: existing.startTime });
 
     return NextResponse.json({ appointment });
   } catch (e: unknown) {

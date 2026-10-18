@@ -1,208 +1,107 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import { CheckCircle, Circle, Calendar, AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Check, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
+import { cn } from "@/lib/utils";
 
 type Status = "TODO" | "DOING" | "DONE";
 type Priority = "LOW" | "NORMAL" | "HIGH";
+interface Task { id: string; title: string; description: string | null; status: Status; priority: Priority; dueDate: string | null; barberId: string | null }
 
-interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  status: Status;
-  priority: Priority;
-  dueDate: string | null;
-  createdAt: string;
-  barberId: string | null;
-  barber: { id: string; user: { name: string; email: string } } | null;
-}
-
-const PRIORITY_BADGE: Record<Priority, string> = {
-  LOW: "bg-zinc-100 text-zinc-500",
-  NORMAL: "bg-primary/10 text-primary/90",
-  HIGH: "bg-red-50 text-red-500",
+const PRIORITY: Record<Priority, [string, string]> = {
+  HIGH: ["Alta", "bg-danger-soft text-danger"],
+  NORMAL: ["Normal", "bg-surface-2 text-ink-2"],
+  LOW: ["Baixa", "bg-surface-3 text-ink-3"],
 };
+const todayKey = () => new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(new Date());
+const dueKey = (iso: string) => iso.slice(0, 10);
 
-const PRIORITY_LABEL: Record<Priority, string> = {
-  LOW: "Baixa",
-  NORMAL: "Normal",
-  HIGH: "Alta",
-};
-
-function dueDateStatus(dueDate: string | null, status: Status) {
-  if (!dueDate || status === "DONE") return null;
-  const due = new Date(dueDate);
-  const now = new Date();
-  const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return "overdue";
-  if (diffDays <= 2) return "soon";
-  return "ok";
+function dueText(iso: string) {
+  const k = dueKey(iso);
+  const t = todayKey();
+  if (k < t) return ["atrasada", "text-danger font-semibold"] as const;
+  if (k === t) return ["vence hoje", "text-warning font-semibold"] as const;
+  return [`até ${k.slice(8)}/${k.slice(5, 7)}`, "text-ink-3"] as const;
 }
 
 export default function BarbeiroTarefasPage() {
-  const { token, user } = useAuthStore();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState<string | null>(null);
+  const { token } = useAuthStore();
+  const [tasks, setTasks] = useState<Task[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/barbershop/tasks", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      
-      if (res.ok) {
-        // Filtrar apenas as tarefas do barbeiro logado ou tarefas gerais (barberId nulo)
-        const myTasks = (data.tasks || []).filter(
-          (t: Task) => !t.barberId || t.barber?.user?.email === user?.email
-        );
-        setTasks(myTasks);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [token, user]);
+    const d = await fetch("/api/barbershop/tasks", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).catch(() => ({}));
+    setTasks(d.tasks || []);
+  }, [token]);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function toggleTaskStatus(task: Task) {
-    if (updating) return;
-    setUpdating(task.id);
-    
-    const newStatus = task.status === "DONE" ? "TODO" : "DONE";
-    
-    // Optimistic update
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
-
-    try {
-      await fetch(`/api/barbershop/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus }),
-      });
-    } catch {
-      // Revert in case of error
-      load();
-    } finally {
-      setUpdating(null);
-    }
+  async function toggle(t: Task) {
+    const status: Status = t.status === "DONE" ? "TODO" : "DONE";
+    setBusy(t.id);
+    setTasks((cur) => cur && cur.map((x) => (x.id === t.id ? { ...x, status } : x)));
+    const r = await fetch(`/api/barbershop/tasks/${t.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ status }),
+    }).catch(() => null);
+    setBusy(null);
+    if (!r?.ok) { toast.error("Não deu certo. Tente de novo."); load(); }
   }
 
-  if (loading) {
+  const rank = (t: Task) => (t.dueDate ? dueKey(t.dueDate) : "9999") + (t.priority === "HIGH" ? "0" : t.priority === "NORMAL" ? "1" : "2");
+  const open = (tasks ?? []).filter((t) => t.status !== "DONE").sort((a, b) => rank(a).localeCompare(rank(b)));
+  const done = (tasks ?? []).filter((t) => t.status === "DONE");
+  const late = open.filter((t) => t.dueDate && dueKey(t.dueDate) < todayKey()).length;
+
+  const row = (t: Task) => {
+    const isDone = t.status === "DONE";
+    const due = t.dueDate && !isDone ? dueText(t.dueDate) : null;
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div key={t.id} className="flex items-start gap-3 px-4 py-3.5">
+        <button type="button" onClick={() => toggle(t)} disabled={busy === t.id} role="checkbox" aria-checked={isDone} aria-label={isDone ? `Reabrir ${t.title}` : `Concluir ${t.title}`}
+          className={cn("w-6 h-6 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0 disabled:opacity-50", isDone ? "bg-positive-strong border-positive-strong text-white" : "border-control hover:border-ink")}>
+          {isDone && <Check className="w-3.5 h-3.5" aria-hidden />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className={cn("text-[15px] font-semibold", isDone && "line-through text-ink-3")}>{t.title}</p>
+          {t.description && !isDone && <p className="text-[13px] text-ink-2 mt-0.5 leading-snug">{t.description}</p>}
+          {!isDone && (
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs">
+              <span className={cn("h-5 px-2 rounded-full font-semibold inline-flex items-center", PRIORITY[t.priority][1])}>{PRIORITY[t.priority][0]}</span>
+              <span className="text-ink-3">{t.barberId ? "só sua" : "da equipe"}</span>
+              {due && <span className={due[1]}>· {due[0]}</span>}
+            </div>
+          )}
+        </div>
       </div>
     );
-  }
-
-  const pendingTasks = tasks.filter(t => t.status !== "DONE");
-  const doneTasks = tasks.filter(t => t.status === "DONE");
+  };
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Minhas Tarefas</h1>
-        <p className="text-zinc-500 text-sm mt-1">
-          Acompanhe seu checklist diário e metas da barbearia.
-        </p>
-      </div>
+    <div className="flex flex-col gap-5 max-w-3xl">
+      <header className="flex flex-col gap-1">
+        <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Tarefas</h1>
+        <span className="text-sm text-ink-3">{tasks ? `${open.length} para fazer${late ? ` · ${late} atrasada${late === 1 ? "" : "s"}` : ""}` : " "}</span>
+      </header>
 
-      {pendingTasks.length === 0 && doneTasks.length === 0 && (
-        <div className="bg-white rounded-xl border border-zinc-100 p-8 text-center shadow-sm">
-          <CheckCircle className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
-          <p className="font-semibold text-zinc-900">Nenhuma tarefa pendente!</p>
-          <p className="text-sm text-zinc-500 mt-1">Sua lista está limpa.</p>
+      {!tasks ? <div className="h-48 rounded-2xl bg-surface-3/60 animate-pulse" /> : tasks.length === 0 ? (
+        <div className="rounded-2xl bg-surface border border-line px-6 py-12 flex flex-col items-center gap-2 text-center">
+          <CheckCircle2 className="w-9 h-9 text-ink-4" aria-hidden />
+          <p className="font-semibold">Nenhuma tarefa</p>
+          <p className="text-[13px] text-ink-3">Quando o dono passar alguma coisa para você ou para a equipe, aparece aqui.</p>
         </div>
-      )}
-
-      {pendingTasks.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-zinc-900 uppercase tracking-wide">Para Fazer ({pendingTasks.length})</h2>
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-sm">
-            {pendingTasks.map((task, idx) => {
-              const ds = dueDateStatus(task.dueDate, task.status);
-              const isOverdue = ds === "overdue";
-              
-              return (
-                <div 
-                  key={task.id} 
-                  className={`flex items-start gap-4 p-4 transition-colors hover:bg-zinc-50 ${idx !== pendingTasks.length - 1 ? 'border-b border-zinc-100' : ''}`}
-                >
-                  <button 
-                    onClick={() => toggleTaskStatus(task)}
-                    disabled={updating === task.id}
-                    className="mt-0.5 shrink-0 text-zinc-300 hover:text-green-500 transition-colors disabled:opacity-50"
-                  >
-                    {updating === task.id ? (
-                      <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Circle className="w-6 h-6" />
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-semibold text-zinc-900 ${isOverdue ? 'text-red-600' : ''}`}>
-                      {task.title}
-                    </p>
-                    {task.description && (
-                      <p className="text-sm text-zinc-500 mt-0.5 leading-relaxed">{task.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PRIORITY_BADGE[task.priority]}`}>
-                        {PRIORITY_LABEL[task.priority]}
-                      </span>
-                      {!task.barberId && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                          Equipe
-                        </span>
-                      )}
-                      {task.dueDate && (
-                        <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${isOverdue ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-zinc-50 text-zinc-500 border border-zinc-200'}`}>
-                          {isOverdue && <AlertCircle className="w-3 h-3" />}
-                          <Calendar className="w-3 h-3" />
-                          {new Date(task.dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {doneTasks.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-zinc-500 uppercase tracking-wide">Concluídas ({doneTasks.length})</h2>
-          <div className="bg-zinc-50 rounded-xl border border-zinc-200 overflow-hidden opacity-70">
-            {doneTasks.map((task, idx) => (
-              <div 
-                key={task.id} 
-                className={`flex items-start gap-4 p-4 ${idx !== doneTasks.length - 1 ? 'border-b border-zinc-200' : ''}`}
-              >
-                <button 
-                  onClick={() => toggleTaskStatus(task)}
-                  disabled={updating === task.id}
-                  className="mt-0.5 shrink-0 text-green-500 transition-colors disabled:opacity-50"
-                >
-                  {updating === task.id ? (
-                    <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <CheckCircle className="w-6 h-6" />
-                  )}
-                </button>
-                <div className="flex-1 min-w-0 line-through text-zinc-500">
-                  <p className="font-semibold">{task.title}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      ) : (
+        <>
+          <section aria-label="Para fazer" className="bg-surface border border-line rounded-2xl overflow-hidden">
+            <h2 className="px-4 pt-3.5 pb-1 text-xs font-semibold tracking-[0.06em] uppercase text-ink-3">Para fazer · {open.length}</h2>
+            {open.length === 0 ? <p className="px-4 pb-4 text-[13px] text-ink-3">Tudo feito. 👏</p> : <div className="divide-y divide-line-3">{open.map(row)}</div>}
+          </section>
+          {done.length > 0 && (
+            <section aria-label="Concluídas" className="bg-surface border border-line rounded-2xl overflow-hidden">
+              <h2 className="px-4 pt-3.5 pb-1 text-xs font-semibold tracking-[0.06em] uppercase text-ink-3">Concluídas · {done.length}</h2>
+              <div className="divide-y divide-line-3">{done.slice(0, 10).map(row)}</div>
+            </section>
+          )}
+        </>
       )}
     </div>
   );

@@ -29,6 +29,12 @@ export interface SaasPlanDef {
   hasAI: boolean;
   /** Não é oferecido a novos clientes (mantido para assinantes existentes) */
   legacy?: boolean;
+  /** Barbeiros já inclusos no preço; do próximo em diante soma extraBarber* por barbeiro */
+  includedBarbers: number;
+  /** Valor por barbeiro extra, por mês (0 = sem cobrança por barbeiro) */
+  extraBarberMonthly: number;
+  /** Idem no plano anual (valor mensal equivalente); null = usa o mensal */
+  extraBarberAnnualMonthly: number | null;
 }
 
 export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
@@ -40,6 +46,9 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     annualPriceMonthly: null,
     isPaid: false,
     hasAI: false,
+    includedBarbers: 0,
+    extraBarberMonthly: 0,
+    extraBarberAnnualMonthly: null,
   },
   PRO: {
     key: "PRO",
@@ -49,6 +58,9 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     annualPriceMonthly: 139.9,
     isPaid: true,
     hasAI: false,
+    includedBarbers: 0,
+    extraBarberMonthly: 0,
+    extraBarberAnnualMonthly: null,
   },
   ELITE: {
     key: "ELITE",
@@ -58,6 +70,9 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     annualPriceMonthly: 179.9,
     isPaid: true,
     hasAI: true,
+    includedBarbers: 2,
+    extraBarberMonthly: 33.9,
+    extraBarberAnnualMonthly: 29.9,
   },
   PREMIUM: {
     key: "PREMIUM",
@@ -67,6 +82,9 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     annualPriceMonthly: 179.9,
     isPaid: true,
     hasAI: true,
+    includedBarbers: 2,
+    extraBarberMonthly: 33.9,
+    extraBarberAnnualMonthly: 29.9,
     legacy: true, // equivale a ELITE
   },
 };
@@ -96,16 +114,29 @@ export function getMonthlyPrice(plan: string, plans: PlansMap = SAAS_PLANS): num
 }
 
 /**
+ * Conta da mensalidade com barbeiros extras: plano + (barbeiros além dos inclusos) × valor extra.
+ * perMonth = quanto dá por mês (anual: valor mensal equivalente); total = o que se cobra de uma vez.
+ */
+export function saasCharge(plan: string, cycle: BillingCycle, barbers: number, plans: PlansMap = SAAS_PLANS) {
+  const def = getPlan(plan, plans);
+  if (!def || !def.isPaid) return null;
+  const annual = cycle === "annual" && def.annualPriceMonthly != null;
+  const base = annual ? def.annualPriceMonthly! : def.monthlyPrice;
+  const extraUnit = def.extraBarberMonthly > 0 ? (annual ? def.extraBarberAnnualMonthly ?? def.extraBarberMonthly : def.extraBarberMonthly) : 0;
+  const extras = extraUnit > 0 ? Math.max(0, Math.floor(barbers) - def.includedBarbers) : 0;
+  const perMonth = round2(base + extras * extraUnit);
+  return { base, extraUnit, extras, included: def.includedBarbers, perMonth, total: annual ? round2(perMonth * 12) : perMonth, annual };
+}
+
+/**
  * Valor que deve ser cobrado no checkout para (plano, ciclo).
  * Anual = preço mensal equivalente × 12. Retorna null para plano não-pago/desconhecido.
  */
-export function getCheckoutAmount(plan: string, cycle: BillingCycle, plans: PlansMap = SAAS_PLANS): number | null {
+export function getCheckoutAmount(plan: string, cycle: BillingCycle, plans: PlansMap = SAAS_PLANS, barbers = 0): number | null {
   const def = getPlan(plan, plans);
   if (!def || !def.isPaid) return null;
-  if (cycle === "annual") {
-    return def.annualPriceMonthly != null ? round2(def.annualPriceMonthly * 12) : null;
-  }
-  return def.monthlyPrice;
+  if (cycle === "annual" && def.annualPriceMonthly == null) return null;
+  return saasCharge(plan, cycle, barbers, plans)?.total ?? null;
 }
 
 /**

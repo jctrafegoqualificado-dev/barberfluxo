@@ -1,136 +1,109 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Search, Users, CalendarDays, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarPlus, MessageCircle, Search, Users } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
-import { getInitials } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
+import { Segmented } from "@/components/catalogo/SidePanel";
 
 interface Cliente {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  totalVisits: number;
-  totalSpent: number;
-  thisMonthVisits: number;
-  firstVisit: string;
-  lastVisit: string;
-  daysSinceLastVisit: number;
-  avgFrequency: number | null;
-  isNew: boolean;
-  activePlan: string | null;
+  id: string; name: string; phone: string | null;
+  totalVisits: number; thisMonthVisits: number; lastVisit: string | null; daysSinceLastVisit: number | null;
+  expectedInterval: number | null; lapsed: boolean; overdueDays: number; hasUpcoming: boolean;
+  activePlan: string | null; preferredBarber: string | null; isNew: boolean;
+  visitsWithMe?: number; mine?: boolean;
 }
+type Tab = "mine" | "lapsed" | "all";
 
-function LastVisitBadge({ days }: { days: number }) {
-  if (days === 0) return <span className="text-xs font-medium text-green-600">Hoje</span>;
-  if (days <= 7) return <span className="text-xs font-medium text-green-600">{days}d atrás</span>;
-  if (days <= 30) return <span className="text-xs font-medium text-primary/90">{days}d atrás</span>;
-  return <span className="text-xs font-medium text-red-500">{days}d atrás</span>;
-}
+const ago = (d: number | null) => (d == null ? "nunca veio" : d === 0 ? "hoje" : d === 1 ? "ontem" : `há ${d} dias`);
+const wa = (phone: string | null, text: string) => {
+  const p = phone?.replace(/\D/g, "");
+  return p ? `https://wa.me/${p.startsWith("55") ? p : "55" + p}?text=${encodeURIComponent(text)}` : null;
+};
 
 export default function BarbeiroClientesPage() {
   const { token } = useAuthStore();
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [list, setList] = useState<Cliente[] | null>(null);
+  const [tab, setTab] = useState<Tab>("mine");
   const [search, setSearch] = useState("");
+  const [shown, setShown] = useState(30);
 
   useEffect(() => {
     fetch("/api/barbershop/clientes", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => { setClientes(d.clientes || []); setLoading(false); });
+      .then((r) => r.json()).then((d) => setList(d.clientes || [])).catch(() => setList([]));
   }, [token]);
 
-  const filtered = clientes.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.phone ?? "").includes(search)
-  );
+  const all = useMemo(() => list ?? [], [list]);
+  const mine = all.filter((c) => (c.visitsWithMe ?? 0) > 0);
+  // Só quem é cliente dele hoje (o profissional que mais o atende) — igual ao Início
+  const lapsed = mine.filter((c) => c.lapsed && c.mine).sort((a, b) => b.overdueDays - a.overdueDays);
+  const base = tab === "mine" ? mine : tab === "lapsed" ? lapsed : all;
+  const q = search.trim().toLowerCase();
+  const digits = q.replace(/\D/g, "");
+  const visible = base.filter((c) => !q || c.name.toLowerCase().includes(q) || (digits.length >= 3 && (c.phone ?? "").includes(digits)));
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Meus Clientes</h1>
-          <p className="text-zinc-500 text-sm mt-1">Clientes que você já atendeu</p>
+    <div className="flex flex-col gap-5">
+      <header className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Clientes</h1>
+          <span className="text-sm text-ink-3">{list ? `${mine.length} já atendidos por você · ${lapsed.length} passaram do tempo de voltar` : " "}</span>
         </div>
-        {!loading && (
-          <div className="text-right">
-            <p className="text-2xl font-black text-zinc-900">{clientes.length}</p>
-            <p className="text-xs text-zinc-400">clientes únicos</p>
+      </header>
+
+      <section aria-label="Clientes" className="bg-surface border border-line rounded-2xl overflow-hidden">
+        <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-line-2">
+          <Segmented value={tab} onChange={(v) => { setTab(v); setShown(30); }} label="Quais clientes"
+            options={[["mine", `Meus · ${mine.length}`], ["lapsed", `Para chamar · ${lapsed.length}`], ["all", `Todos · ${all.length}`]]} />
+          <label className="flex items-center gap-2 h-10 px-3 rounded-[10px] border border-control bg-ground w-full sm:w-64">
+            <Search className="w-4 h-4 text-ink-3 shrink-0" aria-hidden />
+            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nome ou telefone" aria-label="Buscar cliente" className="flex-1 min-w-0 bg-transparent outline-none text-sm" />
+          </label>
+        </div>
+
+        {!list ? <div className="h-64 animate-pulse bg-surface-3/50" aria-busy /> : visible.length === 0 ? (
+          <div className="px-6 py-12 flex flex-col items-center gap-2 text-center">
+            <Users className="w-9 h-9 text-ink-4" aria-hidden />
+            <p className="font-semibold">{q ? "Ninguém encontrado" : tab === "lapsed" ? "Ninguém sumido" : "Nenhum cliente aqui"}</p>
+            {tab === "lapsed" && !q && <p className="text-[13px] text-ink-3">Seus clientes estão voltando no ritmo de sempre.</p>}
+          </div>
+        ) : (
+          <div className="divide-y divide-line-3">
+            {visible.slice(0, shown).map((c) => {
+              const first = c.name.split(" ")[0];
+              const call = c.lapsed ? wa(c.phone, `Oi, ${first}! Tudo bem? Já faz um tempinho desde o último corte. Quer que eu reserve um horário para você esta semana?`) : null;
+              return (
+                <div key={c.id} className="flex items-center gap-3 px-4 min-h-[64px] py-2.5">
+                  <div className={cn("w-10 h-10 rounded-full text-xs font-bold flex items-center justify-center shrink-0", c.mine ? "bg-primary/10 text-primary" : "bg-surface-2 text-ink-2")}>{getInitials(c.name)}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate flex items-center gap-1.5">
+                      <span className="truncate">{c.name}</span>
+                      {c.activePlan && <span className="h-5 px-2 rounded-full bg-primary/10 text-primary text-[11px] font-semibold inline-flex items-center shrink-0">{c.activePlan}</span>}
+                    </p>
+                    <p className="text-xs text-ink-3 truncate">
+                      {(c.visitsWithMe ?? 0) > 0 ? `${c.visitsWithMe} visita${c.visitsWithMe === 1 ? "" : "s"} com você` : c.preferredBarber ? `cliente do ${c.preferredBarber}` : "ainda não veio"}
+                      {c.expectedInterval ? ` · vem a cada ${c.expectedInterval} dias` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0 hidden sm:block">
+                    <p className={cn("text-[13px] font-semibold", c.lapsed ? "text-danger" : "text-ink")}>{ago(c.daysSinceLastVisit)}</p>
+                    <p className="text-xs text-ink-3">{c.hasUpcoming ? "tem horário marcado" : c.lapsed ? `${c.overdueDays} dias atrasado` : "última visita"}</p>
+                  </div>
+                  {call ? (
+                    <a href={call} target="_blank" rel="noreferrer" aria-label={`Chamar ${c.name} no WhatsApp`} className="h-9 px-3 rounded-[9px] bg-ink text-white text-[13px] font-semibold inline-flex items-center gap-1.5 shrink-0"><MessageCircle className="w-4 h-4" aria-hidden /><span className="hidden sm:inline">Chamar</span></a>
+                  ) : (
+                    <Link href={`/barbeiro/agenda?novo=1&cliente=${encodeURIComponent(c.name)}&tel=${encodeURIComponent(c.phone ?? "")}`} aria-label={`Agendar ${c.name}`}
+                      className="h-9 w-9 sm:w-auto sm:px-3 rounded-[9px] border border-control text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 shrink-0"><CalendarPlus className="w-4 h-4" aria-hidden /><span className="hidden sm:inline">Agendar</span></Link>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
-      </div>
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nome ou telefone..."
-          className="w-full rounded-xl border border-zinc-200 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        />
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl border border-zinc-100 p-16 text-center text-zinc-400">
-          <Users className="w-10 h-10 mx-auto mb-3" />
-          <p className="font-medium">Nenhum cliente encontrado</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden">
-          <div className="divide-y divide-zinc-50">
-            {filtered.map((c) => (
-              <div key={c.id} className="px-5 py-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                  <span className="text-amber-700 font-bold text-sm">{getInitials(c.name)}</span>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-zinc-900 truncate">{c.name}</p>
-                    {c.isNew && (
-                      <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">Novo</span>
-                    )}
-                  </div>
-                  {c.phone && (
-                    <a href={`tel:${c.phone}`} className="text-xs text-primary/90 hover:underline">{c.phone}</a>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-5 shrink-0 text-right">
-                  <div className="hidden sm:block text-center">
-                    <div className="flex items-center gap-1 text-zinc-400 mb-0.5 justify-center">
-                      <CalendarDays className="w-3 h-3" />
-                      <span className="text-xs">Visitas</span>
-                    </div>
-                    <p className="text-sm font-bold text-zinc-900">{c.totalVisits}</p>
-                    {c.thisMonthVisits > 0 && (
-                      <p className="text-xs text-primary/90">+{c.thisMonthVisits} esse mês</p>
-                    )}
-                  </div>
-
-                  {c.avgFrequency && (
-                    <div className="hidden sm:block text-center">
-                      <div className="flex items-center gap-1 text-zinc-400 mb-0.5 justify-center">
-                        <RotateCcw className="w-3 h-3" />
-                        <span className="text-xs">Freq.</span>
-                      </div>
-                      <span className="text-xs font-medium text-zinc-600">a cada {c.avgFrequency}d</span>
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-xs text-zinc-400 mb-0.5">Última visita</p>
-                    <LastVisitBadge days={c.daysSinceLastVisit} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        {visible.length > shown && (
+          <button type="button" onClick={() => setShown((n) => n + 30)} className="w-full h-11 border-t border-line-2 text-[13px] font-semibold text-ink-2 hover:bg-surface-3">Mostrar mais ({visible.length - shown})</button>
+        )}
+      </section>
     </div>
   );
 }
