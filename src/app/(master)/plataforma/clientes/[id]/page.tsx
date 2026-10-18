@@ -11,10 +11,13 @@ import { SAAS_PLANS, formatBRL, type SaasPlanDef } from "@/lib/saasPlans";
 
 const PLANS = (Object.values(SAAS_PLANS) as SaasPlanDef[]).map((p) => ({
   value: p.key,
-  label: p.key,
+  label: p.label + (p.key === "BASIC" ? " (antigo)" : ""),
   price: p.monthlyPrice,
   desc: `${formatBRL(p.monthlyPrice)}/mês${p.legacy ? " (legado)" : ""}`,
 }));
+
+const STATUS_LABEL: Record<string, string> = { ACTIVE: "Em dia", TRIAL: "Sem pagamento", OVERDUE: "Atrasada", PAUSED: "Pausada", CANCELLED: "Cancelada", PENDING: "Sem pagamento" };
+const METHOD_LABEL: Record<string, string> = { PIX: "Pix", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito", BOLETO: "Boleto", CASH: "Dinheiro", ACCOUNT_MONEY: "Saldo Mercado Pago" };
 
 function planPrice(plan: string) {
   return PLANS.find(p => p.value === plan)?.desc ?? "—";
@@ -297,7 +300,7 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
           <div className="flex items-center gap-3">
             <Crown className={`w-10 h-10 ${["PREMIUM","ELITE"].includes(shop.saasPlan) ? "text-ink-2" : shop.saasPlan === "PRO" ? "text-warning" : "text-ink-3"}`} />
             <div>
-              <p className="text-2xl font-bold text-ink">{shop.saasPlan}</p>
+              <p className="text-2xl font-bold text-ink">{PLANS.find((p) => p.value === shop.saasPlan)?.label ?? shop.saasPlan}</p>
               <p className="text-xs text-ink-3">{planPrice(shop.saasPlan)}</p>
             </div>
           </div>
@@ -311,7 +314,7 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
             "bg-danger-soft text-danger"
           }`}>
             <span className="w-1.5 h-1.5 rounded-full bg-current" />
-            {shop.saasStatus ?? "TRIAL"}
+            {STATUS_LABEL[shop.saasStatus ?? "TRIAL"] ?? shop.saasStatus}
           </div>
 
           <div className="pt-4 border-t border-line">
@@ -403,7 +406,7 @@ export default function ClienteDetailsPage({ params }: { params: Promise<{ id: s
                       </span>
                     </td>
                     <td className="p-4 font-bold text-ink">{formatCurrency(p.amount)}</td>
-                    <td className="p-4 text-ink-3">{p.method}</td>
+                    <td className="p-4 text-ink-3">{METHOD_LABEL[p.method] ?? p.method}</td>
                     <td className="p-4 text-ink-3 text-xs">{notes || "—"}</td>
                     <td className="p-4">
                       {isManual

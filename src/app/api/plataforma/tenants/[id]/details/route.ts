@@ -11,7 +11,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id: shopId },
       include: {
         owner: { select: { id: true, name: true, email: true, phone: true } },
-        saasPayments: { orderBy: { createdAt: "desc" } },
+        // Só a mensalidade da plataforma: pagamentos de assinantes da barbearia também têm
+        // barbershopId, mas vêm com subscriptionId (antes entravam aqui e inflavam o total)
+        saasPayments: { where: { subscriptionId: null }, orderBy: { createdAt: "desc" } },
         _count: {
           select: { appointments: true, barbers: true, products: true, services: true }
         }

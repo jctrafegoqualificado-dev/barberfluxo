@@ -368,7 +368,7 @@ export default function PlataformaAbas({ tab: activeTab }: { tab: AbaPlataforma 
                     </td>
                     <td className="p-4 text-ink font-medium">{p.barbershop?.name || "—"}</td>
                     <td className="p-4 font-bold text-ink">{formatCurrency(p.amount)}</td>
-                    <td className="p-4 text-ink-3">{p.method}</td>
+                    <td className="p-4 text-ink-3">{({ PIX: "Pix", CREDIT_CARD: "Cartão de crédito", DEBIT_CARD: "Cartão de débito", BOLETO: "Boleto", CASH: "Dinheiro", ACCOUNT_MONEY: "Saldo Mercado Pago" } as Record<string, string>)[p.method] ?? p.method}</td>
                     <td className="p-4">
                       {p.externalId
                         ? <span className="text-ink text-xs font-bold bg-surface-2 px-2 py-0.5 rounded-full">Mercado Pago</span>
