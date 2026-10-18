@@ -1,38 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { todayKeySP } from "@/lib/subscriptionCycle";
-import { barberWorkWindow } from "@/lib/barberHours";
+import {
+  addDaysKey as addDays, apptDuration, barberDayWindow, dowOf as dow, keyOf, makeShopWindow, nowSP, OCC_APPT_SELECT, pctOf as rate, periodRange,
+} from "@/lib/ocupacao";
 
 /**
  * Ocupação: quanto do tempo das cadeiras virou atendimento (só comandas fechadas, DONE).
- *
- * Tempo disponível = para cada dia que JÁ passou no período (hoje conta até agora), para cada
- * profissional ativo: a janela da barbearia naquele dia (dia especial > horário da semana)
- * cruzada com o horário próprio do profissional, menos a folga fixa dele.
- * Tempo ocupado = duração dos serviços das comandas fechadas.
- *
+ * Regras do cálculo em src/lib/ocupacao.ts (as mesmas das Metas de ocupação).
  * ?periodo=semana|mes. Devolve também o período anterior inteiro, para comparar.
  */
 
-const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-const keyOf = (d: Date) => d.toISOString().slice(0, 10);
-const addDays = (key: string, n: number) => { const d = new Date(key + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return keyOf(d); };
-const dow = (key: string) => new Date(key + "T12:00:00Z").getUTCDay();
 const overlap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
-const rate = (occ: number, avail: number) => (avail > 0 ? Math.min(100, Math.round((occ / avail) * 100)) : null);
-
-function periodRange(periodo: string, today: string) {
-  if (periodo === "semana") {
-    const start = addDays(today, -((dow(today) + 6) % 7)); // segunda
-    return { start, end: addDays(start, 6), prevStart: addDays(start, -7), prevEnd: addDays(start, -1) };
-  }
-  const start = today.slice(0, 8) + "01";
-  const next = new Date(start + "T12:00:00Z"); next.setUTCMonth(next.getUTCMonth() + 1);
-  const end = addDays(keyOf(next), -1);
-  const prev = new Date(start + "T12:00:00Z"); prev.setUTCMonth(prev.getUTCMonth() - 1);
-  return { start, end, prevStart: keyOf(prev), prevEnd: addDays(start, -1) };
-}
+const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 
 type Appt = { barberId: string; date: Date; startTime: string; duration: number };
 
@@ -42,9 +22,7 @@ export async function GET(req: NextRequest) {
     const barbershopId = payload.barbershopId!;
     const periodo = req.nextUrl.searchParams.get("periodo") === "semana" ? "semana" : "mes";
 
-    const today = todayKeySP();
-    const nowParts = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
-    const nowMin = toMin(nowParts);
+    const { today, nowMin } = nowSP();
     const { start, end, prevStart, prevEnd } = periodRange(periodo, today);
 
     const [openingRaw, specialDays, barbers, apptsRaw] = await Promise.all([
@@ -57,40 +35,21 @@ export async function GET(req: NextRequest) {
       }),
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", date: { gte: new Date(prevStart + "T00:00:00Z"), lte: new Date(end + "T23:59:59Z") } },
-        select: {
-          barberId: true, date: true, startTime: true,
-          service: { select: { duration: true } },
-          services: { select: { duration: true, service: { select: { duration: true } } } },
-        },
+        select: OCC_APPT_SELECT,
       }),
     ]);
 
-    // Sem horário cadastrado: seg–sáb 09–20 (mesmo padrão de antes)
-    const weekly: Record<number, [number, number] | null> = {};
-    for (let d = 0; d < 7; d++) weekly[d] = null;
-    if (openingRaw.length === 0) for (let d = 1; d <= 6; d++) weekly[d] = [540, 1200];
-    for (const o of openingRaw) weekly[o.dayOfWeek] = o.isOpen ? [toMin(o.openTime), toMin(o.closeTime)] : null;
-    const special = new Map(specialDays.map((s) => [s.date, s]));
-    const shopWindow = (key: string): [number, number] | null => {
-      const s = special.get(key);
-      if (s) return s.isClosed || !s.openTime || !s.closeTime ? null : [toMin(s.openTime), toMin(s.closeTime)];
-      return weekly[dow(key)];
-    };
+    const shopW = makeShopWindow(openingRaw, specialDays);
+    const weekly = shopW.weekly;
+    const shopWindow = shopW.at;
 
     const appts: Appt[] = apptsRaw.map((a) => ({
       barberId: a.barberId, date: a.date, startTime: a.startTime,
-      duration: a.services.length ? a.services.reduce((s, x) => s + (x.duration ?? x.service?.duration ?? 0), 0) : a.service?.duration ?? 0,
+      duration: apptDuration(a),
     }));
     const barberIds = new Set(barbers.map((b) => b.id));
 
-    // Janela de trabalho de um profissional num dia (null = não trabalha); hoje corta em "agora"
-    const window = (b: (typeof barbers)[number], key: string): [number, number] | null => {
-      const w = shopWindow(key);
-      if (!w || b.dayOff === dow(key)) return null;
-      const { start: s, end: e } = barberWorkWindow(w[0], w[1], b);
-      const cut = key === today ? Math.min(e, nowMin) : e;
-      return cut > s ? [s, cut] : null;
-    };
+    const window = (b: (typeof barbers)[number], key: string) => barberDayWindow(b, key, shopWindow, today, nowMin);
 
     /** Soma de um intervalo de dias [from, to] já passados. */
     function compute(from: string, to: string) {
