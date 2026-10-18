@@ -79,10 +79,10 @@ export async function GET(req: NextRequest) {
         plan = per === "WEEKLY" ? "Meta da semana batida. Na segunda ela começa de novo." : "Meta do mês batida. No dia 1º ela começa de novo.";
       } else if (m.tipo === "ATENDIMENTOS") {
         note = `Faltam ${num(falta)}` + (perDay != null ? ` · ${Math.ceil(perDay)} por dia` : "") + (avg != null ? ` (média: ${num(avg)})` : "");
-        plan = perDay != null ? `Precisa de ${Math.ceil(perDay)} atendimentos por dia aberto até ${ddmm(end)}.` + (avg != null ? ` A média até agora é ${num(avg)} por dia.` : "") : "O período acabou.";
+        plan = perDay != null ? `Precisa de ${Math.ceil(perDay)} atendimentos por dia aberto até ${ddmm(end)}.` + (avg != null ? ` A média até agora é ${num(avg)} por dia.` : "") : `Não há mais dias com a barbearia aberta até ${ddmm(end)}.`;
       } else if (m.tipo === "RECEITA") {
         note = `Faltam ${brl(falta)}` + (perDay != null ? ` · ${brl(perDay)} por dia` : "") + (cumulative && p.elapsed > 0 ? ` · deve fechar em ${brl(projected)}` : "");
-        plan = perDay != null ? `Precisa de ${brl(perDay)} por dia aberto até ${ddmm(end)}.` + (avg != null ? ` A média até agora é ${brl(avg)} por dia.` : "") : "O período acabou.";
+        plan = perDay != null ? `Precisa de ${brl(perDay)} por dia aberto até ${ddmm(end)}.` + (avg != null ? ` A média até agora é ${brl(avg)} por dia.` : "") : `Não há mais dias com a barbearia aberta até ${ddmm(end)}.`;
       } else if (m.tipo === "OCUPACAO") {
         note = `${Math.round(falta)} pontos abaixo`;
         plan = "Veja na tela de Ocupação quais horários estão mais vazios e chame clientes para eles.";

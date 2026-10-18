@@ -1,370 +1,264 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Plus, Trash2, ChevronRight, ChevronLeft, User, Calendar, AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarDays, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
-import { getInitials } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
+import Button from "@/components/ui/Button";
+import { fieldCls } from "@/components/catalogo/SidePanel";
 
 type Status = "TODO" | "DOING" | "DONE";
 type Priority = "LOW" | "NORMAL" | "HIGH";
-
 interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  status: Status;
-  priority: Priority;
-  dueDate: string | null;
-  createdAt: string;
-  barber: { id: string; user: { name: string } } | null;
+  id: string; title: string; description: string | null; status: Status; priority: Priority;
+  dueDate: string | null; createdAt: string; updatedAt: string;
+  barberId: string | null; barber: { id: string; nickname?: string | null; user: { name: string } } | null;
 }
 
-interface Barber {
-  id: string;
-  user: { name: string };
-}
-
-const COLUMNS: { key: Status; label: string; color: string; bg: string }[] = [
-  { key: "TODO",  label: "A Fazer",      color: "text-zinc-500",  bg: "bg-zinc-50 border-zinc-200" },
-  { key: "DOING", label: "Em Andamento", color: "text-blue-600",  bg: "bg-blue-50 border-blue-200" },
-  { key: "DONE",  label: "Concluído",    color: "text-green-600", bg: "bg-green-50 border-green-200" },
+const COLS: { key: Status; label: string; dot: string }[] = [
+  { key: "TODO", label: "A fazer", dot: "bg-ink-4" },
+  { key: "DOING", label: "Fazendo", dot: "bg-warning" },
+  { key: "DONE", label: "Feito", dot: "bg-positive" },
 ];
-
-const PRIORITY_BADGE: Record<Priority, string> = {
-  LOW:    "bg-zinc-100 text-zinc-500",
-  NORMAL: "bg-primary/10 text-primary/90",
-  HIGH:   "bg-red-50 text-red-500",
+const ORDER: Status[] = ["TODO", "DOING", "DONE"];
+const PRIO: Record<Priority, [string, string]> = {
+  HIGH: ["Alta", "bg-danger-soft text-danger"],
+  NORMAL: ["Normal", "bg-surface-2 text-ink-2"],
+  LOW: ["Baixa", "bg-ground text-ink-3"],
 };
-const PRIORITY_LABEL: Record<Priority, string> = {
-  LOW: "Baixa", NORMAL: "Normal", HIGH: "Alta",
-};
+const todayKey = () => new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(new Date());
+const dueKey = (iso: string) => new Date(iso).toISOString().slice(0, 10);
+const ddmm = (k: string) => `${k.slice(8, 10)}/${k.slice(5, 7)}`;
+const nameOf = (t: Task) => (t.barber ? t.barber.nickname || t.barber.user.name.split(" ")[0] : null);
+const DONE_SHOWN = 12;
 
-function dueDateStatus(dueDate: string | null, status: Status) {
-  if (!dueDate || status === "DONE") return null;
-  const due = new Date(dueDate);
-  const now = new Date();
-  const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return "overdue";
-  if (diffDays <= 2) return "soon";
-  return "ok";
-}
+export default function KanbanPage() {
+  const { token } = useAuthStore();
+  const h = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
+  const [tasks, setTasks] = useState<Task[] | null>(null);
+  const [barbers, setBarbers] = useState<{ id: string; name: string }[]>([]);
+  const [error, setError] = useState(false);
+  const [filter, setFilter] = useState<string>("all"); // all | team | late | <barberId>
+  const [allDone, setAllDone] = useState(false);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
-function DueDateBadge({ dueDate, status }: { dueDate: string | null; status: Status }) {
-  if (!dueDate) return null;
-  const s = dueDateStatus(dueDate, status);
-  const date = new Date(dueDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  const [title, setTitle] = useState("");
+  const [who, setWho] = useState("");
+  const [due, setDue] = useState("");
+  const [prio, setPrio] = useState<Priority>("NORMAL");
+  const [details, setDetails] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
+  const [adding, setAdding] = useState(false);
 
-  const styles: Record<string, string> = {
-    overdue: "bg-red-50 text-red-500 border border-red-200",
-    soon:    "bg-primary/10 text-primary/90 border border-amber-200",
-    ok:      "bg-zinc-50 text-zinc-500 border border-zinc-200",
+  const load = useCallback(async () => {
+    try {
+      const [r1, r2] = await Promise.all([fetch("/api/barbershop/tasks", { headers: h }), fetch("/api/barbershop/barbers", { headers: h })]);
+      if (!r1.ok) throw new Error();
+      setTasks((await r1.json()).tasks ?? []);
+      if (r2.ok) setBarbers(((await r2.json()).barbers ?? []).map((b: { id: string; nickname?: string | null; user: { name: string } }) => ({ id: b.id, name: b.nickname || b.user.name })));
+    } catch {
+      setError(true);
+    }
+  }, [h]);
+  useEffect(() => { load(); }, [load]);
+
+  const today = todayKey();
+  const isLate = (t: Task) => t.status !== "DONE" && !!t.dueDate && dueKey(t.dueDate) < today;
+
+  async function add() {
+    if (!title.trim()) return toast.error("Escreva o que precisa ser feito");
+    setAdding(true);
+    try {
+      const r = await fetch("/api/barbershop/tasks", {
+        method: "POST", headers: { ...h, "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description: details, priority: prio, barberId: who || null, dueDate: due || null }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "Não foi possível adicionar");
+      setTasks((ts) => [j.task, ...(ts ?? [])]);
+      setTitle(""); setDetails(""); setShowDetails(false); setDue(""); setPrio("NORMAL");
+      toast.success("Tarefa adicionada em A fazer");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível adicionar");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function move(t: Task, dir: 1 | -1) {
+    const status = ORDER[ORDER.indexOf(t.status) + dir];
+    if (!status) return;
+    const prev = tasks;
+    setTasks((ts) => ts?.map((x) => (x.id === t.id ? { ...x, status, updatedAt: new Date().toISOString() } : x)) ?? null);
+    const r = await fetch(`/api/barbershop/tasks/${t.id}`, { method: "PATCH", headers: { ...h, "Content-Type": "application/json" }, body: JSON.stringify({ status }) }).catch(() => null);
+    if (!r?.ok) { setTasks(prev); toast.error("Não foi possível mover a tarefa"); }
+  }
+
+  async function remove(t: Task) {
+    if (confirmDel !== t.id) return setConfirmDel(t.id);
+    const prev = tasks;
+    setTasks((ts) => ts?.filter((x) => x.id !== t.id) ?? null);
+    setConfirmDel(null);
+    const r = await fetch(`/api/barbershop/tasks/${t.id}`, { method: "DELETE", headers: h }).catch(() => null);
+    if (!r?.ok) { setTasks(prev); toast.error("Não foi possível excluir"); }
+  }
+
+  const header = (open: number, late: number, doneWeek: number) => (
+    <header className="flex items-end justify-between gap-3 flex-wrap">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Tarefas da equipe</h1>
+        <span className="text-sm text-ink-3">
+          {open} {open === 1 ? "aberta" : "abertas"}
+          {late > 0 && <> · <span className="font-semibold text-danger">{late} {late === 1 ? "vencida" : "vencidas"}</span></>}
+          {" "}· {doneWeek} {doneWeek === 1 ? "feita" : "feitas"} esta semana
+        </span>
+      </div>
+      <span className="text-[13px] text-ink-3 max-w-[360px]">Cada profissional vê as tarefas dele e as da equipe no celular e marca como feita por lá.</span>
+    </header>
+  );
+
+  if (error) return <div className="flex flex-col gap-5">{header(0, 0, 0)}<p role="alert" className="rounded-2xl bg-danger-soft text-danger px-5 py-4 text-sm">Não foi possível carregar as tarefas. <button type="button" className="font-semibold underline" onClick={() => { setError(false); load(); }}>Tentar de novo</button></p></div>;
+  if (!tasks) return <div className="flex flex-col gap-5"><div className="h-14" /><div className="h-24 rounded-2xl bg-surface border border-line animate-pulse" /><div className="h-96 rounded-2xl bg-surface border border-line animate-pulse" /></div>;
+
+  const open = tasks.filter((t) => t.status !== "DONE");
+  const late = open.filter(isLate);
+  const monday = (() => { const d = new Date(today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); })();
+  const doneWeek = tasks.filter((t) => t.status === "DONE" && t.updatedAt.slice(0, 10) >= monday).length;
+
+  const people = [
+    { id: "all", label: "Todos", initials: "", count: open.length },
+    ...barbers.map((b) => ({ id: b.id, label: b.name.split(" ")[0], initials: getInitials(b.name), count: open.filter((t) => t.barberId === b.id).length })),
+    { id: "team", label: "Equipe toda", initials: "EQ", count: open.filter((t) => !t.barberId).length },
+  ];
+  const visible = tasks.filter((t) =>
+    filter === "all" ? true : filter === "team" ? !t.barberId : filter === "late" ? isLate(t) : t.barberId === filter);
+  const rank = (t: Task) => (isLate(t) ? "0" : "1") + (t.dueDate ? dueKey(t.dueDate) : "9999") + (t.priority === "HIGH" ? "0" : t.priority === "NORMAL" ? "1" : "2");
+
+  const card = (t: Task) => {
+    const lateT = isLate(t);
+    const dk = t.dueDate ? dueKey(t.dueDate) : null;
+    const who = nameOf(t);
+    const i = ORDER.indexOf(t.status);
+    return (
+      <article key={t.id} className={cn("bg-surface rounded-xl border p-3.5 flex flex-col gap-2.5", lateT ? "border-danger/40" : "border-line", t.status === "DONE" && "opacity-75")}>
+        <h3 className={cn("text-sm font-semibold leading-snug", t.status === "DONE" && "line-through decoration-ink-4")}>{t.title}</h3>
+        {t.description && <p className="text-[13px] text-ink-3 leading-snug -mt-1">{t.description}</p>}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={cn("h-[22px] px-2 rounded-full text-[11px] font-semibold flex items-center", PRIO[t.priority][1])}>{PRIO[t.priority][0]}</span>
+          {dk && t.status !== "DONE" && (
+            <span className={cn("h-[22px] px-2 rounded-full text-[11px] font-semibold flex items-center gap-1",
+              lateT ? "bg-danger-soft text-danger" : dk === today ? "bg-warning-soft text-warning" : "bg-ground text-ink-2")}>
+              <CalendarDays className="w-3 h-3" aria-hidden />
+              {lateT ? `Venceu ${ddmm(dk)}` : dk === today ? "Vence hoje" : ddmm(dk)}
+            </span>
+          )}
+          <span className="ml-auto flex items-center gap-1.5 text-xs text-ink-2">
+            <span className="w-[22px] h-[22px] rounded-full bg-surface-2 text-[10px] font-bold flex items-center justify-center">{who ? getInitials(who) : "EQ"}</span>
+            {who ?? "Equipe"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 pt-2 border-t border-line-2">
+          {i > 0 && (
+            <button type="button" onClick={() => move(t, -1)} aria-label={`Voltar para ${COLS[i - 1].label}`} className="h-8 px-2 rounded-lg text-xs font-semibold text-ink-2 flex items-center gap-0.5 hover:bg-surface-2">
+              <ChevronLeft className="w-3.5 h-3.5" aria-hidden />{COLS[i - 1].label}
+            </button>
+          )}
+          <span className="flex-1" />
+          <button type="button" onClick={() => remove(t)} aria-label={confirmDel === t.id ? "Confirmar exclusão" : `Excluir tarefa ${t.title}`}
+            className={cn("h-8 rounded-lg text-xs font-semibold flex items-center justify-center", confirmDel === t.id ? "px-2.5 bg-danger-strong text-white" : "w-8 text-ink-4 hover:text-danger hover:bg-surface-2")}>
+            {confirmDel === t.id ? "Excluir?" : <Trash2 className="w-3.5 h-3.5" aria-hidden />}
+          </button>
+          {i < 2 && (
+            <button type="button" onClick={() => move(t, 1)} aria-label={`Mover para ${COLS[i + 1].label}`}
+              className="h-8 px-2.5 rounded-lg border border-control text-xs font-semibold flex items-center gap-0.5 hover:bg-surface-2">
+              {COLS[i + 1].label}<ChevronRight className="w-3.5 h-3.5" aria-hidden />
+            </button>
+          )}
+        </div>
+      </article>
+    );
   };
 
   return (
-    <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${styles[s!] || styles.ok}`}>
-      {s === "overdue" && <AlertCircle className="w-3 h-3" />}
-      <Calendar className="w-3 h-3" />
-      {s === "overdue" ? `Venceu ${date}` : date}
-    </span>
-  );
-}
+    <div className="flex flex-col gap-5">
+      {header(open.length, late.length, doneWeek)}
 
-function TaskCard({
-  task,
-  isOwner,
-  onMove,
-  onDelete,
-}: {
-  task: Task;
-  isOwner: boolean;
-  onMove: (id: string, dir: "prev" | "next") => void;
-  onDelete: (id: string) => void;
-}) {
-  const statusOrder: Status[] = ["TODO", "DOING", "DONE"];
-  const idx = statusOrder.indexOf(task.status);
-  const ds = dueDateStatus(task.dueDate, task.status);
-
-  return (
-    <div className={`bg-white rounded-xl border shadow-sm p-4 space-y-2 group ${ds === "overdue" ? "border-red-200" : "border-zinc-100"}`}>
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-zinc-900 leading-snug">{task.title}</p>
-        {isOwner && (
-          <button
-            onClick={() => onDelete(task.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 text-zinc-300 hover:text-red-400"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-
-      {task.description && (
-        <p className="text-xs text-zinc-400 leading-relaxed">{task.description}</p>
-      )}
-
-      <div className="flex items-center gap-2 flex-wrap pt-1">
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${PRIORITY_BADGE[task.priority]}`}>
-          {PRIORITY_LABEL[task.priority]}
-        </span>
-        {task.barber && (
-          <span className="flex items-center gap-1 text-xs text-zinc-500">
-            <span className="w-5 h-5 rounded-full bg-primary/20 text-amber-700 flex items-center justify-center text-[10px] font-bold">
-              {getInitials(task.barber.user.name)}
-            </span>
-            {task.barber.user.name.split(" ")[0]}
-          </span>
-        )}
-        <DueDateBadge dueDate={task.dueDate} status={task.status} />
-      </div>
-
-      <div className="flex gap-1 pt-1">
-        {idx > 0 && (
-          <button
-            onClick={() => onMove(task.id, "prev")}
-            className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 px-2 py-1 rounded hover:bg-zinc-50 transition-colors"
-          >
-            <ChevronLeft className="w-3 h-3" />
-            {COLUMNS[idx - 1].label}
-          </button>
-        )}
-        {idx < 2 && (
-          <button
-            onClick={() => onMove(task.id, "next")}
-            className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 px-2 py-1 rounded hover:bg-zinc-50 transition-colors ml-auto"
-          >
-            {COLUMNS[idx + 1].label}
-            <ChevronRight className="w-3 h-3" />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default function KanbanPage() {
-  const { token, user } = useAuthStore();
-  const isOwner = user?.role === "OWNER";
-
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", priority: "NORMAL" as Priority, barberId: "", dueDate: "" });
-  const [saving, setSaving] = useState(false);
-
-  async function load() {
-    const [tRes, bRes] = await Promise.all([
-      fetch("/api/barbershop/tasks", { headers: { Authorization: `Bearer ${token}` } }),
-      fetch("/api/barbershop/barbers", { headers: { Authorization: `Bearer ${token}` } }),
-    ]);
-    const tData = await tRes.json();
-    const bData = await bRes.json();
-    setTasks(tData.tasks || []);
-    setBarbers(bData.barbers || []);
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    await fetch("/api/barbershop/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        ...form,
-        barberId: form.barberId || null,
-        dueDate: form.dueDate || null,
-      }),
-    });
-    setSaving(false);
-    setShowModal(false);
-    setForm({ title: "", description: "", priority: "NORMAL", barberId: "", dueDate: "" });
-    load();
-  }
-
-  async function handleMove(id: string, dir: "prev" | "next") {
-    const order: Status[] = ["TODO", "DOING", "DONE"];
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
-    const idx = order.indexOf(task.status);
-    const newStatus = dir === "next" ? order[idx + 1] : order[idx - 1];
-    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: newStatus } : t));
-    await fetch(`/api/barbershop/tasks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status: newStatus }),
-    });
-  }
-
-  async function handleDelete(id: string) {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    await fetch(`/api/barbershop/tasks/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-  }
-
-  const overdueCount = tasks.filter((t) => dueDateStatus(t.dueDate, t.status) === "overdue").length;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Kanban</h1>
-          <p className="text-zinc-500 text-sm mt-1">
-            Organize e atribua tarefas para os profissionais
-            {overdueCount > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 text-red-500 font-medium">
-                <AlertCircle className="w-3.5 h-3.5" />
-                {overdueCount} vencida{overdueCount > 1 ? "s" : ""}
-              </span>
-            )}
-          </p>
-        </div>
-        {isOwner && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Nova Tarefa
-          </button>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {COLUMNS.map((col) => {
-            const colTasks = tasks.filter((t) => t.status === col.key);
-            const colOverdue = colTasks.filter((t) => dueDateStatus(t.dueDate, t.status) === "overdue").length;
-            return (
-              <div key={col.key} className={`rounded-xl border p-4 ${col.bg}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className={`text-sm font-bold uppercase tracking-wide ${col.color}`}>{col.label}</h2>
-                  <div className="flex items-center gap-1.5">
-                    {colOverdue > 0 && (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-500">
-                        {colOverdue} venc.
-                      </span>
-                    )}
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-white border ${col.color}`}>
-                      {colTasks.length}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-3 min-h-[120px]">
-                  {colTasks.length === 0 ? (
-                    <p className="text-xs text-zinc-400 text-center py-6">Nenhuma tarefa</p>
-                  ) : (
-                    colTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        isOwner={isOwner}
-                        onMove={handleMove}
-                        onDelete={handleDelete}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="px-6 py-5 border-b border-zinc-100">
-              <h2 className="font-bold text-zinc-900">Nova Tarefa</h2>
-            </div>
-            <form onSubmit={handleCreate} className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">Título *</label>
-                <input
-                  required
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="Ex: Organizar recepção"
-                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">Descrição</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  rows={2}
-                  placeholder="Detalhes opcionais..."
-                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">Prioridade</label>
-                  <select
-                    value={form.priority}
-                    onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as Priority }))}
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                  >
-                    <option value="LOW">Baixa</option>
-                    <option value="NORMAL">Normal</option>
-                    <option value="HIGH">Alta</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">
-                    <User className="w-3 h-3 inline mr-1" />Profissional
-                  </label>
-                  <select
-                    value={form.barberId}
-                    onChange={(e) => setForm((f) => ({ ...f, barberId: e.target.value }))}
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                  >
-                    <option value="">Todos</option>
-                    {barbers.map((b) => (
-                      <option key={b.id} value={b.id}>{b.user.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">
-                  <Calendar className="w-3 h-3 inline mr-1" />Prazo (opcional)
-                </label>
-                <input
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-                  min={new Date().toISOString().slice(0, 10)}
-                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-medium hover:bg-zinc-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
-                >
-                  {saving ? "Criando..." : "Criar Tarefa"}
-                </button>
-              </div>
-            </form>
+      <section aria-label="Adicionar tarefa" className="bg-surface border border-line rounded-2xl p-4 flex flex-col gap-3">
+        <form onSubmit={(e) => { e.preventDefault(); add(); }} className="grid gap-2.5 lg:grid-cols-[minmax(0,1fr)_180px_160px_auto_auto] items-end">
+          <input aria-label="O que precisa ser feito" value={title} maxLength={140} onChange={(e) => setTitle(e.target.value)}
+            placeholder="O que precisa ser feito? Ex.: Organizar a recepção" className={fieldCls} />
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-ink-3">Quem faz</span>
+            <select aria-label="Quem faz" value={who} onChange={(e) => setWho(e.target.value)} className={fieldCls}>
+              <option value="">Equipe toda</option>
+              {barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-ink-3">Prazo</span>
+            <input type="date" aria-label="Prazo" value={due} min={today} onChange={(e) => setDue(e.target.value)} className={fieldCls} />
+          </label>
+          <div role="radiogroup" aria-label="Prioridade" className="flex p-1 gap-0.5 rounded-[10px] bg-track h-11">
+            {(["LOW", "NORMAL", "HIGH"] as Priority[]).map((p) => (
+              <button key={p} type="button" role="radio" aria-checked={prio === p} onClick={() => setPrio(p)}
+                className={cn("px-3 rounded-[7px] text-[13px] font-semibold", prio === p ? "bg-surface text-ink shadow-[0_1px_2px_rgba(27,25,22,0.12)]" : "text-ink-2")}>
+                {PRIO[p][0]}
+              </button>
+            ))}
           </div>
-        </div>
-      )}
+          <Button type="submit" loading={adding} className="h-11">Adicionar</Button>
+        </form>
+        <button type="button" onClick={() => setShowDetails(!showDetails)} aria-expanded={showDetails} className="self-start text-[13px] font-semibold text-ink-2 hover:text-ink">
+          {showDetails ? "− Sem detalhes" : "+ Adicionar detalhes"}
+        </button>
+        {showDetails && (
+          <textarea rows={2} aria-label="Detalhes da tarefa" value={details} maxLength={1000} onChange={(e) => setDetails(e.target.value)}
+            placeholder="Detalhes para quem vai fazer (opcional)" className={cn(fieldCls, "h-auto py-2.5 resize-none")} />
+        )}
+      </section>
+
+      <div role="group" aria-label="Filtrar por pessoa" className="flex gap-2 flex-wrap">
+        {people.map((p) => (
+          <button key={p.id} type="button" aria-pressed={filter === p.id} onClick={() => setFilter(p.id)}
+            className={cn("h-9 rounded-full border text-[13px] font-semibold flex items-center gap-1.5 pr-3", p.initials ? "pl-1" : "pl-3.5",
+              filter === p.id ? "bg-ink text-white border-ink" : "bg-surface border-control")}>
+            {p.initials && <span className={cn("w-7 h-7 rounded-full text-[10px] font-bold flex items-center justify-center", filter === p.id ? "bg-night-3 text-white" : "bg-surface-2 text-ink-2")}>{p.initials}</span>}
+            {p.label}
+            <span className={cn("text-xs", filter === p.id ? "text-white/70" : "text-ink-3")}>{p.count}</span>
+          </button>
+        ))}
+        {late.length > 0 && (
+          <button type="button" aria-pressed={filter === "late"} onClick={() => setFilter(filter === "late" ? "all" : "late")}
+            className={cn("h-9 px-3.5 rounded-full border text-[13px] font-semibold", filter === "late" ? "bg-danger-strong text-white border-danger-strong" : "bg-danger-soft text-danger border-danger/30")}>
+            Só vencidas · {late.length}
+          </button>
+        )}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3 items-start">
+        {COLS.map((col) => {
+          let items = visible.filter((t) => t.status === col.key);
+          items = col.key === "DONE" ? items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) : items.sort((a, b) => rank(a).localeCompare(rank(b)));
+          const hidden = col.key === "DONE" && !allDone ? Math.max(0, items.length - DONE_SHOWN) : 0;
+          const shown = hidden ? items.slice(0, DONE_SHOWN) : items;
+          const lateN = items.filter(isLate).length;
+          return (
+            <section key={col.key} aria-label={col.label} className="bg-ground/70 border border-line rounded-2xl p-3 flex flex-col gap-2.5">
+              <div className="flex items-center gap-2 px-1 py-1">
+                <span className={cn("w-2 h-2 rounded-full", col.dot)} />
+                <h2 className="text-sm font-semibold">{col.label}</h2>
+                <span className="text-xs text-ink-3">{items.length}</span>
+                {lateN > 0 && <span className="ml-auto h-[22px] px-2 rounded-full bg-danger-soft text-danger text-[11px] font-semibold flex items-center">{lateN} {lateN === 1 ? "vencida" : "vencidas"}</span>}
+              </div>
+              {shown.map(card)}
+              {items.length === 0 && <div className="py-8 text-center text-[13px] text-ink-4 border border-dashed border-line rounded-xl">Nenhuma tarefa aqui</div>}
+              {hidden > 0 && (
+                <button type="button" onClick={() => setAllDone(true)} className="text-[13px] font-semibold text-ink-2 py-2 hover:text-ink">Ver mais {hidden} feitas</button>
+              )}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

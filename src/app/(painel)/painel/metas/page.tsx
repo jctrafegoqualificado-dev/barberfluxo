@@ -32,6 +32,7 @@ const STATUS: Record<Status, [string, string]> = {
   slight: ["Um pouco atrás", "bg-warning-soft text-warning"],
   behind: ["Atrás", "bg-danger-soft text-danger"],
 };
+const doneLabel = (n: number) => (n === 0 ? "nenhuma concluída" : n === 1 ? "1 concluída" : `${n} concluídas`);
 const fmt = (t: Tipo, v: number) =>
   t === "RECEITA" ? "R$ " + Math.round(v).toLocaleString("pt-BR") : t === "OCUPACAO" ? `${Math.round(v)}%` : Math.round(v).toLocaleString("pt-BR");
 const monthLabel = (k: string) => {
@@ -136,7 +137,7 @@ export default function MetasPage() {
       <div className="flex flex-col gap-1">
         <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Metas</h1>
         <span className="text-sm text-ink-3">
-          {d ? `${d.metas.length} ${d.metas.length === 1 ? "meta ativa" : "metas ativas"} · ${d.metas.filter((m) => m.status === "done").length} concluída(s) · atualizado às ${new Date(d.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}` : "Carregando…"}
+          {d ? `${d.metas.length} ${d.metas.length === 1 ? "meta ativa" : "metas ativas"} · ${doneLabel(d.metas.filter((m) => m.status === "done").length)} · atualizado às ${new Date(d.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}` : "Carregando…"}
         </span>
       </div>
       <div className="flex items-center gap-2.5 flex-wrap">

@@ -35,6 +35,7 @@ const monthName = (k: string, delta = 0) => {
 function band(v: number) { return v < 40 ? 0 : v < 60 ? 1 : v < 75 ? 2 : v < 90 ? 3 : 4; }
 const BAND_CLS = ["bg-primary/10 text-ink", "bg-primary/25 text-ink", "bg-primary/45 text-ink", "bg-primary/75 text-ink", "bg-ink text-white"];
 const BAND_LABEL = ["até 39%", "40–59%", "60–74%", "75–89%", "90%+"];
+const n = (v: number, w: string) => `${v} ${w}${v === 1 ? "" : "s"}`;
 const barCls = (r: number) => (r >= 70 ? "bg-ink" : r >= 40 ? "bg-bar" : "bg-danger-strong");
 
 function verdict(r: number): [string, string] {
@@ -124,7 +125,8 @@ export default function OcupacaoPage() {
   ].filter(Boolean).join(" ");
   const grid = d.heat[who] ?? d.heat.all;
   const whoName = who === "all" ? "Barbearia toda" : d.porBarbeiro.find((b) => b.id === who)?.name ?? "";
-  const dayLabel = (k: string) => (k === d.today ? "hoje" : `${DOW_SHORT[dowOf(k)].toLowerCase()} ${Number(k.slice(8, 10))}`);
+  const dayLabel = (k: string) => (k === d.today ? "hoje" : String(Number(k.slice(8, 10))));
+  const dayInitial = (k: string) => DOW_SHORT[dowOf(k)][0];
   const kpis = [
     { label: "Tempo ocupado", value: hm(d.totalOcupadoGeral), sub: `somando os ${d.porBarbeiro.length} profissionais` },
     { label: "Tempo disponível", value: hm(d.totalDisponivelGeral), sub: "horário aberto × profissionais" },
@@ -166,14 +168,14 @@ export default function OcupacaoPage() {
             <span className="text-xs font-semibold text-positive">Melhor dia</span>
             {d.melhorDia ? <>
               <span className="text-base font-bold">{DOW_LONG[dowOf(d.melhorDia.data)]}, {ddmm(d.melhorDia.data)}</span>
-              <span className="text-[13px] text-positive">{d.melhorDia.taxa}% ocupado · {d.melhorDia.atendimentos} atendimentos</span>
+              <span className="text-[13px] text-positive">{d.melhorDia.taxa}% ocupado · {n(d.melhorDia.atendimentos, "atendimento")}</span>
             </> : <span className="text-[13px] text-positive">Ainda sem dias fechados</span>}
           </div>
           <div className="flex-1 px-3.5 py-3 rounded-xl bg-danger-soft flex flex-col gap-0.5">
             <span className="text-xs font-semibold text-danger">Dia mais vazio</span>
             {d.piorDia ? <>
               <span className="text-base font-bold">{DOW_LONG[dowOf(d.piorDia.data)]}, {ddmm(d.piorDia.data)}</span>
-              <span className="text-[13px] text-danger">{d.piorDia.taxa}% ocupado · {d.piorDia.atendimentos} atendimentos</span>
+              <span className="text-[13px] text-danger">{d.piorDia.taxa}% ocupado · {n(d.piorDia.atendimentos, "atendimento")}</span>
             </> : <span className="text-[13px] text-danger">Ainda sem dias para comparar</span>}
           </div>
         </div>
@@ -257,22 +259,24 @@ export default function OcupacaoPage() {
         <section aria-labelledby="dia-t" className="bg-surface border border-line rounded-2xl px-5 py-[18px] flex flex-col gap-3.5 min-w-0">
           <div className="flex justify-between items-baseline gap-3">
             <h2 id="dia-t" className="text-[15px] font-semibold">Ocupação por dia</h2>
-            <span className="text-[13px] text-ink-3">número embaixo = atendimentos</span>
+            <span className="text-[13px] text-ink-3">% em cima · atendimentos embaixo</span>
           </div>
-          <div className="overflow-x-auto -mx-1 px-1">
-            <div className="flex items-end gap-1.5 h-[196px]" style={{ minWidth: d.porDia.length * 30 }}>
+          <div className="overflow-x-auto overflow-y-hidden -mx-1 px-1">
+            <div className="flex items-end gap-1 h-[206px]" style={{ minWidth: d.porDia.length * 22 }}>
               {d.porDia.map((x) => {
                 const today = x.data === d.today;
                 return (
                   <div key={x.data} className="flex-1 min-w-0 flex flex-col items-center gap-1">
-                    <span className="text-[11px] font-semibold text-ink-2 h-4">{x.status === "open" && x.taxa != null ? `${x.taxa}%` : ""}</span>
+                    <span className="text-[10px] font-semibold text-ink-2 h-4">{x.status === "open" && x.taxa != null ? x.taxa : ""}</span>
                     <div className="w-full h-[130px] flex items-end">
                       <div className={cn("w-full rounded-[5px_5px_2px_2px]",
                         x.status === "closed" ? "bg-surface-2" : x.status === "future" ? "bg-surface border border-dashed border-line" : today ? "bg-ink/50" : barCls(x.taxa ?? 0))}
                         style={{ height: x.status === "closed" ? 6 : x.status === "future" ? "100%" : `${Math.max(x.taxa ?? 0, 2)}%` }} />
                     </div>
-                    <span className={cn("text-[11px] whitespace-nowrap", today ? "font-bold text-ink" : "text-ink-3")}>{dayLabel(x.data)}</span>
-                    <span className="text-[11px] text-ink-4 h-4">{x.status === "closed" ? "fechado" : x.status === "open" ? x.atendimentos : ""}</span>
+                    <span className={cn("flex flex-col items-center leading-tight text-[11px] whitespace-nowrap", today ? "font-bold text-ink" : "text-ink-3")}>
+                      <span className="text-[10px] text-ink-4">{today ? "" : dayInitial(x.data)}</span>{dayLabel(x.data)}
+                    </span>
+                    <span className="text-[11px] text-ink-4 h-4">{x.status === "closed" ? "–" : x.status === "open" ? x.atendimentos : ""}</span>
                   </div>
                 );
               })}
@@ -299,7 +303,7 @@ export default function OcupacaoPage() {
                   <div className="w-[38px] h-[38px] rounded-full bg-surface-2 text-ink-2 text-[13px] font-bold flex items-center justify-center shrink-0">{getInitials(b.name)}</div>
                   <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                     <span className="text-sm font-semibold truncate">{b.name}</span>
-                    <span className="text-xs text-ink-3">{b.atendimentos} atendimentos · {hm(b.minOcupados)} ocupado</span>
+                    <span className="text-xs text-ink-3">{n(b.atendimentos, "atendimento")} · {hm(b.minOcupados)} ocupado</span>
                   </div>
                   <div className="flex flex-col items-end gap-0.5">
                     <span className={cn("font-display text-2xl font-bold", b.taxa >= 70 ? "text-ink" : b.taxa >= 40 ? "text-warning" : "text-danger")}>{b.taxa}%</span>
