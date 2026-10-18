@@ -139,3 +139,48 @@ export async function sendSubscriptionConfirmation({
 </html>`,
   });
 }
+
+/**
+ * "Esqueci a senha". Sem RESEND_API_KEY (desenvolvimento/homologação) mostra o link no
+ * terminal do servidor; em produção sem a chave só registra o erro.
+ * Retorna false quando o e-mail não saiu.
+ */
+export async function sendPasswordReset({ to, name, url }: { to: string; name: string; url: string }): Promise<boolean> {
+  if (!process.env.RESEND_API_KEY) {
+    if (process.env.NODE_ENV !== "production") console.info(`[esqueci-a-senha] link para ${to}: ${url}`);
+    else console.error("[esqueci-a-senha] RESEND_API_KEY não configurada — e-mail não enviado");
+    return false;
+  }
+  const first = name.split(" ")[0] || "tudo bem";
+  const { error } = await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: "Criar uma nova senha — IA de Barbearia",
+    text: `Olá, ${first}!\n\nRecebemos um pedido para criar uma nova senha. Abra o link abaixo (vale por 1 hora):\n\n${url}\n\nSe não foi você, ignore este e-mail: sua senha continua a mesma.`,
+    html: `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F5F3EE;font-family:'Segoe UI',system-ui,sans-serif;color:#1B1916;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:16px;border:1px solid #E7E2D8;">
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#6F685D;">IA de Barbearia</p>
+          <h1 style="margin:0 0 16px;font-size:22px;">Criar uma nova senha</h1>
+          <p style="margin:0 0 24px;font-size:15px;line-height:1.55;">Olá, ${first}! Recebemos um pedido para criar uma nova senha da sua conta. O link vale por 1 hora.</p>
+          <a href="${url}" style="display:inline-block;padding:14px 22px;border-radius:12px;background:#1B1916;color:#fff;font-size:15px;font-weight:600;text-decoration:none;">Criar nova senha</a>
+          <p style="margin:24px 0 0;font-size:13px;line-height:1.55;color:#6F685D;">Se não foi você, ignore este e-mail: sua senha continua a mesma.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+  if (error) {
+    console.error("[esqueci-a-senha] falha no envio:", error);
+    return false;
+  }
+  return true;
+}

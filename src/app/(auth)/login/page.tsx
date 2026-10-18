@@ -1,15 +1,17 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
-import { Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+import AuthShell, { AuthAlert, PasswordInput, authInputCls } from "@/components/auth/AuthShell";
 
-type Tab = "admin" | "barber";
+type Role = "owner" | "barber";
 
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const [tab, setTab] = useState<Tab>("admin");
+  const [role, setRole] = useState<Role>("owner");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,157 +25,77 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(res.status === 401 ? "E-mail ou senha não conferem. Confira e tente de novo." : data.error || "Não foi possível entrar agora");
+      }
       setAuth(data.user, data.token);
+      // O destino depende da conta, não da aba escolhida
       if (data.user.role === "PLATFORM_ADMIN") router.push("/plataforma");
-      else if (data.user.role === "BARBER") router.push("/barbeiro");
-      else if (data.user.isBarber) router.push("/barbeiro");
+      else if (data.user.role === "BARBER" || data.user.isBarber) router.push("/barbeiro");
       else router.push("/painel");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Credenciais inválidas");
+      setError(e instanceof Error ? e.message : "Não foi possível entrar agora");
     } finally {
       setLoading(false);
     }
   }
 
+  const isOwner = role === "owner";
   return (
-    <div className="min-h-screen flex">
-      {/* Lado esquerdo — foto + branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center"
-        style={{ background: "linear-gradient(135deg, #0f0f0f 0%, #171717 100%)" }}>
-        
-        {/* Glow de fundo */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-[#FF5F00] opacity-[0.06] blur-[100px] pointer-events-none" />
+    <AuthShell top={<>
+      Ainda não usa?
+      <Link href="/cadastro" className="h-10 px-3.5 rounded-[10px] border border-control bg-surface text-ink text-sm font-semibold inline-flex items-center hover:bg-surface-2">Criar conta</Link>
+    </>}>
+      <form onSubmit={handleLogin} aria-labelledby="login-t" className="flex flex-col gap-[22px]">
+        <div className="flex flex-col gap-1.5">
+          <h1 id="login-t" className="font-display text-[34px] font-bold tracking-[-0.02em] leading-tight">Entrar</h1>
+          <span className="text-[15px] text-ink-3">Acesse o painel da sua barbearia</span>
+        </div>
 
-        {/* Conteúdo */}
-        <div className="relative z-10 text-center px-12">
-          {/* Logo */}
-          <div className="flex justify-center mb-10">
-            <img 
-              src="/IA de barbearia.png transparente.png" 
-              alt="IA de Barbearia" 
-              className="w-64 object-contain" 
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
-          </div>
-
-          <div className="space-y-4 text-left max-w-xs mx-auto">
-            {[
-              "Gestão completa do estabelecimento",
-              "Agendamentos em tempo real",
-              "Controle de comissões",
-              "Relatórios e métricas",
-            ].map((item) => (
-              <div key={item} className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <span className="text-zinc-300 text-sm">{item}</span>
-              </div>
+        <div className="flex flex-col gap-2">
+          <span id="role-l" className="text-[13px] font-semibold">Você é</span>
+          <div role="group" aria-labelledby="role-l" className="grid grid-cols-2 gap-0.5 p-1 rounded-[10px] bg-track">
+            {([["owner", "Dono ou gerente"], ["barber", "Profissional"]] as [Role, string][]).map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={role === k} onClick={() => { setRole(k); setError(""); }}
+                className={cn("h-[38px] rounded-[7px] text-sm font-semibold", role === k ? "bg-surface text-ink shadow-[0_1px_2px_rgba(27,25,22,0.12)]" : "text-ink-2")}>
+                {label}
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Rodapé */}
-        <p className="absolute bottom-6 text-zinc-600 text-xs">© 2026 IA de Barbearia</p>
-      </div>
+        {error && <AuthAlert>{error}</AuthAlert>}
 
-      {/* Lado direito — formulário */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-white">
-        <div className="w-full max-w-md">
-          {/* Logo mobile */}
-          <div className="flex items-center justify-center mb-8 lg:hidden">
-            <img 
-              src="/IA de barbearia.png transparente.png" 
-              alt="IA de Barbearia" 
-              className="w-40 object-contain" 
-            />
-          </div>
-
-          <h2 className="text-3xl font-bold text-zinc-900 mb-1">
-            Conecte-se à <span className="text-primary">sua conta</span>
-          </h2>
-          <p className="text-zinc-500 text-sm mb-8">Acesse o painel de gestão do estabelecimento</p>
-
-          {/* Tabs */}
-          <div className="flex rounded-xl border border-zinc-200 p-1 mb-6 bg-zinc-50">
-            <button
-              type="button"
-              onClick={() => setTab("admin")}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "admin" ? "bg-white shadow text-primary/90 border border-amber-200" : "text-zinc-500 hover:text-zinc-700"}`}>
-              Administrador
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("barber")}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "barber" ? "bg-white shadow text-primary/90 border border-amber-200" : "text-zinc-500 hover:text-zinc-700"}`}>
-              Profissional
-            </button>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-                E-mail <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                required
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-transparent transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-1.5">
-                Senha <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-transparent transition"
-              />
-              <div className="flex justify-end mt-1.5">
-                <a href="/recuperar-senha" className="text-xs text-zinc-400 hover:text-primary transition-colors">
-                  Esqueceu sua senha?
-                </a>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors text-sm shadow-sm flex items-center justify-center gap-2 mt-2">
-              {loading
-                ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : `Entrar como ${tab === "admin" ? "Administrador" : "Profissional"}`}
-            </button>
-          </form>
-
-          <p className="text-center text-sm text-zinc-500 mt-6">
-            Não tem uma conta?{" "}
-            <a href="/cadastro" className="font-semibold text-primary hover:underline transition-all">
-              Cadastre-se grátis
-            </a>
-          </p>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="email" className="text-[13px] font-semibold">E-mail</label>
+          <input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+            placeholder="seu@email.com" className={authInputCls} />
         </div>
-      </div>
-    </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex justify-between items-baseline">
+            <label htmlFor="senha" className="text-[13px] font-semibold">Senha</label>
+            <Link href={`/recuperar-senha${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ""}`} className="text-[13px] font-semibold text-ink-2 hover:text-ink">
+              Esqueci a senha
+            </Link>
+          </div>
+          <PasswordInput id="senha" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
+
+        <button type="submit" disabled={loading}
+          className="h-[52px] rounded-xl bg-primary text-white text-base font-semibold disabled:opacity-60 flex items-center justify-center">
+          {loading ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" aria-label="Entrando" /> : isOwner ? "Entrar no painel" : "Entrar na minha agenda"}
+        </button>
+
+        <span className="text-[13px] leading-normal text-ink-3 text-center">
+          {isOwner
+            ? "Dono ou gerente vê agenda, equipe, financeiro e configurações."
+            : "O profissional usa o e-mail e a senha que o dono cadastrou para ele."}
+        </span>
+      </form>
+    </AuthShell>
   );
 }
