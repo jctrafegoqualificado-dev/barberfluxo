@@ -110,6 +110,7 @@ model Barbershop {
   aiMensagemConfirmacaoAgendamento String?  @db.Text  // Após confirmar agendamento
   aiMensagemCancelamento           String?  @db.Text  // Após cancelar agendamento
   aiObservacoesAdicionais          String?  @db.Text  // Instruções extras / regras adicionais
+  aiHandoffTriggers                String[] @default([]) // Quando a IA passa a conversa (src/lib/whatsapp/handoffTriggers.ts)
 
   autoNoShowEnabled Boolean @default(true)
   autoNoShowHours   Int     @default(24)

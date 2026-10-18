@@ -10,12 +10,12 @@ import {
   LayoutDashboard, Calendar, Users, UserCheck, Scissors, CreditCard,
   Package, Settings, LogOut, ChevronRight, ChevronLeft,
   Layers, TrendingUp, Clock, Target, KanbanSquare, X,
-  Crown, MessageSquare, Bell, Banknote, BarChart3, Wallet,
-  Award, Bot, Megaphone, Palette,
+  Crown, MessageSquare, Banknote, BarChart3, Wallet,
+  Award, Megaphone, Palette,
 } from "lucide-react";
 import { useState, useEffect, type ElementType } from "react";
 
-type NavItem = { href: string; label: string; icon: ElementType; exact?: boolean };
+type NavItem = { href: string; label: string; icon: ElementType; exact?: boolean; also?: string[] };
 type NavGroup = { label?: string; items: NavItem[] };
 
 // Menu do dono — grupos sempre visíveis (sem sanfona), como no redesign (docs/design/Main.dc.html)
@@ -24,7 +24,8 @@ const ownerGroups: NavGroup[] = [
     items: [
       { href: "/painel", label: "Início", icon: LayoutDashboard, exact: true },
       { href: "/painel/agendamentos", label: "Agenda", icon: Calendar },
-      { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare },
+      // Atendente de IA e Lembretes são abas do WhatsApp (moram em /painel/configuracoes/…)
+      { href: "/painel/whatsapp", label: "WhatsApp", icon: MessageSquare, also: ["/painel/configuracoes/assistente-ia", "/painel/configuracoes/lembretes"] },
     ],
   },
   {
@@ -72,8 +73,6 @@ const ownerFooter: NavItem[] = [
 const ownerConfigSubnav: NavItem[] = [
   { href: "/painel/configuracoes/marca", label: "Marca", icon: Palette },
   { href: "/painel/configuracoes/pagamentos", label: "Pagamentos", icon: CreditCard },
-  { href: "/painel/configuracoes/lembretes", label: "Lembretes", icon: Bell },
-  { href: "/painel/configuracoes/assistente-ia", label: "Atendente de IA", icon: Bot },
 ];
 
 const barberNav: NavItem[] = [
@@ -86,6 +85,7 @@ const barberNav: NavItem[] = [
 ];
 
 function isActive(pathname: string, item: NavItem) {
+  if (item.also?.some((h) => pathname === h || pathname.startsWith(h + "/"))) return true;
   return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + "/");
 }
 
@@ -232,7 +232,7 @@ export default function Sidebar({ branding }: {
           {isOwner && (
             <>
               {ownerFooter.map((item) => renderItem(item))}
-              {!compact && pathname.startsWith("/painel/configuracoes") && (
+              {!compact && pathname.startsWith("/painel/configuracoes") && !/\/(assistente-ia|lembretes)/.test(pathname) && (
                 <div className="ml-5 pl-3 border-l border-night-line flex flex-col gap-0.5">
                   {ownerConfigSubnav.map((item) => renderItem(item, true))}
                 </div>

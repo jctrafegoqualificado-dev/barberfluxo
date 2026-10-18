@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getEntitlements } from "@/lib/entitlements";
+import { HANDOFF_TRIGGERS, handoffInstruction } from "@/lib/whatsapp/handoffTriggers";
 
 /**
  * GET /api/v1/barbershops/{slug}/ai-config
@@ -48,6 +49,7 @@ export async function GET(
         aiMensagemConfirmacaoAgendamento: true,
         aiMensagemCancelamento: true,
         aiObservacoesAdicionais: true,
+        aiHandoffTriggers: true,
         openingHours: {
           select: { dayOfWeek: true, isOpen: true, openTime: true, closeTime: true },
           orderBy: { dayOfWeek: "asc" },
@@ -88,6 +90,7 @@ export async function GET(
               aiMensagemConfirmacaoAgendamento: true,
               aiMensagemCancelamento: true,
               aiObservacoesAdicionais: true,
+        aiHandoffTriggers: true,
               openingHours: {
                 select: { dayOfWeek: true, isOpen: true, openTime: true, closeTime: true },
                 orderBy: { dayOfWeek: "asc" },
@@ -157,7 +160,9 @@ export async function GET(
         mensagemAusencia: shop.aiMensagemAusencia ?? null,
         mensagemConfirmacaoAgendamento: shop.aiMensagemConfirmacaoAgendamento ?? null,
         mensagemCancelamento: shop.aiMensagemCancelamento ?? null,
-        observacoesAdicionais: shop.aiObservacoesAdicionais ?? null,
+        // Regras da casa + quando passar a conversa para a equipe (tela Atendente de IA)
+        observacoesAdicionais: [shop.aiObservacoesAdicionais, handoffInstruction(shop.aiHandoffTriggers)].filter(Boolean).join("\n\n") || null,
+        handoffTriggers: HANDOFF_TRIGGERS.filter(([k]) => shop.aiHandoffTriggers.includes(k)).map(([k, label]) => ({ key: k, label })),
       },
       businessHours,
       meta: {

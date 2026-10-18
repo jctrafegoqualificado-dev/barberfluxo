@@ -63,6 +63,7 @@ interface StatusResponse {
   evolutionInstanceName?: string;
   lastConnectedAt?: string | null;
   evolutionUnreachable?: boolean;
+  unavailable?: boolean; // servidor sem Evolution configurada (homologação)
 }
 
 interface ProvisionResponse {
@@ -83,6 +84,10 @@ interface QrCodeResponse {
 
 function mapStatusResponse(r: StatusResponse): InstanceState {
   if (!r.provisioned) return { kind: "no_instance" };
+  // Sem Evolution não há QR a buscar; "Conectado" (dado de teste) continua aparecendo normalmente
+  if (r.unavailable && r.status !== "CONNECTED") {
+    return { kind: "error", message: "WhatsApp indisponível neste ambiente: o servidor do WhatsApp (Evolution) não está configurado." };
+  }
 
   switch (r.status) {
     case "PENDING":

@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     const barbershop = await prisma.barbershop.findUnique({
       where: { id: barbershopId },
       select: {
+        name: true,
         reminderEnabled: true,
         reminderMinutes: true,
         reminderMessage: true,

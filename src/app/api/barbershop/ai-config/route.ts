@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { cleanHandoffTriggers } from "@/lib/whatsapp/handoffTriggers";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,6 +11,8 @@ export async function GET(req: NextRequest) {
     const barbershop = await prisma.barbershop.findUnique({
       where: { id: barbershopId },
       select: {
+        name: true,
+        aiHandoffTriggers: true,
         aiAssistantName: true,
         aiPersonality: true,
         aiGreetingDirective: true,
@@ -52,6 +55,7 @@ export async function PATCH(req: NextRequest) {
     const aiMensagemConfirmacaoAgendamento = str(body.aiMensagemConfirmacaoAgendamento, 500);
     const aiMensagemCancelamento = str(body.aiMensagemCancelamento, 500);
     const aiObservacoesAdicionais = str(body.aiObservacoesAdicionais, 1000);
+    const aiHandoffTriggers = cleanHandoffTriggers(body.aiHandoffTriggers);
 
     const updated = await prisma.barbershop.update({
       where: { id: barbershopId },
@@ -60,14 +64,14 @@ export async function PATCH(req: NextRequest) {
         aiIdioma, aiAtendimentoAtivo,
         aiMensagemBoasVindas, aiMensagemAusencia,
         aiMensagemConfirmacaoAgendamento, aiMensagemCancelamento,
-        aiObservacoesAdicionais,
+        aiObservacoesAdicionais, aiHandoffTriggers,
       },
       select: {
         aiAssistantName: true, aiPersonality: true, aiGreetingDirective: true,
         aiIdioma: true, aiAtendimentoAtivo: true,
         aiMensagemBoasVindas: true, aiMensagemAusencia: true,
         aiMensagemConfirmacaoAgendamento: true, aiMensagemCancelamento: true,
-        aiObservacoesAdicionais: true,
+        aiObservacoesAdicionais: true, aiHandoffTriggers: true,
       },
     });
 
