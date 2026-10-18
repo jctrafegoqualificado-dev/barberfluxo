@@ -10,7 +10,7 @@ import Input from "@/components/ui/Input";
 
 const PLAN_LABELS: Record<string, string> = {
   PRO: `${SAAS_PLANS.PRO.label} — ${formatBRL(SAAS_PLANS.PRO.monthlyPrice)}/mês`,
-  ELITE: `${SAAS_PLANS.ELITE.label} — ${formatBRL(SAAS_PLANS.ELITE.monthlyPrice)}/mês`,
+  ELITE: `${SAAS_PLANS.ELITE.label} — ${formatBRL(SAAS_PLANS.ELITE.monthlyPrice)}/mês com ${SAAS_PLANS.ELITE.includedBarbers} barbeiros (+ ${formatBRL(SAAS_PLANS.ELITE.extraBarberMonthly)} por barbeiro extra)`,
 };
 
 function CadastroForm() {

@@ -31,6 +31,7 @@ export function MobileMenu({ links }: { links: [string, string][] }) {
 
 export interface LandingPlan {
   key: "PRO" | "ELITE"; name: string; desc: string; monthly: number; annualMonthly: number | null;
+  includedBarbers: number; extraMonthly: number; extraAnnualMonthly: number | null;
   items: string[]; popular: boolean; cta: string;
 }
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -66,6 +67,11 @@ export function Planos({ plans }: { plans: LandingPlan[] }) {
                   {showAnnual ? `por mês · ${brl(Math.round(price * 12 * 100) / 100)} cobrado uma vez por ano` : "por mês"}
                 </span>
               </div>
+              <span className={cn("text-sm font-semibold -mt-2", p.popular ? "text-primary" : "text-ink-2")}>
+                {p.extraMonthly > 0
+                  ? `${p.includedBarbers} barbeiros inclusos. A partir do ${p.includedBarbers + 1}º: + ${brl(showAnnual ? p.extraAnnualMonthly ?? p.extraMonthly : p.extraMonthly)} por barbeiro/mês`
+                  : "Sem valor extra por barbeiro"}
+              </span>
               <Link href={`/cadastro?plano=${p.key}`}
                 className={cn("h-[52px] rounded-xl font-semibold text-base flex items-center justify-center", p.popular ? "bg-primary text-white" : "bg-ink text-white")}>
                 {p.cta}

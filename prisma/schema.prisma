@@ -786,6 +786,9 @@ model SaasPlanConfig {
   tagline            String   @default("")
   monthlyPrice       Float    @default(0)
   annualPriceMonthly Float?   // preço mensal equivalente no plano anual; null = sem anual
+  includedBarbers          Int    @default(0) // barbeiros já inclusos no preço
+  extraBarberMonthly       Float  @default(0) // cada barbeiro a mais, por mês (0 = sem extra)
+  extraBarberAnnualMonthly Float?             // idem no plano anual (valor mensal equivalente)
   isPaid             Boolean  @default(false)
   legacy             Boolean  @default(false)
   active             Boolean  @default(true)

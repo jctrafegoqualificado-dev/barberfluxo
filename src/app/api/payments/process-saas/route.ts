@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { nextSaasExpiry } from "@/lib/saasBilling";
 import { requireAuth } from "@/lib/auth";
 import { getCheckoutAmount } from "@/lib/saasPlans";
-import { loadSaasPlans } from "@/lib/saasPlans.server";
+import { billableBarbers, loadSaasPlans } from "@/lib/saasPlans.server";
 import MercadoPago, { Payment } from "mercadopago";
 
 export async function POST(req: NextRequest) {
@@ -21,11 +21,12 @@ export async function POST(req: NextRequest) {
     // Valida o valor contra a fonte única — o transaction_amount vem do frontend
     // e NÃO pode ser confiado (antes dava para pagar qualquer valor por um plano).
     const cycle = billingCycle === "annual" ? "annual" : "monthly";
-    const plans = await loadSaasPlans();
-    const expectedAmount = getCheckoutAmount(planType, cycle, plans);
+    // Plano + barbeiros extras (src/lib/saasPlans.ts saasCharge)
+    const [plans, barbers] = await Promise.all([loadSaasPlans(), billableBarbers(payload.barbershopId!)]);
+    const expectedAmount = getCheckoutAmount(planType, cycle, plans, barbers);
     if (expectedAmount == null || Math.abs(Number(transaction_amount) - expectedAmount) > 1) {
       return NextResponse.json(
-        { error: "Valor do pagamento não confere com o plano selecionado." },
+        { error: "O valor mudou (a equipe ou o preço do plano foi alterado). Recarregue a página e tente de novo." },
         { status: 400 }
       );
     }

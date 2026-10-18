@@ -15,7 +15,7 @@ function Logo({ dark }: { dark?: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-3 w-fit">
       <span className="w-10 h-10 rounded-[10px] bg-primary text-white flex items-center justify-center"><Scissors className="w-5 h-5" aria-hidden /></span>
-      <span className={`font-display text-xl font-bold ${dark ? "text-white" : "text-ink"}`}>IA de Barbearia</span>
+      <span className={`font-display text-lg sm:text-xl font-bold whitespace-nowrap ${dark ? "text-white" : "text-ink"}`}>IA de Barbearia</span>
     </Link>
   );
 }

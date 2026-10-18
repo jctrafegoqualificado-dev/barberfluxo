@@ -46,7 +46,7 @@ export default function LoginPage() {
   const isOwner = role === "owner";
   return (
     <AuthShell top={<>
-      Ainda não usa?
+      <span className="hidden sm:inline">Ainda não usa?</span>
       <Link href="/cadastro" className="h-10 px-3.5 rounded-[10px] border border-control bg-surface text-ink text-sm font-semibold inline-flex items-center hover:bg-surface-2">Criar conta</Link>
     </>}>
       <form onSubmit={handleLogin} aria-labelledby="login-t" className="flex flex-col gap-[22px]">

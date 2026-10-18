@@ -23,6 +23,16 @@ export async function GET(req: NextRequest) {
       const endOfDay = new Date(date + "T23:59:59.999Z");
       where.date = { gte: startOfDay, lte: endOfDay };
     }
+    // Intervalo (visão Semana da agenda): ?from=AAAA-MM-DD&to=AAAA-MM-DD, no máximo 14 dias
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (!date && from && to) {
+      const ok = /^\d{4}-\d{2}-\d{2}$/;
+      if (!ok.test(from) || !ok.test(to) || to < from || (Date.parse(to) - Date.parse(from)) / 86_400_000 > 13) {
+        return NextResponse.json({ error: "Intervalo inválido (até 14 dias)" }, { status: 400 });
+      }
+      where.date = { gte: new Date(from + "T00:00:00Z"), lte: new Date(to + "T23:59:59.999Z") };
+    }
     if (barberId) where.barberId = barberId;
     if (payload.role === "BARBER") {
       const barber = await prisma.barber.findUnique({ where: { userId: payload.id } });

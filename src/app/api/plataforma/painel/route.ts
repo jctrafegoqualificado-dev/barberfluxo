@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { getEntitlements } from "@/lib/entitlements";
 import { loadSaasPlans } from "@/lib/saasPlans.server";
+import { saasCharge } from "@/lib/saasPlans";
 
 /**
  * Painel da plataforma (docs/design/Plataforma-desktop): o que entra por mês, quem está em dia,
@@ -61,9 +62,11 @@ export async function GET(req: NextRequest) {
       const def = plans[planKey as "PRO" | "ELITE"];
       const paidPlan = planKey === "PRO" || planKey === "ELITE";
       const pay = byShop.get(s.id);
-      const annualTotal = def?.annualPriceMonthly != null ? def.annualPriceMonthly * 12 : null;
-      const annual = !!(pay && annualTotal && Math.abs(pay.last.amount - annualTotal) < Math.abs(pay.last.amount - (def?.monthlyPrice ?? 0)));
-      const fee = paidPlan && def ? (annual && def.annualPriceMonthly != null ? def.annualPriceMonthly : def.monthlyPrice) : 0;
+      // Ciclo pelo valor do último pagamento (o mais perto entre a conta mensal e a anual, com extras)
+      const m = paidPlan ? saasCharge(planKey, "monthly", s._count.barbers, plans) : null;
+      const a = paidPlan && def?.annualPriceMonthly != null ? saasCharge(planKey, "annual", s._count.barbers, plans) : null;
+      const annual = !!(pay && a && m && Math.abs(pay.last.amount - a.total) < Math.abs(pay.last.amount - m.total));
+      const fee = (annual ? a?.perMonth : m?.perMonth) ?? 0;
       const daysLeft = s.saasExpiresAt ? Math.ceil((s.saasExpiresAt.getTime() - now.getTime()) / DAY) : null;
 
       let situacao: Situacao;

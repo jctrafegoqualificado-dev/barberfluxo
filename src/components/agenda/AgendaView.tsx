@@ -11,6 +11,7 @@ import WaitlistPanelButton from "@/components/booking/WaitlistPanelButton";
 import { cn } from "@/lib/utils";
 import { Pill } from "@/components/ui/Badge";
 import WeekStrip from "@/components/agenda/WeekStrip";
+import WeekView from "@/components/agenda/WeekView";
 import AgendaMobile from "@/components/agenda/AgendaMobile";
 import AppointmentDetails from "@/components/agenda/AppointmentDetails";
 import NovoAgendamentoModal, { type NovoAgendamentoData } from "@/components/agenda/NovoAgendamentoModal";
@@ -99,7 +100,10 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
   const [showVender, setShowVender] = useState(false);
   const { token } = useAuthStore();
   const [date, setDate] = useState(localDateStr);
-  const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [view, setView] = useState<"calendar" | "week" | "list">("calendar");
+  // Visão Semana: recarrega junto com a agenda do dia e abre o horário clicado
+  const [loadTick, setLoadTick] = useState(0);
+  const [pendingSelect, setPendingSelect] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [bloqueios, setBloqueios] = useState<Bloqueio[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -178,6 +182,7 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
     const [ad, bd] = await Promise.all([ar.json(), br.json()]);
     setAppointments(ad.appointments || []);
     setBloqueios(bd.bloqueios || []);
+    setLoadTick((t) => t + 1);
   }, [date, token]);
 
   useEffect(() => { load(); }, [load]);
@@ -245,7 +250,7 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
   /* Navegação de data */
   function navigate(days: number) {
     const d = new Date(date + "T12:00:00");
-    d.setDate(d.getDate() + days);
+    d.setDate(d.getDate() + (view === "week" ? days * 7 : days)); // na Semana, as setas pulam uma semana
     setDate(localDateStr(d));
   }
 
@@ -422,6 +427,16 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
 
   const selected = appointments.find((a) => a.id === selectedId) ?? null;
 
+  // Veio da Semana: quando o dia carregar, abre o horário clicado
+  useEffect(() => {
+    if (!pendingSelect) return;
+    const a = appointments.find((x) => x.id === pendingSelect);
+    if (!a) return;
+    setPendingSelect(null);
+    setSelectedId(a.id);
+    if (window.matchMedia("(max-width: 1279px)").matches) setSheetOpen(true);
+  }, [pendingSelect, appointments]);
+
   function selectAppt(a: Appointment) {
     setSelectedId(a.id);
     // Abaixo de 1280px não há espaço para o painel ao lado: abre como folha.
@@ -502,7 +517,12 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
   const todayStr = localDateStr();
   const isToday = date === todayStr;
   // "Sexta, 16 de outubro" — só a primeira letra maiúscula
-  const longDayLabel = (() => {
+  const longDayLabel = view === "week" ? (() => {
+    const mon = new Date(dateObj); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    const f = (d: Date, m: boolean) => d.toLocaleDateString("pt-BR", m ? { day: "numeric", month: "short" } : { day: "numeric" }).replace(".", "");
+    return `Semana de ${f(mon, mon.getMonth() !== sun.getMonth())} a ${f(sun, true)}`;
+  })() : (() => {
     const s = dateObj.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }).replace("-feira", "");
     return s.charAt(0).toUpperCase() + s.slice(1);
   })();
@@ -713,7 +733,7 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
           </div>
           <div className="flex items-center gap-2.5">
             <div role="group" aria-label="Visualização" className="flex p-1 gap-0.5 rounded-[10px] bg-track">
-              {([["calendar", "Dia"], ["list", "Lista"]] as const).map(([key, label]) => (
+              {([["calendar", "Dia"], ["week", "Semana"], ["list", "Lista"]] as const).map(([key, label]) => (
                 <button key={key} type="button" onClick={() => setView(key)} aria-pressed={view === key}
                   className={cn("h-[34px] px-3.5 rounded-[7px] text-[13px] font-semibold",
                     view === key ? "bg-surface text-ink shadow-[0_1px_2px_rgba(27,25,22,0.12)]" : "text-ink-2")}>
@@ -936,6 +956,9 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
                 )}
               </div>
             </section>
+          ) : view === "week" ? (
+            <WeekView date={date} today={todayStr} barbers={barbers} reloadKey={loadTick}
+              onOpen={(day, id) => { setDate(day); setView("calendar"); if (id) setPendingSelect(id); }} />
           ) : (
             <section aria-label="Lista de horários" className="flex-1 min-w-0 bg-surface border border-line rounded-2xl overflow-hidden">
               {appointments.length === 0 ? (

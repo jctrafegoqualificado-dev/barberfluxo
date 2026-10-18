@@ -10,6 +10,9 @@ type SaasPlanRow = {
   tagline: string;
   monthlyPrice: number;
   annualPriceMonthly: number | null;
+  includedBarbers: number;
+  extraBarberMonthly: number;
+  extraBarberAnnualMonthly: number | null;
   isPaid: boolean;
   legacy: boolean;
   active: boolean;
@@ -154,6 +157,12 @@ export default function PlataformaAbas({ tab: activeTab }: { tab: AbaPlataforma 
             draft.annualPriceMonthly === null || draft.annualPriceMonthly === undefined
               ? null
               : Number(draft.annualPriceMonthly),
+          includedBarbers: Number(draft.includedBarbers ?? 0),
+          extraBarberMonthly: Number(draft.extraBarberMonthly ?? 0),
+          extraBarberAnnualMonthly:
+            draft.extraBarberAnnualMonthly === null || draft.extraBarberAnnualMonthly === undefined || (draft.extraBarberAnnualMonthly as unknown) === ""
+              ? null
+              : Number(draft.extraBarberAnnualMonthly),
           isPaid: draft.isPaid,
           legacy: draft.legacy,
           active: draft.active,
@@ -477,6 +486,32 @@ export default function PlataformaAbas({ tab: activeTab }: { tab: AbaPlataforma 
                           value={d.annualPriceMonthly ?? ""}
                           onChange={(e) => setDraft(p.key, "annualPriceMonthly", e.target.value === "" ? null : e.target.value)}
                           className="w-full bg-surface-2 border border-control rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-primary" />
+                      </div>
+                      <div className="col-span-2 grid grid-cols-3 gap-3 pt-3 border-t border-line-2">
+                        <div className="col-span-3 text-xs font-semibold text-ink-2">Barbeiro extra</div>
+                        <div>
+                          <label className="block text-xs text-ink-3 mb-1">Barbeiros inclusos</label>
+                          <input type="number" step="1" min="0" value={d.includedBarbers ?? 0}
+                            onChange={(e) => setDraft(p.key, "includedBarbers", e.target.value)}
+                            className="w-full bg-surface-2 border border-control rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-ink-3 mb-1">Cada extra / mês (R$)</label>
+                          <input type="number" step="0.01" min="0" value={d.extraBarberMonthly ?? 0}
+                            onChange={(e) => setDraft(p.key, "extraBarberMonthly", e.target.value)}
+                            className="w-full bg-surface-2 border border-control rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-ink-3 mb-1">No anual / mês (R$)</label>
+                          <input type="number" step="0.01" min="0" placeholder="igual ao mensal" value={d.extraBarberAnnualMonthly ?? ""}
+                            onChange={(e) => setDraft(p.key, "extraBarberAnnualMonthly", e.target.value === "" ? null : e.target.value)}
+                            className="w-full bg-surface-2 border border-control rounded-lg px-3 py-2 text-sm text-ink outline-none focus:border-primary" />
+                        </div>
+                        <p className="col-span-3 text-xs text-ink-3">
+                          {Number(d.extraBarberMonthly) > 0
+                            ? `Do ${Number(d.includedBarbers) + 1}º barbeiro em diante, + ${formatCurrency(Number(d.extraBarberMonthly))} por mês cada. Vale no próximo pagamento de cada barbearia; quem tem cobrança automática tem o valor atualizado quando a equipe muda.`
+                            : "Sem cobrança por barbeiro: o preço cobre a equipe toda."}
+                        </p>
                       </div>
                     </div>
 

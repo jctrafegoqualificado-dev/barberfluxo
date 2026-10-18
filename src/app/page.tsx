@@ -75,12 +75,14 @@ export default async function LandingPage() {
   const landingPlans: LandingPlan[] = [
     {
       key: "PRO", name: plans.PRO.label, desc: "Para organizar a barbearia inteira: agenda, equipe, financeiro e clientes.",
-      monthly: plans.PRO.monthlyPrice, annualMonthly: plans.PRO.annualPriceMonthly, popular: false, cta: `Assinar ${plans.PRO.label}`,
+      monthly: plans.PRO.monthlyPrice, annualMonthly: plans.PRO.annualPriceMonthly,
+      includedBarbers: plans.PRO.includedBarbers, extraMonthly: plans.PRO.extraBarberMonthly, extraAnnualMonthly: plans.PRO.extraBarberAnnualMonthly, popular: false, cta: `Assinar ${plans.PRO.label}`,
       items: ["Agendamentos ilimitados e link de agendamento", "Comissões, vales e recibos", "Caixa, despesas e resultado do mês", "Produtos e estoque", "Planos de assinatura para clientes", "Ocupação e metas da equipe"],
     },
     {
       key: "ELITE", name: plans.ELITE.label, desc: "Tudo do Gestão, mais a IA atendendo e agendando no seu WhatsApp.",
-      monthly: plans.ELITE.monthlyPrice, annualMonthly: plans.ELITE.annualPriceMonthly, popular: true, cta: "Assinar com Atendente de IA",
+      monthly: plans.ELITE.monthlyPrice, annualMonthly: plans.ELITE.annualPriceMonthly,
+      includedBarbers: plans.ELITE.includedBarbers, extraMonthly: plans.ELITE.extraBarberMonthly, extraAnnualMonthly: plans.ELITE.extraBarberAnnualMonthly, popular: true, cta: "Assinar com Atendente de IA",
       items: [`Tudo do plano ${plans.PRO.label}`, "Atendente de IA no seu WhatsApp, 24 horas", "Agendamento pela conversa", "Lembretes e confirmação SIM ou NÃO", "Apresenta os planos da barbearia na conversa"],
     },
   ];
@@ -115,8 +117,8 @@ export default async function LandingPage() {
             <a href="#ia" className="h-14 px-7 rounded-xl border border-control bg-surface text-base font-semibold flex items-center justify-center">Ver a IA funcionando</a>
           </div>
         </div>
-        <div className="relative" aria-hidden>
-          <div className="rounded-[22px] bg-surface border border-line p-5 shadow-[0_24px_48px_-24px_rgba(27,25,22,0.25)] flex flex-col gap-3 md:mr-16">
+        <div className="relative flex flex-col" aria-hidden>
+          <div className="rounded-[22px] bg-surface border border-line p-5 shadow-[0_24px_48px_-24px_rgba(27,25,22,0.25)] flex flex-col gap-3">
             <div className="flex justify-between text-[13px]"><span className="font-semibold">Previsão de hoje</span><span className="text-ink-3">Meta R$ 2.300</span></div>
             <span className="font-display text-[34px] font-bold leading-none">R$ 2.100</span>
             <div className="flex h-2.5 rounded-full overflow-hidden bg-surface-2"><div className="bg-ink w-[50%]" /><div className="bg-primary w-[29%]" /><div className="bg-primary/35 w-[13%]" /></div>
@@ -126,7 +128,7 @@ export default async function LandingPage() {
               ))}
             </div>
           </div>
-          <div className="md:absolute md:-bottom-14 md:right-0 mt-4 md:mt-0 md:w-[300px] rounded-[22px] bg-[#1B1916] p-2 shadow-[0_24px_48px_-20px_rgba(27,25,22,0.45)]">
+          <div className="relative mt-4 md:-mt-3 md:ml-auto md:mr-6 md:w-[320px] rounded-[22px] bg-[#1B1916] p-2 shadow-[0_24px_48px_-20px_rgba(27,25,22,0.45)]">
             <div className="rounded-[16px] bg-[#EFE9DF] overflow-hidden">
               <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white">
                 <span className="w-8 h-8 rounded-full bg-primary" />

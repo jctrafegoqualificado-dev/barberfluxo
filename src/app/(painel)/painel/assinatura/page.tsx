@@ -18,13 +18,18 @@ declare global {
 
 type PaidPlan = "PRO" | "ELITE";
 type Cycle = "monthly" | "annual";
-interface PlanInfo { key: PaidPlan; label: string; tagline: string; hasAI: boolean; monthlyPrice: number; annualPriceMonthly: number | null }
+interface Charge { base: number; extraUnit: number; extras: number; included: number; perMonth: number; total: number; annual: boolean }
+interface PlanInfo {
+  key: PaidPlan; label: string; tagline: string; hasAI: boolean; monthlyPrice: number; annualPriceMonthly: number | null;
+  includedBarbers: number; extraBarberMonthly: number; extraBarberAnnualMonthly: number | null;
+  monthly: Charge; annual: Charge | null;
+}
 interface Data {
   name: string;
   current: {
     plan: string; label: string | null; isPaid: boolean; status: string;
     reason: "active" | "grace" | "overdue" | "cancelled" | "none"; hasAccess: boolean;
-    expiresAt: string | null; graceUntil: string | null;
+    expiresAt: string | null; graceUntil: string | null; autoRenew: boolean;
   };
   plans: PlanInfo[];
   payments: { id: string; amount: number; method: string; status: string; paidAt: string | null; createdAt: string }[];
@@ -44,8 +49,14 @@ const ITEMS: Record<PaidPlan, [string, boolean][]> = {
   ELITE: [["Tudo do plano Gestão", true], ["Atendente de IA no WhatsApp, 24 horas", true], ["Agendamento pela conversa", true], ["Lembretes e confirmação pelo WhatsApp", true], ["Passa a conversa para você quando precisa", true]],
 };
 
-const price = (p: PlanInfo, c: Cycle) => (c === "annual" && p.annualPriceMonthly != null ? p.annualPriceMonthly : p.monthlyPrice);
-const charge = (p: PlanInfo, c: Cycle) => (c === "annual" && p.annualPriceMonthly != null ? Math.round(p.annualPriceMonthly * 12 * 100) / 100 : p.monthlyPrice);
+// Conta com a equipe de hoje (plano + barbeiros extras), calculada no servidor
+const bill = (p: PlanInfo, c: Cycle) => (c === "annual" && p.annual ? p.annual : p.monthly);
+const price = (p: PlanInfo, c: Cycle) => bill(p, c).perMonth;
+const charge = (p: PlanInfo, c: Cycle) => bill(p, c).total;
+const extraText = (p: PlanInfo, c: Cycle) => {
+  const unit = c === "annual" && p.annual ? p.extraBarberAnnualMonthly ?? p.extraBarberMonthly : p.extraBarberMonthly;
+  return unit > 0 ? `Do ${p.includedBarbers + 1}º barbeiro em diante: + ${brl(unit)} por mês cada` : "Sem valor extra por barbeiro";
+};
 
 export default function MinhaAssinaturaPage() {
   const { token, user } = useAuthStore();
@@ -208,9 +219,15 @@ export default function MinhaAssinaturaPage() {
               </span>
             </div>
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="font-display text-[40px] font-bold tracking-[-0.02em] leading-none">{brl(curPlan.monthlyPrice)}</span>
-              <span className="text-sm text-[#C9C2B6]">por mês no plano mensal</span>
+              <span className="font-display text-[40px] font-bold tracking-[-0.02em] leading-none">{brl(curPlan.monthly.perMonth)}</span>
+              <span className="text-sm text-[#C9C2B6]">por mês · mensal</span>
             </div>
+            {curPlan.monthly.extras > 0 && (
+              <div className="flex flex-col text-sm">
+                <div className="flex justify-between min-h-8 items-center border-t border-[#2E2A25]"><span className="text-[#C9C2B6]">Plano com {curPlan.includedBarbers} barbeiros</span><span>{brl(curPlan.monthly.base)}</span></div>
+                <div className="flex justify-between min-h-8 items-center border-t border-[#2E2A25]"><span className="text-[#C9C2B6]">{curPlan.monthly.extras} {curPlan.monthly.extras === 1 ? "barbeiro extra" : "barbeiros extras"} × {brl(curPlan.monthly.extraUnit)}</span><span>{brl(curPlan.monthly.extras * curPlan.monthly.extraUnit)}</span></div>
+              </div>
+            )}
             {lastPaid && (
               <span className="text-[13px] text-[#C9C2B6]">Último pagamento: {brl(lastPaid.amount)} em {shortDate(lastPaid.paidAt ?? lastPaid.createdAt)}</span>
             )}
@@ -225,30 +242,41 @@ export default function MinhaAssinaturaPage() {
           <section aria-labelledby="barb-t" className="bg-surface border border-line rounded-2xl px-5 py-[18px] flex flex-col gap-3">
             <div className="flex justify-between items-baseline">
               <h2 id="barb-t" className="text-[15px] font-semibold">Barbeiros na conta</h2>
-              <span className="text-[13px] text-ink-3">{d.barbers.length}</span>
+              <span className="text-[13px] text-ink-3">{curPlan.extraBarberMonthly > 0 ? `${Math.min(d.barbers.length, curPlan.includedBarbers)} inclusos · ${curPlan.monthly.extras} extras` : d.barbers.length}</span>
             </div>
             <div className="flex flex-col">
               {d.barbers.slice(0, 5).map((b, i) => (
                 <div key={b.id} className={cn("flex items-center gap-2.5 min-h-[42px]", i > 0 && "border-t border-line-2")}>
                   <span className="w-[30px] h-[30px] rounded-full bg-surface-2 text-ink-2 text-[11px] font-bold flex items-center justify-center shrink-0">{getInitials(b.name)}</span>
                   <span className="flex-1 text-sm font-semibold truncate">{b.name}</span>
+                  {curPlan.extraBarberMonthly > 0 && (i < curPlan.includedBarbers
+                    ? <span className="h-[22px] px-2 rounded-full bg-positive-soft text-positive text-xs font-semibold flex items-center">incluso</span>
+                    : <span className="h-[22px] px-2 rounded-full bg-warning-soft text-warning text-xs font-semibold flex items-center">+ {brl(curPlan.extraBarberMonthly)}</span>)}
                 </div>
               ))}
               {d.barbers.length > 5 && <span className="text-[13px] text-ink-3 pt-1">e mais {d.barbers.length - 5}</span>}
               {d.barbers.length === 0 && <span className="text-[13px] text-ink-3">Nenhum profissional cadastrado.</span>}
             </div>
-            <span className="mt-auto text-[13px] leading-snug text-ink-2">O plano cobre a equipe toda: não há valor extra por barbeiro.</span>
+            <span className="mt-auto text-[13px] leading-snug text-ink-2">
+              {curPlan.extraBarberMonthly > 0
+                ? `O plano inclui ${curPlan.includedBarbers} barbeiros. Entrou mais um? + ${brl(curPlan.extraBarberMonthly)}/mês. Saiu alguém? O valor cai na próxima cobrança.`
+                : "O plano cobre a equipe toda: não há valor extra por barbeiro."}
+            </span>
             <Link href="/painel/barbeiros" className="text-[13px] font-semibold text-ink-2 underline underline-offset-2 w-fit">Ver profissionais</Link>
           </section>
 
           <section aria-labelledby="pag-t" className="bg-surface border border-line rounded-2xl px-5 py-[18px] flex flex-col gap-3">
             <h2 id="pag-t" className="text-[15px] font-semibold">Como você paga</h2>
             <div className="flex flex-col text-[13px] text-ink-2">
-              <div className="flex justify-between gap-3 min-h-[34px] items-center border-b border-line-2"><span>Renovação</span><span className="font-semibold text-ink text-right">você paga a cada período</span></div>
+              <div className="flex justify-between gap-3 min-h-[34px] items-center border-b border-line-2"><span>Renovação</span><span className="font-semibold text-ink text-right">{cur.autoRenew ? "automática, todo mês" : "você paga a cada período"}</span></div>
               <div className="flex justify-between gap-3 min-h-[34px] items-center border-b border-line-2"><span>Formas</span><span className="font-semibold text-ink text-right">Pix, cartão ou boleto</span></div>
               <div className="flex justify-between gap-3 min-h-[34px] items-center"><span>Aviso</span><span className="font-semibold text-ink text-right">no WhatsApp, 3 dias antes</span></div>
             </div>
-            <span className="text-[13px] leading-snug text-ink-3">Não guardamos cartão e não há cobrança automática. Renovar antes do vencimento soma ao tempo que ainda falta.</span>
+            <span className="text-[13px] leading-snug text-ink-3">
+              {cur.autoRenew
+                ? "O Mercado Pago cobra sozinho todo mês, já com os barbeiros extras. Pagar por aqui também vale e soma ao tempo que falta."
+                : "Não guardamos cartão. Renovar antes do vencimento soma ao tempo que ainda falta."}
+            </span>
             <Button onClick={() => startCheckout(curPlan.key, cycle)} loading={opening && checkout?.plan === curPlan.key} variant="outline" className="mt-auto">
               Renovar agora
             </Button>
@@ -292,6 +320,8 @@ export default function MinhaAssinaturaPage() {
                       <span className="flex items-baseline gap-1.5"><span className="font-display text-[30px] font-bold leading-tight">{brl(price(p, cycle))}</span><span className="text-[13px] text-ink-3">/mês</span></span>
                       <span className="text-xs text-ink-2">
                         {cycle === "annual" && p.annualPriceMonthly != null ? `cobrado uma vez por ano: ${brl(total)}` : "cobrado a cada mês"}
+                      </span>
+                      <span className={cn("text-xs font-semibold", (cycle === "annual" ? p.annual?.extraUnit : p.monthly.extraUnit) ? "text-warning" : "text-positive")}>{extraText(p, cycle)}
                       </span>
                     </div>
                     <ul className="flex flex-col gap-2 pt-3 border-t border-line-2">
@@ -385,7 +415,9 @@ export default function MinhaAssinaturaPage() {
             <section aria-labelledby="canc-t" className="bg-surface border border-line rounded-2xl px-5 py-4 flex flex-col gap-1.5">
               <h2 id="canc-t" className="text-[15px] font-semibold">Quer parar de usar?</h2>
               <span className="text-[13px] leading-normal text-ink-2">
-                Não precisa cancelar nada: não há cobrança automática nem multa.
+                {cur.autoRenew
+                  ? "Sem multa. Para parar a cobrança automática, cancele a assinatura no seu Mercado Pago (Assinaturas) ou fale com o suporte."
+                  : "Não precisa cancelar nada: não há cobrança automática nem multa."}
                 {cur.expiresAt && active ? ` Se não renovar, o acesso continua até ${longDate(cur.expiresAt)}` : " Se não renovar, o acesso pausa"} e seus dados ficam guardados, caso queira voltar.
               </span>
             </section>
