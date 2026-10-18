@@ -771,6 +771,14 @@ model AuditLog {
 // Configuração editável dos planos do SaaS (preço/nome/descrição).
 // Fonte da verdade em runtime; src/lib/saasPlans.ts guarda os defaults/fallback.
 // key = BASIC | PRO | ELITE | PREMIUM (espelha o enum SaasPlan).
+// Configurações da própria plataforma (chave/valor), editadas em /plataforma/configuracoes.
+// Chaves em src/lib/platformSettings.ts.
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
 model SaasPlanConfig {
   id                 String   @id @default(cuid())
   key                String   @unique

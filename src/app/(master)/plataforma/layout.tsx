@@ -2,7 +2,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, CreditCard, Layers, LayoutDashboard, LogOut, Scissors, Store, Users, Workflow } from "lucide-react";
+import { BarChart3, CreditCard, MessageCircle, Layers, LayoutDashboard, LogOut, Scissors, Store, Users, Workflow } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useTokenRefresh } from "@/hooks/useTokenRefresh";
 import { cn, getInitials } from "@/lib/utils";
@@ -20,6 +20,7 @@ const GROUPS: { label: string | null; items: Item[] }[] = [
   { label: "Sistema", items: [
     { href: "/plataforma/automacoes", label: "Automações", icon: Workflow },
     { href: "/plataforma/equipe", label: "Equipe", icon: Users },
+    { href: "/plataforma/configuracoes", label: "Contato e suporte", icon: MessageCircle },
   ] },
 ];
 
