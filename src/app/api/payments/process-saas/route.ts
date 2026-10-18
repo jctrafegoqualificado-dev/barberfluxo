@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { nextSaasExpiry } from "@/lib/saasBilling";
 import { requireAuth } from "@/lib/auth";
 import { getCheckoutAmount } from "@/lib/saasPlans";
 import { loadSaasPlans } from "@/lib/saasPlans.server";
@@ -80,13 +81,15 @@ export async function POST(req: NextRequest) {
       };
       const method = methodMap[payment_method_id] ?? payment_method_id?.toUpperCase() ?? "CREDIT_CARD";
 
-      // Calcula data de vencimento baseada no ciclo de cobrança
-      const now = new Date();
-      const saasExpiresAt = billingCycle === "annual"
-        ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
-        : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      // Vencimento: renovação antecipada soma ao período que ainda falta (src/lib/saasBilling.ts)
+      const [current, already] = await Promise.all([
+        prisma.barbershop.findUnique({ where: { id: payload.barbershopId! }, select: { saasStatus: true, saasExpiresAt: true } }),
+        // O webhook do MP pode ter chegado antes e já registrado este pagamento
+        prisma.payment.findFirst({ where: { externalId: String(result.id), barbershopId: payload.barbershopId! }, select: { id: true } }),
+      ]);
+      const saasExpiresAt = nextSaasExpiry(current, billingCycle === "annual" ? "annual" : "monthly");
 
-      await Promise.all([
+      if (!already) await Promise.all([
         // 1. Atualiza plano, status e data de vencimento da barbearia
         prisma.barbershop.update({
           where: { id: payload.barbershopId! },

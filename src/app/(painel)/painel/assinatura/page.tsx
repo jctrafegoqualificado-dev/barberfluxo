@@ -1,615 +1,401 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
-import {
-  Check,
-  Brain,
-  ShieldCheck,
-  MessageSquare,
-  TrendingUp,
-  Rocket,
-  Star,
-  X,
-  Bot,
-  AlertCircle,
-} from "lucide-react";
-import { useAuthStore } from "@/store/auth";
-import { SAAS_PLANS } from "@/lib/saasPlans";
-import Button from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import Script from "next/script";
+import { useSearchParams } from "next/navigation";
+import { CalendarDays, Check, Copy, Lock, ShieldCheck, X } from "lucide-react";
+import { toast } from "sonner";
+import { useAuthStore } from "@/store/auth";
+import { cn, getInitials } from "@/lib/utils";
+import Button from "@/components/ui/Button";
 
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     MercadoPago: any;
   }
 }
 
-type BillingCycle = "monthly" | "annual";
-
 type PaidPlan = "PRO" | "ELITE";
-type PlanCfg = {
-  monthlyPrice: number;
-  annualPrice: number; // preço mensal equivalente no plano anual
-  label: string;
-  tagline: string;
-  dbValue: PaidPlan;
-  annualSavings: number;
-};
-
-function buildPlanCfg(key: PaidPlan, monthlyPrice: number, annualPriceMonthly: number | null, label: string, tagline: string): PlanCfg {
-  const annual = annualPriceMonthly ?? monthlyPrice;
-  return { monthlyPrice, annualPrice: annual, label, tagline, dbValue: key, annualSavings: Math.round((monthlyPrice - annual) * 12) };
+type Cycle = "monthly" | "annual";
+interface PlanInfo { key: PaidPlan; label: string; tagline: string; hasAI: boolean; monthlyPrice: number; annualPriceMonthly: number | null }
+interface Data {
+  name: string;
+  current: {
+    plan: string; label: string | null; isPaid: boolean; status: string;
+    reason: "active" | "grace" | "overdue" | "cancelled" | "none"; hasAccess: boolean;
+    expiresAt: string | null; graceUntil: string | null;
+  };
+  plans: PlanInfo[];
+  payments: { id: string; amount: number; method: string; status: string; paidAt: string | null; createdAt: string }[];
+  barbers: { id: string; name: string }[];
 }
 
-// Defaults estáticos (fonte única @/lib/saasPlans); substituídos pelos preços
-// vivos de /api/plans no mount, para refletir edições do CEO sem novo deploy.
-const DEFAULT_PLAN_CONFIG: Record<PaidPlan, PlanCfg> = {
-  PRO: buildPlanCfg("PRO", SAAS_PLANS.PRO.monthlyPrice, SAAS_PLANS.PRO.annualPriceMonthly, SAAS_PLANS.PRO.label, SAAS_PLANS.PRO.tagline),
-  ELITE: buildPlanCfg("ELITE", SAAS_PLANS.ELITE.monthlyPrice, SAAS_PLANS.ELITE.annualPriceMonthly, SAAS_PLANS.ELITE.label, SAAS_PLANS.ELITE.tagline),
+const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const longDate = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "numeric", month: "long", timeZone: "America/Sao_Paulo" });
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "America/Sao_Paulo" }).replace(".", "");
+const METHOD: Record<string, string> = { PIX: "Pix", CREDIT_CARD: "cartão de crédito", DEBIT_CARD: "cartão de débito", BOLETO: "boleto", ACCOUNT_MONEY: "saldo Mercado Pago", CASH: "dinheiro" };
+const PAY_STATUS: Record<string, [string, string]> = {
+  PAID: ["Paga", "bg-positive-soft text-positive"], PENDING: ["Pendente", "bg-warning-soft text-warning"],
+  FAILED: ["Recusada", "bg-danger-soft text-danger"], REFUNDED: ["Estornada", "bg-surface-2 text-ink-2"],
+};
+const ITEMS: Record<PaidPlan, [string, boolean][]> = {
+  PRO: [["Agenda e agendamento online", true], ["Comissões, vales e recibos", true], ["Caixa e resultado do mês", true], ["Planos de assinatura para clientes", true], ["Atendente de IA e lembretes no WhatsApp", false]],
+  ELITE: [["Tudo do plano Gestão", true], ["Atendente de IA no WhatsApp, 24 horas", true], ["Agendamento pela conversa", true], ["Lembretes e confirmação pelo WhatsApp", true], ["Passa a conversa para você quando precisa", true]],
 };
 
-export default function AssinaturaSaaSPage() {
+const price = (p: PlanInfo, c: Cycle) => (c === "annual" && p.annualPriceMonthly != null ? p.annualPriceMonthly : p.monthlyPrice);
+const charge = (p: PlanInfo, c: Cycle) => (c === "annual" && p.annualPriceMonthly != null ? Math.round(p.annualPriceMonthly * 12 * 100) / 100 : p.monthlyPrice);
+
+export default function MinhaAssinaturaPage() {
   const { token, user } = useAuthStore();
-  const searchParams = useSearchParams();
-  const bloqueado       = searchParams.get("bloqueado") === "true";
-  const planExpired     = searchParams.get("expired") === "true";
+  const params = useSearchParams();
+  const planParam = (params.get("plano") ?? "").toUpperCase();
+  const isNew = params.get("novo") === "true";
+  const autoRef = useRef(false);
 
-  const planParam = (searchParams.get("plano") ?? "").toUpperCase() as PaidPlan | "";
-  const isNew = searchParams.get("novo") === "true";
-  const autoTriggeredRef = useRef(false);
-
-  const [loading, setLoading] = useState(false);
+  const [d, setD] = useState<Data | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [cycle, setCycle] = useState<Cycle>("monthly");
   const [mpLoaded, setMpLoaded] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<null | "approved" | "pending" | "rejected">(null);
-  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
-  const [saasStatus, setSaasStatus]   = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<PaidPlan | null>(null);
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-  const [pixData, setPixData] = useState<{ qr_code: string; qr_code_base64: string } | null>(null);
-  const [planConfig, setPlanConfig] = useState<Record<PaidPlan, PlanCfg>>(DEFAULT_PLAN_CONFIG);
+  const [checkout, setCheckout] = useState<{ plan: PaidPlan; cycle: Cycle } | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [result, setResult] = useState<null | "approved" | "pending" | "rejected">(null);
+  const [pix, setPix] = useState<{ qr_code: string; qr_code_base64: string } | null>(null);
 
-  // Preços vivos: reflete edições do CEO na aba "Planos" do /plataforma.
-  // Garante que o valor cobrado bata com a validação do /api/payments/process-saas.
-  useEffect(() => {
-    fetch("/api/plans")
-      .then((r) => r.json())
-      .then((data) => {
-        const rows = data.plans || [];
-        const map: Record<string, any> = Object.fromEntries(rows.map((p: any) => [p.key, p]));
-        if (map.PRO || map.ELITE) {
-          setPlanConfig({
-            PRO: map.PRO ? buildPlanCfg("PRO", map.PRO.monthlyPrice, map.PRO.annualPriceMonthly, map.PRO.label, map.PRO.tagline) : DEFAULT_PLAN_CONFIG.PRO,
-            ELITE: map.ELITE ? buildPlanCfg("ELITE", map.ELITE.monthlyPrice, map.ELITE.annualPriceMonthly, map.ELITE.label, map.ELITE.tagline) : DEFAULT_PLAN_CONFIG.ELITE,
-          });
-        }
-      })
-      .catch(() => { /* mantém defaults */ });
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/barbershop/financeiro", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setCurrentPlan(data.saasPlan   || "BASIC");
-        setSaasStatus(data.saasStatus  || "PENDING");
-      });
-  }, [token]);
-
-  // Auto-dispara o checkout quando chega via /cadastro?plano=X
-  useEffect(() => {
-    if (
-      mpLoaded &&
-      isNew &&
-      planParam &&
-      planParam in planConfig &&
-      !autoTriggeredRef.current &&
-      currentPlan !== null // aguarda carregar o plano atual
-    ) {
-      autoTriggeredRef.current = true;
-      handleUpgrade(planParam as PaidPlan);
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/barbershop/minha-assinatura", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json().catch(() => null);
+      if (r.ok && data) setD(data); else setLoadError(true);
+    } catch {
+      setLoadError(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mpLoaded, currentPlan]);
+  }, [token]);
+  useEffect(() => { load(); }, [load]);
 
-  const normalizedPlan = currentPlan === "PREMIUM" ? "ELITE" : currentPlan;
-  const isOverdue  = saasStatus === "OVERDUE" || saasStatus === "CANCELLED" || planExpired;
-  const isPaidUser = (normalizedPlan === "PRO" || normalizedPlan === "ELITE") && !isOverdue;
-
-  const getPrice = (plan: PaidPlan, cycle: BillingCycle) =>
-    cycle === "annual" ? planConfig[plan].annualPrice * 12 : planConfig[plan].monthlyPrice;
-
-  const handleUpgrade = async (plan: PaidPlan) => {
-    if (!window.MercadoPago) return;
-
-    if (!process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
-      alert("Checkout em manutenção. Entre em contato pelo WhatsApp para assinar ou aguarde alguns instantes.");
+  async function startCheckout(plan: PaidPlan, c: Cycle) {
+    const info = d?.plans.find((p) => p.key === plan);
+    if (!info) return;
+    if (!window.MercadoPago || !process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
+      toast.error("O pagamento está indisponível agora. Fale com o suporte para assinar.");
       return;
     }
-
-    setSelectedPlan(plan);
-    setLoading(true);
-
-    const container = document.getElementById("paymentBrick_container");
-    if (container) container.innerHTML = "";
-
+    setCheckout({ plan, cycle: c });
+    setResult(null);
+    setPix(null);
+    setOpening(true);
+    const box = document.getElementById("paymentBrick_container");
+    if (box) { box.innerHTML = ""; box.classList.remove("hidden"); }
+    const amount = charge(info, c);
     const mp = new window.MercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY);
-    const bricksBuilder = mp.bricks();
-    const config = planConfig[plan];
-    const price = getPrice(plan, billingCycle);
-
-    const settings = {
-      initialization: {
-        amount: price,
-        payer: { email: user?.email },
-      },
-      customization: {
-        paymentMethods: {
-          ticket: "all",
-          bankTransfer: "all",
-          creditCard: "all",
-          debitCard: "all",
-          mercadoPago: "all",
-        },
-      },
+    await mp.bricks().create("payment", "paymentBrick_container", {
+      initialization: { amount, payer: { email: user?.email } },
+      customization: { paymentMethods: { ticket: "all", bankTransfer: "all", creditCard: "all", debitCard: "all", mercadoPago: "all" } },
       callbacks: {
         onReady: () => {
-          setLoading(false);
-          const section = document.getElementById("checkout_section");
-          if (section) section.classList.remove("hidden");
-          section?.scrollIntoView({ behavior: "smooth" });
+          setOpening(false);
+          document.getElementById("checkout")?.scrollIntoView({ behavior: "smooth", block: "start" });
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onSubmit: async ({ formData }: any) => {
-          return new Promise((resolve, reject) => {
-            fetch("/api/payments/process-saas", {
+          try {
+            const r = await fetch("/api/payments/process-saas", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                ...formData,
-                planType: config.dbValue,
-                billingCycle,
-              }),
-            })
-              .then((response) => response.json())
-              .then((result) => {
-                if (result.error) {
-                  console.error("Erro MP API:", result.error, result.details);
-                  setPaymentStatus("rejected");
-                  alert("Ops! O Mercado Pago recusou: " + result.error);
-                  resolve(null);
-                  return;
-                }
-
-                if (result.status === "approved") {
-                  setPaymentStatus("approved");
-                  setCurrentPlan(config.dbValue);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                } else if (result.status === "pending" || result.status === "in_process") {
-                  setPaymentStatus("pending");
-                  if (result.qr_code) {
-                    setPixData({ qr_code: result.qr_code, qr_code_base64: result.qr_code_base64 });
-                    document.getElementById("paymentBrick_container")?.classList.add("hidden");
-                  }
-                } else {
-                  setPaymentStatus("rejected");
-                }
-                resolve(null);
-              })
-              .catch((error) => {
-                console.error("Erro no pagamento:", error);
-                reject();
-              });
-          });
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ ...formData, planType: plan, billingCycle: c }),
+            });
+            const out = await r.json();
+            if (out.error) {
+              setResult("rejected");
+              toast.error(`O Mercado Pago recusou: ${out.error}`);
+            } else if (out.status === "approved") {
+              setResult("approved");
+              load();
+            } else if (out.status === "pending" || out.status === "in_process") {
+              setResult("pending");
+              if (out.qr_code) {
+                setPix({ qr_code: out.qr_code, qr_code_base64: out.qr_code_base64 });
+                document.getElementById("paymentBrick_container")?.classList.add("hidden");
+              }
+            } else setResult("rejected");
+          } catch {
+            setResult("rejected");
+          }
         },
-        onError: (error: any) => {
-          console.error("Erro no Brick:", error);
-          setLoading(false);
-        },
+        onError: () => setOpening(false),
       },
-    };
+    });
+  }
 
-    await bricksBuilder.create("payment", "paymentBrick_container", settings);
-  };
+  // Veio do cadastro com um plano escolhido (/cadastro?plano=X): abre o pagamento sozinho
+  useEffect(() => {
+    if (mpLoaded && d && isNew && (planParam === "PRO" || planParam === "ELITE") && !autoRef.current) {
+      autoRef.current = true;
+      startCheckout(planParam, cycle);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mpLoaded, d]);
 
-  /* =====================================================
-     TELA PÓS-ASSINATURA (Usuário já é Gestão ou Gestão + Assistente)
-  ====================================================== */
-  if (isPaidUser) {
-    const isElite = normalizedPlan === "ELITE";
-    const planLabel = isElite ? "Gestão + Assistente" : "Gestão";
+  const head = (
+    <header className="flex flex-col gap-1">
+      <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Minha assinatura</h1>
+      <span className="text-sm text-ink-3">O que {d?.name ?? "a barbearia"} paga pelo IA de Barbearia · sem fidelidade e sem multa</span>
+    </header>
+  );
 
+  if (loadError) {
     return (
-      <div className="max-w-4xl mx-auto py-12 px-6 text-center">
-        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${
-          isElite ? "bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20" : "bg-primary/10"
-        }`}>
-          {isElite ? (
-            <Brain className="w-10 h-10 text-violet-500" />
-          ) : (
-            <Rocket className="w-10 h-10 text-primary" />
-          )}
+      <div className="flex flex-col gap-5">
+        {head}
+        <div role="alert" className="rounded-2xl bg-danger-soft text-danger px-5 py-4 text-sm">
+          Não foi possível carregar sua assinatura. <button type="button" onClick={() => location.reload()} className="font-semibold underline">Tentar de novo</button>
         </div>
-        <h1 className="text-3xl font-bold text-zinc-900 mb-2">
-          Plano {planLabel} ativo! {isElite ? "🧠" : "🚀"}
-        </h1>
-        <p className="text-zinc-500 mb-8 text-lg">
-          {isElite
-            ? "Seu estabelecimento tem acesso total com Inteligência Artificial integrada."
-            : "Seu estabelecimento tem acesso a todas as ferramentas profissionais."}
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-          {(isElite
-            ? [
-                { icon: Brain, title: "IA Integrada", desc: "Previsões de demanda, insights automáticos e sugestões inteligentes." },
-                { icon: MessageSquare, title: "WhatsApp Ilimitado", desc: "Envie lembretes e campanhas de marketing sem limites." },
-                { icon: ShieldCheck, title: "Suporte VIP", desc: "Atendimento prioritário pela nossa equipe." },
-              ]
-            : [
-                { icon: MessageSquare, title: "WhatsApp Ilimitado", desc: "Envie lembretes e marketing sem limites." },
-                { icon: TrendingUp, title: "Dashboard Avançado", desc: "Métricas profundas de lucro e ocupação." },
-                { icon: ShieldCheck, title: "Suporte Prioritário", desc: "Atendimento pela nossa equipe." },
-              ]
-          ).map((item, i) => (
-            <Card key={i} className="p-6">
-              <item.icon className="w-8 h-8 text-primary mb-4" />
-              <h3 className="font-bold text-zinc-900 mb-1">{item.title}</h3>
-              <p className="text-sm text-zinc-500">{item.desc}</p>
-            </Card>
-          ))}
-        </div>
-
-        {normalizedPlan === "PRO" && (
-          <div className="mt-12 bg-gradient-to-r from-violet-50 to-fuchsia-50 rounded-2xl border border-violet-200 p-8">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <Brain className="w-5 h-5 text-violet-600" />
-              <h3 className="font-bold text-violet-900">Quer desbloquear o poder da IA?</h3>
-            </div>
-            <p className="text-sm text-violet-700 mb-4">
-              Faça upgrade para <strong>Gestão + Assistente</strong> e tenha previsões de demanda, insights automáticos e muito mais.
-            </p>
-            <Button
-              variant="primary"
-              className="bg-violet-600 hover:bg-violet-700 text-white"
-              onClick={() => handleUpgrade("ELITE")}
-              loading={loading}
-            >
-              <Brain className="w-4 h-4 mr-2" /> Upgrade para Gestão + Assistente — R$ 197,90/mês
-            </Button>
-          </div>
-        )}
       </div>
     );
   }
+  if (!d) {
+    return <div className="flex flex-col gap-5">{head}<div className="h-72 rounded-2xl bg-surface border border-line animate-pulse" /></div>;
+  }
 
-  /* =====================================================
-     TELA DE ESCOLHA DE PLANO (Usuário BASIC / Trial)
-  ====================================================== */
+  const cur = d.current;
+  const curPlan = d.plans.find((p) => p.key === cur.plan) ?? null;
+  const active = cur.reason === "active";
+  // Depois da carência o cron rebaixa para BASIC, mas o status continua OVERDUE: ainda é "venceu", não "nunca assinou"
+  const lapsed = cur.reason === "overdue" || cur.reason === "cancelled" || (cur.isPaid && cur.reason === "none");
+  const neverPaid = !lapsed && !cur.isPaid;
+  const lastPaid = d.payments.find((p) => p.status === "PAID");
+
   return (
-    <div className="max-w-6xl mx-auto py-8 px-6 pb-24">
+    <div className="flex flex-col gap-5">
       <Script src="https://sdk.mercadopago.com/js/v2" onLoad={() => setMpLoaded(true)} />
+      {head}
 
-      {/* Banner de plano pago vencido */}
-      {(planExpired || isOverdue) && (
-        <div className="mb-8 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold text-red-800">Seu plano venceu</p>
-            <p className="text-sm text-red-600">
-              Sua assinatura expirou e o acesso foi suspenso.
-              Renove abaixo para recuperar o acesso e todas as funcionalidades.
-            </p>
+      {lapsed && cur.expiresAt && (
+        <section role="alert" className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 rounded-2xl bg-danger-soft border border-danger/20">
+          <span className="w-11 h-11 shrink-0 rounded-xl bg-danger-strong text-white flex items-center justify-center"><Lock className="w-5 h-5" aria-hidden /></span>
+          <div className="flex-1 flex flex-col gap-1 text-danger">
+            <h2 className="text-[17px] font-bold">Acesso pausado: o plano venceu em {longDate(cur.expiresAt)}</h2>
+            <span className="text-sm leading-normal">Agenda, caixa e atendente de IA ficam pausados até o pagamento. Seus clientes e dados continuam guardados. Pagou, liberou na hora.</span>
           </div>
-        </div>
+          {curPlan && <Button onClick={() => startCheckout(curPlan.key, cycle)} loading={opening} className="h-[46px] shrink-0">Renovar {brl(charge(curPlan, cycle))}</Button>}
+        </section>
+      )}
+      {cur.reason === "grace" && cur.expiresAt && cur.graceUntil && (
+        <section role="alert" className="px-5 py-4 rounded-2xl bg-warning-soft text-warning text-sm flex flex-col sm:flex-row sm:items-center gap-3">
+          <span className="flex-1"><strong>O plano venceu em {longDate(cur.expiresAt)}.</strong> Renove até {longDate(cur.graceUntil)} para não pausar o acesso.</span>
+          {curPlan && <Button onClick={() => startCheckout(curPlan.key, cycle)} loading={opening} className="shrink-0">Renovar agora</Button>}
+        </section>
+      )}
+      {neverPaid && (
+        <section className="px-5 py-4 rounded-2xl bg-warning-soft text-warning text-sm">
+          <strong>Escolha um plano para começar a usar.</strong> O acesso libera assim que o pagamento é aprovado.
+        </section>
       )}
 
-      {/* Banner de acesso bloqueado (sem plano ativo) */}
-      {bloqueado && !planExpired && !isOverdue && (
-        <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold text-amber-800">Assine para começar a usar</p>
-            <p className="text-sm text-amber-700">Escolha um plano abaixo para liberar o acesso ao sistema.</p>
-          </div>
-        </div>
-      )}
-
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-zinc-900">Turbine seu Estabelecimento</h1>
-        <p className="text-zinc-500 mt-2">Escolha o plano ideal para o seu crescimento</p>
-      </div>
-
-      {/* Toggle Mensal / Anual */}
-      <div className="flex items-center justify-center gap-4 mb-10">
-        <button
-          onClick={() => setBillingCycle("monthly")}
-          className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
-            billingCycle === "monthly"
-              ? "bg-zinc-900 text-white shadow"
-              : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
-          }`}
-        >
-          Mensal
-        </button>
-        <button
-          onClick={() => setBillingCycle("annual")}
-          className={`px-5 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
-            billingCycle === "annual"
-              ? "bg-zinc-900 text-white shadow"
-              : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
-          }`}
-        >
-          Anual
-          <span className="bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-            -10%
-          </span>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 items-start max-w-3xl mx-auto">
-        {/* ─── PLANO GESTÃO (PRO) ─── */}
-        <div className="bg-white rounded-2xl border-2 border-primary/60 p-7 flex flex-col relative shadow-lg hover:shadow-xl transition-shadow">
-          <div className="mb-6">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-zinc-900">Gestão</h3>
-              <Rocket className="w-4 h-4 text-primary" />
-            </div>
-            <p className="text-sm text-zinc-500">Gestão profissional completa</p>
-          </div>
-          <div className="mb-1">
-            <span className="text-3xl font-black text-primary">
-              R$ {billingCycle === "annual"
-                ? planConfig.PRO.annualPrice.toFixed(2).replace(".", ",")
-                : planConfig.PRO.monthlyPrice.toFixed(2).replace(".", ",")}
-            </span>
-            <span className="text-sm text-zinc-400 ml-1">/mês</span>
-          </div>
-          {billingCycle === "annual" && (
-            <p className="text-xs text-green-600 font-semibold mb-5">
-              Cobrado anualmente — economize R$ {planConfig.PRO.annualSavings}/ano
-            </p>
-          )}
-          {billingCycle === "monthly" && <div className="mb-6" />}
-          <ul className="space-y-3.5 flex-1 mb-8">
-            <Feature item="Automações de Retenção" />
-            <Feature item="Dashboard de Lucratividade" />
-            <Feature item="QR Code no Balcão" />
-            <Feature item="Suporte Prioritário" />
-            <Feature disabled item="Inteligência Artificial" />
-          </ul>
-          <Button
-            variant="primary"
-            className="w-full bg-primary hover:bg-primary/90 text-white font-bold"
-            onClick={() => handleUpgrade("PRO")}
-            loading={loading && selectedPlan === "PRO"}
-          >
-            {loading && selectedPlan === "PRO" ? "Carregando Checkout..." : "Assinar Gestão"}
-          </Button>
-        </div>
-
-        {/* ─── PLANO GESTÃO + ASSISTENTE (ELITE) ─── */}
-        <div className="rounded-2xl p-7 flex flex-col relative shadow-2xl bg-zinc-900 border-2 border-violet-500/50">
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-            <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-violet-500/30">
-              <Star className="w-3 h-3" /> Recomendado
-            </div>
-          </div>
-          <div className="mb-6 mt-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-white">Gestão + Assistente</h3>
-              <Brain className="w-4 h-4 text-violet-400" />
-            </div>
-            <p className="text-sm text-zinc-400">Inteligência Artificial a seu favor</p>
-          </div>
-          <div className="mb-1">
-            <span className="text-3xl font-black bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-              R$ {billingCycle === "annual"
-                ? planConfig.ELITE.annualPrice.toFixed(2).replace(".", ",")
-                : planConfig.ELITE.monthlyPrice.toFixed(2).replace(".", ",")}
-            </span>
-            <span className="text-sm text-zinc-500 ml-1">/mês</span>
-          </div>
-          {billingCycle === "annual" && (
-            <p className="text-xs text-green-400 font-semibold mb-5">
-              Cobrado anualmente — economize R$ {planConfig.ELITE.annualSavings}/ano
-            </p>
-          )}
-          {billingCycle === "monthly" && <div className="mb-6" />}
-          <ul className="space-y-3.5 flex-1 mb-8">
-            <Feature item="Tudo do Plano Gestão" light highlight />
-            <Feature item="IA de Previsão de Demanda" light ai />
-            <Feature item="Insights Automáticos de Lucro" light ai />
-            <Feature item="Sugestões Inteligentes de Horário" light ai />
-            <Feature item="Relatórios Avançados com IA" light ai />
-            <Feature item="Suporte VIP Exclusivo" light />
-          </ul>
-          <button
-            onClick={() => handleUpgrade("ELITE")}
-            disabled={loading && selectedPlan === "ELITE"}
-            className="w-full py-3.5 rounded-xl font-bold text-white text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all active:scale-[0.98] disabled:opacity-60"
-          >
-            {loading && selectedPlan === "ELITE" ? "Carregando Checkout..." : "🧠 Assinar Gestão + Assistente"}
-          </button>
-        </div>
-      </div>
-
-      {/* ─── SEÇÃO DE CHECKOUT ─── */}
-      <div className="max-w-2xl mx-auto mt-12 transition-all duration-500">
-        <div id="checkout_section" className="hidden">
-          <Card className="p-0 overflow-hidden border-2 border-primary/20 shadow-2xl">
-            <div className="bg-zinc-50 px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-green-600" />
-                <span className="font-bold text-zinc-800">Checkout Seguro</span>
+      {cur.isPaid && curPlan && (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <section aria-labelledby="plano-t" className="rounded-2xl bg-[#1B1916] text-white px-[22px] py-5 flex flex-col gap-3.5">
+            <div className="flex justify-between items-start gap-2.5">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#C9C2B6]">Seu plano</span>
+                <h2 id="plano-t" className="font-display text-[22px] font-bold">{curPlan.label}</h2>
               </div>
-              <img
-                src="/mercadopago.png"
-                alt="Mercado Pago"
-                className="h-8 object-contain"
-                onError={(e) => {
-                  e.currentTarget.src = "https://logodownload.org/wp-content/uploads/2019/06/mercado-pago-logo-1.png";
-                }}
-              />
+              <span className={cn("h-[26px] px-2.5 rounded-full text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap",
+                active ? "bg-[#23372B] text-[#BFE3CC]" : "bg-[#4A1F1A] text-[#F6C7C1]")}>
+                <span className={cn("w-[7px] h-[7px] rounded-full", active ? "bg-[#4CC38A]" : "bg-[#F0776B]")} />
+                {active ? "Em dia" : cur.reason === "grace" ? "Vencido · em carência" : "Pagamento atrasado"}
+              </span>
             </div>
-
-            <div className="p-6">
-              {selectedPlan && (
-                <div className={`mb-6 flex items-center justify-between p-4 rounded-xl border ${
-                  selectedPlan === "ELITE" ? "bg-violet-50 border-violet-200" : "bg-primary/10 border-primary/20"
-                }`}>
-                  <div>
-                    <p className={`text-xs font-bold uppercase tracking-wider ${
-                      selectedPlan === "ELITE" ? "text-violet-700" : "text-amber-700"
-                    }`}>
-                      Você escolheu:
-                    </p>
-                    <p className="text-lg font-bold text-zinc-900">
-                      {planConfig[selectedPlan].label}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      {billingCycle === "annual" ? "Plano anual" : "Plano mensal"}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-2xl font-black ${
-                      selectedPlan === "ELITE" ? "text-violet-600" : "text-primary/90"
-                    }`}>
-                      R$ {getPrice(selectedPlan, billingCycle).toFixed(2).replace(".", ",")}
-                    </p>
-                    <p className={`text-[10px] ${
-                      selectedPlan === "ELITE" ? "text-violet-500" : "text-primary"
-                    }`}>
-                      {billingCycle === "annual" ? "cobrança anual única" : "cobrança mensal"}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div id="paymentBrick_container" className="min-h-[400px]"></div>
-
-              {paymentStatus === "pending" && pixData && (
-                <div className="mt-4 flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="bg-white p-4 rounded-2xl border-2 border-primary shadow-lg mb-6">
-                    <img
-                      src={`data:image/jpeg;base64,${pixData.qr_code_base64}`}
-                      alt="QR Code Pix"
-                      className="w-64 h-64"
-                    />
-                  </div>
-                  <div className="w-full space-y-4">
-                    <div className="text-center">
-                      <p className="font-bold text-zinc-800">Escaneie o QR Code acima</p>
-                      <p className="text-sm text-zinc-500">Ou copie o código abaixo para pagar</p>
-                    </div>
-                    <div className="relative">
-                      <input
-                        readOnly
-                        value={pixData.qr_code}
-                        className="w-full bg-zinc-100 border border-zinc-200 rounded-xl py-3 px-4 text-xs font-mono text-zinc-600 pr-24"
-                      />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(pixData.qr_code);
-                          alert("Código copiado!");
-                        }}
-                        className="absolute right-2 top-1.5 bg-primary text-white text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-primary/90 transition-colors"
-                      >
-                        COPIAR
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-6 flex flex-col items-center gap-2">
-                <div className="flex items-center gap-4 opacity-50 grayscale">
-                  <img src="https://logodownload.org/wp-content/uploads/2014/07/visa-logo-1.png" alt="Visa" className="h-4" />
-                  <img src="https://logodownload.org/wp-content/uploads/2014/07/mastercard-logo-7.png" alt="Master" className="h-6" />
-                  <img src="https://logodownload.org/wp-content/uploads/2015/03/pix-logo-1-1.png" alt="Pix" className="h-4" />
-                </div>
-                <p className="text-[10px] text-zinc-400 text-center">
-                  Sua transação é criptografada e processada pelo Mercado Pago.
-                  <br />
-                  Cancele sua assinatura a qualquer momento no painel de configurações.
-                </p>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="font-display text-[40px] font-bold tracking-[-0.02em] leading-none">{brl(curPlan.monthlyPrice)}</span>
+              <span className="text-sm text-[#C9C2B6]">por mês no plano mensal</span>
+            </div>
+            {lastPaid && (
+              <span className="text-[13px] text-[#C9C2B6]">Último pagamento: {brl(lastPaid.amount)} em {shortDate(lastPaid.paidAt ?? lastPaid.createdAt)}</span>
+            )}
+            {cur.expiresAt && (
+              <div className="mt-auto flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] bg-night-3 text-sm">
+                <CalendarDays className={cn("w-[17px] h-[17px] shrink-0", active ? "text-[#C9C2B6]" : "text-[#F0776B]")} aria-hidden />
+                <span>{active ? `Pago até ${longDate(cur.expiresAt)}` : `Venceu em ${longDate(cur.expiresAt)}`}</span>
               </div>
-            </div>
-          </Card>
-        </div>
-      </div>
+            )}
+          </section>
 
-      {/* ─── MODAL DE SUCESSO ─── */}
-      {paymentStatus === "approved" && (
-        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
-          <div className="max-w-sm w-full bg-white rounded-3xl border border-green-100 p-8 shadow-2xl text-center">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Check className="w-10 h-10 text-green-600" />
+          <section aria-labelledby="barb-t" className="bg-surface border border-line rounded-2xl px-5 py-[18px] flex flex-col gap-3">
+            <div className="flex justify-between items-baseline">
+              <h2 id="barb-t" className="text-[15px] font-semibold">Barbeiros na conta</h2>
+              <span className="text-[13px] text-ink-3">{d.barbers.length}</span>
             </div>
-            <h2 className="text-2xl font-bold text-zinc-900 mb-2">Sucesso! 🎉</h2>
-            <p className="text-zinc-500 mb-8">
-              Plano <strong>{selectedPlan ? planConfig[selectedPlan].label : ""}</strong> ativado.
-              Explore todas as novas ferramentas agora mesmo.
-            </p>
-            <Button
-              variant="primary"
-              className="w-full bg-green-600 hover:bg-green-700"
-              onClick={() => window.location.reload()}
-            >
-              Começar a usar
+            <div className="flex flex-col">
+              {d.barbers.slice(0, 5).map((b, i) => (
+                <div key={b.id} className={cn("flex items-center gap-2.5 min-h-[42px]", i > 0 && "border-t border-line-2")}>
+                  <span className="w-[30px] h-[30px] rounded-full bg-surface-2 text-ink-2 text-[11px] font-bold flex items-center justify-center shrink-0">{getInitials(b.name)}</span>
+                  <span className="flex-1 text-sm font-semibold truncate">{b.name}</span>
+                </div>
+              ))}
+              {d.barbers.length > 5 && <span className="text-[13px] text-ink-3 pt-1">e mais {d.barbers.length - 5}</span>}
+              {d.barbers.length === 0 && <span className="text-[13px] text-ink-3">Nenhum profissional cadastrado.</span>}
+            </div>
+            <span className="mt-auto text-[13px] leading-snug text-ink-2">O plano cobre a equipe toda: não há valor extra por barbeiro.</span>
+            <Link href="/painel/barbeiros" className="text-[13px] font-semibold text-ink-2 underline underline-offset-2 w-fit">Ver profissionais</Link>
+          </section>
+
+          <section aria-labelledby="pag-t" className="bg-surface border border-line rounded-2xl px-5 py-[18px] flex flex-col gap-3">
+            <h2 id="pag-t" className="text-[15px] font-semibold">Como você paga</h2>
+            <div className="flex flex-col text-[13px] text-ink-2">
+              <div className="flex justify-between gap-3 min-h-[34px] items-center border-b border-line-2"><span>Renovação</span><span className="font-semibold text-ink text-right">você paga a cada período</span></div>
+              <div className="flex justify-between gap-3 min-h-[34px] items-center border-b border-line-2"><span>Formas</span><span className="font-semibold text-ink text-right">Pix, cartão ou boleto</span></div>
+              <div className="flex justify-between gap-3 min-h-[34px] items-center"><span>Aviso</span><span className="font-semibold text-ink text-right">no WhatsApp, 3 dias antes</span></div>
+            </div>
+            <span className="text-[13px] leading-snug text-ink-3">Não guardamos cartão e não há cobrança automática. Renovar antes do vencimento soma ao tempo que ainda falta.</span>
+            <Button onClick={() => startCheckout(curPlan.key, cycle)} loading={opening && checkout?.plan === curPlan.key} variant="outline" className="mt-auto">
+              Renovar agora
             </Button>
-          </div>
+            <span className="flex items-center gap-1.5 text-xs text-ink-3"><ShieldCheck className="w-3.5 h-3.5" aria-hidden />Pagamento processado pelo Mercado Pago</span>
+          </section>
         </div>
       )}
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_372px] items-start">
+        <div className="flex flex-col gap-4 min-w-0">
+          <section aria-labelledby="troca-t" className="bg-surface border border-line rounded-2xl overflow-hidden">
+            <div className="flex flex-wrap justify-between items-center gap-4 px-5 md:px-[22px] py-[18px] border-b border-line-2">
+              <div className="flex flex-col gap-0.5">
+                <h2 id="troca-t" className="text-[17px] font-semibold">{cur.isPaid ? "Mudar de plano" : "Escolha seu plano"}</h2>
+                <span className="text-[13px] text-ink-3">Sem multa e sem taxa. Vale assim que o pagamento é aprovado.</span>
+              </div>
+              <div role="group" aria-label="Forma de cobrança" className="flex p-1 gap-0.5 rounded-[10px] bg-track">
+                {([["monthly", "Mensal"], ["annual", "Anual"]] as [Cycle, string][]).map(([k, l]) => (
+                  <button key={k} type="button" aria-pressed={cycle === k} onClick={() => setCycle(k)}
+                    className={cn("h-9 px-3.5 rounded-[7px] text-[13px] font-semibold flex items-center gap-1.5", cycle === k ? "bg-surface text-ink shadow-[0_1px_2px_rgba(27,25,22,0.12)]" : "text-ink-2")}>
+                    {l}{k === "annual" && <span className="h-5 px-1.5 rounded-full bg-positive-soft text-positive text-[11px] font-bold flex items-center">-10%</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-3.5 sm:grid-cols-2 px-5 md:px-[22px] py-[18px]">
+              {d.plans.map((p) => {
+                const isCurrent = cur.isPaid && p.key === cur.plan;
+                const chosen = checkout?.plan === p.key;
+                const total = charge(p, cycle);
+                const downgrade = cur.isPaid && cur.plan === "ELITE" && p.key === "PRO";
+                return (
+                  <div key={p.key} className={cn("flex flex-col gap-3 p-[18px] rounded-[14px] border",
+                    chosen ? "border-primary ring-1 ring-primary" : isCurrent ? "border-ink ring-1 ring-ink" : "border-line")}>
+                    <div className="flex justify-between items-center gap-2 min-h-[26px]">
+                      <span className="text-base font-bold">{p.label}</span>
+                      {isCurrent && <span className="h-6 px-2.5 rounded-full bg-ink text-white text-xs font-semibold flex items-center">Seu plano</span>}
+                    </div>
+                    <span className="text-[13px] leading-snug text-ink-3 min-h-[38px]">{p.tagline}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="flex items-baseline gap-1.5"><span className="font-display text-[30px] font-bold leading-tight">{brl(price(p, cycle))}</span><span className="text-[13px] text-ink-3">/mês</span></span>
+                      <span className="text-xs text-ink-2">
+                        {cycle === "annual" && p.annualPriceMonthly != null ? `cobrado uma vez por ano: ${brl(total)}` : "cobrado a cada mês"}
+                      </span>
+                    </div>
+                    <ul className="flex flex-col gap-2 pt-3 border-t border-line-2">
+                      {ITEMS[p.key].map(([t, ok]) => (
+                        <li key={t} className={cn("flex items-center gap-2 text-[13px]", ok ? "text-ink" : "text-ink-4")}>
+                          {ok ? <Check className="w-[15px] h-[15px] shrink-0 text-positive" strokeWidth={2.6} aria-hidden /> : <X className="w-[15px] h-[15px] shrink-0" aria-hidden />}
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+                    {downgrade && <span className="text-xs font-semibold text-danger">O atendente de IA e os lembretes param assim que o pagamento for aprovado.</span>}
+                    <Button onClick={() => startCheckout(p.key, cycle)} loading={opening && chosen} variant={isCurrent ? "outline" : "primary"} className="mt-1 h-11">
+                      {isCurrent ? `Renovar · ${brl(total)}` : cur.isPaid ? `Mudar para ${p.label}` : `Assinar · ${brl(total)}`}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Pagamento (Mercado Pago) */}
+          <section id="checkout" aria-label="Pagamento" className={cn("bg-surface border border-line rounded-2xl overflow-hidden scroll-mt-6", !checkout && "hidden")}>
+            {checkout && (() => {
+              const p = d.plans.find((x) => x.key === checkout.plan)!;
+              return (
+                <div className="flex flex-wrap justify-between items-center gap-3 px-5 md:px-[22px] py-4 border-b border-line-2 bg-ground/60">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-semibold tracking-[0.06em] uppercase text-ink-3">Pagamento</span>
+                    <span className="text-[15px] font-semibold">{p.label} · {checkout.cycle === "annual" ? "anual" : "mensal"}</span>
+                  </div>
+                  <span className="font-display text-2xl font-bold">{brl(charge(p, checkout.cycle))}</span>
+                </div>
+              );
+            })()}
+            <div className="px-5 md:px-[22px] py-5">
+              {result === "approved" ? (
+                <div className="flex flex-col items-center text-center gap-3 py-6">
+                  <span className="w-14 h-14 rounded-full bg-positive-soft text-positive flex items-center justify-center"><Check className="w-7 h-7" aria-hidden /></span>
+                  <h3 className="text-lg font-semibold">Pagamento aprovado</h3>
+                  <p className="text-sm text-ink-2">Seu plano já está valendo.</p>
+                  <Button onClick={() => location.assign("/painel")}>Ir para o painel</Button>
+                </div>
+              ) : (
+                <>
+                  {result === "rejected" && <p role="alert" className="mb-4 px-3.5 py-3 rounded-xl bg-danger-soft text-danger text-sm">O pagamento não foi aprovado. Confira os dados ou tente outra forma.</p>}
+                  {pix && (
+                    <div className="flex flex-col items-center gap-4 mb-2">
+                      <p className="text-sm text-ink-2 text-center">Pague com o Pix abaixo. A assinatura libera sozinha assim que o pagamento cair.</p>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`data:image/jpeg;base64,${pix.qr_code_base64}`} alt="QR Code do Pix" className="w-56 h-56 rounded-xl border border-line" />
+                      <div className="w-full flex gap-2">
+                        <input readOnly value={pix.qr_code} aria-label="Pix copia e cola" className="flex-1 min-w-0 h-11 rounded-[10px] border border-control bg-surface-2 px-3 text-xs font-mono text-ink-2" />
+                        <Button variant="outline" onClick={() => { navigator.clipboard.writeText(pix.qr_code); toast.success("Código copiado"); }}>
+                          <Copy className="w-4 h-4 mr-1.5" aria-hidden />Copiar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <div id="paymentBrick_container" className="min-h-[200px]" />
+                </>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <section aria-labelledby="fat-t" className="bg-surface border border-line rounded-2xl overflow-hidden">
+            <div className="flex justify-between items-baseline px-5 pt-[18px] pb-2.5">
+              <h2 id="fat-t" className="text-[15px] font-semibold">Cobranças</h2>
+              <span className="text-xs text-ink-3">últimas {Math.min(d.payments.length, 12) || ""}</span>
+            </div>
+            {d.payments.length === 0 && <p className="px-5 pb-5 text-[13px] text-ink-3">Nenhuma cobrança ainda.</p>}
+            {d.payments.map((p) => {
+              const [label, cls] = PAY_STATUS[p.status] ?? [p.status, "bg-surface-2 text-ink-2"];
+              return (
+                <div key={p.id} className="flex items-center gap-2.5 min-h-[60px] px-5 border-t border-line-2">
+                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold">{shortDate(p.paidAt ?? p.createdAt)}</span>
+                    <span className="text-xs text-ink-3 truncate">{METHOD[p.method] ? `Pago com ${METHOD[p.method]}` : p.method}</span>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-sm font-semibold">{brl(p.amount)}</span>
+                    <span className={cn("h-5 px-2 rounded-full text-[11px] font-semibold flex items-center", cls)}>{label}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+
+          {cur.isPaid && (
+            <section aria-labelledby="canc-t" className="bg-surface border border-line rounded-2xl px-5 py-4 flex flex-col gap-1.5">
+              <h2 id="canc-t" className="text-[15px] font-semibold">Quer parar de usar?</h2>
+              <span className="text-[13px] leading-normal text-ink-2">
+                Não precisa cancelar nada: não há cobrança automática nem multa.
+                {cur.expiresAt && active ? ` Se não renovar, o acesso continua até ${longDate(cur.expiresAt)}` : " Se não renovar, o acesso pausa"} e seus dados ficam guardados, caso queira voltar.
+              </span>
+            </section>
+          )}
+        </div>
+      </div>
 
       <style jsx global>{`
-        #paymentBrick_container button.svelte-1v8m5xv,
-        #paymentBrick_container .mp-brick-button {
-          background-color: #f59e0b !important;
-          border-radius: 12px !important;
-          font-weight: 700 !important;
-          text-transform: uppercase !important;
-          letter-spacing: 0.05em !important;
-        }
-        #paymentBrick_container .mp-brick-button:hover {
-          background-color: #d97706 !important;
-        }
+        #paymentBrick_container .mp-brick-button { border-radius: 12px !important; font-weight: 600 !important; }
       `}</style>
     </div>
-  );
-}
-
-function Feature({
-  item,
-  disabled,
-  light,
-  highlight,
-  ai,
-}: {
-  item: string;
-  disabled?: boolean;
-  light?: boolean;
-  highlight?: boolean;
-  ai?: boolean;
-}) {
-  return (
-    <li className={`flex items-center gap-3 text-sm ${
-      disabled
-        ? light ? "text-zinc-600 line-through opacity-40" : "text-zinc-300 line-through"
-        : light ? "text-zinc-300" : "text-zinc-600"
-    } ${highlight ? "font-semibold" : ""}`}>
-      {disabled ? (
-        <X className={`w-4 h-4 shrink-0 ${light ? "text-zinc-600" : "text-zinc-200"}`} />
-      ) : ai ? (
-        <Bot className="w-4 h-4 shrink-0 text-violet-400" />
-      ) : (
-        <Check className={`w-4 h-4 shrink-0 ${light ? "text-violet-400" : "text-primary"}`} />
-      )}
-      {item}
-    </li>
   );
 }

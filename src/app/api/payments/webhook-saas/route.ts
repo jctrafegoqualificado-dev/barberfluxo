@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolvePlanFromAmount, type SaasPlanKey } from "@/lib/saasPlans";
 import { loadSaasPlans } from "@/lib/saasPlans.server";
 import MercadoPago, { Payment as MPPayment } from "mercadopago";
+import { nextSaasExpiry } from "@/lib/saasBilling";
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,6 +33,12 @@ export async function POST(req: NextRequest) {
     if (!barbershopId) return NextResponse.json({ ok: true });
 
     if (mpPayment.status === "approved") {
+      // Cartão aprovado na hora já foi registrado pelo /process-saas, e o MP repete
+      // notificações: sem isto o pagamento entrava duas vezes (receita em dobro e
+      // vencimento empurrado de novo).
+      const already = await prisma.payment.findFirst({ where: { externalId: String(paymentId), barbershopId }, select: { id: true } });
+      if (already) return NextResponse.json({ ok: true });
+
       // Determina o plano: prefere external_reference, fallback comparando o valor
       // pago com os preços canônicos da fonte única (substitui o threshold mágico).
       let saasPlan: SaasPlanKey;
@@ -44,10 +51,8 @@ export async function POST(req: NextRequest) {
 
       // Ciclo de cobrança: lê da external_reference (formato: "barbershopId|plan|cycle")
       const billingCycle = parts[2] === "annual" ? "annual" : "monthly";
-      const now = new Date();
-      const saasExpiresAt = billingCycle === "annual"
-        ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
-        : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      const current = await prisma.barbershop.findUnique({ where: { id: barbershopId }, select: { saasStatus: true, saasExpiresAt: true } });
+      const saasExpiresAt = nextSaasExpiry(current, billingCycle);
 
       await prisma.barbershop.update({
         where: { id: barbershopId },
