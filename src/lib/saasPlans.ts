@@ -70,7 +70,7 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     annualPriceMonthly: 179.9,
     isPaid: true,
     hasAI: true,
-    includedBarbers: 2,
+    includedBarbers: 3, // decisão do dono (18/10/2026): cobra a partir do 4º
     extraBarberMonthly: 33.9,
     extraBarberAnnualMonthly: 29.9,
   },
@@ -82,7 +82,7 @@ export const SAAS_PLANS: Record<SaasPlanKey, SaasPlanDef> = {
     annualPriceMonthly: 179.9,
     isPaid: true,
     hasAI: true,
-    includedBarbers: 2,
+    includedBarbers: 3, // decisão do dono (18/10/2026): cobra a partir do 4º
     extraBarberMonthly: 33.9,
     extraBarberAnnualMonthly: 29.9,
     legacy: true, // equivale a ELITE
