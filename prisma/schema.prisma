@@ -282,6 +282,7 @@ model Appointment {
   confirmedVia       String?   // WHATSAPP
   // Quando foi concluído (comanda fechada) — o caixa do dia usa esta hora.
   completedAt        DateTime?
+  source             String?   // AI | LINK | PANEL — de onde veio o agendamento (antigos: null)
   notes              String?
   price              Float
   reminderSent  Boolean  @default(false)
@@ -312,6 +313,7 @@ model Appointment {
   @@index([barbershopId, date])
   @@index([barbershopId, status, date])
   @@index([barbershopId, completedAt])
+  @@index([barbershopId, source, createdAt])
   @@index([status])
   @@index([clientId])
   @@index([mpPaymentId]) // busca rápida no webhook de pagamento avulso

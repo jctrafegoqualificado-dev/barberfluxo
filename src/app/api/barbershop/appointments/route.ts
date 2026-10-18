@@ -617,6 +617,7 @@ export async function POST(req: NextRequest) {
       }
       const appt = await tx.appointment.create({
         data: {
+          source: "PANEL",
           date: appointmentDate,
           startTime,
           endTime,
