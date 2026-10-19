@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { barberWorkWindow } from "@/lib/barberHours";
+import { shopHoursFor } from "@/lib/shopHours";
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -85,12 +86,6 @@ export async function GET(
       return NextResponse.json({ error: "Nenhum barbeiro disponível" }, { status: 404 });
     }
 
-    // Horários de funcionamento da barbearia (todos os dias de uma vez)
-    const openingHours = await prisma.openingHour.findMany({
-      where: { barbershopId: shop.id },
-      select: { dayOfWeek: true, isOpen: true, openTime: true, closeTime: true },
-    });
-    const openingMap = Object.fromEntries(openingHours.map((o) => [o.dayOfWeek, o]));
 
     // Janela de datas: hoje até hoje + daysParam
     const nowBRT = new Date(
@@ -144,10 +139,12 @@ export async function GET(
     // Monta resposta
     const days = [];
 
+    // Horário da barbearia em cada dia (dia especial vale sobre o da semana)
+    const hoursByDate = await shopHoursFor(shop.id, dateStrings);
     for (const dateStr of dateStrings) {
-      const dayOfWeek = new Date(dateStr + "T12:00:00Z").getDay();
-      const opening = openingMap[dayOfWeek];
-      if (!opening || !opening.isOpen) continue;
+      const dayOfWeek = new Date(dateStr + "T12:00:00Z").getUTCDay();
+      const opening = hoursByDate.get(dateStr);
+      if (!opening) continue;
 
       const openMin = toMinutes(opening.openTime);
       const closeMin = toMinutes(opening.closeTime);

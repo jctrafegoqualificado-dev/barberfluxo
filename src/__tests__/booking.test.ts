@@ -14,7 +14,9 @@ const {
   mockSubscriptionFindUnique,
   mockSubscriptionFindFirst,
   mockSendWhatsAppNotification,
+  mockShopHoursOn,
 } = vi.hoisted(() => ({
+  mockShopHoursOn: vi.fn(),
   mockBarbershopFindUnique: vi.fn(),
   mockServiceFindMany: vi.fn(),
   mockBarberFindUnique: vi.fn(),
@@ -61,6 +63,8 @@ vi.mock("@/lib/notifications", () => ({
   welcomeMessage: vi.fn().mockReturnValue("Bem-vindo!"),
 }));
 
+// Horário da barbearia no dia (dia especial vale sobre o da semana)
+vi.mock("@/lib/shopHours", () => ({ shopHoursOn: mockShopHoursOn }));
 vi.mock("@/lib/zapi", () => ({ sendWhatsApp: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/email", () => ({ sendAppointmentConfirmation: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/ratelimit", () => ({
@@ -82,6 +86,11 @@ const BEARD_SERVICE = { id: "svc-2", name: "Barba", price: 20, duration: 20 };
 const BARBER = {
   id: "barb-1",
   barbershopId: "shop-1",
+  active: true,
+  archivedAt: null,
+  dayOff: null,
+  workStart: null,
+  workEnd: null,
   user: { name: "Eduardo", phone: "11999990000" },
 };
 const NEW_CLIENT = {
@@ -133,6 +142,7 @@ describe("POST /api/booking/[slug]/book", () => {
     mockSubscriptionFindUnique.mockResolvedValue(null);
     mockSubscriptionFindFirst.mockResolvedValue(null);  // sem assinatura em atraso
     mockSendWhatsAppNotification.mockResolvedValue({ success: true });
+    mockShopHoursOn.mockResolvedValue({ openTime: "09:00", closeTime: "20:00", reason: null });
   });
 
   it("cria agendamento e novo cliente quando telefone não está no banco", async () => {
@@ -331,5 +341,43 @@ describe("POST /api/booking/[slug]/book", () => {
 
     expect(res.status).toBe(404);
     expect(data.error).toBe("Serviço inválido");
+  });
+});
+
+describe("POST /api/booking/[slug]/book — horário e profissional", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockBarbershopFindUnique.mockResolvedValue(SHOP);
+    mockServiceFindMany.mockResolvedValue([SERVICE]);
+    mockBarberFindUnique.mockResolvedValue(BARBER);
+    mockUserFindFirst.mockResolvedValue(null);
+    mockUserFindUnique.mockResolvedValue(null);
+    mockUserCreate.mockResolvedValue(NEW_CLIENT);
+    mockAppointmentFindFirst.mockResolvedValue(null);
+    mockAppointmentFindMany.mockResolvedValue([]);
+    mockAppointmentCreate.mockResolvedValue(CREATED_APPOINTMENT);
+    mockSubscriptionFindUnique.mockResolvedValue(null);
+    mockSubscriptionFindFirst.mockResolvedValue(null);
+    mockShopHoursOn.mockResolvedValue({ openTime: "09:00", closeTime: "20:00", reason: null });
+  });
+
+  it("recusa dia em que a barbearia não abre (inclusive feriado cadastrado)", async () => {
+    mockShopHoursOn.mockResolvedValue(null);
+    const res = await POST(makeBookRequest(VALID_BODY), withSlug());
+    expect(res.status).toBe(409);
+    expect(mockAppointmentCreate).not.toHaveBeenCalled();
+  });
+
+  it("recusa horário fora do funcionamento", async () => {
+    const res = await POST(makeBookRequest({ ...VALID_BODY, startTime: "19:45" }), withSlug());
+    expect(res.status).toBe(409);
+    expect(mockAppointmentCreate).not.toHaveBeenCalled();
+  });
+
+  it("recusa profissional de outra barbearia", async () => {
+    mockBarberFindUnique.mockResolvedValue({ ...BARBER, barbershopId: "outra" });
+    const res = await POST(makeBookRequest(VALID_BODY), withSlug());
+    expect(res.status).toBe(409);
+    expect(mockAppointmentCreate).not.toHaveBeenCalled();
   });
 });

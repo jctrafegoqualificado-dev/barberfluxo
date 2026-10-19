@@ -11,6 +11,8 @@ import { findClientOverlap, clientOverlapMessage } from "@/lib/appointments";
 import { markWaitlistBooked, notifyWaitlistSlotOpened } from "@/lib/waitlist";
 import { logAudit } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
+import { shopHoursOn } from "@/lib/shopHours";
+import { barberWorkWindow } from "@/lib/barberHours";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
@@ -65,6 +67,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       where: { id: barberId },
       include: { user: { select: { name: true, phone: true } } },
     });
+    // O link só mostra horários válidos, mas a gravação não pode confiar nisso: barbeiro
+    // desta barbearia e ativo, barbearia aberta no dia (dia especial vale sobre o da semana),
+    // dentro do horário da barbearia e do barbeiro, fora da folga.
+    if (!barber || barber.barbershopId !== shop.id || !barber.active || barber.archivedAt) {
+      return NextResponse.json({ error: "Profissional indisponível. Escolha outro." }, { status: 409 });
+    }
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || typeof startTime !== "string" || !/^\d{2}:\d{2}$/.test(startTime)) {
+      return NextResponse.json({ error: "Data ou horário inválido" }, { status: 400 });
+    }
+    {
+      const hours = await shopHoursOn(shop.id, date);
+      if (!hours) return NextResponse.json({ error: "A barbearia não abre nesse dia. Escolha outra data." }, { status: 409 });
+      if (barber.dayOff === new Date(date + "T12:00:00Z").getUTCDay()) {
+        return NextResponse.json({ error: "Esse profissional está de folga nesse dia." }, { status: 409 });
+      }
+      const toM = (t: string) => { const [hh, mm] = t.split(":").map(Number); return hh * 60 + mm; };
+      const work = barberWorkWindow(toM(hours.openTime), toM(hours.closeTime), barber);
+      const s0 = toM(startTime);
+      if (s0 < work.start || s0 + totalDuration > work.end) {
+        return NextResponse.json({ error: "Horário fora do atendimento. Escolha outro horário." }, { status: 409 });
+      }
+    }
 
     // Busca por telefone primeiro (casando variações 55/9º dígito para não duplicar);
     // depois pelos e-mails sintéticos (múltiplos domínios históricos)

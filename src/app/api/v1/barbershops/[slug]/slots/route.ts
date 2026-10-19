@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { barberWorkWindow } from "@/lib/barberHours";
+import { shopHoursOn } from "@/lib/shopHours";
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -52,10 +53,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       return NextResponse.json({ date, dayOfWeek, slots: [] });
     }
 
-    const opening = await prisma.openingHour.findUnique({
-      where: { barbershopId_dayOfWeek: { barbershopId: shop.id, dayOfWeek } },
-    });
-    if (!opening || !opening.isOpen) {
+    // Dia especial (feriado/horário diferente) vale sobre o horário da semana
+    const opening = await shopHoursOn(shop.id, date);
+    if (!opening) {
       return NextResponse.json({ date, dayOfWeek, slots: [] });
     }
 

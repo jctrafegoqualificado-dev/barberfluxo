@@ -4,6 +4,7 @@ import { hashPassword } from "@/lib/auth";
 import { notifyBarberNewAppointment } from "@/lib/notifications";
 import { findClientOverlap, clientOverlapMessage } from "@/lib/appointments";
 import { barberWorkWindow } from "@/lib/barberHours";
+import { shopHoursOn } from "@/lib/shopHours";
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -120,10 +121,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const endMin = startMin + service.duration;
     const endTime = toHHMM(endMin);
 
-    const opening = await prisma.openingHour.findUnique({
-      where: { barbershopId_dayOfWeek: { barbershopId: shop.id, dayOfWeek: dayStart.getDay() } },
-    });
-    if (!opening || !opening.isOpen) {
+    // Dia especial (feriado/horário diferente) vale sobre o horário da semana
+    const opening = await shopHoursOn(shop.id, date);
+    if (!opening) {
       return NextResponse.json({ error: "Barbearia fechada nesse dia" }, { status: 409 });
     }
     if (startMin < toMinutes(opening.openTime) || endMin > toMinutes(opening.closeTime)) {
