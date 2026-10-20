@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Calendar, Lock, Trash2, Plus, ChevronLeft, ChevronRight, AlertTriangle, UserCheck, Package } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -116,9 +117,11 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
 
   // ?novo=1 (botão "+" da barra inferior do celular) já abre o novo agendamento.
   // Vindo da ficha do cliente também traz nome, telefone, profissional e serviços preferidos.
+  // Observa a URL (não só a montagem): tocar no "+" já estando na agenda não remonta a página.
+  const searchParams = useSearchParams();
   const [pendingNovo, setPendingNovo] = useState<{ name?: string; phone?: string; barberId?: string; serviceIds: string[] } | null>(null);
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(searchParams.toString());
     if (params.get("novo") === "1") {
       setPendingNovo({
         name: params.get("cliente") ?? undefined,
@@ -130,7 +133,7 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
       const qs = params.toString();
       window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
     }
-  }, []);
+  }, [searchParams]);
   const [agendamentoInit, setAgendamentoInit] = useState<{
     barberId?: string; startTime?: string; client?: { name: string; phone: string }; serviceIds?: string[];
   } | null>(null);

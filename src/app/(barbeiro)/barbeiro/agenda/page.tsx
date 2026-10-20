@@ -1,6 +1,7 @@
 "use client";
+import { Suspense } from "react";
 import AgendaView from "@/components/agenda/AgendaView";
 
 export default function MinhaAgendaPage() {
-  return <AgendaView mode="barber" />;
+  return <Suspense><AgendaView mode="barber" /></Suspense>;
 }
