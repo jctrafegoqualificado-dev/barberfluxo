@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from 'sonner';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         {children}
         <Toaster position="top-right" />
+        <SpeedInsights />
       </body>
     </html>
   );
