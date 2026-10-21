@@ -249,6 +249,7 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
       }),
       prisma.commissionPayment.findMany({
         where: { barbershopId, month: monthKey },
+        orderBy: { paidAt: "asc" },
       }),
       prisma.commissionVale.findMany({
         where: { barbershopId, month: monthKey },
@@ -276,8 +277,12 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
       const productSales = allProductSales.filter((p) => p.barberId === b.id);
       const vales = allVales.filter((v) => v.barberId === b.id);
       const reviews = allReviews.filter((r) => r.barberId === b.id);
-      const standardPayment = allCommissionPayments.find((cp) => cp.barberId === b.id && cp.type === "STANDARD") ?? null;
-      const subscriptionPayment = allCommissionPayments.find((cp) => cp.barberId === b.id && cp.type === "SUBSCRIPTION") ?? null;
+      // Avulsos são pagos por semana (vários pagamentos no mês); assinaturas, uma vez depois que o mês fecha
+      const standardPayments = allCommissionPayments.filter((cp) => cp.barberId === b.id && cp.type === "STANDARD");
+      const subscriptionPayments = allCommissionPayments.filter((cp) => cp.barberId === b.id && cp.type === "SUBSCRIPTION");
+      const pagoAvulso = standardPayments.reduce((s, p) => s + p.amount, 0);
+      const pagoAssinatura = subscriptionPayments.reduce((s, p) => s + p.amount, 0);
+      const lastOf = (list: typeof standardPayments) => list.length ? { paidAt: list[list.length - 1].paidAt, amount: list.reduce((s, p) => s + p.amount, 0) } : null;
 
       const totalAvulso = avulsos.reduce((s, a) => s + a.price, 0);
       const totalDescontos = avulsos.reduce((s, a) => {
@@ -312,6 +317,10 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
       const totalGorjetas = gorjetaAppts.reduce((s, a) => s + a.tipAmount, 0);
       const liquidoAPagar = Math.max(0, comissaoAvulso + comissaoProdutos + totalGorjetas - totalVales);
       const liquidoAssinatura = comissaoAssinatura;
+      // O que ainda falta pagar (centavos de arredondamento não contam)
+      const saldo = (v: number) => (v > 0.009 ? Math.round(v * 100) / 100 : 0);
+      const saldoAvulso = saldo(liquidoAPagar - pagoAvulso);
+      const saldoAssinatura = saldo(liquidoAssinatura - pagoAssinatura);
 
       let promoters = 0;
       let detractors = 0;
@@ -380,8 +389,14 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
         liquidoAPagar,
         liquidoAssinatura,
         vales: vales.map((v) => ({ id: v.id, amount: v.amount, description: v.description, createdAt: v.createdAt })),
-        paid: standardPayment ? { paidAt: standardPayment.paidAt, amount: standardPayment.amount } : null,
-        subPaid: subscriptionPayment ? { paidAt: subscriptionPayment.paidAt, amount: subscriptionPayment.amount } : null,
+        /** Soma do que já foi pago de avulsos no mês e a data do último pagamento */
+        paid: lastOf(standardPayments),
+        subPaid: lastOf(subscriptionPayments),
+        saldoAvulso,
+        saldoAssinatura,
+        pagamentos: allCommissionPayments
+          .filter((cp) => cp.barberId === b.id)
+          .map((cp) => ({ id: cp.id, type: cp.type as "STANDARD" | "SUBSCRIPTION", amount: cp.amount, paidAt: cp.paidAt, notes: cp.notes })),
         npsScore,
       };
     });

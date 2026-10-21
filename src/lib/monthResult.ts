@@ -179,8 +179,7 @@ export async function buildMonthResult(barbershopId: string, month: string, unti
     }));
 
   const comissoes = commissions.barbers.reduce((s, b) => s + b.totalComissao, 0);
-  const comissoesAPagar = commissions.barbers.reduce(
-    (s, b) => s + (b.paid ? 0 : b.liquidoAPagar) + (b.subPaid ? 0 : b.liquidoAssinatura), 0);
+  const comissoesAPagar = commissions.barbers.reduce((s, b) => s + b.saldoAvulso + b.saldoAssinatura, 0);
   const entrou = services + subscriptions + products + other;
   const sobrou = entrou - comissoes - despesas - taxas;
 

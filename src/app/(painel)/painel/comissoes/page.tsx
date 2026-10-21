@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Download, Plus, Printer, Trash2, X } from "lucide-react";
+import { AlertCircle, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Download, Plus, Printer, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
 import { cn, formatCurrency, getInitials } from "@/lib/utils";
@@ -13,19 +13,25 @@ import { parseMoney } from "@/lib/finance";
 import type { CommissionRow } from "@/lib/commissions";
 
 type Barber = CommissionRow;
+type PayType = "STANDARD" | "SUBSCRIPTION";
 interface Data {
   barbers: Barber[];
   mes: string;
   monthKey: string;
   isCurrent: boolean;
+  isRange: boolean;
+  /** Mês já fechado: as assinaturas podem ser pagas */
+  closed: boolean;
   periodStart: string;
   periodEnd: string;
   /** Fração do mês já passada (só no mês corrente). */
   progress: number;
-  pool: { gross: number; barbersPart: number; services: number; ticket: number; ownerPct: number };
+  pool: { gross: number; fees: number; feePct: number; deductFees: boolean; barbersPart: number; carried: number; services: number; ticket: number; ownerPct: number };
+  prevPending: { monthKey: string; mes: string; avulso: number; assinatura: number } | null;
   history: { month: string; total: number; barbers: number; paidAt: string }[];
 }
 type CommType = "PERCENTAGE" | "FIXED";
+type View = "tudo" | "avulsos" | "assinaturas";
 
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const brl = (v: number) => formatCurrency(v);
@@ -33,11 +39,16 @@ const brl0 = (v: number) => formatCurrency(v).replace(",00", "");
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const dm = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" });
 const firstName = (n: string) => n.trim().split(/\s+/)[0];
+const todayDm = () => new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" });
 
-const toReceive = (b: Barber) => b.liquidoAPagar + b.liquidoAssinatura;
-const pending = (b: Barber) => (b.paid ? 0 : b.liquidoAPagar) + (b.subPaid ? 0 : b.liquidoAssinatura);
+/** Quanto o profissional tem a receber na visão escolhida. */
+const toReceive = (b: Barber, v: View = "tudo") =>
+  v === "avulsos" ? b.liquidoAPagar : v === "assinaturas" ? b.liquidoAssinatura : b.liquidoAPagar + b.liquidoAssinatura;
+/** Quanto ainda falta pagar na visão escolhida. */
+const pending = (b: Barber, v: View = "tudo") =>
+  v === "avulsos" ? b.saldoAvulso : v === "assinaturas" ? b.saldoAssinatura : b.saldoAvulso + b.saldoAssinatura;
 function rule(b: Barber) {
-  const s = b.commissionType === "FIXED" ? `${brl0(b.commission)} por serviço` : `${b.commission}% serviços`;
+  const s = b.commissionType === "FIXED" ? `${brl0(b.commission)} por serviço` : `${b.commission}% do avulso`;
   const p = b.productCommissionType === "FIXED" ? `${brl0(b.productCommission)} por produto` : `${b.productCommission}% produtos`;
   return `${s} · ${p}`;
 }
@@ -49,6 +60,7 @@ export default function ComissoesPage() {
   const [rangeDraft, setRangeDraft] = useState<{ from: string; to: string } | null>(null);
   const [data, setData] = useState<Data | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [view, setView] = useState<View>("tudo");
   const [valeFor, setValeFor] = useState<string | "pick" | null>(null);
   const [confirm, setConfirm] = useState<{ title: string; message: string; label: string; run: () => Promise<void> } | null>(null);
 
@@ -73,47 +85,34 @@ export default function ComissoesPage() {
     const sum = (f: (x: Barber) => number) => b.reduce((s, x) => s + f(x), 0);
     const vales = b.flatMap((x) => x.vales.map((v) => ({ ...v, barberName: x.name })));
     return {
-      count: sum((x) => x.avulso.atendimentos + x.assinatura.atendimentos),
+      atendimentos: sum((x) => x.avulso.atendimentos),
       faturado: sum((x) => x.avulso.faturado),
-      servicos: sum((x) => x.avulso.comissao + x.assinatura.comissao),
+      comissaoAvulso: sum((x) => x.avulso.comissao),
+      servicos: sum((x) => x.assinatura.servicos),
+      comissaoAssinatura: sum((x) => x.assinatura.comissao),
+      comissaoProprio: sum((x) => x.assinatura.comissaoProprio),
       produtos: sum((x) => x.produtos.comissao),
       gorjetas: sum((x) => x.gorjetas.total),
       vales: sum((x) => x.totalVales),
-      receber: sum(toReceive),
-      pendente: sum(pending),
+      receber: sum((x) => toReceive(x, view)),
+      saldoAvulso: sum((x) => x.saldoAvulso),
+      saldoAssinatura: sum((x) => x.saldoAssinatura),
       valesList: vales.map((v) => ({ ...v, createdAt: String(v.createdAt) })).sort((x, y) => y.createdAt.localeCompare(x.createdAt)),
-      valesBarbers: b.filter((x) => x.vales.length > 0).length,
     };
-  }, [data]);
+  }, [data, view]);
 
-  // No ritmo do mês: o que já foi feito ÷ dias passados × dias do mês
-  const projection = useMemo(() => {
-    if (!data?.isCurrent) return null;
-    const elapsed = data.progress;
-    if (elapsed < 0.2 || elapsed >= 0.97) return null;
-    return Math.round(totals.receber / elapsed / 100) * 100;
-  }, [data, totals.receber]);
-
-  function pay(b: Barber) {
-    const parts: [string, number][] = [];
-    if (!b.paid && b.liquidoAPagar > 0) parts.push(["STANDARD", b.liquidoAPagar]);
-    if (!b.subPaid && b.liquidoAssinatura > 0) parts.push(["SUBSCRIPTION", b.liquidoAssinatura]);
-    if (parts.length === 0) return;
-    const total = parts.reduce((s, [, v]) => s + v, 0);
+  function pay(b: Barber, type: PayType) {
+    const amount = type === "STANDARD" ? b.saldoAvulso : b.saldoAssinatura;
+    if (!data || amount <= 0) return;
+    const what = type === "STANDARD" ? "avulsos, produtos e gorjetas" : `assinaturas de ${data.mes.split(" de ")[0]}`;
     setConfirm({
       title: `Pagar ${firstName(b.name)}?`,
-      message: `${brl(total)} referente a ${data?.mes}. Fica registrado como pago hoje.`,
+      message: `${brl(amount)} de ${what}. Fica registrado como pago hoje${type === "STANDARD" && data.isCurrent ? "; o que ele fizer depois entra no próximo pagamento" : ""}.`,
       label: "Marcar como pago",
-      run: async () => {
-        for (const [type, amount] of parts) {
-          await fetch("/api/barbershop/comissoes/pagar", {
-            method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ barberId: b.id, month: data!.monthKey, amount: Math.round(amount * 100) / 100, type }),
-          });
-        }
-        toast.success(`Pagamento de ${firstName(b.name)} registrado`);
-        load();
-      },
+      run: () => call("/api/barbershop/comissoes/pagar", "POST", {
+        barberId: b.id, month: data.monthKey, amount, type,
+        notes: type === "STANDARD" ? (data.isCurrent ? `Avulsos até ${todayDm()}` : `Avulsos de ${data.mes}`) : `Assinaturas de ${data.mes}`,
+      }, `Pagamento de ${firstName(b.name)} registrado`),
     });
   }
 
@@ -121,10 +120,10 @@ export default function ComissoesPage() {
     if (!data) return;
     const cell = (v: number) => v.toFixed(2).replace(".", ",");
     const lines = [
-      "Profissional;Atendimentos;Faturou;Comissão serviços;Comissão produtos;Gorjetas;Vales;A receber;Situação",
+      "Profissional;Atendimentos avulsos;Faturou;Comissão avulso;Serviços de plano;Comissão assinatura;Produtos;Gorjetas;Vales;A receber;Falta pagar",
       ...data.barbers.map((b) => [
-        b.name, b.avulso.atendimentos + b.assinatura.atendimentos, cell(b.avulso.faturado), cell(b.avulso.comissao + b.assinatura.comissao),
-        cell(b.produtos.comissao), cell(b.gorjetas.total), cell(b.totalVales), cell(toReceive(b)), pending(b) > 0 ? "A pagar" : "Pago",
+        b.name, b.avulso.atendimentos, cell(b.avulso.faturado), cell(b.avulso.comissao), b.assinatura.servicos, cell(b.assinatura.comissao),
+        cell(b.produtos.comissao), cell(b.gorjetas.total), cell(b.totalVales), cell(toReceive(b)), cell(pending(b)),
       ].join(";")),
     ];
     const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
@@ -135,7 +134,11 @@ export default function ComissoesPage() {
     URL.revokeObjectURL(url);
   }
 
+  const monthName = data ? data.mes.split(" de ")[0] : "";
   const monthEndLabel = data?.isCurrent ? dm(data.periodEnd) : null;
+  const showAvulso = view !== "assinaturas";
+  const showSub = view !== "avulsos";
+  const cols = 1 + (showAvulso ? 3 : 0) + (showSub ? 2 : 0) + (showAvulso ? 3 : 0) + 2;
 
   return (
     <div className="flex flex-col gap-5">
@@ -144,8 +147,8 @@ export default function ComissoesPage() {
         <div className="flex flex-col gap-1">
           <h1 className="font-display text-[26px] md:text-[32px] font-bold tracking-[-0.02em] leading-tight">Comissões</h1>
           <span className="text-sm text-ink-3">
-            {!data ? " " : range ? `Período de ${data.mes}`
-              : data.isCurrent ? `${cap(data.mes.split(" de ")[0])} está aberto · fecha em ${monthEndLabel}`
+            {!data ? " " : data.isRange ? `Período de ${data.mes} · só para consulta`
+              : data.isCurrent ? `${cap(monthName)} está aberto · fecha em ${monthEndLabel}`
               : `${cap(data.mes)} · fechado`}
           </span>
         </div>
@@ -166,7 +169,7 @@ export default function ComissoesPage() {
                 <span className="px-2 text-sm font-semibold min-w-[150px] text-center">{data ? cap(data.mes) : "…"}</span>
                 <button type="button" onClick={() => setOffset(Math.max(0, offset - 1))} disabled={offset === 0} aria-label="Próximo mês" className="w-10 h-full flex items-center justify-center hover:bg-surface-3 rounded-r-[10px] disabled:opacity-30"><ChevronRight className="w-4 h-4" aria-hidden /></button>
               </div>
-              <button type="button" title="Período personalizado" aria-label="Período personalizado"
+              <button type="button" title="Período personalizado (só consulta)" aria-label="Período personalizado"
                 onClick={() => {
                   const d = new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(new Date());
                   const r = { from: d.slice(0, 8) + "01", to: d };
@@ -180,65 +183,119 @@ export default function ComissoesPage() {
           <button type="button" onClick={exportCsv} className="hidden md:inline-flex h-[42px] px-3.5 rounded-[10px] border border-control bg-surface text-sm font-semibold items-center gap-2 hover:bg-surface-3">
             <Download className="w-4 h-4" aria-hidden /> Exportar
           </button>
-          <button type="button" onClick={() => setValeFor("pick")} className="h-[42px] px-4 rounded-[10px] bg-primary text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-primary/90">
-            <Plus className="w-4 h-4" aria-hidden /> Lançar vale
-          </button>
+          {!range && (
+            <button type="button" onClick={() => setValeFor("pick")} className="h-[42px] px-4 rounded-[10px] bg-primary text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-primary/90">
+              <Plus className="w-4 h-4" aria-hidden /> Lançar vale
+            </button>
+          )}
         </div>
       </header>
 
       {!data ? (
         <div className="flex flex-col gap-5 animate-pulse" aria-busy>
-          <div className="h-28 rounded-2xl bg-surface-2" /><div className="h-72 rounded-2xl bg-surface-2" />
+          <div className="h-40 rounded-2xl bg-surface-2" /><div className="h-72 rounded-2xl bg-surface-2" />
         </div>
       ) : (
         <>
-          {/* Números */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="col-span-2 lg:col-span-1 rounded-2xl bg-ink text-white p-4 flex flex-col gap-1">
-              <span className="text-[13px] text-night-muted">{totals.pendente > 0 ? "A pagar" : "Tudo pago"}</span>
-              <span className="font-display text-[30px] font-bold leading-tight">{brl0(totals.pendente)}</span>
-              <span className="text-xs text-night-text">
-                {data.isCurrent ? "até hoje" : `de ${brl0(totals.receber)} no período`}
-                {projection && ` · no ritmo atual, fecha perto de ${brl0(projection)}`}
-              </span>
+          {data.isRange && (
+            <p className="rounded-xl bg-surface-2 px-4 py-3 text-[13px] text-ink-2">
+              Período personalizado é só para consulta: o pote usa o que foi pago nesses dias. Pagamentos e vales são lançados no mês.
+            </p>
+          )}
+          {data.prevPending && (
+            <div className="rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 flex items-center gap-3 flex-wrap">
+              <AlertCircle className="w-4 h-4 text-warning shrink-0" aria-hidden />
+              <p className="text-[13px] flex-1 min-w-0">
+                <span className="font-semibold">{cap(data.prevPending.mes)} ainda tem comissão a pagar:</span>{" "}
+                {[data.prevPending.avulso > 0 && `${brl(data.prevPending.avulso)} de avulsos`, data.prevPending.assinatura > 0 && `${brl(data.prevPending.assinatura)} de assinaturas`].filter(Boolean).join(" e ")}.
+              </p>
+              <button type="button" onClick={() => setOffset(offset + 1)} className="h-8 px-3 rounded-lg border border-control bg-surface text-xs font-semibold hover:bg-surface-3">Ver {data.prevPending.mes}</button>
             </div>
-            {[
-              ["Comissão de serviços", brl0(totals.servicos), `de ${brl0(totals.faturado)} avulsos${data.pool.gross > 0 ? " + pote das assinaturas" : ""}`],
-              ["Produtos e gorjetas", brl0(totals.produtos + totals.gorjetas), `${brl0(totals.produtos)} produtos · ${brl0(totals.gorjetas)} gorjetas`],
-              ["Vales já adiantados", totals.vales > 0 ? `− ${brl0(totals.vales)}` : "—", totals.vales > 0 ? `${totals.valesList.length} ${totals.valesList.length === 1 ? "vale" : "vales"} para ${totals.valesBarbers} ${totals.valesBarbers === 1 ? "profissional" : "profissionais"}` : "nenhum vale neste mês"],
-            ].map(([l, v, sub]) => (
-              <div key={l} className="rounded-2xl bg-surface border border-line p-4 flex flex-col gap-1 min-w-0">
-                <span className="text-[13px] text-ink-3">{l}</span>
-                <span className={cn("font-display text-2xl font-bold", l.startsWith("Vales") && totals.vales > 0 && "text-danger-strong")}>{v}</span>
-                <span className="text-xs text-ink-3 truncate">{sub}</span>
+          )}
+
+          {/* As duas contas lado a lado */}
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
+            <div className="rounded-2xl bg-surface border border-line p-4 flex flex-col gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-3">Avulsos · pagos por semana</span>
+              <Row label="Faturou" value={brl0(totals.faturado)} />
+              <Row label="Comissão" value={brl(totals.comissaoAvulso)} strong />
+              <Row label="Produtos e gorjetas" value={brl(totals.produtos + totals.gorjetas)} />
+            </div>
+
+            <div className="rounded-2xl bg-ink text-white p-4 flex flex-col gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-night-muted">Assinaturas · pote de {monthName}</span>
+              <Row dark label="Mensalidades do mês" value={brl(data.pool.gross)} strong />
+              {data.pool.fees > 0 && <Row dark label={`Taxa do cartão (${data.pool.feePct}%)`} value={`− ${brl(data.pool.fees)}`} />}
+              <Row dark label={`${100 - data.pool.ownerPct}% para os barbeiros`} value={brl(data.pool.barbersPart - data.pool.carried)} />
+              {data.pool.carried > 0 && <Row dark label="+ sobra de mês sem atendimento" value={brl(data.pool.carried)} />}
+              <Row dark label="÷ serviços de plano feitos" value={String(data.pool.services)} />
+              <div className="border-t border-night-line pt-2 mt-1 flex items-baseline justify-between gap-3">
+                <span className="text-sm">Valor por serviço</span>
+                <span className="font-display text-[26px] font-bold">{brl(data.pool.ticket)}</span>
               </div>
-            ))}
+              {!data.isRange && (
+                <span className={cn("self-start h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center", data.closed ? "bg-positive-soft text-positive" : "bg-white/10 text-white")}>
+                  {data.closed ? "Mês fechado · pode pagar" : `Parcial · fecha em ${monthEndLabel ?? dm(data.periodEnd)}`}
+                </span>
+              )}
+              {totals.comissaoProprio > 0 && (
+                <span className="text-xs text-night-text">Planos com comissão própria ficam fora do pote: {brl(totals.comissaoProprio)} à parte.</span>
+              )}
+            </div>
+
+            <div className="rounded-2xl bg-surface border border-line p-4 flex flex-col gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-3">{data.isRange ? "A receber no período" : "A pagar"}</span>
+              <span className="font-display text-[28px] font-bold leading-tight">
+                {brl0(data.isRange ? totals.receber : totals.saldoAvulso + totals.saldoAssinatura)}
+              </span>
+              {!data.isRange && (
+                <>
+                  <Row label="Avulsos, produtos e gorjetas" value={brl(totals.saldoAvulso)} />
+                  <Row label={data.closed ? "Assinaturas" : "Assinaturas (após fechar)"} value={brl(totals.saldoAssinatura)} />
+                  {totals.vales > 0 && <Row label="Vales já descontados" value={`− ${brl(totals.vales)}`} danger />}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Por profissional */}
           <section className="bg-surface border border-line rounded-2xl overflow-hidden">
-            <div className="flex items-baseline justify-between gap-3 px-5 pt-4 pb-3 border-b border-line-2">
-              <h2 className="text-[15px] font-semibold">Por profissional</h2>
+            <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-3 border-b border-line-2 flex-wrap">
+              <div className="flex rounded-[10px] bg-surface-2 p-1 text-sm font-semibold" role="tablist" aria-label="Mostrar">
+                {([["tudo", "Tudo"], ["avulsos", "Avulsos"], ["assinaturas", "Assinaturas"]] as const).map(([k, l]) => (
+                  <button key={k} type="button" role="tab" aria-selected={view === k} onClick={() => setView(k)}
+                    className={cn("h-8 px-3.5 rounded-lg", view === k ? "bg-surface shadow-sm text-ink" : "text-ink-3 hover:text-ink")}>{l}</button>
+                ))}
+              </div>
               <span className="text-xs text-ink-3 hidden sm:inline">Toque numa linha para ver os atendimentos e pagar</span>
             </div>
             {data.barbers.length === 0 ? (
               <p className="px-5 py-8 text-center text-[13px] text-ink-3">Nenhum profissional ativo.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[860px]">
+                <table className="w-full text-sm min-w-[760px]">
                   <thead>
+                    <tr className="text-[11px] uppercase tracking-[0.06em] text-ink-3">
+                      <th />
+                      {showAvulso && <th colSpan={3} className="text-right font-semibold px-3 pt-2.5">Avulso</th>}
+                      {showSub && <th colSpan={2} className="text-right font-semibold px-3 pt-2.5 bg-primary/5">Assinatura</th>}
+                      {showAvulso && <th colSpan={3} className="text-right font-semibold px-3 pt-2.5">Extras</th>}
+                      <th colSpan={2} />
+                    </tr>
                     <tr className="text-xs text-ink-3 border-b border-line-2">
                       <th scope="col" className="text-left font-semibold px-5 py-2.5">Profissional</th>
-                      {["Atendim.", "Faturou", "Comissão", "Produtos", "Gorjetas", "Vales", "A receber"].map((h) => (
-                        <th key={h} scope="col" className="text-right font-semibold px-3 py-2.5">{h}</th>
-                      ))}
+                      {showAvulso && ["Atendim.", "Faturou", "Comissão"].map((h) => <th key={h} scope="col" className="text-right font-semibold px-3 py-2.5">{h}</th>)}
+                      {showSub && ["Serviços", "Comissão"].map((h) => <th key={h} scope="col" className="text-right font-semibold px-3 py-2.5 bg-primary/5">{h}</th>)}
+                      {showAvulso && ["Produtos", "Gorjetas", "Vales"].map((h) => <th key={h} scope="col" className="text-right font-semibold px-3 py-2.5">{h}</th>)}
+                      <th scope="col" className="text-right font-semibold px-3 py-2.5">A receber</th>
                       <th scope="col" className="px-3"><span className="sr-only">Ações</span></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-3">
                     {data.barbers.map((b) => {
                       const isOpen = open === b.id;
-                      const due = pending(b);
+                      const total = toReceive(b, view);
+                      const due = pending(b, view);
                       return (
                         <Fragment key={b.id}>
                           <tr className={cn("cursor-pointer", isOpen ? "bg-surface-3/60" : "hover:bg-surface-3/40")} onClick={() => setOpen(isOpen ? null : b.id)}>
@@ -254,35 +311,49 @@ export default function ComissoesPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-3 text-right">{b.avulso.atendimentos + b.assinatura.atendimentos}</td>
-                            <td className="px-3 text-right">{brl0(b.avulso.faturado)}</td>
-                            <td className="px-3 text-right">{brl(b.avulso.comissao + b.assinatura.comissao)}</td>
-                            <td className="px-3 text-right">{brl(b.produtos.comissao)}</td>
-                            <td className="px-3 text-right">{brl(b.gorjetas.total)}</td>
-                            <td className={cn("px-3 text-right", b.totalVales > 0 ? "text-danger-strong" : "text-ink-4")}>{b.totalVales > 0 ? `− ${brl(b.totalVales)}` : "—"}</td>
+                            {showAvulso && (
+                              <>
+                                <td className="px-3 text-right">{b.avulso.atendimentos}</td>
+                                <td className="px-3 text-right">{brl0(b.avulso.faturado)}</td>
+                                <td className="px-3 text-right font-semibold">{brl(b.avulso.comissao)}</td>
+                              </>
+                            )}
+                            {showSub && (
+                              <>
+                                <td className="px-3 text-right bg-primary/5">{b.assinatura.servicos}</td>
+                                <td className="px-3 text-right font-semibold bg-primary/5">{brl(b.assinatura.comissao)}</td>
+                              </>
+                            )}
+                            {showAvulso && (
+                              <>
+                                <td className={cn("px-3 text-right", !b.produtos.comissao && "text-ink-4")}>{b.produtos.comissao ? brl(b.produtos.comissao) : "—"}</td>
+                                <td className={cn("px-3 text-right", !b.gorjetas.total && "text-ink-4")}>{b.gorjetas.total ? brl(b.gorjetas.total) : "—"}</td>
+                                <td className={cn("px-3 text-right", b.totalVales > 0 ? "text-danger-strong" : "text-ink-4")}>{b.totalVales > 0 ? `− ${brl(b.totalVales)}` : "—"}</td>
+                              </>
+                            )}
                             <td className="px-3 text-right">
-                              <p className="font-bold">{brl(toReceive(b))}</p>
-                              <p className={cn("text-[11px] font-semibold", due > 0 ? "text-warning" : "text-positive")}>{due > 0 ? (due < toReceive(b) - 0.01 ? `falta ${brl(due)}` : "a pagar") : "pago"}</p>
+                              <p className="font-bold">{brl(total)}</p>
+                              {!data.isRange && total > 0 && (
+                                <p className={cn("text-[11px] font-semibold", due > 0 ? "text-warning" : "text-positive")}>
+                                  {due <= 0 ? "pago" : due < total - 0.01 ? `falta ${brl(due)}` : "a pagar"}
+                                </p>
+                              )}
                             </td>
                             <td className="px-3 pr-5" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex justify-end gap-1.5">
-                                <button type="button" onClick={() => setValeFor(b.id)} className="h-8 px-2.5 rounded-lg border border-control text-xs font-semibold hover:bg-surface-3" aria-label={`Lançar vale para ${b.name}`}>Vale</button>
-                                {!range && (
-                                  <Link href={`/painel/comissoes/recibo?barberId=${b.id}&monthOffset=${offset}&type=STANDARD`} target="_blank"
-                                    className="h-8 px-2.5 rounded-lg border border-control text-xs font-semibold hover:bg-surface-3 inline-flex items-center gap-1" aria-label={`Recibo de ${b.name}`}>
-                                    <Printer className="w-3.5 h-3.5" aria-hidden /> Recibo
-                                  </Link>
-                                )}
-                              </div>
+                              {!data.isRange && (
+                                <div className="flex justify-end">
+                                  <button type="button" onClick={() => setValeFor(b.id)} className="h-8 px-2.5 rounded-lg border border-control text-xs font-semibold hover:bg-surface-3" aria-label={`Lançar vale para ${b.name}`}>Vale</button>
+                                </div>
+                              )}
                             </td>
                           </tr>
                           {isOpen && (
                             <tr>
-                              <td colSpan={9} className="px-5 pb-5 pt-1 bg-surface-3/60">
-                                <Detalhe b={b} data={data} offset={offset} range={!!range} onPay={() => pay(b)}
-                                  onUnpay={(type) => setConfirm({
-                                    title: "Desfazer pagamento?", message: `O registro de pagamento ${type === "STANDARD" ? "de avulsos e produtos" : "das assinaturas"} de ${firstName(b.name)} é apagado.`,
-                                    label: "Desfazer", run: () => call("/api/barbershop/comissoes/pagar", "DELETE", { barberId: b.id, month: data.monthKey, type }, "Pagamento desfeito"),
+                              <td colSpan={cols} className="px-5 pb-5 pt-1 bg-surface-3/60">
+                                <Detalhe b={b} data={data} offset={offset} view={view} onPay={(type) => pay(b, type)}
+                                  onUnpay={(p) => setConfirm({
+                                    title: "Desfazer pagamento?", message: `O pagamento de ${brl(p.amount)} feito a ${firstName(b.name)} em ${dm(String(p.paidAt))} é apagado e o valor volta para "a pagar".`,
+                                    label: "Desfazer", run: () => call("/api/barbershop/comissoes/pagar", "DELETE", { id: p.id }, "Pagamento desfeito"),
                                   })}
                                   onSaveRule={(form) => call("/api/barbershop/comissoes", "PATCH", { barberId: b.id, ...form }, "Regra de comissão salva")} />
                               </td>
@@ -293,12 +364,26 @@ export default function ComissoesPage() {
                     })}
                     <tr className="bg-surface-3/40 font-semibold">
                       <td className="px-5 py-3">Total</td>
-                      <td className="px-3 text-right">{totals.count}</td>
-                      <td className="px-3 text-right">{brl0(totals.faturado)}</td>
-                      <td className="px-3 text-right">{brl(totals.servicos)}</td>
-                      <td className="px-3 text-right">{brl(totals.produtos)}</td>
-                      <td className="px-3 text-right">{brl(totals.gorjetas)}</td>
-                      <td className="px-3 text-right text-danger-strong">{totals.vales > 0 ? `− ${brl(totals.vales)}` : "—"}</td>
+                      {showAvulso && (
+                        <>
+                          <td className="px-3 text-right">{totals.atendimentos}</td>
+                          <td className="px-3 text-right">{brl0(totals.faturado)}</td>
+                          <td className="px-3 text-right">{brl(totals.comissaoAvulso)}</td>
+                        </>
+                      )}
+                      {showSub && (
+                        <>
+                          <td className="px-3 text-right bg-primary/5">{totals.servicos}</td>
+                          <td className="px-3 text-right bg-primary/5">{brl(totals.comissaoAssinatura)}</td>
+                        </>
+                      )}
+                      {showAvulso && (
+                        <>
+                          <td className="px-3 text-right">{brl(totals.produtos)}</td>
+                          <td className="px-3 text-right">{brl(totals.gorjetas)}</td>
+                          <td className="px-3 text-right text-danger-strong">{totals.vales > 0 ? `− ${brl(totals.vales)}` : "—"}</td>
+                        </>
+                      )}
                       <td className="px-3 text-right">{brl(totals.receber)}</td>
                       <td />
                     </tr>
@@ -312,8 +397,8 @@ export default function ComissoesPage() {
             {/* Vales */}
             <section className="bg-surface border border-line rounded-2xl p-5 flex flex-col gap-2">
               <div>
-                <h2 className="text-[15px] font-semibold">Vales de {data.mes.split(" de ")[0]}</h2>
-                <p className="text-[13px] text-ink-3">descontados no acerto</p>
+                <h2 className="text-[15px] font-semibold">Vales de {monthName}</h2>
+                <p className="text-[13px] text-ink-3">descontados do pagamento de avulsos</p>
               </div>
               {totals.valesList.length === 0 ? (
                 <p className="text-[13px] text-ink-3">Nenhum vale neste período.</p>
@@ -324,12 +409,14 @@ export default function ComissoesPage() {
                       <span className="w-11 text-ink-3 shrink-0">{dm(v.createdAt)}</span>
                       <span className="flex-1 min-w-0 truncate"><span className="font-semibold">{v.barberName}</span>{v.description && <span className="text-ink-3"> · {v.description}</span>}</span>
                       <span className="font-semibold text-danger-strong shrink-0">− {brl(v.amount)}</span>
-                      <button type="button" aria-label="Apagar vale" onClick={() => setConfirm({
-                        title: "Apagar vale?", message: `${brl(v.amount)} de ${v.barberName} deixa de ser descontado.`, label: "Apagar",
-                        run: () => call("/api/barbershop/comissoes/vale", "DELETE", { id: v.id }, "Vale apagado"),
-                      })} className="w-8 h-8 rounded-lg text-ink-4 hover:bg-surface-3 hover:text-danger flex items-center justify-center shrink-0">
-                        <Trash2 className="w-4 h-4" aria-hidden />
-                      </button>
+                      {!data.isRange && (
+                        <button type="button" aria-label="Apagar vale" onClick={() => setConfirm({
+                          title: "Apagar vale?", message: `${brl(v.amount)} de ${v.barberName} deixa de ser descontado.`, label: "Apagar",
+                          run: () => call("/api/barbershop/comissoes/vale", "DELETE", { id: v.id }, "Vale apagado"),
+                        })} className="w-8 h-8 rounded-lg text-ink-4 hover:bg-surface-3 hover:text-danger flex items-center justify-center shrink-0">
+                          <Trash2 className="w-4 h-4" aria-hidden />
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -349,10 +436,9 @@ export default function ComissoesPage() {
                       <li key={h.month} className="flex items-center gap-3 py-2.5">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold">{cap(MONTHS[m - 1])} de {y}</p>
-                          <p className="text-xs text-ink-3">pago em {dm(h.paidAt)} · {h.barbers} {h.barbers === 1 ? "profissional" : "profissionais"}</p>
+                          <p className="text-xs text-ink-3">último pagamento em {dm(h.paidAt)} · {h.barbers} {h.barbers === 1 ? "profissional" : "profissionais"}</p>
                         </div>
-                        <span className="text-sm font-semibold">{brl0(h.total)}</span>
-                        <span className="h-6 px-2.5 rounded-full bg-positive-soft text-positive text-xs font-semibold inline-flex items-center">Pago</span>
+                        <span className="text-sm font-semibold">{brl0(h.total)} pagos</span>
                       </li>
                     );
                   })}
@@ -377,11 +463,22 @@ export default function ComissoesPage() {
   );
 }
 
-/* ─── Linha aberta: atendimentos, pagar, regra ─── */
-function Detalhe({ b, data, offset, range, onPay, onUnpay, onSaveRule }: {
-  b: Barber; data: Data; offset: number; range: boolean;
-  onPay: () => void;
-  onUnpay: (type: "STANDARD" | "SUBSCRIPTION") => void;
+function Row({ label, value, strong, dark, danger }: { label: string; value: string; strong?: boolean; dark?: boolean; danger?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-[13px]">
+      <span className={dark ? "text-night-text" : "text-ink-2"}>{label}</span>
+      <span className={cn("whitespace-nowrap shrink-0", strong && "font-bold", danger && "text-danger-strong")}>{value}</span>
+    </div>
+  );
+}
+
+type Pagamento = Barber["pagamentos"][number];
+
+/* ─── Linha aberta: atendimentos, os dois pagamentos, regra ─── */
+function Detalhe({ b, data, offset, view, onPay, onUnpay, onSaveRule }: {
+  b: Barber; data: Data; offset: number; view: View;
+  onPay: (type: PayType) => void;
+  onUnpay: (p: Pagamento) => void;
   onSaveRule: (form: { commissionType: CommType; commission: number; productCommissionType: CommType; productCommission: number }) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -389,32 +486,30 @@ function Detalhe({ b, data, offset, range, onPay, onUnpay, onSaveRule }: {
     commissionType: b.commissionType as CommType, commission: String(b.commission),
     productCommissionType: b.productCommissionType as CommType, productCommission: String(b.productCommission),
   });
-  const due = pending(b);
   const items = [
-    ...b.avulso.items.map((i) => ({ ...i, kind: "avulso" as const })),
-    ...b.assinatura.items.map((i) => ({ ...i, kind: "plano" as const })),
+    ...(view !== "assinaturas" ? b.avulso.items.map((i) => ({ ...i, kind: "avulso" as const })) : []),
+    ...(view !== "avulsos" ? b.assinatura.items.map((i) => ({ ...i, kind: "plano" as const })) : []),
   ].sort((x, y) => y.date.localeCompare(x.date));
-  const paidLine = (label: string, p: { paidAt: string | Date; amount: number } | null, type: "STANDARD" | "SUBSCRIPTION", value: number) => (
-    <div className="flex items-center justify-between gap-3 py-2 text-[13px]">
-      <span className="text-ink-2">{label}</span>
-      {p ? (
-        <span className="flex items-center gap-2">
-          <span className="text-positive font-semibold">pago {brl(p.amount)} em {dm(String(p.paidAt))}</span>
-          <button type="button" onClick={() => onUnpay(type)} className="text-xs text-ink-3 underline underline-offset-2 hover:text-danger">desfazer</button>
-          {!range && (
-            <Link href={`/painel/comissoes/recibo?barberId=${b.id}&monthOffset=${offset}&type=${type}`} target="_blank" className="text-xs text-ink-3 underline underline-offset-2">recibo</Link>
-          )}
-        </span>
-      ) : <span className="font-semibold">{brl(value)}</span>}
+  const monthName = data.mes.split(" de ")[0];
+
+  const payments = (type: PayType) => b.pagamentos.filter((p) => p.type === type);
+  const paymentList = (type: PayType) => payments(type).map((p) => (
+    <div key={p.id} className="flex items-center justify-between gap-3 py-1 text-[13px]">
+      <span className="text-positive font-semibold">pago {brl(p.amount)} em {dm(String(p.paidAt))}</span>
+      <span className="flex items-center gap-2 text-xs">
+        <Link href={`/painel/comissoes/recibo?barberId=${b.id}&monthOffset=${offset}&type=${type}&paymentId=${p.id}`} target="_blank"
+          className="inline-flex items-center gap-1 text-ink-3 underline underline-offset-2"><Printer className="w-3 h-3" aria-hidden />recibo</Link>
+        <button type="button" onClick={() => onUnpay(p)} className="text-ink-3 underline underline-offset-2 hover:text-danger">desfazer</button>
+      </span>
     </div>
-  );
+  ));
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-4">
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-4">
       <div className="rounded-xl bg-surface border border-line-2 p-3.5 flex flex-col gap-2 min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-3">Atendimentos ({b.avulso.atendimentos + b.assinatura.atendimentos})</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-3">Atendimentos ({items.length})</p>
         {items.length === 0 ? <p className="text-[13px] text-ink-3">Nenhum atendimento no período.</p> : (
-          <ul className="max-h-56 overflow-y-auto divide-y divide-line-3 text-[13px]">
+          <ul className="max-h-72 overflow-y-auto divide-y divide-line-3 text-[13px]">
             {items.map((i, idx) => (
               <li key={idx} className="flex items-center gap-3 py-1.5">
                 <span className="w-11 text-ink-3 shrink-0">{new Date(i.date).toLocaleDateString("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit" })}</span>
@@ -429,18 +524,42 @@ function Detalhe({ b, data, offset, range, onPay, onUnpay, onSaveRule }: {
       </div>
 
       <div className="flex flex-col gap-3">
-        <div className="rounded-xl bg-surface border border-line-2 p-3.5 flex flex-col">
-          {paidLine(`Avulsos, produtos e gorjetas${b.totalVales > 0 ? ` (− ${brl(b.totalVales)} de vales)` : ""}`, b.paid, "STANDARD", b.liquidoAPagar)}
-          {b.assinatura.servicos > 0 && (
-            <>
-              <div className="border-t border-line-3" />
-              {paidLine(`Assinaturas: ${b.assinatura.servicosPote} × ${brl(data.pool.ticket)}${b.assinatura.servicosProprio ? ` + ${b.assinatura.servicosProprio} em plano com comissão própria` : ""}`, b.subPaid, "SUBSCRIPTION", b.liquidoAssinatura)}
-            </>
-          )}
-          <Button className="mt-2" variant={due > 0 ? "primary" : "outline"} disabled={due <= 0} onClick={onPay}>
-            {due > 0 ? `Marcar ${brl(due)} como pago` : "Tudo pago"}
-          </Button>
-        </div>
+        {view !== "assinaturas" && (
+          <div className="rounded-xl bg-surface border border-line-2 p-3.5 flex flex-col gap-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-3">Avulsos · pagos por semana</p>
+            <Row label="Comissão dos avulsos" value={brl(b.avulso.comissao)} />
+            {b.produtos.comissao > 0 && <Row label="Produtos" value={brl(b.produtos.comissao)} />}
+            {b.gorjetas.total > 0 && <Row label="Gorjetas" value={brl(b.gorjetas.total)} />}
+            {b.totalVales > 0 && <Row label="Vales" value={`− ${brl(b.totalVales)}`} danger />}
+            <div className="border-t border-line-3 pt-1.5"><Row label={data.isCurrent ? "Total do mês até hoje" : "Total do mês"} value={brl(b.liquidoAPagar)} strong /></div>
+            {paymentList("STANDARD")}
+            {!data.isRange && (
+              <>
+                {payments("STANDARD").length > 0 && <Row label="Falta pagar" value={brl(b.saldoAvulso)} strong />}
+                <Button className="mt-1" variant={b.saldoAvulso > 0 ? "primary" : "outline"} disabled={b.saldoAvulso <= 0} onClick={() => onPay("STANDARD")}>
+                  {b.saldoAvulso > 0 ? `Pagar avulsos · ${brl(b.saldoAvulso)}` : "Avulsos em dia"}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {view !== "avulsos" && (b.assinatura.servicos > 0 || payments("SUBSCRIPTION").length > 0) && (
+          <div className="rounded-xl bg-surface border border-line-2 p-3.5 flex flex-col gap-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-3">Assinaturas · pagas no fechamento</p>
+            {b.assinatura.servicosPote > 0 && <Row label={`${b.assinatura.servicosPote} serviços × ${brl(data.pool.ticket)}`} value={brl(b.assinatura.comissaoPote)} />}
+            {b.assinatura.servicosProprio > 0 && <Row label={`${b.assinatura.servicosProprio} em plano com comissão própria`} value={brl(b.assinatura.comissaoProprio)} />}
+            <div className="border-t border-line-3 pt-1.5"><Row label={data.closed ? "Total do mês" : "Parcial até hoje"} value={brl(b.liquidoAssinatura)} strong /></div>
+            {paymentList("SUBSCRIPTION")}
+            {!data.isRange && (data.closed ? (
+              <Button className="mt-1" variant={b.saldoAssinatura > 0 ? "primary" : "outline"} disabled={b.saldoAssinatura <= 0} onClick={() => onPay("SUBSCRIPTION")}>
+                {b.saldoAssinatura > 0 ? `Pagar assinaturas · ${brl(b.saldoAssinatura)}` : "Assinaturas pagas"}
+              </Button>
+            ) : (
+              <p className="text-xs text-ink-3 pt-1">O valor por serviço muda até o fim do mês. Libera para pagar quando {monthName} fechar, em {dm(data.periodEnd)}.</p>
+            ))}
+          </div>
+        )}
 
         <div className="rounded-xl bg-surface border border-line-2 p-3.5 flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
@@ -473,7 +592,7 @@ function Detalhe({ b, data, offset, range, onPay, onUnpay, onSaveRule }: {
                   setEditing(false);
                 }}>Salvar</Button>
               </div>
-              <p className="text-xs text-ink-3">Vale para o mês inteiro, inclusive o que já foi feito.</p>
+              <p className="text-xs text-ink-3">Vale para o mês inteiro, inclusive o que já foi feito. Comissão fixa conta por serviço.</p>
             </>
           )}
         </div>
@@ -491,7 +610,7 @@ function ValeModal({ barbers, initial, mes, onClose, onSave }: {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   return (
-    <Modal open onClose={onClose} title="Lançar vale" description={`Adiantamento descontado no acerto de ${mes}.`}>
+    <Modal open onClose={onClose} title="Lançar vale" description={`Adiantamento descontado do próximo pagamento de avulsos de ${mes}.`}>
       <div className="flex flex-col gap-3.5">
         <div>
           <label htmlFor="vl-barber" className="block text-[13px] font-semibold text-ink-2 mb-1.5">Profissional</label>
