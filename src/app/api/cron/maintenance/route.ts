@@ -63,13 +63,16 @@ export async function GET(req: Request) {
         const billingDate = new Date(new Date(sub.nextBillingDate).toISOString().split("T")[0] + "T00:00:00Z");
 
         if (todayBRT >= billingDate) {
-          const monthsOwed = differenceInMonths(todayBRT, billingDate) + 1;
+          // Uma cobrança por CICLO em atraso (trimestral = a cada 3 meses, anual = a cada 12).
+          // Antes era uma por mês com o valor do ciclo: trimestral com 2 meses de atraso virava 3 cobranças.
+          const cycleMonths = sub.plan.billingCycle === "YEARLY" ? 12 : sub.plan.billingCycle === "QUARTERLY" ? 3 : 1;
+          const cyclesOwed = Math.floor(differenceInMonths(todayBRT, billingDate) / cycleMonths) + 1;
           const pendingCount = await prisma.payment.count({
             where: { subscriptionId: sub.id, status: "PENDING" }
           });
 
-          if (pendingCount < monthsOwed) {
-            const missing = monthsOwed - pendingCount;
+          if (pendingCount < cyclesOwed) {
+            const missing = cyclesOwed - pendingCount;
             for (let i = 0; i < missing; i++) {
               await prisma.payment.create({
                 data: {

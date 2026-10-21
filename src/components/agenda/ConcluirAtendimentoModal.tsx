@@ -105,10 +105,11 @@ export default function ConcluirAtendimentoModal({
     const pay = method ?? "CASH";
     await sellProducts(pay);
     if (isActiveSub) {
-      await onConfirm(appt.id, "SUBSCRIPTION", 0, chargedServices > 0 ? chargedServices : undefined, needsMethod ? pay : undefined, discountPercent > 0 ? discountPercent : undefined, tipAmount);
+      // Extra e desconto vão mesmo zerados: ao reabrir e tirar o extra, o valor antigo não pode ficar gravado
+      await onConfirm(appt.id, "SUBSCRIPTION", 0, chargedServices, needsMethod ? pay : undefined, discountPercent, tipAmount);
     } else {
       // Avulso: o preço gravado já vai com desconto (a API não desconta quando recebe o preço).
-      await onConfirm(appt.id, pay, chargedServices, undefined, undefined, discountPercent > 0 ? discountPercent : undefined, tipAmount);
+      await onConfirm(appt.id, pay, chargedServices, 0, undefined, discountPercent, tipAmount);
     }
     setSaving(false);
     onClose();

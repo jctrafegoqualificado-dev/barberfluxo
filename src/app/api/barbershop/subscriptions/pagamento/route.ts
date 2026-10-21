@@ -5,6 +5,7 @@ import { decrypt } from "@/lib/encrypt";
 import { pauseMpPreapproval } from "@/lib/mercadopago";
 import { advanceDue } from "@/lib/subscriptionCycle";
 import { logAudit, getClientIp } from "@/lib/audit";
+import { settleSubscriptionPayment } from "@/lib/subscriptionPayments";
 
 // Formas aceitas na baixa manual (DEBIT/CREDIT: telas antigas)
 const METHODS = ["PIX", "CASH", "DEBIT_CARD", "CREDIT_CARD", "DEBIT", "CREDIT"];
@@ -20,21 +21,14 @@ type SubForPayment = {
  * (mensal 1 mês, trimestral 3, anual 12). Zera os usos do ciclo.
  */
 async function processSinglePayment(tx: Tx, barbershopId: string, sub: SubForPayment, method: string) {
-  const pendingPayment = await tx.payment.findFirst({
-    where: { subscriptionId: sub.id, status: "PENDING" },
-    orderBy: { createdAt: "asc" },
+  // Clique duplo: a mesma baixa enviada duas vezes em poucos segundos não paga dois ciclos
+  const justPaid = await tx.payment.findFirst({
+    where: { subscriptionId: sub.id, status: "PAID", paidAt: { gte: new Date(Date.now() - 10_000) } },
+    select: { id: true },
   });
+  if (justPaid) return;
 
-  if (pendingPayment) {
-    await tx.payment.update({
-      where: { id: pendingPayment.id },
-      data: { method, status: "PAID", paidAt: new Date() },
-    });
-  } else {
-    await tx.payment.create({
-      data: { amount: sub.plan.price, method, status: "PAID", paidAt: new Date(), subscriptionId: sub.id, barbershopId },
-    });
-  }
+  await settleSubscriptionPayment(tx, { subscriptionId: sub.id, barbershopId, amount: sub.plan.price, method });
 
   await tx.subscription.update({
     where: { id: sub.id },

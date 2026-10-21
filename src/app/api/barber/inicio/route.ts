@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { POOL_PAYMENT_SELECT, appointmentCommission, poolOf, poolRevenue, poolServices, poolSettings, subscriptionPaymentsWhere } from "@/lib/commissions";
+import { appointmentCommission, poolForMonth } from "@/lib/commissions";
 import { SUBSCRIPTION_APPT_INCLUDE } from "@/lib/subscriptionServices";
 import { averageInterval, clientRhythm } from "@/lib/clientRhythm";
 import { addMonth, currentMonthSP, monthStartSP } from "@/lib/monthResult";
@@ -42,26 +42,23 @@ export async function GET(req: NextRequest) {
     const lastMonday = addDaysKey(monday, -7);
     const yearAgo = new Date(now.getTime() - 365 * DAY_MS);
 
-    const [todayAppts, blocks, hours, special, subPayments, subAppts, meta, monthDone, weekAppts, lastWeekDone, reviews, shopReviews, shop, history] = await Promise.all([
+    const [todayAppts, blocks, hours, special, pool, meta, monthDone, weekAppts, lastWeekDone, reviews, shopReviews, shop, history] = await Promise.all([
       prisma.appointment.findMany({
         where: { barberId: barber.id, date: { gte: dayStart(today), lte: dayEnd(today) }, status: { not: "CANCELLED" } },
         select: {
           id: true, startTime: true, endTime: true, status: true, price: true, extraPrice: true, tipAmount: true, notes: true, arrivedAt: true, subscriptionId: true,
           client: { select: { id: true, name: true, phone: true, birthday: true } },
           ...SUBSCRIPTION_APPT_INCLUDE,
-          service: { select: { id: true, name: true, materialCost: true, commission: true, duration: true } },
-          services: { select: { service: { select: { id: true, name: true, materialCost: true, duration: true } } } },
+          service: { select: { id: true, name: true, materialCost: true, commission: true, price: true, duration: true } },
+          services: { select: { price: true, service: { select: { id: true, name: true, materialCost: true, commission: true, price: true, duration: true } } } },
         },
         orderBy: { startTime: "asc" },
       }),
       prisma.scheduleBlock.findMany({ where: { barberId: barber.id, date: { gte: dayStart(today), lte: dayEnd(today) } }, select: { startTime: true, endTime: true } }),
       prisma.openingHour.findFirst({ where: { barbershopId, dayOfWeek: weekday } }),
       prisma.specialDay.findFirst({ where: { barbershopId, date: today } }),
-      prisma.payment.findMany({ where: subscriptionPaymentsWhere(barbershopId, monthStartSP(month), monthStartSP(addMonth(month, 1))), select: POOL_PAYMENT_SELECT }),
-      prisma.appointment.findMany({
-        where: { barbershopId, subscriptionId: { not: null }, status: "DONE", date: { gte: dayStart(monthFirst), lt: dayStart(nextMonthFirst) } },
-        select: { price: true, extraPrice: true, ...SUBSCRIPTION_APPT_INCLUDE },
-      }),
+      // Pote do mês com as mesmas regras das Comissões (planos longos divididos, repasse de mês sem serviço)
+      poolForMonth(barbershopId, month),
       prisma.meta.findFirst({ where: { barbershopId, barberId: barber.id, tipo: "RECEITA", periodo: "MONTHLY", active: true }, orderBy: { createdAt: "desc" } }),
       prisma.appointment.findMany({
         where: { barberId: barber.id, status: "DONE", date: { gte: dayStart(monthFirst), lt: dayStart(nextMonthFirst) } },
@@ -90,7 +87,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     // ── Ganhos de hoje (mesma conta das Comissões) ──
-    const ticket = poolOf(poolRevenue(subPayments), poolServices(subAppts), await poolSettings(barbershopId)).ticket;
+    const ticket = pool.ticket;
     const commissionOf = (a: (typeof todayAppts)[number]) => appointmentCommission(a, barber, ticket);
     const done = todayAppts.filter((a) => a.status === "DONE");
     const open = todayAppts.filter((a) => a.status === "CONFIRMED" || a.status === "PENDING");

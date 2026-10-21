@@ -38,6 +38,7 @@ import {
 import { sendWhatsAppNotification } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
 import { addMonths } from "date-fns";
+import { settleSubscriptionPayment } from "@/lib/subscriptionPayments";
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -237,17 +238,14 @@ async function handleAuthorizedPayment(
 
     // Transação: cria Payment + atualiza Subscription atomicamente
     await prisma.$transaction(async (tx) => {
-      await tx.payment.create({
-        data: {
-          amount:         mpPayment.transaction_amount,
-          method,
-          status:         "PAID",
-          paidAt:         new Date(),
-          mpPaymentId:    authorizedPaymentId,
-          gatewayType:    "mercadopago",
-          subscriptionId: sub.id,
-          barbershopId,
-        },
+      // Quita a cobrança pendente do mês (criada pelo cron) em vez de criar outra ao lado
+      await settleSubscriptionPayment(tx, {
+        subscriptionId: sub.id,
+        barbershopId,
+        amount:         mpPayment.transaction_amount,
+        method,
+        mpPaymentId:    authorizedPaymentId,
+        gatewayType:    "mercadopago",
       });
 
       await tx.subscription.update({
