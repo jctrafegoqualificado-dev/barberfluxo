@@ -9,6 +9,7 @@ const {
   mockPaymentUpdateMany,
   mockPaymentFindFirst,
   mockPaymentCreate,
+  mockPaymentUpdate,
 } = vi.hoisted(() => ({
   mockSubscriptionFindUnique: vi.fn(),
   mockSubscriptionFindFirst: vi.fn(),
@@ -16,6 +17,7 @@ const {
   mockPaymentUpdateMany: vi.fn(),
   mockPaymentFindFirst: vi.fn(),
   mockPaymentCreate: vi.fn(),
+  mockPaymentUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -29,6 +31,7 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: mockPaymentUpdateMany,
       findFirst: mockPaymentFindFirst,
       create: mockPaymentCreate,
+      update: mockPaymentUpdate,
     },
   },
 }));
@@ -62,7 +65,7 @@ const ACTIVE_SUB = {
   nextBillingDate: new Date("2026-05-01"),
   billingDay: 1,
   status: "ACTIVE",
-  plan: { billingCycle: "MONTHLY" },
+  plan: { billingCycle: "MONTHLY", price: 100 },
 };
 
 function makeWebhookRequest(body: object, extraHeaders: Record<string, string> = {}) {
@@ -98,8 +101,9 @@ describe("POST /api/payments/webhook", () => {
     expect(mockPaymentUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("payment approved → atualiza pagamento para PAID e avança nextBillingDate", async () => {
+  it("payment approved → quita só a pendente mais antiga e avança nextBillingDate", async () => {
     const dataId = "mp-pay-123";
+    mockPaymentFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "pend-1" });
     mockPaymentGet.mockResolvedValue({
       external_reference: "sub-1",
       status: "approved",
@@ -116,10 +120,11 @@ describe("POST /api/payments/webhook", () => {
 
     expect(res.status).toBe(200);
     expect(data.ok).toBe(true);
-    expect(mockPaymentUpdateMany).toHaveBeenCalledWith(
+    expect(mockPaymentUpdateMany).not.toHaveBeenCalled();
+    expect(mockPaymentUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { subscriptionId: "sub-1", status: "PENDING" },
-        data: expect.objectContaining({ status: "PAID", method: "PIX" }),
+        where: { id: "pend-1" },
+        data: expect.objectContaining({ status: "PAID", method: "PIX", externalId: dataId }),
       }),
     );
     expect(mockSubscriptionUpdate).toHaveBeenCalledWith(
@@ -128,6 +133,19 @@ describe("POST /api/payments/webhook", () => {
         data: expect.objectContaining({ status: "ACTIVE" }),
       }),
     );
+  });
+
+  it("aviso repetido do mesmo pagamento não quita outra mensalidade nem avança o vencimento", async () => {
+    const dataId = "mp-pay-dup";
+    mockPaymentGet.mockResolvedValue({ external_reference: "sub-1", status: "approved", payment_method_id: "pix" });
+    mockSubscriptionFindUnique.mockResolvedValue(ACTIVE_SUB);
+    mockPaymentFindFirst.mockResolvedValueOnce({ id: "ja-pago" });
+
+    const res = await POST(makeWebhookRequest({ type: "payment", data: { id: dataId } }, validSignature(dataId)));
+    expect(res.status).toBe(200);
+    expect(mockPaymentUpdate).not.toHaveBeenCalled();
+    expect(mockPaymentCreate).not.toHaveBeenCalled();
+    expect(mockSubscriptionUpdate).not.toHaveBeenCalled();
   });
 
   it("payment rejected → marca assinatura como OVERDUE", async () => {

@@ -277,7 +277,8 @@ export async function PATCH(req: NextRequest) {
     // Aplica desconto se informado:
     // - Para assinante: o front já envia extraPrice descontado; aqui só salvamos discountPercent
     // - Para não-assinante: aplicamos o desconto sobre o price atual do appointment
-    if (discountPercent !== undefined && discountPercent > 0) {
+    // 0 também é gravado: tirar o desconto ao reabrir a comanda zera o que estava salvo
+    if (discountPercent !== undefined && Number.isFinite(Number(discountPercent))) {
       updateData.discountPercent = Math.min(100, Math.max(0, Number(discountPercent)));
     }
     if (extraPrice !== undefined) {
@@ -291,6 +292,14 @@ export async function PATCH(req: NextRequest) {
     });
     if (!previousState || previousState.barbershopId !== barbershopId) {
       return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
+    }
+
+    // Assinatura que não está em dia (atrasada, cancelada…) e a comanda foi fechada como avulso:
+    // o cliente pagou o serviço, então o atendimento deixa de ser do plano. Antes ele seguia
+    // ligado à assinatura e o barbeiro recebia a cota do pote em vez da comissão do avulso.
+    if (status === "DONE" && paymentMethod && paymentMethod !== "SUBSCRIPTION" && previousState.subscriptionId) {
+      const linked = await prisma.subscription.findUnique({ where: { id: previousState.subscriptionId }, select: { status: true } });
+      if (linked && linked.status !== "ACTIVE") updateData.subscriptionId = null;
     }
 
     // Hora da conclusão: o caixa do dia conta o atendimento por ela.

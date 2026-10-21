@@ -3,6 +3,7 @@ import {
   SUBSCRIPTION_APPT_INCLUDE,
   baseSubscriptionPrice,
   countPlanServices,
+  extraServicesPerformed,
   planServicesLabel,
   subscriptionCommission,
   totalPlanServices,
@@ -20,6 +21,11 @@ import {
  * - Produtos: % ou valor fixo por produto (ou o padrão do profissional).
  * - Gorjetas: 100% do profissional, somadas no acerto avulso. Vales são descontados.
  *
+ * Decisões de 21/10/2026: comissão fixa (R$) vale por SERVIÇO (combo Corte + Barba paga 2×);
+ * cada serviço do combo segue a regra dele; plano com comissão própria usa o preço dos
+ * serviços feitos; plano trimestral/anual entra no pote dividido pelos meses do ciclo;
+ * mês com mensalidade e nenhum serviço de plano passa a parte dos barbeiros para o seguinte.
+ *
  * Usada pela tela Comissões e pelo Resultado do mês, para os números baterem.
  */
 
@@ -34,18 +40,45 @@ export interface BarberRates {
   commissionType: string; commission: number;
   productCommissionType: string; productCommission: number;
 }
-type AvulsoAppt = { price: number; service?: { materialCost?: number | null; commission?: number | null } | null };
+type ServiceRule = { materialCost?: number | null; commission?: number | null; price?: number | null };
+type AvulsoAppt = {
+  price: number;
+  service?: ServiceRule | null;
+  services?: { price?: number | null; service: ServiceRule }[] | null;
+};
 
-/** Avulso: % (ou fixo) do profissional sobre preço − material; serviço com comissão própria usa a dele. */
+/**
+ * Avulso: cada serviço feito segue a regra dele. Serviço com comissão própria usa a % dele;
+ * os outros, a do profissional (% sobre preço − material, ou valor fixo POR SERVIÇO).
+ * O preço gravado no atendimento (já com desconto ou editado na comanda) é repartido entre
+ * os serviços na proporção do preço de cada um.
+ */
 export function avulsoCommission(a: AvulsoAppt, b: Pick<BarberRates, "commissionType" | "commission">): number {
-  const net = Math.max(0, a.price - (a.service?.materialCost || 0));
-  if (a.service?.commission != null) return calcComissao(net, "PERCENTAGE", a.service.commission);
-  return calcComissao(net, b.commissionType, b.commission);
+  const items = a.services && a.services.length > 0
+    ? a.services.map((x) => ({ price: x.price ?? x.service.price ?? 0, rule: x.service }))
+    : [{ price: a.price, rule: a.service ?? {} }];
+  const listed = items.reduce((sum, x) => sum + x.price, 0);
+  return items.reduce((sum, x) => {
+    // parte do preço cobrado que cabe a este serviço
+    const charged = listed > 0 ? a.price * (x.price / listed) : a.price / items.length;
+    const net = Math.max(0, charged - (x.rule.materialCost || 0));
+    if (x.rule.commission != null) return sum + calcComissao(net, "PERCENTAGE", x.rule.commission);
+    return sum + calcComissao(net, b.commissionType, b.commission);
+  }, 0);
 }
 
-/** Extra cobrado além do plano (ou do serviço): comissiona como avulso pela taxa do profissional. */
-export function extraCommission(a: { extraPrice?: number | null }, b: Pick<BarberRates, "commissionType" | "commission">): number {
-  return (a.extraPrice ?? 0) > 0 ? calcComissao(a.extraPrice ?? 0, b.commissionType, b.commission) : 0;
+/**
+ * Extra cobrado além do plano: comissiona como avulso pela taxa do profissional.
+ * Comissão fixa vale por serviço extra feito (count); sem a lista, conta 1.
+ */
+export function extraCommission(a: { extraPrice?: number | null }, b: Pick<BarberRates, "commissionType" | "commission">, count = 1): number {
+  if ((a.extraPrice ?? 0) <= 0) return 0;
+  return b.commissionType === "FIXED" ? b.commission * Math.max(1, count) : calcComissao(a.extraPrice ?? 0, b.commissionType, b.commission);
+}
+
+/** Quantos serviços extras (fora do plano) o atendimento teve, para a comissão fixa. */
+export function extraCount(a: Parameters<typeof extraServicesPerformed>[0] & { subscriptionId?: string | null }): number {
+  return a.subscriptionId ? Math.max(1, extraServicesPerformed(a).length) : 1;
 }
 
 /** Comissão do atendimento inteiro: avulso ou assinatura (pote/% do plano) + extra. Sem gorjeta. */
@@ -54,7 +87,7 @@ export function appointmentCommission(
   b: Pick<BarberRates, "commissionType" | "commission">,
   ticket: number,
 ): number {
-  return (a.subscriptionId ? subscriptionCommission(a, ticket) : avulsoCommission(a, b)) + extraCommission(a, b);
+  return (a.subscriptionId ? subscriptionCommission(a, ticket) : avulsoCommission(a, b)) + extraCommission(a, b, extraCount(a));
 }
 
 /** Venda de produto: regra do produto ou a padrão do profissional. */
@@ -76,16 +109,18 @@ export function poolOf(
   gross: number,
   services: number,
   shop: { poeOwnerPct: number; poeDeductFees: boolean; poeSubscriptionFee: number } | null,
+  carried = 0,
 ) {
   const ownerPct = shop?.poeOwnerPct ?? 50;
   const feePct = shop?.poeDeductFees ? shop.poeSubscriptionFee ?? 0 : 0;
   const fees = gross * (feePct / 100);
   const net = gross - fees;
   const shopPart = net * (ownerPct / 100);
-  const barbersPart = net - shopPart;
+  // carried = parte dos barbeiros de meses sem nenhum serviço de plano, que passa para este
+  const barbersPart = net - shopPart + carried;
   return {
     gross, fees, feePct, deductFees: !!shop?.poeDeductFees, net, ownerPct,
-    shopPart, barbersPart, services, ticket: services > 0 ? barbersPart / services : 0,
+    shopPart, barbersPart, carried, services, ticket: services > 0 ? barbersPart / services : 0,
   };
 }
 
@@ -122,6 +157,63 @@ export function poolSettings(barbershopId: string) {
   });
 }
 
+// ── Pote de um mês (YYYY-MM): divisão de planos longos e repasse de meses sem serviço ──
+
+const CYCLE_MONTHS: Record<string, number> = { MONTHLY: 1, QUARTERLY: 3, YEARLY: 12 };
+const monthKeyOf = (d: Date) => new Intl.DateTimeFormat("sv", { timeZone: "America/Sao_Paulo" }).format(d).slice(0, 7);
+const monthStart = (m: string) => new Date(m + "-01T00:00:00-03:00");
+const shiftMonth = (m: string, delta: number) => {
+  const [y, mo] = m.split("-").map(Number);
+  const d = new Date(Date.UTC(y, mo - 1 + delta, 1));
+  return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0");
+};
+const monthsBetween = (from: string, to: string) => {
+  const [a, b] = from.split("-").map(Number);
+  const [c, d] = to.split("-").map(Number);
+  return (c - a) * 12 + (d - b);
+};
+const MAX_LOOKBACK = 12;
+type PoolCfg = { poeOwnerPct: number; poeDeductFees: boolean; poeSubscriptionFee: number } | null;
+
+/**
+ * Pote das assinaturas de um mês, com as regras de 21/10/2026:
+ * - mensalidade de plano trimestral/anual entra dividida pelos meses do ciclo, a partir do
+ *   mês em que foi paga (anual de R$ 1.200 pago em janeiro = R$ 100 por mês até dezembro);
+ * - se um mês teve mensalidade e nenhum serviço de plano, a parte dos barbeiros passa para o
+ *   mês seguinte (olhando até 12 meses para trás).
+ * Planos com comissão própria ficam fora (dinheiro e serviços), como antes.
+ */
+export async function poolForMonth(barbershopId: string, month: string, shop?: PoolCfg) {
+  const cfg = shop === undefined ? await poolSettings(barbershopId) : shop;
+  const firstPaid = shiftMonth(month, -(MAX_LOOKBACK + 11)); // pagamentos que ainda rendem parcelas
+  const end = new Date(monthStart(shiftMonth(month, 1)).getTime() - 1);
+  const [payments, appts] = await Promise.all([
+    prisma.payment.findMany({
+      where: subscriptionPaymentsWhere(barbershopId, monthStart(firstPaid), end),
+      select: { amount: true, paidAt: true, subscription: { select: { plan: { select: { commissionPercentage: true, billingCycle: true } } } } },
+    }),
+    prisma.appointment.findMany({
+      where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: monthStart(shiftMonth(month, -MAX_LOOKBACK)), lte: end } },
+      select: { date: true, price: true, extraPrice: true, ...SUBSCRIPTION_APPT_INCLUDE },
+    }),
+  ]);
+  const revenueOf = (m: string) => payments.reduce((sum, p) => {
+    if (isOwnCommissionPlan(p) || !p.paidAt) return sum;
+    const cycle = CYCLE_MONTHS[p.subscription?.plan?.billingCycle ?? "MONTHLY"] ?? 1;
+    const k = monthsBetween(monthKeyOf(p.paidAt), m);
+    return k >= 0 && k < cycle ? sum + p.amount / cycle : sum;
+  }, 0);
+  const servicesOf = (m: string) => poolServices(appts.filter((a) => monthKeyOf(a.date) === m));
+
+  let carried = 0;
+  for (let k = 1; k <= MAX_LOOKBACK; k++) {
+    const m = shiftMonth(month, -k);
+    if (servicesOf(m) > 0) break;
+    carried += poolOf(revenueOf(m), 0, cfg).barbersPart;
+  }
+  return poolOf(revenueOf(month), servicesOf(month), cfg, carried);
+}
+
 export async function computeCommissions(barbershopId: string, start: Date, end: Date, monthKey: string) {
   const barbers = await prisma.barber.findMany({
     // Todos (inclusive em férias, inativos e excluídos): quem trabalhou no mês e depois
@@ -134,6 +226,7 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
     select: { poeOwnerPct: true, poeDeductFees: true, poeSubscriptionFee: true },
   });
   const emptyPool = poolOf(0, 0, shop);
+  const isMonth = /^\d{4}-\d{2}$/.test(monthKey);
   if (barbers.length === 0) return { barbers: [], totalSubRevenue: 0, ticketMedioSub: 0, pool: emptyPool };
 
     const [subPayments, allAvulsos, allSubAppointments, allProductSales, allCommissionPayments, allVales, allReviews] = await Promise.all([
@@ -144,7 +237,7 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
       }),
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", subscriptionId: null, date: { gte: start, lte: end } },
-        include: { service: true, client: { select: { name: true } } },
+        include: { service: true, client: { select: { name: true } }, services: { select: { price: true, service: { select: { price: true, materialCost: true, commission: true } } } } },
       }),
       prisma.appointment.findMany({
         where: { barbershopId, status: "DONE", subscriptionId: { not: null }, date: { gte: start, lte: end } },
@@ -168,10 +261,12 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
 
     // ── Pool de assinaturas (calculado globalmente) ──
     // Plano com comissão própria fica fora do pote (dinheiro e atendimentos)
-    const totalSubRevenue = poolRevenue(subPayments);
-    // Cada serviço do plano realizado conta 1 (Corte + Barba = 2 serviços)
-    const totalSubServicos = poolServices(allSubAppointments);
-    const pool = poolOf(totalSubRevenue, totalSubServicos, shop);
+    // Mês: regra completa (planos longos divididos e repasse de mês sem serviço).
+    // Período personalizado: o que foi pago no período, como antes.
+    const pool = isMonth
+      ? await poolForMonth(barbershopId, monthKey, shop)
+      : poolOf(poolRevenue(subPayments), poolServices(allSubAppointments), shop);
+    const totalSubRevenue = pool.gross;
     const ticketMedioSub = pool.ticket;
 
     // ── Agrupamento em memória por barbeiro ──
@@ -194,7 +289,7 @@ export async function computeCommissions(barbershopId: string, start: Date, end:
       // como AVULSO: comissão pela taxa padrão do barbeiro e somados ao acerto avulso (Líquido a Pagar).
       const extraAppts = [...avulsos, ...subAppointments].filter((a) => (a.extraPrice ?? 0) > 0);
       const totalExtra = extraAppts.reduce((s, a) => s + (a.extraPrice ?? 0), 0);
-      const comissaoExtra = extraAppts.reduce((s, a) => s + extraCommission(a, b), 0);
+      const comissaoExtra = extraAppts.reduce((s, a) => s + extraCommission(a, b, "subscription" in a ? extraCount(a) : 1), 0);
 
       const comissaoAvulsoBase = avulsos.reduce((s, a) => s + avulsoCommission(a, b), 0);
       const comissaoAvulso = comissaoAvulsoBase + comissaoExtra;

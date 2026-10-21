@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { appointmentCommission, avulsoCommission, computeCommissions, extraCommission, productSaleCommission } from "@/lib/commissions";
+import { appointmentCommission, avulsoCommission, computeCommissions, extraCommission, extraCount, productSaleCommission } from "@/lib/commissions";
 import { SUBSCRIPTION_APPT_INCLUDE, baseSubscriptionPrice, planServicesLabel, subscriptionCommission } from "@/lib/subscriptionServices";
 import { addMonth, currentMonthSP, monthStartSP } from "@/lib/monthResult";
 import { addDaysKey, todayKeySP } from "@/lib/subscriptionCycle";
@@ -42,8 +42,8 @@ export async function GET(req: NextRequest) {
           id: true, date: true, startTime: true, status: true, price: true, extraPrice: true, tipAmount: true, subscriptionId: true,
           client: { select: { name: true } },
           ...SUBSCRIPTION_APPT_INCLUDE,
-          service: { select: { id: true, name: true, materialCost: true, commission: true } },
-          services: { select: { price: true, service: { select: { id: true, name: true, materialCost: true } } } },
+          service: { select: { id: true, name: true, materialCost: true, commission: true, price: true } },
+          services: { select: { price: true, service: { select: { id: true, name: true, materialCost: true, commission: true, price: true } } } },
           subscription: { select: { plan: { select: { name: true, commissionPercentage: true, planServices: { select: { serviceId: true } } } } } },
         },
         orderBy: [{ date: "desc" }, { startTime: "desc" }],
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
     }));
     const extraItems = done.filter((a) => (a.extraPrice ?? 0) > 0).map((a) => ({
       id: `${a.id}-extra`, date: keyOf(a.date), time: a.startTime, client: a.client.name, label: `${label(a)} · extra`,
-      valor: a.extraPrice ?? 0, comissao: extraCommission(a, barber), gorjeta: a.subscriptionId ? a.tipAmount ?? 0 : 0,
+      valor: a.extraPrice ?? 0, comissao: extraCommission(a, barber, extraCount(a)), gorjeta: a.subscriptionId ? a.tipAmount ?? 0 : 0,
     }));
     const subItems = done.filter((a) => a.subscriptionId).map((a) => ({
       id: a.id, date: keyOf(a.date), time: a.startTime, client: a.client.name, label: planServicesLabel(a),

@@ -10,13 +10,13 @@
  * devem usar estas funções para que os números batam entre si.
  */
 
-type ServiceInfo = { id: string; name: string; materialCost?: number | null };
+type ServiceInfo = { id: string; name: string; materialCost?: number | null; price?: number | null; commission?: number | null };
 
 export type SubscriptionAppt = {
   price: number;
   extraPrice?: number | null;
   service?: ServiceInfo | null;
-  services?: { service: ServiceInfo }[] | null;
+  services?: { price?: number | null; service: ServiceInfo }[] | null;
   subscription?: {
     plan?: {
       commissionPercentage?: number | null;
@@ -27,8 +27,9 @@ export type SubscriptionAppt = {
 
 /** Campos que as consultas de atendimentos de assinante precisam carregar (usar em `include`). */
 export const SUBSCRIPTION_APPT_INCLUDE = {
-  service: { select: { id: true, name: true, materialCost: true } },
-  services: { select: { service: { select: { id: true, name: true, materialCost: true } } } },
+  service: { select: { id: true, name: true, materialCost: true, price: true, commission: true } },
+  // price do item = preço do serviço naquele atendimento (base da comissão própria do plano e da fixa por serviço)
+  services: { select: { price: true, service: { select: { id: true, name: true, materialCost: true, price: true, commission: true } } } },
   subscription: {
     select: {
       plan: { select: { name: true, commissionPercentage: true, planServices: { select: { serviceId: true } } } },
@@ -36,9 +37,15 @@ export const SUBSCRIPTION_APPT_INCLUDE = {
   },
 } as const;
 
-function performedServices(appt: SubscriptionAppt): ServiceInfo[] {
-  if (appt.services && appt.services.length > 0) return appt.services.map((s) => s.service);
+export function performedServices(appt: SubscriptionAppt): ServiceInfo[] {
+  if (appt.services && appt.services.length > 0) return appt.services.map((s) => ({ ...s.service, price: s.price ?? s.service.price }));
   return appt.service ? [appt.service] : [];
+}
+
+/** Serviços feitos que NÃO são do plano (os extras, cobrados à parte). */
+export function extraServicesPerformed(appt: SubscriptionAppt): ServiceInfo[] {
+  const planIds = new Set(appt.subscription?.plan?.planServices?.map((ps) => ps.serviceId) ?? []);
+  return performedServices(appt).filter((s) => !planIds.has(s.id));
 }
 
 /** Serviços realizados no atendimento que fazem parte do plano do assinante. */
@@ -75,16 +82,20 @@ export function baseSubscriptionPrice(appt: SubscriptionAppt): number {
 
 /**
  * Comissão do barbeiro por um atendimento de assinante.
- * - Plano com comissão própria (%): % sobre o valor do plano menos o custo de material
- *   de todos os serviços do plano realizados.
+ * - Plano com comissão própria (%): % sobre o preço normal dos serviços do plano feitos,
+ *   menos o custo de material (decisão de 21/10/2026: corte de R$ 45 × 40% = R$ 18).
+ *   Antes era sobre o preço gravado no atendimento, que é R$ 0 para assinante: pagava nada.
  * - Senão: ticket do pool × quantidade de serviços do plano realizados.
  */
 export function subscriptionCommission(appt: SubscriptionAppt, ticketPorServico: number): number {
   const customPct = appt.subscription?.plan?.commissionPercentage;
   if (customPct != null) {
-    const materialCost = planServicesPerformed(appt).reduce((s, x) => s + (x.materialCost || 0), 0);
-    const netValue = Math.max(0, baseSubscriptionPrice(appt) - materialCost);
-    return netValue * (customPct / 100);
+    const done = planServicesPerformed(appt);
+    const hasPrices = done.length > 0 && done.every((x) => x.price != null);
+    const net = hasPrices
+      ? done.reduce((s, x) => s + Math.max(0, (x.price ?? 0) - (x.materialCost || 0)), 0)
+      : Math.max(0, baseSubscriptionPrice(appt) - done.reduce((s, x) => s + (x.materialCost || 0), 0)); // consulta sem preços (antiga)
+    return net * (customPct / 100);
   }
   return ticketPorServico * countPlanServices(appt);
 }

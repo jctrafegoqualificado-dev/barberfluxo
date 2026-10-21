@@ -208,6 +208,8 @@ export interface MpAuthorizedPayment {
   transaction_amount: number;
   currency_id: string;
   payment_method_id?: string;
+  /** Pagamento gerado por esta cobrança (o mesmo id que chega no aviso "payment") */
+  payment?: { id?: number | string; status?: string } | null;
 }
 
 /**

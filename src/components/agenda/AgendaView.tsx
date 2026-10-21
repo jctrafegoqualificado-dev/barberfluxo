@@ -278,7 +278,7 @@ export default function AgendaView({ mode = "owner" }: { mode?: "owner" | "barbe
         ...(price !== undefined ? { price } : {}),
         ...(extraPrice !== undefined ? { extraPrice } : {}),
         ...(extraPaymentMethod ? { extraPaymentMethod } : {}),
-        ...(discountPercent !== undefined && discountPercent > 0 ? { discountPercent } : {}),
+        ...(discountPercent !== undefined ? { discountPercent } : {}),
         // Assinante paga a gorjeta pela forma escolhida na comanda (extraPaymentMethod)
         ...(tipAmount !== undefined ? { tipAmount, tipPaymentMethod: extraPaymentMethod ?? paymentMethod } : {}),
       }),

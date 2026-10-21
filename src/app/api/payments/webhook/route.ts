@@ -23,6 +23,7 @@ import MercadoPago, { Payment } from "mercadopago";
 import { createHmac, timingSafeEqual } from "crypto";
 import { addMonths, addQuarters, addYears } from "date-fns";
 import { getMpAuthorizedPayment } from "@/lib/mercadopago";
+import { settleSubscriptionPayment } from "@/lib/subscriptionPayments";
 import { decrypt } from "@/lib/encrypt";
 
 // ─── Helper: descriptografa token MP da barbearia ────────────────────────────
@@ -143,10 +144,11 @@ async function markPaidAndAdvance(
   subscriptionId: string,
   paymentMethodId: string,
   externalId: string,
+  amount?: number | null,
 ) {
   const sub = await prisma.subscription.findUnique({
     where: { id: subscriptionId },
-    include: { plan: { select: { billingCycle: true } } },
+    include: { plan: { select: { billingCycle: true, price: true } } },
   });
 
   if (!sub) {
@@ -154,15 +156,18 @@ async function markPaidAndAdvance(
     return;
   }
 
-  await prisma.payment.updateMany({
-    where: { subscriptionId, status: "PENDING" },
-    data: {
-      status:     "PAID",
-      method:     paymentMethodId.includes("pix") ? "PIX" : "CREDIT_CARD",
-      externalId: externalId,
-      paidAt:     new Date(),
-    },
+  // Quita UMA mensalidade (a pendente mais antiga) e ignora aviso repetido do mesmo pagamento
+  const result = await settleSubscriptionPayment(prisma, {
+    subscriptionId,
+    barbershopId: sub.barbershopId,
+    amount: amount ?? sub.plan.price,
+    method: paymentMethodId.includes("pix") ? "PIX" : "CREDIT_CARD",
+    externalId,
   });
+  if (result === "duplicate") {
+    console.log(`[webhook] Pagamento ${externalId} já registrado — sub=${subscriptionId}`);
+    return;
+  }
 
   const nextBillingDate = advanceBillingDate(
     new Date(sub.nextBillingDate),
@@ -221,6 +226,7 @@ export async function POST(req: NextRequest) {
           subscriptionId,
           mpPayment.payment_method_id ?? "",
           dataId,
+          mpPayment.transaction_amount,
         );
       } else if (status === "rejected" || status === "cancelled") {
         await prisma.subscription.update({
@@ -257,26 +263,13 @@ export async function POST(req: NextRequest) {
       }
 
       if (authPayment.status === "processed") {
-        // Cria registro do pagamento recorrente se não houver PENDING
-        const pendingExists = await prisma.payment.findFirst({
-          where: { subscriptionId: sub.id, status: "PENDING" },
-        });
-
-        if (!pendingExists) {
-          await prisma.payment.create({
-            data: {
-              subscriptionId: sub.id,
-              amount: authPayment.transaction_amount,
-              method: "CREDIT_CARD", // preapproval só aceita cartão/conta MP
-              status: "PENDING",
-            },
-          });
-        }
-
+        // O mesmo débito também chega como aviso "payment": usa o id do pagamento do MP
+        // (quando vier) para os dois avisos contarem uma vez só.
         await markPaidAndAdvance(
           sub.id,
           authPayment.payment_method_id ?? "credit_card",
-          dataId,
+          authPayment.payment?.id != null ? String(authPayment.payment.id) : dataId,
+          authPayment.transaction_amount,
         );
       } else if (authPayment.status === "cancelled") {
         await prisma.subscription.update({
