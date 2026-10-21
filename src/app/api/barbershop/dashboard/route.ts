@@ -579,7 +579,7 @@ export async function GET(req: NextRequest) {
       activeSubscriptions: activeSubscriptions.length,
       activeBarbers,
       projecaoMes: Math.round(projecaoMes),
-      comissoes: { totalPago: totalComissaoPaga, totalVales, barbeirosPagos: commissionPayments.length },
+      comissoes: { totalPago: totalComissaoPaga, totalVales, barbeirosPagos: new Set(commissionPayments.map((p) => p.barberId)).size },
       topBarbers,
       topClients,
       charts: {

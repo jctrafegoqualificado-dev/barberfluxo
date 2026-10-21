@@ -10,6 +10,7 @@ export default function ReciboPage() {
   const barberId = searchParams.get("barberId");
   const monthOffset = searchParams.get("monthOffset") || "0";
   const type = searchParams.get("type") || "STANDARD"; // STANDARD or SUBSCRIPTION
+  const paymentId = searchParams.get("paymentId");
   const token = useAuthStore((s) => s.token);
 
   const [data, setData] = useState<any>(null);
@@ -46,6 +47,12 @@ export default function ReciboPage() {
 
   const totalAtendimentos = isSub ? barber.assinatura.servicos : barber.avulso.atendimentos;
   const comissao = isSub ? barber.liquidoAssinatura : barber.liquidoAPagar;
+  // Recibo de um pagamento: mostra o valor pago naquele dia (avulsos podem ter vários no mês)
+  const payments: { id: string; type: string; amount: number; paidAt: string; notes: string | null }[] =
+    (barber.pagamentos ?? []).filter((p: { type: string }) => p.type === type);
+  const payment = paymentId ? payments.find((p) => p.id === paymentId) ?? null : null;
+  const before = payment ? payments.filter((p) => p.paidAt < payment.paidAt).reduce((s, p) => s + p.amount, 0) : 0;
+  const dia = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const nps = barber.npsScore;
 
   return (
@@ -120,10 +127,22 @@ export default function ReciboPage() {
             </div>
           )}
 
-          <div className="flex justify-between py-4 mt-4 bg-zinc-100 px-4 rounded-lg font-bold text-xl">
-            <span>Total Líquido Pago</span>
+          <div className="flex justify-between py-2 border-b border-zinc-100 font-semibold">
+            <span>Total do mês{payment ? "" : " (ainda não pago)"}</span>
             <span>{formatCurrency(comissao)}</span>
           </div>
+          {before > 0 && (
+            <div className="flex justify-between py-2 border-b border-zinc-100">
+              <span>Já pago antes neste mês</span>
+              <span>- {formatCurrency(before)}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between py-4 mt-4 bg-zinc-100 px-4 rounded-lg font-bold text-xl">
+            <span>{payment ? `Valor pago em ${dia(payment.paidAt)}` : "Valor a pagar"}</span>
+            <span>{formatCurrency(payment ? payment.amount : isSub ? barber.saldoAssinatura : barber.saldoAvulso)}</span>
+          </div>
+          {payment?.notes && <p className="text-xs text-zinc-500 mt-2">Referente a: {payment.notes}</p>}
         </div>
 
         {/* SIGNATURE */}

@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     let start: Date, end: Date, mesLabel: string, monthKey: string;
     const current = currentMonthSP();
     let isCurrent = false;
+    let isRange = false;
 
     if (fromParam && toParam && /^\d{4}-\d{2}-\d{2}$/.test(fromParam) && /^\d{4}-\d{2}-\d{2}$/.test(toParam)) {
       // Período personalizado, em dias de São Paulo
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
       const br = (d: string) => d.split("-").reverse().join("/");
       mesLabel = `${br(fromParam)} — ${br(toParam)}`;
       monthKey = `${fromParam}_${toParam}`;
+      isRange = true;
     } else {
       monthKey = addMonth(current, -monthOffset);
       start = monthStartSP(monthKey);
@@ -34,7 +36,8 @@ export async function GET(req: NextRequest) {
       isCurrent = monthKey === current;
     }
 
-    const [{ barbers: result, totalSubRevenue, ticketMedioSub, pool }, paidHistory] = await Promise.all([
+    const prevKey = isRange ? null : addMonth(monthKey, -1);
+    const [{ barbers: result, totalSubRevenue, ticketMedioSub, pool }, paidHistory, prev] = await Promise.all([
       computeCommissions(barbershopId, start, end, monthKey),
       // Meses anteriores já pagos (soma do que foi registrado como pago em cada mês)
       prisma.commissionPayment.findMany({
@@ -43,7 +46,15 @@ export async function GET(req: NextRequest) {
         orderBy: { month: "desc" },
         take: 300,
       }),
+      // Mês anterior com saldo: a semana que vira o mês não pode deixar avulso para trás
+      prevKey ? computeCommissions(barbershopId, monthStartSP(prevKey), new Date(monthStartSP(monthKey).getTime() - 1), prevKey) : null,
     ]);
+    const prevPending = prev && prevKey ? {
+      monthKey: prevKey,
+      mes: MONTHS[Number(prevKey.slice(5, 7)) - 1],
+      avulso: Math.round(prev.barbers.reduce((s, b) => s + b.saldoAvulso, 0) * 100) / 100,
+      assinatura: Math.round(prev.barbers.reduce((s, b) => s + b.saldoAssinatura, 0) * 100) / 100,
+    } : null;
 
     const byMonth = new Map<string, { month: string; total: number; barbers: Set<string>; paidAt: Date }>();
     for (const p of paidHistory) {
@@ -59,7 +70,10 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({
-      barbers: result, mes: mesLabel, monthOffset, monthKey, isCurrent,
+      barbers: result, mes: mesLabel, monthOffset, monthKey, isCurrent, isRange,
+      // Mês fechado: as assinaturas já podem ser pagas
+      closed: !isRange && monthKey < current,
+      prevPending: prevPending && prevPending.avulso + prevPending.assinatura > 0 ? prevPending : null,
       periodStart: start.toISOString(), periodEnd: end.toISOString(),
       progress: isCurrent ? Math.min(1, (Date.now() - start.getTime()) / (end.getTime() - start.getTime())) : 1,
       totalSubRevenue, ticketMedioSub, pool, history,

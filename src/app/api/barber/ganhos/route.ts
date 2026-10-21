@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
         total, servicos, produtos, gorjetas, vales,
         // Dono paga em duas partes: avulsos+produtos+gorjetas (menos vales) e assinaturas
         assinatura: row?.assinatura.comissao ?? 0,
-        aReceber: (row?.paid ? 0 : Math.max(0, total - (row?.assinatura.comissao ?? 0) - vales)) + (row?.subPaid ? 0 : row?.assinatura.comissao ?? 0),
+        aReceber: row ? row.saldoAvulso + row.saldoAssinatura : Math.max(0, total - vales),
         avulsoFaturado: row?.avulso.faturado ?? 0,
         produtosVendidos: row?.produtos.vendas ?? 0,
         assinaturaServicos: row?.assinatura.servicos ?? 0,

@@ -11,8 +11,11 @@ export async function POST(req: NextRequest) {
     const barber = await prisma.barber.findFirst({ where: { id: barberId, barbershopId: payload.barbershopId! }, select: { id: true } });
     if (!barber) return NextResponse.json({ error: "Profissional não encontrado" }, { status: 404 });
     const value = Number(amount);
-    if (!(value > 0) || typeof month !== "string" || !month || month.length > 30) {
-      return NextResponse.json({ error: "Informe o mês e um valor maior que zero." }, { status: 400 });
+    if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) {
+      return NextResponse.json({ error: "Vales são lançados no mês. Saia do período personalizado para lançar." }, { status: 400 });
+    }
+    if (!(value > 0)) {
+      return NextResponse.json({ error: "Informe um valor maior que zero." }, { status: 400 });
     }
 
     const vale = await prisma.commissionVale.create({

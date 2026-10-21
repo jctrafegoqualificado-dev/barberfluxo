@@ -523,7 +523,8 @@ model CommissionPayment {
   barbershopId String
   barbershop   Barbershop @relation(fields: [barbershopId], references: [id])
 
-  @@unique([barberId, month, type])
+  // Vários pagamentos por mês (avulsos semanais); assinatura: um por mês, controlado no código
+  @@index([barberId, month, type])
   @@index([barbershopId, month])
   @@index([barbershopId, barberId, month])
 }

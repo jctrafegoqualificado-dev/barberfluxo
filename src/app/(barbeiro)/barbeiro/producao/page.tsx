@@ -103,13 +103,13 @@ export default function GanhosPage() {
                 ))}
               </div>
               <div className="flex justify-between items-baseline gap-3">
-                <span className="text-sm text-night-text">{s.paid && (s.subPaid || !s.assinatura) ? "Tudo pago" : s.paid || s.subPaid ? "Ainda a receber" : "A receber no fechamento"}</span>
+                <span className="text-sm text-night-text">{s.aReceber <= 0 && (s.paid || s.subPaid) ? "Tudo pago" : s.paid || s.subPaid ? "Ainda a receber" : "A receber"}</span>
                 <span className="font-display text-2xl font-bold">{short(s.aReceber)}</span>
               </div>
               {(s.paid || s.subPaid) && (
                 <p className="text-xs text-night-text -mt-2">
-                  {s.paid && <>Avulsos e produtos pagos em {ddmm(s.paid.paidAt.slice(0, 10))}. </>}
-                  {s.subPaid ? <>Assinaturas pagas em {ddmm(s.subPaid.paidAt.slice(0, 10))}.</> : s.paid ? <>Assinaturas: no fechamento do ciclo.</> : null}
+                  {s.paid && <>Avulsos: {short(s.paid.amount)} já pagos, último em {ddmm(s.paid.paidAt.slice(0, 10))}. </>}
+                  {s.subPaid ? <>Assinaturas pagas em {ddmm(s.subPaid.paidAt.slice(0, 10))}.</> : s.paid ? <>Assinaturas: pagas depois que o mês fecha.</> : null}
                 </p>
               )}
             </section>
