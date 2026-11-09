@@ -135,6 +135,17 @@ export async function GET(req: NextRequest) {
         ticketPote: ticketMedioSub,
         paid: row?.paid ?? null, subPaid: row?.subPaid ?? null,
         valesList: row?.vales ?? [],
+        // Separado como na tela Comissões do dono
+        avulso: row?.avulso.comissao ?? 0,
+        avulsoAtendimentos: row?.avulso.atendimentos ?? 0,
+        assinaturaProprio: row?.assinatura.servicosProprio ?? 0,
+      },
+      // Acerto em duas partes: avulsos+produtos+gorjetas−vales (por semana) e assinaturas (mês fechado)
+      payout: {
+        closed: month < current,
+        avulso: { devido: row?.liquidoAPagar ?? Math.max(0, total - (row?.assinatura.comissao ?? 0) - vales), falta: row?.saldoAvulso ?? 0 },
+        assinatura: { devido: row?.liquidoAssinatura ?? 0, falta: row?.saldoAssinatura ?? 0 },
+        pagamentos: (row?.pagamentos ?? []).map((p) => ({ id: p.id, type: p.type, amount: p.amount, paidAt: p.paidAt, notes: p.notes })),
       },
       forecast, previousSamePeriod,
       kpis: {
