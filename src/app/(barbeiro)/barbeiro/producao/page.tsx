@@ -14,6 +14,13 @@ interface Ganhos {
     avulsoFaturado: number; produtosVendidos: number; assinaturaServicos: number; ticketPote: number;
     paid: { paidAt: string; amount: number } | null; subPaid: { paidAt: string; amount: number } | null;
     valesList: { id: string; amount: number; description: string | null; createdAt: string }[];
+    avulso: number; avulsoAtendimentos: number; assinaturaProprio: number;
+  };
+  payout: {
+    closed: boolean;
+    avulso: { devido: number; falta: number };
+    assinatura: { devido: number; falta: number };
+    pagamentos: { id: string; type: "STANDARD" | "SUBSCRIPTION"; amount: number; paidAt: string; notes: string | null }[];
   };
   forecast: number | null; previousSamePeriod: number | null;
   kpis: { atendimentos: number; ticketMedio: number; comparecimento: number | null; noShow: number; avulsos: number; assinantes: number };
@@ -32,6 +39,59 @@ const addMonth = (m: string, d: number) => { const [y, mm] = m.split("-").map(Nu
 const monthLabel = (m: string) => `${MONTHS[Number(m.slice(5)) - 1]} de ${m.slice(0, 4)}`;
 const ddmm = (k: string) => `${k.slice(8)}/${k.slice(5, 7)}`;
 const rate = (type: string, v: number) => (type === "FIXED" ? `${short(v)} fixo` : `${v}%`);
+
+/** Acerto do mês como na tela Comissões do dono: avulsos pagos por semana e assinaturas no fechamento. */
+function Pagamentos({ d, mName }: { d: Ganhos; mName: string }) {
+  const { payout } = d;
+  const nextName = MONTHS[Number(addMonth(d.month, 1).slice(5)) - 1];
+  const parts = [
+    {
+      key: "STANDARD", title: "Avulsos, produtos e gorjetas", note: "pagos por semana",
+      devidoLabel: d.summary.vales > 0 ? "Comissão do mês (já sem os vales)" : "Comissão do mês",
+      devido: payout.avulso.devido, falta: payout.avulso.falta,
+      faltaLabel: "Falta receber",
+    },
+    {
+      key: "SUBSCRIPTION", title: "Assinaturas", note: "pagas depois que o mês fecha",
+      devidoLabel: payout.closed ? "Comissão do mês" : "Comissão do mês (parcial)",
+      devido: payout.assinatura.devido, falta: payout.assinatura.falta,
+      faltaLabel: payout.closed ? "Falta receber" : `A receber depois de ${mName}`,
+    },
+  ].filter((p) => p.key === "STANDARD" || p.devido > 0 || payout.pagamentos.some((x) => x.type === "SUBSCRIPTION"));
+
+  return (
+    <section aria-label="Pagamentos" className="rounded-2xl bg-surface border border-line p-4 md:p-5 flex flex-col gap-4">
+      <span className="text-[15px] font-semibold">Pagamentos de {mName}</span>
+      <div className={cn("grid gap-4", parts.length > 1 && "md:grid-cols-2")}>
+        {parts.map((p) => {
+          const pays = payout.pagamentos.filter((x) => x.type === p.key);
+          return (
+            <div key={p.key} className="flex flex-col">
+              <span className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-3 pb-1.5">{p.title} · {p.note}</span>
+              <div className="flex justify-between gap-3 min-h-[40px] items-center border-b border-line-3 text-sm">
+                <span className="text-ink-2">{p.devidoLabel}</span><span className="font-semibold">{brl(p.devido)}</span>
+              </div>
+              {pays.length === 0 ? (
+                <p className="min-h-[40px] flex items-center border-b border-line-3 text-[13px] text-ink-3">
+                  {p.key === "SUBSCRIPTION" && !payout.closed ? `O dono paga em ${nextName}, depois que o mês fecha.` : "Nenhum pagamento ainda."}
+                </p>
+              ) : pays.map((x) => (
+                <div key={x.id} className="flex justify-between gap-3 min-h-[40px] items-center border-b border-line-3 text-sm">
+                  <span className="min-w-0 truncate"><span className="text-positive-strong font-semibold">✓</span> Pago em {ddmm(x.paidAt.slice(0, 10))}{x.notes ? <span className="text-ink-3"> · {x.notes}</span> : null}</span>
+                  <span className="shrink-0">{brl(x.amount)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between gap-3 min-h-[44px] items-center text-sm">
+                <span className="font-semibold">{p.falta <= 0 && pays.length ? "Tudo pago" : p.faltaLabel}</span>
+                <span className="font-display text-lg font-bold">{brl(p.falta)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 export default function GanhosPage() {
   const { token } = useAuthStore();
@@ -90,7 +150,8 @@ export default function GanhosPage() {
               </div>
               <div className="flex flex-col border-t border-night-line">
                 {[
-                  ["bg-white", "Serviços", `${rate(d.rates.commissionType, d.rates.commission)} dos avulsos${s.assinaturaServicos ? ` + ${s.assinaturaServicos} serviços de plano` : ""}`, short(s.servicos)],
+                  ["bg-white", "Avulsos", `${rate(d.rates.commissionType, d.rates.commission)} · ${s.avulsoAtendimentos} atendimento${s.avulsoAtendimentos === 1 ? "" : "s"} · faturou ${short(s.avulsoFaturado)}`, short(s.avulso)],
+                  ...(s.assinaturaServicos > 0 || s.assinatura > 0 ? [["bg-night-muted", "Assinaturas", `${s.assinaturaServicos} serviço${s.assinaturaServicos === 1 ? "" : "s"} de plano${s.ticketPote && !s.assinaturaProprio ? ` × ${brl(s.ticketPote)}` : ""}${d.payout.closed ? "" : " · parcial até o mês fechar"}`, short(s.assinatura)]] : []),
                   ["bg-primary", "Produtos", `${s.produtosVendidos} vendido${s.produtosVendidos === 1 ? "" : "s"}`, short(s.produtos)],
                   ["bg-positive-strong", "Gorjetas", "100% suas", short(s.gorjetas)],
                   ...(s.vales > 0 ? [["bg-danger-strong", "Vales já retirados", `${s.valesList.length} vale${s.valesList.length === 1 ? "" : "s"}`, `− ${short(s.vales)}`]] : []),
@@ -102,16 +163,6 @@ export default function GanhosPage() {
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between items-baseline gap-3">
-                <span className="text-sm text-night-text">{s.aReceber <= 0 && (s.paid || s.subPaid) ? "Tudo pago" : s.paid || s.subPaid ? "Ainda a receber" : "A receber"}</span>
-                <span className="font-display text-2xl font-bold">{short(s.aReceber)}</span>
-              </div>
-              {(s.paid || s.subPaid) && (
-                <p className="text-xs text-night-text -mt-2">
-                  {s.paid && <>Avulsos: {short(s.paid.amount)} já pagos, último em {ddmm(s.paid.paidAt.slice(0, 10))}. </>}
-                  {s.subPaid ? <>Assinaturas pagas em {ddmm(s.subPaid.paidAt.slice(0, 10))}.</> : s.paid ? <>Assinaturas: pagas depois que o mês fecha.</> : null}
-                </p>
-              )}
             </section>
 
             <div className="flex flex-col gap-4">
@@ -151,6 +202,8 @@ export default function GanhosPage() {
               </section>
             </div>
           </div>
+
+          <Pagamentos d={d} mName={mName} />
 
           {/* Comissão por dia */}
           <section aria-label="Comissão por dia" className="rounded-2xl bg-surface border border-line p-4 md:p-5 flex flex-col gap-3">
